@@ -1,7 +1,7 @@
+const moment = require("moment-timezone");
 const Item = require("../models/itemSchema");
 const IncomingItem = require("../models/incomingItemSchema");
 const WarehouseItems = require("../models/warehouseItemsSchema");
-const moment = require("moment-timezone");
 const Warehouse = require("../models/warehouseSchema");
 
 
@@ -124,14 +124,20 @@ module.exports.incomingItems = async (req, res) => {
         message: "Warehouse Items Data Not Found"
       });
     }
+    
+    const nondefectItem = quantity - defectiveItem;
 
     const warehouseItem = warehouseItemsData.items.find(item => item.itemName === itemName)
-    console.log(warehouseItem);
-    warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(quantity);
+    warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(nondefectItem);
+    if(defectiveItem !== 0){
+      warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(defectiveItem);
+    }
+    await warehouseItemsData.save();
 
-    //const nondefectItem = quantity - defectiveItem;
-    foundItem.stock = parseInt(foundItem.stock) + parseInt(quantity);
+    foundItem.stock = parseInt(foundItem.stock) + parseInt(nondefectItem);
+    foundItem.defective = parseInt(foundItem.defective) + parseInt(defectiveItem);
     foundItem.updatedAt = Date.now();
+    
     await foundItem.save();
 
     const incomingItems = new IncomingItem({
@@ -232,43 +238,42 @@ module.exports.incomingItemDetails = async(req, res) => {
 // }
 // }
 
-
+//Udpate Item Name - Warehouse Access
 module.exports.updateItemName = async (req, res) => {
   try {
-    const { updateItemName, itemId } = req.body;
-    const warehouseId = req.user.warehouse;
-
-    if (!updateItemName) {
+    const { updateItemName, itemID } = req.body;
+    const warehouseID = req.user.warehouse;
+    console.log(warehouseID);
+    if (!updateItemName || !itemID) {
       return res.status(400).json({
         success: false,
-        message: "Item name is required to update",
+        message: "updateItemName and itemID is required to update",
       });
     }
 
-    // Find and update item in the Item schema
-    const itemData = await Item.findById(itemId);
+    const itemData = await Item.findOne({_id: itemID});
+    console.log(itemData);
     if (!itemData) {
       return res.status(404).json({
         success: false,
         message: "Item not found",
       });
     }
-
+    const oldItemName = itemData.itemName;
     itemData.itemName = updateItemName;
     await itemData.save();
 
-    // Update item name in WarehouseItems schema
-    // await WarehouseItems.updateMany(
-    //   { "items.itemName": itemData.itemName }, // match the current item name in WarehouseItems
-    //   { $set: { "items.$[elem].itemName": updateItemName } }, // update the matched item's name
-    //   { arrayFilters: [{ "elem.itemName": itemData.itemName }] } // specify the element to update in the array
-    // );
-    const warehouseItemData = await WarehouseItems.findById({warehouse: warehouseId});
-    warehouseItemData.items
+    await WarehouseItems.updateMany(
+      { "items.itemName": oldItemName }, // filter where items have the old item name
+      { $set: { "items.$[elem].itemName": updateItemName } }, // set the new item name
+      { arrayFilters: [{ "elem.itemName": oldItemName }] } // update only matching elements in the array
+    );
+    const warehouseItemsData = await WarehouseItems.find();
 
     return res.status(200).json({
       success: true,
       message: "Item name updated successfully in both Item and WarehouseItems",
+      warehouseItemsData,
       itemData,
     });
   } catch (error) {
@@ -329,8 +334,6 @@ module.exports.showItemsData = async (req, res) => {
     });
   }
 };
-
-
 
 
 //Delete Item

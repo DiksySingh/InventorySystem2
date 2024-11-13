@@ -17,7 +17,7 @@ module.exports.servicePersonDashboard = async (req, res) => {
     );
     const outgoingItemData = await OutgoingItemDetails.find({ servicePerson: servicePersonId }).select(
       "-servicePerson"
-    );
+    ); 
 
     // Create a unified response array
     const mergedData = [];
@@ -81,7 +81,8 @@ module.exports.incomingItemsData = async (req, res) => {
       !farmerVillage ||
       !items ||
       !warehouse ||
-      !serialNumber
+      !serialNumber || 
+      !pickupDate
     ) {
       return res.status(400).json({
         success: false,
@@ -119,6 +120,10 @@ module.exports.incomingItemsData = async (req, res) => {
     for (let item of items) {
       const itemName = item.itemName;
       const quantityToAdjust = item.quantity;
+
+      // const warehouseItem = warehouseItemRecord.items.find(i => i.itemName === itemName);
+      // warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust);
+     
       outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
       // // Find the corresponding item in the Item schema
       // const itemRecord = await Item.findOne({ itemName });
@@ -208,8 +213,7 @@ module.exports.incomingItemsData = async (req, res) => {
         );
 
         if (existingIncomingRecord && existingItemIndex > -1) {
-          existingIncomingRecord.items[existingItemIndex].quantity +=
-            incomingItem.quantity;
+          existingIncomingRecord.items[existingItemIndex].quantity += incomingItem.quantity;
         } else if (existingIncomingRecord) {
           existingIncomingRecord.items.push(incomingItem);
         }
@@ -351,7 +355,8 @@ module.exports.outgoingItemsData = async (req, res) => {
       !farmerVillage ||
       !items ||
       !warehouse ||
-      !serialNumber
+      !serialNumber||
+      !pickupDate
     ) {
       return res.status(400).json({
         success: false,
@@ -424,7 +429,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       if (incoming === false) {
         // Check if there is enough stock
         if (warehouseItem.quantity < quantityToAdjust || itemRecord.stock < quantityToAdjust) {
-          return res.status(400).json({
+          return res.status(400).json({  
             success: false,
             message: `Not enough stock for item ${itemName}`,
           });
@@ -636,8 +641,8 @@ module.exports.updateOrderStatus = async (req, res) => {
         }
 
         if (incoming === true) {
-          itemRecord.stock = parseInt(itemRecord.stock) + parseInt(quantityToAdjust);
-          warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(quantityToAdjust);
+          itemRecord.defective = parseInt(itemRecord.defective) + parseInt(quantityToAdjust); //Adding incoming items from SP to Items Defect Field
+          warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust); //Addding incoming items from SP to WarehouseItems Defect Field
         }
         console.log("ItemsSchemaData: ", await itemRecord.save());
 
@@ -829,5 +834,4 @@ module.exports.allOrderDetails = async (req, res) => {
     });
   }
 };
-
 

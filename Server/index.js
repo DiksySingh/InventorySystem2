@@ -3,12 +3,11 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const path = require("path");
-const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
+const cookieParser = require("cookie-parser");
 const itemRoute = require("./routes/itemRoute");
 const authRoute = require("./routes/authRoute");
 const warehouseRoute = require("./routes/warehouseRoute");
-const transactionRoute = require("./routes/transactionRoute");
 const pickupItemRoute = require("./routes/pickupItemRoute");
 
 const URI = process.env.MONGO_URL;
@@ -41,7 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 // by shiv
 app.use(
   "/uploads/images",
-  express.static(path.join(__dirname, "uploads/images"))
+  express.static(path.join(__dirname, "uploads"))
 );
 
 app.get("/", (req, res) => {
@@ -50,13 +49,10 @@ app.get("/", (req, res) => {
 
 app.use("/user", authRoute);
 app.use("/admin", itemRoute);
-app.use("/admin", transactionRoute);
 app.use("/admin", warehouseRoute);
 app.use("/admin", pickupItemRoute);
-app.use("/warehouse-admin", warehouseRoute);
 app.use("/warehouse-admin", itemRoute);
-app.use("/warehouse-admin", transactionRoute);
-app.use("/service-person", transactionRoute);
+app.use("/warehouse-admin", warehouseRoute);
 app.use("/warehouse-admin", pickupItemRoute);
 app.use("/service-person", pickupItemRoute);
 

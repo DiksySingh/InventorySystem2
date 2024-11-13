@@ -19,15 +19,14 @@ router.get(
 router.get("/show-items", showItemsData);
 
 //Warehouse Accessible Route
-router.post("/newItem", userVerification(["warehouseAdmin"]), addItem);
-router.post("/updateItem", userVerification(["warehouseAdmin"]), incomingItems);
+router.post("/add-incoming-item", userVerification(["warehouseAdmin"]), incomingItems);
 router.get(
   "/order-details",
   userVerification(["warehouseAdmin"]),
   incomingItemDetails
 );
 
-router.put("/update-item-name", updateItemName);
+router.put("/update-item-name",userVerification(['warehouseAdmin']), updateItemName);
 router.delete("/deleteItem", userVerification(["warehouseAdmin"]), deleteItem);
 
 module.exports = router;

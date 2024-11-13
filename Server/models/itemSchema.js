@@ -12,6 +12,18 @@ const itemSchema = new Schema(
       required: true,
       default: 0,
     },
+    defective: {
+      type: Number,
+      default: 0,
+    },
+    repaired: {
+      type: Number,
+      default: 0,
+    },
+    rejected: {
+      type: Number,
+      default: 0,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

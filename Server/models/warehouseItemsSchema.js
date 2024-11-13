@@ -14,6 +14,18 @@ const warehouseItemsSchema = new Schema({
           quantity: {
             type: Number,
           },
+          defective:{
+            type: Number,
+            default: 0
+          },
+          repaired: {
+            type: Number,
+            default: 0,
+          },
+          rejected: {
+            type: Number,
+            default: 0,
+          },
         },
     ],   
 }, {collection: "inWarehouseItems"});
