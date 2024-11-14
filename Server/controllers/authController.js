@@ -210,7 +210,7 @@ module.exports.Login = async (req, res) => {
     const refreshToken = createRefreshToken(user._id);
 
     // Update the refreshToken in the database
-    if (user.constructor.modelName === "User") {
+    if (user.constructor.modelName === "Admin") {
       await Admin.findByIdAndUpdate(user._id, { 
         refreshToken: refreshToken 
       });

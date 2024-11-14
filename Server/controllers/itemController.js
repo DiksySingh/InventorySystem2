@@ -5,85 +5,87 @@ const WarehouseItems = require("../models/warehouseItemsSchema");
 const Warehouse = require("../models/warehouseSchema");
 
 
-//Add New Item
-module.exports.addItem = async (req, res) => {
-  const itemName = req.body.itemName.trim();
-  const { stock, createdAt, updatedAt } = req.body;
-  console.log(stock);
-  if (!itemName) {
-    return res.status(400).json({
-      success: false,
-      message: "itemName is required",
-    });
-  }
+// //Add New Item
+// module.exports.addItem = async (req, res) => {
+//   const itemName = req.body.itemName.trim();
+//   const { stock, createdAt, updatedAt } = req.body;
+//   console.log(stock);
+//   if (!itemName) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "itemName is required",
+//     });
+//   }
   
-  let isStock;
-  if(stock !== undefined){
-    isStock = stock;
-  }else{
-    isStock = 0;
-  }
+//   let isStock;
+//   if(stock !== undefined){
+//     isStock = stock;
+//   }else{
+//     isStock = 0;
+//   }
 
-  try{
-  const existingItem = await Item.findOne({itemName: { $regex: new RegExp(`^${itemName}$`, "i") }});
-  console.log(existingItem);
-  if(existingItem){
-    return res.status(400).json({
-      success: false,
-      message: "Item exists in warehouse"
-    });
-  }
+//   try{
+//   const existingItem = await Item.findOne({itemName: { $regex: new RegExp(`^${itemName}$`, "i") }});
+//   console.log(existingItem);
+//   if(existingItem){
+//     return res.status(400).json({
+//       success: false,
+//       message: "Item exists in warehouse"
+//     });
+//   }
   
-    const newItem = new Item({ 
-      itemName, 
-      stock: isStock,
-      createdAt, 
-      updatedAt 
-    });
-    const itemData = await newItem.save();
-    if (!itemData) {
-      return res.status(400).json({
-        success: false,
-        message: "Data Insertion Failed",
-      });
-    }
+//     const newItem = new Item({ 
+//       itemName, 
+//       stock: isStock,
+//       createdAt, 
+//       updatedAt 
+//     });
+//     const itemData = await newItem.save();
+//     if (!itemData) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Data Insertion Failed",
+//       });
+//     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Data Inserted Successfully",
-      data: itemData,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
+//     return res.status(200).json({
+//       success: true,
+//       message: "Data Inserted Successfully",
+//       data: itemData,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       error: error.message,
+//     });
+//   }
+// };
 
-//View All Items
-module.exports.showItems = async (req, res) => {
-  try {
-    const allItems = await Item.find();
-    if (!allItems) {
-      return res.status(404).json({
-        success: false,
-        message: "Data Not Found",
-      });
-    }
-    res.status(200).json({
-      success: true,
-      message: "Data Fetched Successfully",
-      data: allItems,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
+// //View All Items
+// module.exports.showItems = async (req, res) => {
+//   try {
+//     const allItems = await Item.find();
+//     if (!allItems) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Data Not Found",
+//       });
+//     }
+//     res.status(200).json({
+//       success: true,
+//       message: "Data Fetched Successfully",
+//       data: allItems,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: error.message,
+//     });
+//   }
+// };
 
+
+//************************* Warehouse Access *****************************// 
 module.exports.incomingItems = async (req, res) => {
   try {
     const {
@@ -165,7 +167,7 @@ module.exports.incomingItems = async (req, res) => {
   }
 };
 
-//Admin Access 
+//****************************** Admin Access ******************************// 
 module.exports.incomingItemDetails = async(req, res) => {
     try{
         const itemDetails = await IncomingItem.find();

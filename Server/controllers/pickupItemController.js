@@ -7,303 +7,31 @@ const ServicePerson = require("../models/servicePersonSchema");
 const Warehouse = require("../models/warehouseSchema");
 const WarehouseItems = require("../models/warehouseItemsSchema");
 
-//******************* ServicePerson Access ****************************//
-module.exports.servicePersonDashboard = async (req, res) => {
+//***************************** Admin Access **************************//
+module.exports.allOrderDetails = async (req, res) => {
   try {
-    const servicePersonId = req.user._id
-
-    const incomingItemData = await IncomingItemDetails.find({ servicePerson: servicePersonId }).select(
-      "-servicePerson"
-    );
-    const outgoingItemData = await OutgoingItemDetails.find({ servicePerson: servicePersonId }).select(
-      "-servicePerson"
-    ); 
-
-    // Create a unified response array
-    const mergedData = [];
-
-    // Add incoming items to mergedData
-    incomingItemData.forEach((item) => {
-      mergedData.push({
-        type: "incoming",
-        items: item.items,
-      });
-    });
-    console.log("Incoming", incomingItemData);
-
-    // Add outgoing items to mergedData
-    outgoingItemData.forEach((item) => {
-      mergedData.push({
-        type: "outgoing",
-        items: item.items,
-      });
-    });
-    console.log("Outgoing", outgoingItemData);
-    console.log("Merged", mergedData);
-    res.status(200).json({
-      success: true,
-      message: "Data Merged Successfully",
-      mergedData: mergedData,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
-module.exports.incomingItemsData = async (req, res) => {
-  try {
-    console.log("Req.body:", req.body);
-    const id = req.user._id;
-    console.log("ID:", id);
-    const {
-      farmerName,
-      farmerContact,
-      farmerVillage,
-      items,
-      warehouse,
-      serialNumber,
-      remark,
-      status,
-      incoming,
-      approvedBy,
-      pickupDate
-    } = req.body;
-
-    let contact = Number(farmerContact);
-
-    if (
-      !farmerName ||
-      !contact ||
-      !farmerVillage ||
-      !items ||
-      !warehouse ||
-      !serialNumber || 
-      !pickupDate
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
-    }
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Items must be a non-empty array",
-      });
-    }
-    const outgoingItemsData = [];
-
-    const warehouseData = await Warehouse.findOne({ warehouseName: warehouse });
-    if (!warehouseData) {
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse Doesn't Exist",
-      });
-    }
-    console.log("warhouseData", warehouseData);
-    const warehouseId = warehouseData._id;
-
-    const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
-    if (!warehouseItemRecord) {
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse Items Data Not Found",
-      });
-    }
-
-    console.log("warehouseItemRecord", warehouseItemRecord);
-
-    for (let item of items) {
-      const itemName = item.itemName;
-      const quantityToAdjust = item.quantity;
-
-      // const warehouseItem = warehouseItemRecord.items.find(i => i.itemName === itemName);
-      // warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust);
-     
-      outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
-      // // Find the corresponding item in the Item schema
-      // const itemRecord = await Item.findOne({ itemName });
-      // console.log("itemrecord", itemRecord);
-      // if (!itemRecord) {
-      //   return res.status(404).json({
-      //     success: false,
-      //     message: `Item ${itemName} not found in inventory`,
-      //   });
-      // }
-
-      // // Find the item in the warehouse's items array
-      // const warehouseItem = warehouseItemRecord.items.find(wItem => wItem.itemName === itemName);
-      // console.log("warehouseItem", warehouseItem);
-      // if (!warehouseItem) {
-      //   return res.status(404).json({
-      //     success: false,
-      //     message: `Item ${itemName} not found in warehouse`,
-      //   });
-      // }
-
-      // if (incoming === false) {
-      //   // Check if there is enough stock
-      //   if (warehouseItem.quantity < quantityToAdjust || itemRecord.stock < quantityToAdjust) {
-      //     return res.status(400).json({
-      //       success: false,
-      //       message: `Not enough stock for item ${itemName}`,
-      //     });
-      //   }
-
-      //   // Decrease the stock in Item schema
-      //   itemRecord.stock -= quantityToAdjust;
-
-      //   // Decrease the stock in WarehouseItems schema
-      //   warehouseItem.quantity -= quantityToAdjust;
-
-      //   console.log("outgoingItemsData:", outgoingItemsData);
-      // }
-      // // Save the updated item record
-      
-      //console.log("ItemsSchemaData:", await itemRecord.save());
-    }
-
-    //await warehouseItemRecord.save();
-
-    // if (incoming === false) {
-    //   // Update OutgoingItemDetails for outgoing items
-    //   let existingOutgoingRecord = await OutgoingItemDetails.findOne({
-    //     servicePerson: id,
-    //   });
-
-    //   if (existingOutgoingRecord) {
-    //     // Update existing quantities or add new items
-    //     outgoingItemsData.forEach((outgoingItem) => {
-    //       const existingItemIndex = existingOutgoingRecord.items.findIndex(
-    //         (item) => item.itemName === outgoingItem.itemName
-    //       );
-
-    //       if (existingItemIndex > -1) {
-    //         existingOutgoingRecord.items[existingItemIndex].quantity +=
-    //           outgoingItem.quantity;
-    //       } else {
-    //         existingOutgoingRecord.items.push(outgoingItem);
-    //       }
-    //     });
-
-    //     await existingOutgoingRecord.save();
-    //   } else {
-    //     // No existing record, so create a new one
-    //     existingOutgoingRecord = new OutgoingItemDetails({
-    //       servicePerson: id,
-    //       items: outgoingItemsData,
-    //     });
-    //     console.log("Outgoing:", existingOutgoingRecord);
-    //     await existingOutgoingRecord.save();
-    //   }
-    // } else {
-    if(incoming === true){
-      // Update or create IncomingItemDetails for incoming items
-      let existingIncomingRecord = await IncomingItemDetails.findOne({
-        servicePerson: id,
-      });
-
-      items.forEach((incomingItem) => {
-        const existingItemIndex = existingIncomingRecord?.items.findIndex(
-          (item) => item.itemName === incomingItem.itemName
-        );
-
-        if (existingIncomingRecord && existingItemIndex > -1) {
-          existingIncomingRecord.items[existingItemIndex].quantity += incomingItem.quantity;
-        } else if (existingIncomingRecord) {
-          existingIncomingRecord.items.push(incomingItem);
-        }
-      });
-
-      if (existingIncomingRecord) {
-        await existingIncomingRecord.save();
-      } else {
-        // No existing record, so create a new one
-        existingIncomingRecord = new IncomingItemDetails({
-          servicePerson: id,
-          items,
-        });
-        console.log("Incoming: ", existingIncomingRecord);
-        await existingIncomingRecord.save();
-      }
-    }
-
-    const returnItems = new PickupItem({
-      servicePerson: id,
-      servicePersonName: req.user.name,
-      servicePerContact: Number(req.user.contact),
-      farmerName,
-      farmerContact: contact,
-      farmerVillage,
-      items,
-      warehouse,
-      serialNumber,
-      remark: remark || "",
-      status,
-      incoming,
-      approvedBy,
-      pickupDate,
-    });
-    console.log("returnsItem: ", returnItems);
-    await returnItems.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Data Logged Successfully",
-      returnItems,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
-module.exports.pickupItemOfServicePerson = async (req, res) => {
-  try {
-    console.log(req.user);
-    const id = req.user._id;
-    if (!id) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
     const skip = (page - 1) * limit;
 
-    const pickupItems = await PickupItem.find({ servicePerson: id })
-      .sort({ pickupDate: -1 })
+    const pickupItems = await PickupItem.find()
+      .populate("servicePerson", "_id name contact ")
       .skip(skip)
       .limit(limit)
-      .select("-__v -servicePerson");
+      .sort({ pickupDate: -1 })
+      .lean();
 
-    if (!pickupItems) {
-      return res.status(404).json({
-        success: false,
-        message: "Data Not Found",
-      });
-    }
-
-    const pickupItemsDetail = pickupItems.map((pickupItem) => {
-      return {
-        ...pickupItem.toObject(),
-        pickupDate: moment(pickupItem.pickupDate)
-          .tz("Asia/Kolkata")
-          .format("YYYY-MM-DD HH:mm:ss"),
-      };
-    });
-
-    const totalDocuments = await PickupItem.countDocuments({ servicePerson: id });
+    const totalDocuments = await PickupItem.countDocuments();
     const totalPages = Math.ceil(totalDocuments / limit);
+
+    // pickupItems.forEach(item => {
+    //   if (item.pickupDate) {
+    //     item.pickupDate = moment(item.pickupDate).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
+    //   }
+    //   if (item.receivedDate) {
+    //     item.receivedDate = moment(item.receivedDate).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
+    //   }
+    // });
 
     res.status(200).json({
       success: true,
@@ -312,7 +40,7 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
       totalPages,
       limit,
       totalDocuments,
-      pickupItemsDetail,
+      pickupItems,
     });
   } catch (error) {
     res.status(500).json({
@@ -322,7 +50,6 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
     });
   }
 };
-
 
 //*************************** Warehouse Access ****************************//
 module.exports.outgoingItemsData = async (req, res) => {
@@ -790,41 +517,43 @@ module.exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-
-//***************************** Admin Access **************************//
-module.exports.allOrderDetails = async (req, res) => {
+//******************* ServicePerson Access ****************************//
+module.exports.servicePersonDashboard = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
-    const skip = (page - 1) * limit;
+    const servicePersonId = req.user._id
 
-    const pickupItems = await PickupItem.find()
-      .populate("servicePerson", "_id name contact ")
-      .skip(skip)
-      .limit(limit)
-      .sort({ pickupDate: -1 })
-      .lean();
+    const incomingItemData = await IncomingItemDetails.find({ servicePerson: servicePersonId }).select(
+      "-servicePerson"
+    );
+    const outgoingItemData = await OutgoingItemDetails.find({ servicePerson: servicePersonId }).select(
+      "-servicePerson"
+    ); 
 
-    const totalDocuments = await PickupItem.countDocuments();
-    const totalPages = Math.ceil(totalDocuments / limit);
+    // Create a unified response array
+    const mergedData = [];
 
-    // pickupItems.forEach(item => {
-    //   if (item.pickupDate) {
-    //     item.pickupDate = moment(item.pickupDate).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
-    //   }
-    //   if (item.receivedDate) {
-    //     item.receivedDate = moment(item.receivedDate).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
-    //   }
-    // });
+    // Add incoming items to mergedData
+    incomingItemData.forEach((item) => {
+      mergedData.push({
+        type: "incoming",
+        items: item.items,
+      });
+    });
+    console.log("Incoming", incomingItemData);
 
+    // Add outgoing items to mergedData
+    outgoingItemData.forEach((item) => {
+      mergedData.push({
+        type: "outgoing",
+        items: item.items,
+      });
+    });
+    console.log("Outgoing", outgoingItemData);
+    console.log("Merged", mergedData);
     res.status(200).json({
       success: true,
-      message: "Data Fetched Successfully",
-      page,
-      totalPages,
-      limit,
-      totalDocuments,
-      pickupItems,
+      message: "Data Merged Successfully",
+      mergedData: mergedData,
     });
   } catch (error) {
     res.status(500).json({
@@ -835,3 +564,271 @@ module.exports.allOrderDetails = async (req, res) => {
   }
 };
 
+module.exports.incomingItemsData = async (req, res) => {
+  try {
+    console.log("Req.body:", req.body);
+    const id = req.user._id;
+    console.log("ID:", id);
+    const {
+      farmerName,
+      farmerContact,
+      farmerVillage,
+      items,
+      warehouse,
+      serialNumber,
+      remark,
+      status,
+      incoming,
+      approvedBy,
+      pickupDate
+    } = req.body;
+
+    let contact = Number(farmerContact);
+
+    if (
+      !farmerName ||
+      !contact ||
+      !farmerVillage ||
+      !items ||
+      !warehouse ||
+      !serialNumber || 
+      !pickupDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items must be a non-empty array",
+      });
+    }
+    const outgoingItemsData = [];
+
+    const warehouseData = await Warehouse.findOne({ warehouseName: warehouse });
+    if (!warehouseData) {
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse Doesn't Exist",
+      });
+    }
+    console.log("warhouseData", warehouseData);
+    const warehouseId = warehouseData._id;
+
+    const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
+    if (!warehouseItemRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse Items Data Not Found",
+      });
+    }
+
+    console.log("warehouseItemRecord", warehouseItemRecord);
+
+    for (let item of items) {
+      const itemName = item.itemName;
+      const quantityToAdjust = item.quantity;
+
+      // const warehouseItem = warehouseItemRecord.items.find(i => i.itemName === itemName);
+      // warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust);
+     
+      outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
+      // // Find the corresponding item in the Item schema
+      // const itemRecord = await Item.findOne({ itemName });
+      // console.log("itemrecord", itemRecord);
+      // if (!itemRecord) {
+      //   return res.status(404).json({
+      //     success: false,
+      //     message: `Item ${itemName} not found in inventory`,
+      //   });
+      // }
+
+      // // Find the item in the warehouse's items array
+      // const warehouseItem = warehouseItemRecord.items.find(wItem => wItem.itemName === itemName);
+      // console.log("warehouseItem", warehouseItem);
+      // if (!warehouseItem) {
+      //   return res.status(404).json({
+      //     success: false,
+      //     message: `Item ${itemName} not found in warehouse`,
+      //   });
+      // }
+
+      // if (incoming === false) {
+      //   // Check if there is enough stock
+      //   if (warehouseItem.quantity < quantityToAdjust || itemRecord.stock < quantityToAdjust) {
+      //     return res.status(400).json({
+      //       success: false,
+      //       message: `Not enough stock for item ${itemName}`,
+      //     });
+      //   }
+
+      //   // Decrease the stock in Item schema
+      //   itemRecord.stock -= quantityToAdjust;
+
+      //   // Decrease the stock in WarehouseItems schema
+      //   warehouseItem.quantity -= quantityToAdjust;
+
+      //   console.log("outgoingItemsData:", outgoingItemsData);
+      // }
+      // // Save the updated item record
+      
+      //console.log("ItemsSchemaData:", await itemRecord.save());
+    }
+
+    //await warehouseItemRecord.save();
+
+    // if (incoming === false) {
+    //   // Update OutgoingItemDetails for outgoing items
+    //   let existingOutgoingRecord = await OutgoingItemDetails.findOne({
+    //     servicePerson: id,
+    //   });
+
+    //   if (existingOutgoingRecord) {
+    //     // Update existing quantities or add new items
+    //     outgoingItemsData.forEach((outgoingItem) => {
+    //       const existingItemIndex = existingOutgoingRecord.items.findIndex(
+    //         (item) => item.itemName === outgoingItem.itemName
+    //       );
+
+    //       if (existingItemIndex > -1) {
+    //         existingOutgoingRecord.items[existingItemIndex].quantity +=
+    //           outgoingItem.quantity;
+    //       } else {
+    //         existingOutgoingRecord.items.push(outgoingItem);
+    //       }
+    //     });
+
+    //     await existingOutgoingRecord.save();
+    //   } else {
+    //     // No existing record, so create a new one
+    //     existingOutgoingRecord = new OutgoingItemDetails({
+    //       servicePerson: id,
+    //       items: outgoingItemsData,
+    //     });
+    //     console.log("Outgoing:", existingOutgoingRecord);
+    //     await existingOutgoingRecord.save();
+    //   }
+    // } else {
+    if(incoming === true){
+      // Update or create IncomingItemDetails for incoming items
+      let existingIncomingRecord = await IncomingItemDetails.findOne({
+        servicePerson: id,
+      });
+
+      items.forEach((incomingItem) => {
+        const existingItemIndex = existingIncomingRecord?.items.findIndex(
+          (item) => item.itemName === incomingItem.itemName
+        );
+
+        if (existingIncomingRecord && existingItemIndex > -1) {
+          existingIncomingRecord.items[existingItemIndex].quantity += incomingItem.quantity;
+        } else if (existingIncomingRecord) {
+          existingIncomingRecord.items.push(incomingItem);
+        }
+      });
+
+      if (existingIncomingRecord) {
+        await existingIncomingRecord.save();
+      } else {
+        // No existing record, so create a new one
+        existingIncomingRecord = new IncomingItemDetails({
+          servicePerson: id,
+          items,
+        });
+        console.log("Incoming: ", existingIncomingRecord);
+        await existingIncomingRecord.save();
+      }
+    }
+
+    const returnItems = new PickupItem({
+      servicePerson: id,
+      servicePersonName: req.user.name,
+      servicePerContact: Number(req.user.contact),
+      farmerName,
+      farmerContact: contact,
+      farmerVillage,
+      items,
+      warehouse,
+      serialNumber,
+      remark: remark || "",
+      status,
+      incoming,
+      approvedBy,
+      pickupDate,
+    });
+    console.log("returnsItem: ", returnItems);
+    await returnItems.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Data Logged Successfully",
+      returnItems,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.pickupItemOfServicePerson = async (req, res) => {
+  try {
+    console.log(req.user);
+    const id = req.user._id;
+    if (!id) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
+
+    const pickupItems = await PickupItem.find({ servicePerson: id })
+      .sort({ pickupDate: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select("-__v -servicePerson");
+
+    if (!pickupItems) {
+      return res.status(404).json({
+        success: false,
+        message: "Data Not Found",
+      });
+    }
+
+    const pickupItemsDetail = pickupItems.map((pickupItem) => {
+      return {
+        ...pickupItem.toObject(),
+        pickupDate: moment(pickupItem.pickupDate)
+          .tz("Asia/Kolkata")
+          .format("YYYY-MM-DD HH:mm:ss"),
+      };
+    });
+
+    const totalDocuments = await PickupItem.countDocuments({ servicePerson: id });
+    const totalPages = Math.ceil(totalDocuments / limit);
+
+    res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      page,
+      totalPages,
+      limit,
+      totalDocuments,
+      pickupItemsDetail,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
