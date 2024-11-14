@@ -10,7 +10,7 @@ const bcrypt = require("bcrypt");
 const { refreshToken } = require("../middlewares/authMiddlewares");
 
 //Admin and Inventory SignUp Controller
-module.exports.userSignup = async (req, res) => {
+module.exports.adminSignup = async (req, res) => {
   const { email, password, createdAt, role } = req.body;
 
   if (!email) {

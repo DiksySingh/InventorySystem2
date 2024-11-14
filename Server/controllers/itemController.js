@@ -167,8 +167,48 @@ module.exports.incomingItems = async (req, res) => {
   }
 };
 
+module.exports.warehouseIncomingItemDetails = async(req, res) => {
+  try{
+    const warehouseId = req.user.warehouse;
+    if(!warehouseId){
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId not found"
+      });
+    }
+
+    const warehouseData = await Warehouse.findById({_id: warehouseId});
+    if(!warehouseData){
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse Not Found"
+      });
+    }
+    
+    const incomingItemsData = await IncomingItem.find({warehouse: warehouseData.warehouseName});
+    if(!incomingItemsData){
+      return res.status(404).json({
+        success: false,
+        message: "Incoming Items (Upper) Data Not Found"
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      incomingItemsData
+    });
+  }catch(error){
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 //****************************** Admin Access ******************************// 
-module.exports.incomingItemDetails = async(req, res) => {
+module.exports.allIncomingItemDetails = async(req, res) => {
     try{
         const itemDetails = await IncomingItem.find();
         if(!itemDetails){
@@ -201,46 +241,7 @@ module.exports.incomingItemDetails = async(req, res) => {
     }
 };
 
-
-//Updating Item Name
-// module.exports.updateItemName = async (req, res) =>{
-//   try{
-//   const updateItemName = req.body.updateItemName;
-//   const itemId = req.body.id;
-  
-//   if(!updateItemName){
-//     return res.status(400).json({
-//       success: false,
-//       message: "itemName is required to update "
-//     });
-//   }
-
-//   const itemData = await Item.findOne({_id: itemId});
-//   if(!itemData) {
-//     return res.status(404).json({
-//       success: false, 
-//       message: "itemData Not Found"
-//     });
-//   }
-
-//   itemData.itemName = updateItemName;
-//   await itemData.save();
-
-//   return res.status(200).json({
-//     success: true,
-//     message: "Item Name Updated Successfully",
-//     itemData 
-//   })
-// }catch(error){
-//   return res.status(500).json({
-//     success: true,
-//     message: "Internal Server Error",
-//     error:error.message
-//   })
-// }
-// }
-
-//Udpate Item Name - Warehouse Access
+//Udpate Item Name - Admin Access
 module.exports.updateItemName = async (req, res) => {
   try {
     const { updateItemName, itemID } = req.body;

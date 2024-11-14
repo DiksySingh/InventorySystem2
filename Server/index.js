@@ -5,10 +5,11 @@ const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
-const itemRoute = require("./routes/itemRoute");
 const authRoute = require("./routes/authRoute");
-const warehouseRoute = require("./routes/warehouseRoute");
-const pickupItemRoute = require("./routes/pickupItemRoute");
+const adminRoute = require("./routes/adminRoutes");
+const warehousePersonRoute = require("./routes/warehousePersonRoutes");
+const servicePersonRoute = require("./routes/servicePersonRoutes");
+
 
 const URI = process.env.MONGO_URL;
 const PORT = process.env.PORT;
@@ -48,13 +49,9 @@ app.get("/", (req, res) => {
 });
 
 app.use("/user", authRoute);
-app.use("/admin", itemRoute);
-app.use("/admin", warehouseRoute);
-app.use("/admin", pickupItemRoute);
-app.use("/warehouse-admin", itemRoute);
-app.use("/warehouse-admin", warehouseRoute);
-app.use("/warehouse-admin", pickupItemRoute);
-app.use("/service-person", pickupItemRoute);
+app.use("/admin", adminRoute);
+app.use("/warehouse-admin", warehousePersonRoute);
+app.use("/service-person", servicePersonRoute);
 
 app.listen(PORT, () => {
   console.log(`Server running at port ${PORT}`);
