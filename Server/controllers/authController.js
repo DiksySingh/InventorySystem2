@@ -70,7 +70,7 @@ module.exports.warehousePersonSignup = async(req, res) => {
       });
     }
 
-    const existingWarehouse = await Warehouse.findOne({warehouseName: warehouse.trim()});
+    const existingWarehouse = await Warehouse.findOne({warehouseName: warehouse});
     if(!existingWarehouse){
       return res.status(404).json({
         success: false,
