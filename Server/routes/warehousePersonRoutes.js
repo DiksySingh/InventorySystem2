@@ -11,7 +11,7 @@ const router = require("express").Router();
 const { userVerification } = require("../middlewares/authMiddlewares");
 
 //Warehouse Access Routes
-router.post("/service-person-signup",userVerification(['warehouseAdmin']), servicePersonSignup);
+router.post("/service-person-signup",userVerification(['warehouseAdmin']), servicePersonSignup);   
 router.get("/warehouse-dashboard", userVerification(['warehouseAdmin']), warehouseDashboard);
 router.post("/add-item", userVerification(['warehouseAdmin']), addWarehouseItems);
 router.post("/outgoing-items", userVerification(['warehouseAdmin']), outgoingItemsData);

@@ -172,7 +172,8 @@ module.exports.allRepairRejectItemsData = async(req, res) => {
 //***************** Warehouse Access *******************// 
 module.exports.addWarehouseItems = async (req, res) => {
     try {
-        const { warehouseId, items, defective, repaired, rejected } = req.body;
+        const warehouseId = req.user.warehouse;
+        const { items, defective, repaired, rejected } = req.body;
         if(!warehouseId){
             return res.status(400).json({
                 success: false,

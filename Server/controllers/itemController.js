@@ -299,9 +299,8 @@ module.exports.showItemsData = async (req, res) => {
         message: "Option not provided"
       });
     }
-    
 
-    if (option === "Overall") {
+    if (option === "Total Items") {
       const allItems = await Item.find();
       return res.status(200).json({
         success: true,
