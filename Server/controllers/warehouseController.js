@@ -24,13 +24,39 @@ module.exports.addWarehouse = async (req, res) => {
             });
         }
 
-        const newWarehouse = new Warehouse({warehouseName, createdAt});
+        const newWarehouse = new Warehouse({
+            warehouseName, 
+            createdAt: createdAt || Date.now(),
+        });
         await newWarehouse.save();
 
         return res.status(200).json({
             success: true,
             message: "Warehouse Added Successfully",
             newWarehouse
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
+module.exports.showWarehouses = async(req, res) => {
+    try{
+        const allWarehouses = await Warehouse.find().select("-__v -createdAt");
+        if(!allWarehouses){
+            return res.status(404).json({
+                success: false,
+                message: "Warehouses Not Found"
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            allWarehouses
         });
     }catch(error){
         return res.status(500).json({
@@ -431,3 +457,5 @@ module.exports.warehouseRepairRejectItemsData = async(req, res) => {
         });
     }
 }
+
+//****************** Service Person Access *************************//

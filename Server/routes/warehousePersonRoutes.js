@@ -1,6 +1,6 @@
 const { servicePersonSignup } = require("../controllers/authController");
 const { outgoingItemsData, warehouseOrderDetails, updateOrderStatus } = require("../controllers/pickupItemController");
-const { incomingItems, warehouseIncomingItemDetails} = require("../controllers/itemController");
+const { showItems, incomingItems, warehouseIncomingItemDetails} = require("../controllers/itemController");
 const { 
   addWarehouseItems, 
   warehouseDashboard, 
@@ -11,6 +11,7 @@ const router = require("express").Router();
 const { userVerification } = require("../middlewares/authMiddlewares");
 
 //Warehouse Access Routes
+router.get("/all-items", userVerification(['warehouseAdmin', 'serviceperson']), showItems);
 router.post("/service-person-signup",userVerification(['warehouseAdmin']), servicePersonSignup);   
 router.get("/warehouse-dashboard", userVerification(['warehouseAdmin']), warehouseDashboard);
 router.post("/add-item", userVerification(['warehouseAdmin']), addWarehouseItems);

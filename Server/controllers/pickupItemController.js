@@ -271,7 +271,7 @@ module.exports.warehouseOrderDetails = async (req, res) => {
     }
 
     const pickupItems = await PickupItem.find({ warehouse: warehouseData.warehouseName })
-      .populate("servicePerson", "_id name contact ")
+      .populate("servicePerson", "_id name contact")
       .skip(skip)
       .limit(limit)
       .sort({ pickupDate: -1 });
@@ -292,6 +292,7 @@ module.exports.warehouseOrderDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      
       error: error.message,
     });
   }
@@ -563,6 +564,53 @@ module.exports.servicePersonDashboard = async (req, res) => {
     });
   }
 };
+
+module.exports.showWarehouseItems = async(req, res) => {
+  try{
+      const {option} = req.body;
+      if(!option){
+          return res.status(400).json({
+              success: false,
+              message: "Option is required"
+          });
+      }
+
+      const warehouseData = await Warehouse.findOne({warehouseName: option});
+      if(!warehouseData){
+          return res.status(404).json({
+              success: false,
+              message: "Warehouse Not Found"
+          });
+      }
+      
+
+      const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
+      if(!warehouseItemsData){
+          return res.status(404).json({
+              success: false,
+              message: "WarehouseItems Data Not Found"
+          });
+      }
+
+      let itemsData = [];
+      for(let item of warehouseItemsData.items){
+        itemsData.push(item.itemName);
+      }
+      // console.log(itemsData);
+
+      return res.status(200).json({
+          success: true,
+          message: "Data Fetched Successfully",
+          itemsData
+      });
+  }catch(error){
+      return res.status(500).json({
+          success: false,
+          message: "Internal Server Error",
+          error: error.message
+      });
+  }
+}
 
 module.exports.incomingItemsData = async (req, res) => {
   try {

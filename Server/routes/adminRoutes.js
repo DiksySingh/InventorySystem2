@@ -2,7 +2,7 @@ const { warehousePersonSignup } = require("../controllers/authController");
 const { allOrderDetails } = require("../controllers/pickupItemController");
 const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
 const { 
-  addWarehouse, viewWarehousePersons, viewServicePersons, 
+  addWarehouse, showWarehouses, viewWarehousePersons, viewServicePersons, 
   deleteWarehousePerson, deleteServicePerson, allRepairRejectItemsData, 
 } = require("../controllers/warehouseController");
 const { userVerification } = require("../middlewares/authMiddlewares");
@@ -11,6 +11,7 @@ const router = require("express").Router();
 //Admin Accessible Route
 router.post("/warehouse-person-signup", userVerification(['admin']), warehousePersonSignup);
 router.post("/add-warehouse",userVerification(['admin']), addWarehouse);
+router.get("/all-warehouses", userVerification(['admin']), showWarehouses);
 router.get("/show-items",userVerification(['admin']), showItemsData);
 router.get("/all-warehouse-persons",userVerification(['admin']), viewWarehousePersons);
 router.get("/all-service-persons",userVerification(['admin']), viewServicePersons);

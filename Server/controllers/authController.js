@@ -70,7 +70,7 @@ module.exports.warehousePersonSignup = async(req, res) => {
       });
     }
 
-    const existingWarehouse = await Warehouse.findOne({warehouseName: warehouse});
+    const existingWarehouse = await Warehouse.findOne({warehouseName: warehouse.trim()});
     if(!existingWarehouse){
       return res.status(404).json({
         success: false,
@@ -98,10 +98,10 @@ module.exports.warehousePersonSignup = async(req, res) => {
         email: newWarehousePerson.email,
         warehouse: newWarehousePerson.warehouse,
         contact: newWarehousePerson.contact,
-        password: newWarehousePerson.password,
+        //password: newWarehousePerson.password,
         createdAt: newWarehousePerson.createdAt,
         role: newWarehousePerson.role,
-        refreshToken,
+        //refreshToken,
       },
     });
   }catch(error){

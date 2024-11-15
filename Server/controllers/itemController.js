@@ -61,31 +61,30 @@ const Warehouse = require("../models/warehouseSchema");
 //   }
 // };
 
-// //View All Items
-// module.exports.showItems = async (req, res) => {
-//   try {
-//     const allItems = await Item.find();
-//     if (!allItems) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Data Not Found",
-//       });
-//     }
-//     res.status(200).json({
-//       success: true,
-//       message: "Data Fetched Successfully",
-//       data: allItems,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       error: error.message,
-//     });
-//   }
-// };
-
-
 //************************* Warehouse Access *****************************// 
+// View All Items
+module.exports.showItems = async (req, res) => {
+  try {
+    const allItems = await Item.find();
+    if (!allItems) {
+      return res.status(404).json({
+        success: false,
+        message: "Data Not Found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      data: allItems,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
 module.exports.incomingItems = async (req, res) => {
   try {
     const {
