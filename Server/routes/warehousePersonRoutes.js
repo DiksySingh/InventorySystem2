@@ -13,7 +13,7 @@ const { userVerification } = require("../middlewares/authMiddlewares");
 //Warehouse Access Routes
 router.get("/all-items", userVerification(['warehouseAdmin', 'serviceperson']), showItems);
 router.post("/service-person-signup",userVerification(['warehouseAdmin']), servicePersonSignup);   
-router.get("/warehouse-dashboard", userVerification(['warehouseAdmin']), warehouseDashboard);
+router.get("/dashboard", userVerification(['warehouseAdmin']), warehouseDashboard);
 router.post("/add-item", userVerification(['warehouseAdmin']), addWarehouseItems);
 router.post("/outgoing-items", userVerification(['warehouseAdmin']), outgoingItemsData);
 router.post("/add-incoming-item", userVerification(["warehouseAdmin"]), incomingItems);

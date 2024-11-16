@@ -12,7 +12,7 @@ const router = require("express").Router();
 router.post("/warehouse-person-signup", userVerification(['admin']), warehousePersonSignup);
 router.post("/add-warehouse",userVerification(['admin']), addWarehouse);
 router.get("/all-warehouses", userVerification(['admin']), showWarehouses);
-router.get("/show-items",userVerification(['admin']), showItemsData);
+router.get("/dashboard",userVerification(['admin']), showItemsData);
 router.get("/all-warehouse-persons",userVerification(['admin']), viewWarehousePersons);
 router.get("/all-service-persons",userVerification(['admin']), viewServicePersons);
 router.get("/all-transactions-data", userVerification(["admin"]),allOrderDetails);

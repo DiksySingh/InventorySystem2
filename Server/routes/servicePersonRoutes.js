@@ -4,7 +4,7 @@ const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
 
 //ServicePerson Routes
-router.get("/serviceperson-dashboard",userVerification(["serviceperson"]),servicePersonDashboard);
+router.get("/dashboard",userVerification(["serviceperson"]),servicePersonDashboard);
 router.get("/warehouse-items", userVerification(['serviceperson']), showWarehouseItems);
 router.post("/incoming-items",userVerification(["serviceperson"]),incomingItemsData);
 router.get("/serviceperson-pickedup-items",userVerification(["serviceperson"]),pickupItemOfServicePerson);
