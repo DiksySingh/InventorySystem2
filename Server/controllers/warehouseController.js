@@ -122,7 +122,7 @@ module.exports.viewServicePersons = async(req, res) => {
 //Delete Warehouse Person
 module.exports.deleteWarehousePerson = async(req, res) => {
     try{
-        const id = req.query;
+        const {id} = req.query;
         if(!id){
             return res.status(400).json({
                 success: false,
@@ -130,7 +130,7 @@ module.exports.deleteWarehousePerson = async(req, res) => {
             });
         }
 
-        const deletedWarehousePerson = await WarehousePerson.findByIdAndDelete({_id: id});
+        const deletedWarehousePerson = await WarehousePerson.findByIdAndDelete(id);
         return res.status(200).json({
             success: true,
             message: "Warehouse Person Removed Successfully",
@@ -148,7 +148,7 @@ module.exports.deleteWarehousePerson = async(req, res) => {
 //Delete Service Person
 module.exports.deleteServicePerson = async(req, res) => {
     try{
-        const id = req.query;
+        const {id} = req.query;
         if(!id){
             return res.status(400).json({
                 success: false,
@@ -156,7 +156,7 @@ module.exports.deleteServicePerson = async(req, res) => {
             });
         }
 
-        const deletedServicePerson = await ServicePerson.findByIdAndDelete({_id: id});
+        const deletedServicePerson = await ServicePerson.findByIdAndDelete(id);
         return res.status(200).json({
             success: true,
             message: "Service Person Removed Successfully",
