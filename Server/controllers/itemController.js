@@ -291,7 +291,7 @@ module.exports.updateItemName = async (req, res) => {
 //Admin Access
 module.exports.showItemsData = async (req, res) => {
   try {
-    const option  = req.body; 
+    const {option}  = req.query; 
     if(!option){
       return res.status(400).json({
         success: false,
