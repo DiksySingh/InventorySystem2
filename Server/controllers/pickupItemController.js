@@ -10,8 +10,8 @@ const WarehouseItems = require("../models/warehouseItemsSchema");
 //***************************** Admin Access **************************//
 module.exports.allOrderDetails = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
+    const page = parseInt(req.query.page);
+    const limit = parseInt(req.query.limit);
     const skip = (page - 1) * limit;
 
     const pickupItems = await PickupItem.find()

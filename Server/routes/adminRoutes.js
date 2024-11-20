@@ -22,6 +22,4 @@ router.get("/all-repair-reject-itemData",userVerification(['admin']), allRepairR
 router.delete("/remove-warehouse-person",userVerification(['admin']), deleteWarehousePerson);
 router.delete("/remove-service-person",userVerification(['admin']), deleteServicePerson);
 
-
-
 module.exports = router;
