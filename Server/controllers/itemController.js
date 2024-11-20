@@ -307,12 +307,15 @@ module.exports.showItemsData = async (req, res) => {
         data: allItems,
       });
     } else {
-      const warehouseItems = await WarehouseItems.findOne()
-        .populate({
-          path: 'warehouse', 
-          match: { warehouseName: option }
-        })
-        .exec();
+      const warehouseData = await Warehouse.findOne({warehouseName: option});
+      console.log(warehouseData);
+      if(!warehouseData){
+        return res.status(404).json({
+          success: false,
+          message: "Warehouse Data Not Found"
+        });
+      }
+      const warehouseItems = await WarehouseItems.findOne({ warehouse: warehouseData._id})
 
       if (!warehouseItems || !warehouseItems.warehouse) {
         return res.status(404).json({
