@@ -291,7 +291,7 @@ module.exports.updateItemName = async (req, res) => {
 //Admin Access
 module.exports.showItemsData = async (req, res) => {
   try {
-    const { option } = req.body; 
+    const option  = req.body; 
     if(!option){
       return res.status(400).json({
         success: false,
@@ -308,7 +308,6 @@ module.exports.showItemsData = async (req, res) => {
       });
     } else {
       const warehouseData = await Warehouse.findOne({warehouseName: option});
-      console.log(warehouseData);
       if(!warehouseData){
         return res.status(404).json({
           success: false,
@@ -316,7 +315,7 @@ module.exports.showItemsData = async (req, res) => {
         });
       }
       const warehouseItems = await WarehouseItems.findOne({ warehouse: warehouseData._id})
-
+    
       if (!warehouseItems || !warehouseItems.warehouse) {
         return res.status(404).json({
           success: false,
