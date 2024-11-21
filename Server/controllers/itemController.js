@@ -292,6 +292,7 @@ module.exports.updateItemName = async (req, res) => {
 module.exports.showItemsData = async (req, res) => {
   try {
     const {option}  = req.query; 
+    console.log(option);
     if(!option){
       return res.status(400).json({
         success: false,
@@ -308,6 +309,7 @@ module.exports.showItemsData = async (req, res) => {
       });
     } else {
       const warehouseData = await Warehouse.findOne({warehouseName: option});
+      console.log(warehouseData)
       if(!warehouseData){
         return res.status(404).json({
           success: false,
@@ -315,18 +317,19 @@ module.exports.showItemsData = async (req, res) => {
         });
       }
       const warehouseItems = await WarehouseItems.findOne({ warehouse: warehouseData._id})
-    
-      if (!warehouseItems || !warehouseItems.warehouse) {
-        return res.status(404).json({
-          success: false,
-          message: `No items found for the warehouse: ${option}`,
-        });
-      }
+      console.log(warehouseItems);
+      // if (!warehouseItems || !warehouseItems.warehouse) {
+      //   return res.status(404).json({
+      //     success: false,
+      //     message: `No items found for the warehouse: ${option}`,
+      //     data: []
+      //   });
+      // }
 
       return res.status(200).json({
         success: true,
         message: `Items for warehouse ${option} fetched successfully`,
-        data: warehouseItems.items, 
+        data: warehouseItems ? warehouseItems.items : [], 
       });
     }
   } catch (error) {

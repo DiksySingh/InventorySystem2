@@ -257,8 +257,8 @@ module.exports.outgoingItemsData = async (req, res) => {
 
 module.exports.warehouseOrderDetails = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
+    const page = parseInt(req.query.page);
+    const limit = parseInt(req.query.limit);
     const skip = (page - 1) * limit;
 
     const warehouseId = req.user.warehouse;
@@ -834,8 +834,8 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
       });
     }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
+    const page = parseInt(req.query.page) ;
+    const limit = parseInt(req.query.limit);
     const skip = (page - 1) * limit;
 
     const pickupItems = await PickupItem.find({ servicePerson: id })
