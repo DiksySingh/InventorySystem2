@@ -2,7 +2,8 @@ const { servicePersonSignup } = require("../controllers/authController");
 const { outgoingItemsData, warehouseOrderDetails, updateOrderStatus } = require("../controllers/pickupItemController");
 const { showItems, incomingItems, warehouseIncomingItemDetails} = require("../controllers/itemController");
 const { 
-  addWarehouseItems, 
+  addWarehouseItems,
+  viewWarehouseItems,
   warehouseDashboard, 
   newRepairNRejectItemData, 
   warehouseRepairRejectItemsData,  
@@ -15,6 +16,7 @@ router.get("/all-items", userVerification(['warehouseAdmin', 'serviceperson']), 
 router.post("/service-person-signup",userVerification(['warehouseAdmin']), servicePersonSignup);   
 router.get("/dashboard", userVerification(['warehouseAdmin']), warehouseDashboard);
 router.post("/add-item", userVerification(['warehouseAdmin']), addWarehouseItems);
+router.get("/view-items", userVerification(['warehouseAdmin']), viewWarehouseItems);
 router.post("/outgoing-items", userVerification(['warehouseAdmin']), outgoingItemsData);
 router.post("/add-incoming-item", userVerification(["warehouseAdmin"]), incomingItems);
 router.get("/incoming-items-data", userVerification(['warehouseAdmin']), warehouseIncomingItemDetails);

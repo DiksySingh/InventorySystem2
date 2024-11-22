@@ -267,6 +267,43 @@ module.exports.addWarehouseItems = async (req, res) => {
     }
 };
 
+module.exports.viewWarehouseItems = async(req, res) => {
+    try{
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId){
+            return res.status(404).json({
+                success: false,
+                message: "WarehouseId not found"
+            });
+        }
+
+        const warehouseItems = await WarehouseItems.findOne({warehouse: warehouseId});
+        if(!warehouseItems){
+            return res.status(404).json({
+                success: false,
+                message: "Warehouse Items Not Found"
+            });
+        }
+        
+        let items = [];
+        for(let item of warehouseItems.items){
+            items.push(item.itemName);
+        }
+       
+        return res.status(200).json({
+            success: true,
+            message: "Warehouse Items Fetched Successfully",
+            items
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
 module.exports.warehouseDashboard = async(req, res) => {
     try{
         const  warehouseId = req.user.warehouse;
