@@ -4,6 +4,7 @@ const WarehousePerson = require("../models/warehousePersonSchema");
 const WarehouseItems = require("../models/warehouseItemsSchema");
 const ServicePerson = require("../models/servicePersonSchema");
 const RepairNRejectItems = require("../models/repairNRejectSchema");
+const PickupItem = require("../models/pickupItemSchema");
 
 //****************** Admin Access ******************//
 module.exports.addWarehouse = async (req, res) => {
@@ -486,6 +487,40 @@ module.exports.warehouseRepairRejectItemsData = async(req, res) => {
             message: "Data Fetched Successfully",
             allRepairRejectData,
         });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
+module.exports.viewOrdersApprovedHistory = async(req, res) => {
+    try{
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId){
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseId Not Found"
+            });
+        }
+
+        const warehouseData = await Warehouse.findOne({_id: warehouseId});
+        const warehouseItemsData = await PickupItem.find({warehouse: warehouseData.warehouseName});
+        
+        let orderHistory = [];
+        for( let order of warehouseItemsData){
+            if(order.status === true){
+                orderHistory.push(order);
+            }
+        }
+        return res.status(200).json({
+            success: true,
+            message: "History Data Fetched Successfully",
+            orderHistory
+        });
+        
     }catch(error){
         return res.status(500).json({
             success: false,

@@ -7,6 +7,7 @@ const {
   warehouseDashboard, 
   newRepairNRejectItemData, 
   warehouseRepairRejectItemsData,  
+  viewOrdersApprovedHistory
 } = require("../controllers/warehouseController");
 const router = require("express").Router();
 const { userVerification } = require("../middlewares/authMiddlewares");
@@ -21,6 +22,7 @@ router.post("/outgoing-items", userVerification(['warehouseAdmin']), outgoingIte
 router.post("/add-incoming-item", userVerification(["warehouseAdmin"]), incomingItems);
 router.get("/incoming-items-data", userVerification(['warehouseAdmin']), warehouseIncomingItemDetails);
 router.get("/warehouse-in-out-orders",userVerification(["warehouseAdmin"]), warehouseOrderDetails);
+router.get("/approved-order-history", userVerification(['warehouseAdmin']), viewOrdersApprovedHistory);
 router.post("/repair-reject-item", userVerification(['warehouseAdmin']), newRepairNRejectItemData);
 router.get("/repair-reject-itemData", userVerification(['warehouseAdmin']), warehouseRepairRejectItemsData);
 router.put("/update-incoming-status", userVerification(["warehouseAdmin"]), updateOrderStatus);
