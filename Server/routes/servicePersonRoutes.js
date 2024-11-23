@@ -6,6 +6,7 @@ const router = require("express").Router();
 //ServicePerson Routes
 router.get("/dashboard",userVerification(["serviceperson"]),servicePersonDashboard);
 router.get("/warehouse-items", userVerification(['serviceperson']), showWarehouseItems);
+router.get("/all-warehouses", userVerification(['serviceperson']), showWarehouses);
 router.post("/incoming-items",userVerification(["serviceperson"]),incomingItemsData);
 router.get("/pickedup-items",userVerification(["serviceperson"]),pickupItemOfServicePerson);
 router.put("/update-outgoing-status", userVerification(["serviceperson"]), updateOrderStatus);
