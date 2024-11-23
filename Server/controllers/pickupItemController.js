@@ -567,7 +567,7 @@ module.exports.servicePersonDashboard = async (req, res) => {
 
 module.exports.showWarehouseItems = async(req, res) => {
   try{
-      const {option} = req.body;
+      const {option} = req.query;
       if(!option){
           return res.status(400).json({
               success: false,
