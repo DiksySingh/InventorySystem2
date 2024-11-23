@@ -585,16 +585,18 @@ module.exports.showWarehouseItems = async(req, res) => {
       
 
       const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
-      if(!warehouseItemsData){
-          return res.status(404).json({
-              success: false,
-              message: "WarehouseItems Data Not Found"
-          });
-      }
+      // if(!warehouseItemsData){
+      //     return res.status(404).json({
+      //         success: false,
+      //         message: "WarehouseItems Data Not Found"
+      //     });
+      // }
 
       let itemsData = [];
-      for(let item of warehouseItemsData.items){
-        itemsData.push(item.itemName);
+      if(warehouseItemsData){
+        for(let item of warehouseItemsData.items){
+          itemsData.push(item.itemName);
+        }
       }
       // console.log(itemsData);
 
