@@ -530,4 +530,30 @@ module.exports.viewOrdersApprovedHistory = async(req, res) => {
     }
 }
 
+module.exports.getWarehouse = async(req, res) => {
+    try{
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId){
+            return res.status(400).json({
+                success: false,
+                message: "WarebouseId not found"
+            });
+        }
+
+        const warehouseData = await Warehouse.findOne({_id: warehouseId});
+        const warehouseName = warehouseData.warehouseName;
+        return res.status(200).json({
+            success: true,
+            message: "Warehouse Fetched Successfully",
+            warehouseName
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
 //****************** Service Person Access *************************//
