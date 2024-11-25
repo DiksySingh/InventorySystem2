@@ -557,3 +557,37 @@ module.exports.getWarehouse = async(req, res) => {
 }
 
 //****************** Service Person Access *************************//
+
+module.exports.viewApprovedOrderHistory = async(req, res) => {
+    try {
+        const servicePersonId = req.user._id;
+        if(!servicePersonId){
+            return res.status(400).json({
+                success: false,
+                message: "servicePersonId not found"
+            });
+        }
+
+        const pickupItemData = await PickupItem.find({servicePerson: servicePersonId});
+        
+        let orderHistory = [];
+
+        for(let order of pickupItemData){
+            if((order.incoming === false) && (order.status === true)){
+                    orderHistory.push(order);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "History Fetched Successfully",
+            orderHistory
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}

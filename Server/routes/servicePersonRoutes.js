@@ -1,5 +1,5 @@
 const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus} = require("../controllers/pickupItemController");
-const {showWarehouses} = require("../controllers/warehouseController");
+const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/warehouseController");
 //const uploadHandler = require("../middlewares/multerConfig");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
@@ -10,6 +10,7 @@ router.get("/warehouse-items", userVerification(['serviceperson']), showWarehous
 router.get("/all-warehouses", userVerification(['serviceperson']), showWarehouses);
 router.post("/incoming-items",userVerification(["serviceperson"]),incomingItemsData);
 router.get("/pickedup-items",userVerification(["serviceperson"]),pickupItemOfServicePerson);
+router.get("/approved-order-history", userVerification(['serviceperson']), viewApprovedOrderHistory);
 router.put("/update-outgoing-status", userVerification(["serviceperson"]), updateOrderStatus);
 
 module.exports = router;
