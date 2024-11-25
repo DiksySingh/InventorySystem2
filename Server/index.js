@@ -11,7 +11,7 @@ const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 
 
-const URI = process.env.MONGO_URL;
+const URI = process.env.MONGODB_URL;
 const PORT = process.env.PORT;
 
 main()
