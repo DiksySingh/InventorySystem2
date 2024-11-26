@@ -224,7 +224,7 @@ module.exports.addWarehouseItems = async (req, res) => {
             });
         }
 
-        for (const newItem of items) {
+        for (const newItem of items) {          
             newItem.itemName = newItem.itemName.trim();
             let itemRecord = await Item.findOne({ itemName: newItem.itemName });
 
@@ -508,7 +508,7 @@ module.exports.viewOrdersApprovedHistory = async(req, res) => {
         }
 
         const warehouseData = await Warehouse.findOne({_id: warehouseId});
-        const warehouseItemsData = await PickupItem.find({warehouse: warehouseData.warehouseName});
+        const warehouseItemsData = await PickupItem.find({warehouse: warehouseData.warehouseName}).populate("servicePerson","name contact");
         
         let orderHistory = [];
         for( let order of warehouseItemsData){
