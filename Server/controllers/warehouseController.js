@@ -508,7 +508,7 @@ module.exports.viewOrdersApprovedHistory = async(req, res) => {
         }
 
         const warehouseData = await Warehouse.findOne({_id: warehouseId});
-        const warehouseItemsData = await PickupItem.find({warehouse: warehouseData.warehouseName}).populate("servicePerson","name contact");
+        const warehouseItemsData = await PickupItem.find({warehouse: warehouseData.warehouseName}).populate("servicePerson","name contact").sort({pickupDate: -1});
         
         let orderHistory = [];
         for( let order of warehouseItemsData){
