@@ -383,10 +383,11 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
                 message: "Item Not Found In Warehouse"
             });
         }
+        console.log(warehouseItem.defective);
 
         if(repaired){
             //Adjusting Warehouse Items Quantity, Defective, Repaired Field in WarehouseItems Schema
-            if(warehouseItem.defective !== 0 && warehouseItem.defective >= (repaired + rejected)){
+            if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(repaired) + parseInt(rejected))){
                 warehouseItem.defective = parseInt(warehouseItem.defective) - parseInt(repaired);
                 warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(repaired);
                 warehouseItem.repaired = parseInt(warehouseItem.repaired) + parseInt(repaired);
@@ -398,7 +399,7 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
             }
             
             //Adjusting Items Stock, Defective, Repaired Field in ItemSchema
-            if(itemRecord.defective !== 0 && itemRecord.defective >= (repaired + rejected)){
+            if(itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(repaired) + parseInt(rejected))){
                 itemRecord.defective = parseInt(itemRecord.defective) - parseInt(repaired);
                 itemRecord.stock = parseInt(itemRecord.stock) + parseInt(repaired);
                 itemRecord.repaired = parseInt(itemRecord.repaired) + parseInt(repaired);
@@ -412,7 +413,7 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
 
         if(rejected){
             //Adjusting Warehouse Items Defective and Rejected Field in WarehouseItems Schema
-            if(warehouseItem.defective !== 0 && warehouseItem.defective >= (rejected)){
+            if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(rejected))){
                 warehouseItem.defective = parseInt(warehouseItem.defective) - parseInt(rejected);
                 warehouseItem.rejected = parseInt(warehouseItem.rejected) + parseInt(rejected);
             }else{
@@ -423,7 +424,7 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
             }
 
             //Adjusting Items Defective and Rejected Field in ItemSchema
-            if(itemRecord.defective !== 0 && itemRecord.defective >= (rejected)){
+            if(itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(rejected))){
                 itemRecord.defective = parseInt(itemRecord.defective) - parseInt(rejected);
                 itemRecord.rejected = parseInt(itemRecord.rejected) + parseInt(rejected);
             }else{
