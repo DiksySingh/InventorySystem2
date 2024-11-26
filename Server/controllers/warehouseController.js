@@ -385,7 +385,7 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
         }
         console.log(warehouseItem.defective);
 
-        if(repaired){
+        if(parseInt(repaired)){
             //Adjusting Warehouse Items Quantity, Defective, Repaired Field in WarehouseItems Schema
             if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(repaired) + parseInt(rejected))){
                 warehouseItem.defective = parseInt(warehouseItem.defective) - parseInt(repaired);
@@ -411,7 +411,7 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
             }
         }
 
-        if(rejected){
+        if(parseInt(rejected)){
             //Adjusting Warehouse Items Defective and Rejected Field in WarehouseItems Schema
             if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(rejected))){
                 warehouseItem.defective = parseInt(warehouseItem.defective) - parseInt(rejected);
@@ -443,8 +443,8 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
             warehousePerson: personName,
             warehouseName: warehouseName,
             itemName,
-            repaired,
-            rejected,
+            repaired: parseInt(repaired),
+            rejected: parseInt(rejected),
             createdAt, 
         })
 
