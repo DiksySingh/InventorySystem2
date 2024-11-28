@@ -5,6 +5,7 @@ const {
   addWarehouse, showWarehouses, viewWarehousePersons, viewServicePersons, 
   deleteWarehousePerson, deleteServicePerson, allRepairRejectItemsData, 
 } = require("../controllers/warehouseController");
+const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
 
@@ -21,5 +22,6 @@ router.put("/update-item-name",userVerification(['admin']), updateItemName);
 router.get("/all-repair-reject-itemData",userVerification(['admin']), allRepairRejectItemsData);
 router.delete("/remove-warehouse-person",userVerification(['admin']), deleteWarehousePerson);
 router.delete("/remove-service-person",userVerification(['admin']), deleteServicePerson);
+router.get("/all-defective-order-data", userVerification(['admin']), allDefectiveItemsData);
 
 module.exports = router;

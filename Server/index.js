@@ -80,7 +80,7 @@ const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 
 // Load environment variables
-const URI = process.env.MONGODB_URL;
+const URI = process.env.MONGO_URL;
 const PORT = process.env.PORT || 8000; // Default to port 8000 if not defined
 
 // MongoDB connection
@@ -113,16 +113,16 @@ app.use("/uploads/images", express.static(path.join(__dirname, "uploads")));
 
 // Test route to set cookies
 
-app.get('/set-cookie', (req, res) => {
-  res.cookie('sessionId', 'abc123', {
-      domain: process.env.IP_ADDRESS, // Replace with your server's IP address
-      path: '/',
-      httpOnly: true,
-      secure: false, // Set to true if using HTTPS
-      sameSite: 'Lax', // Adjust based on your needs
-  });
-  res.send('Cookie has been set');
-});
+// app.get('/set-cookie', (req, res) => {
+//   res.cookie('sessionId', 'abc123', {
+//       domain: process.env.IP_ADDRESS, // Replace with your server's IP address
+//       path: '/',
+//       httpOnly: true,
+//       secure: false, // Set to true if using HTTPS
+//       sameSite: 'Lax', // Adjust based on your needs
+//   });
+//   res.send('Cookie has been set');
+// });
 
 // Routes
 app.get("/", (req, res) => {

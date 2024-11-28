@@ -56,6 +56,12 @@ const pickupItemSchema = new Schema(
       type: String,
       required: true
     },
+    withoutRMU: {
+      type: Boolean,
+    },
+    rmuRemark: {
+      type: String,
+    },
     remark: {
       type: String,
     },
