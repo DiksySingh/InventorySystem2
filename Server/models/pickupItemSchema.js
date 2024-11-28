@@ -62,6 +62,7 @@ const pickupItemSchema = new Schema(
     },
     rmuRemark: {
       type: String,
+      default: "",
     },
     remark: {
       type: String,
