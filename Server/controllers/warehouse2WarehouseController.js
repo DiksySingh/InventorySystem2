@@ -194,7 +194,7 @@ module.exports.outgoingDefectiveOrderData = async(req, res) => {
         }
 
         const warehouseData = await Warehouse.findOne({_id: warehouseId});
-        const defectiveOrderData = await WToW.find({fromWarehouse: warehouseData.warehouseName});
+        const defectiveOrderData = await WToW.find({fromWarehouse: warehouseData.warehouseName}).sort({pickupDate: -1});
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
