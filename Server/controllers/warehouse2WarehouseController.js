@@ -6,10 +6,10 @@ const Item = require("../models/itemSchema");
 
 module.exports.sendingDefectiveItems = async(req, res) => {
     try{
-        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickUpDate} = req.body;
+        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate} = req.body;
         console.log(req.body);
-        console.log(fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickUpDate);
-        if(!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickUpDate){
+        console.log(fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate);
+        if(!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate){
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -50,7 +50,7 @@ module.exports.sendingDefectiveItems = async(req, res) => {
             await warehouseItemsData.save();
         }
 
-        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickUpDate});
+        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate});
         await createDefectiveOrder.save();
         return res.status(200).json({
             success: true,
@@ -198,7 +198,6 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
                 warehouseItems.defective = parseInt(warehouseItems.defective) + parseInt(quantity);
-
             }
         }else if(status === true && defectiveOrderData.isDefective === false){
             for (let item of defectiveOrderData.items){
@@ -208,7 +207,6 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
                 warehouseItems.quantity = parseInt(warehouseItems.quantity) + parseInt(quantity);
-
             }
         }
         defectiveOrderData.status = status;
