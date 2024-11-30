@@ -80,7 +80,7 @@ const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 
 // Load environment variables
-const URI = process.env.MONGO_URL;
+const URI = process.env.MONGODB_URL;
 const PORT = process.env.PORT || 8000; // Default to port 8000 if not defined
 
 // MongoDB connection
