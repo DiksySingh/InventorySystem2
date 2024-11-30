@@ -24,10 +24,27 @@ module.exports.sendingDefectiveItems = async(req, res) => {
         if(isDefective === true){
             const warehouseData = await Warehouse.findOne({warehouseName: fromWarehouse});
             const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
+
+            const toWarehouseData = await Warehouse.findOne({warehouseName: toWarehouse});
+            const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
+            if(!toWarehouseItemsData){
+                return res.status(404).json({
+                    success: false,
+                    message: `To: ${toWarehouseData.warehouseName} Items Data Not Found`
+                });
+            }
             
             for(let item of items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
+
+                const toWarehouseItem = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                if(!toWarehouseItem){
+                    return res.status(400).json({
+                        success: false,
+                        message: `To: ${toWarehouseData.warehouseName} Item Doesn't Exist`
+                    });
+                } 
 
                 const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
                 console.log(warehouseItems);
@@ -39,9 +56,26 @@ module.exports.sendingDefectiveItems = async(req, res) => {
             const warehouseData = await Warehouse.findOne({warehouseName: fromWarehouse});
             const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
 
+            const toWarehouseData = await Warehouse.findOne({warehouseName: toWarehouse});
+            const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
+            if(!toWarehouseItemsData){
+                return res.status(404).json({
+                    success: false,
+                    message: `To: ${toWarehouseData.warehouseName} Items Data Not Found`
+                });
+            }
+
             for(let item of items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
+
+                const toWarehouseItem = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                if(!toWarehouseItem){
+                    return res.status(400).json({
+                        success: false,
+                        message: `To: ${toWarehouseData.warehouseName} Item Doesn't Exist`
+                    });
+                } 
 
                 const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
                 console.log(warehouseItems);
