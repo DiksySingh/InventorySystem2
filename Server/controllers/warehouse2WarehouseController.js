@@ -190,7 +190,7 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
         //const fromWarehouseItemsData = await WarehouseItems.findOne({warehouse: fromWarehouseData._id});
         const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
 
-        if(status === true){
+        if(status === true && defectiveOrderData.isDefective === true){
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
@@ -198,6 +198,16 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
                 warehouseItems.defective = parseInt(warehouseItems.defective) + parseInt(quantity);
+
+            }
+        }else if(status === true && defectiveOrderData.isDefective === false){
+            for (let item of defectiveOrderData.items){
+                let itemName = item.itemName;
+                let quantity = item.quantity;
+
+                // const itemData = await Item.find({itemName});
+                let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                warehouseItems.quantity = parseInt(warehouseItems.quantity) + parseInt(quantity);
 
             }
         }

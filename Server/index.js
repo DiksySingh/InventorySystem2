@@ -136,5 +136,5 @@ app.use("/service-person", servicePersonRoute);
 
 // Start the server
 app.listen(PORT, () => {
-  console.log(`Server running at http://192.168.x.x:${PORT}`); // Replace with your local IP
+  console.log(`Server running at port: ${PORT}`); // Replace with your local IP
 });

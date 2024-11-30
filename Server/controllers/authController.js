@@ -169,6 +169,7 @@ module.exports.servicePersonSignup = async (req, res) => {
 module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log(req.body);
     const options = {
       withCredentials: true,
       httpOnly: true,

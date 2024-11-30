@@ -34,7 +34,7 @@ router.put("/update-incoming-status", userVerification(["warehouseAdmin"]), upda
 router.post("/defective-order-data", userVerification(['warehouseAdmin']), sendingDefectiveItems);
 router.get("/view-defective-orders", userVerification(['warehouseAdmin']), inDefectiveItemsData);
 router.get("/defective-order-history", userVerification(['warehouseAdmin']), inDefectiveItemsOrderHistory);
-router.get("/outgoing-defective-order", userVerification(['warehouseAdmin']), outgoingDefectiveOrderData)
+router.get("/outgoing-defective-order", userVerification(['warehouseAdmin']), outgoingDefectiveOrderData);
 router.put("/update-defective-order-status", userVerification(['warehouseAdmin']), updateDefectiveOrderStatus);
 //router.delete("/deleteItem", userVerification(["warehouseAdmin"]), deleteItem);
 
