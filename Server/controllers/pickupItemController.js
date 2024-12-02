@@ -845,10 +845,11 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const pickupItems = await PickupItem.find({ servicePerson: id })
+      .populate("servicePerson","-__v -password -refreshToken -role -createdAt -email")
       .sort({ pickupDate: -1 })
       .skip(skip)
       .limit(limit)
-      .select("-__v -servicePerson");
+      .select("-__v");
 
     if (!pickupItems) {
       return res.status(404).json({
