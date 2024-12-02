@@ -82,7 +82,7 @@ const pickupItemSchema = new Schema(
     pickupDate: {
       type: Date,
     },
-    receivedDate: {
+    arrivedDate: {
       type: Date,
     },
   },
