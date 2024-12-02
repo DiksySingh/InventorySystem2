@@ -26,7 +26,7 @@ module.exports.addWarehouse = async (req, res) => {
         }
 
         const newWarehouse = new Warehouse({
-            warehouseName, 
+            warehouseName: warehouseName.trim(), 
             createdAt: createdAt || Date.now(),
         });
         await newWarehouse.save();
