@@ -28,8 +28,8 @@ module.exports.allOrderDetails = async (req, res) => {
     //   if (item.pickupDate) {
     //     item.pickupDate = moment(item.pickupDate).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
     //   }
-    //   if (item.receivedDate) {
-    //     item.receivedDate = moment(item.receivedDate).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
+    //   if (item.arrivedDate) {
+    //     item.arrivedDate = moment(item.arrivedDate).tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
     //   }
     // });
 
@@ -300,7 +300,7 @@ module.exports.warehouseOrderDetails = async (req, res) => {
 
 module.exports.updateOrderStatus = async (req, res) => {
   try {
-    const { status, pickupItemId, incoming, receivedDate } = req.body;
+    const { status, pickupItemId, incoming, arrivedDate } = req.body;
     const approvedBy = req.user.name;
     console.log("Body", req.body);
 
@@ -343,7 +343,7 @@ module.exports.updateOrderStatus = async (req, res) => {
 
       pickupItem.status = true;
       pickupItem.approvedBy = approvedBy;
-      pickupItem.receivedDate = receivedDate;
+      pickupItem.arrivedDate = arrivedDate;
       const items = pickupItem.items;
 
       for (let item of items) {
@@ -454,7 +454,7 @@ module.exports.updateOrderStatus = async (req, res) => {
 
       pickupItem.status = true;
       pickupItem.approvedBy = approvedBy;
-      pickupItem.receivedDate = receivedDate;
+      pickupItem.arrivedDate = arrivedDate;
 
       const itemsToUpdate = pickupItem.items;
       const servicePersonId = pickupItem.servicePerson;
