@@ -85,7 +85,6 @@ const pickupItemSchema = new Schema(
     },
     arrivedDate: {
       type: Date,
-      required: true,
     },
   },
   { collection: "inPickupItems" }
