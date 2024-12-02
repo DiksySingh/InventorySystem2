@@ -24,9 +24,9 @@ module.exports.addWarehouse = async (req, res) => {
                 message: "Warehouse already exists"
             });
         }
-
+        const trimmedWarehouseName = warehouseName.trim();
         const newWarehouse = new Warehouse({
-            warehouseName: warehouseName.trim(), 
+            warehouseName: trimmedWarehouseName, 
             createdAt: createdAt || Date.now(),
         });
         await newWarehouse.save();
