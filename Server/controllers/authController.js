@@ -168,7 +168,7 @@ module.exports.servicePersonSignup = async (req, res) => {
 
 module.exports.Login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     console.log(req.body);
     const options = {
       withCredentials: true,
@@ -176,18 +176,27 @@ module.exports.Login = async (req, res) => {
       secure: false,
     };
 
-    if (!email || !password) {
+    if (!email || !password || !role) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
       });
     }
 
-    let user = await Admin.findOne({ email });
+    let user = await Admin.findOne({ 
+      email: email,
+      role: role,
+    });
     if (!user) {
-      user = await WarehousePerson.findOne({ email });
+      user = await WarehousePerson.findOne({ 
+        email: email, 
+        role: role 
+      });
       if (!user) {
-        user = await ServicePerson.findOne({ email });
+        user = await ServicePerson.findOne({ 
+          email: email, 
+          role: role 
+        });
         if(!user){
           return res.status(401).json({
             success: false,
@@ -206,7 +215,7 @@ module.exports.Login = async (req, res) => {
       });
     }
     //const role = roles[email] || 'serviceperson';
-    const role = user.role;
+    // const role = user.role;
     const accessToken = createSecretToken(user._id, role);
     const refreshToken = createRefreshToken(user._id);
 
