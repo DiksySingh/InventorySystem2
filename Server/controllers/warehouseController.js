@@ -607,7 +607,7 @@ module.exports.allServicePersons = async(req, res) => {
       return res.status(200).json({
         success: true,
         message: "Data Fetched Successfully",
-        allFieldServicePersons
+        allFieldServicePersons: allFieldServicePersons || []
       });
   
     }catch(error){
