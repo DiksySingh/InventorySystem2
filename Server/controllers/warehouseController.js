@@ -476,17 +476,17 @@ module.exports.warehouseRepairRejectItemsData = async(req, res) => {
         }
 
         const allRepairRejectData = await RepairNRejectItems.find({warehouseId}).sort({createdAt: -1});
-        if(!allRepairRejectData){
-            return res.status(404).json({
-                success: false,
-                message: "Data Not Found For The Warehouse"
-            });
-        }
+        // if(!allRepairRejectData){
+        //     return res.status(404).json({
+        //         success: false,
+        //         message: "Data Not Found For The Warehouse"
+        //     });
+        // }
 
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            allRepairRejectData,
+            allRepairRejectData: allRepairRejectData || [],
         });
     }catch(error){
         return res.status(500).json({
