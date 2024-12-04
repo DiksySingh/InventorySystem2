@@ -597,12 +597,12 @@ module.exports.viewApprovedOrderHistory = async(req, res) => {
 module.exports.allServicePersons = async(req, res) => {
     try{
       const allFieldServicePersons = await ServicePerson.find().select("-email -contact -password -role -createdAt -refreshToken -__v");
-      if(!allFieldServicePersons){
-        return res.status(404).json({
-          success: false,
-          message: "Service Persons Data Not Found"
-        });
-      } 
+    //   if(!allFieldServicePersons){
+    //     return res.status(404).json({
+    //       success: false,
+    //       message: "Service Persons Data Not Found"
+    //     });
+    //   } 
   
       return res.status(200).json({
         success: true,
