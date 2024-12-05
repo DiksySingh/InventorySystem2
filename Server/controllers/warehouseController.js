@@ -624,7 +624,7 @@ module.exports.filterServicePersonById = async(req, res) => {
         const {id} = req.query;
         const servicePersonName = await ServicePerson.findById({_id: id}).select("-_id -email -contact -password -role -createdAt -refreshToken -__v");
         return res.status(200).json({
-            success: false,
+            success: true,
             message: "Service Person Found",
             data: servicePersonName || ""
         });
