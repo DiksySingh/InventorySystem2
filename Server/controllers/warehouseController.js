@@ -617,4 +617,23 @@ module.exports.allServicePersons = async(req, res) => {
         error: error.message
       });
     }
-  };
+};
+
+module.exports.filterServicePersonById = async(req, res) => {
+    try{
+        const id = req.query;
+        const servicePersonName = await ServicePerson.findById({_id: id}).select("-_id -email -contact -password -role -createdAt -refreshToken -__v");
+        return res.status(200).json({
+            success: false,
+            message: "Service Person Found",
+            data: servicePersonName || ""
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
