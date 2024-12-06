@@ -1,5 +1,5 @@
 const { warehousePersonSignup } = require("../controllers/authController");
-const { allOrderDetails } = require("../controllers/pickupItemController");
+const { allOrderDetails, servicePersonIncomingItemsData, servicePersonOutgoingItemsData } = require("../controllers/pickupItemController");
 const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
 const { 
   addWarehouse, showWarehouses, viewWarehousePersons, viewServicePersons, 
@@ -23,5 +23,8 @@ router.get("/all-repair-reject-itemData",userVerification(['admin']), allRepairR
 router.delete("/remove-warehouse-person",userVerification(['admin']), deleteWarehousePerson);
 router.delete("/remove-service-person",userVerification(['admin']), deleteServicePerson);
 router.get("/all-defective-order-data", userVerification(['admin']), allDefectiveItemsData);
+
+router.get("/incoming-items-data", userVerification(['admin']), servicePersonIncomingItemsData);
+router.get("/outgoing-items-data", userVerification(['admin']), servicePersonOutgoingItemsData);
 
 module.exports = router;

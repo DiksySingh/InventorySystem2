@@ -51,10 +51,43 @@ module.exports.allOrderDetails = async (req, res) => {
   }
 };
 
+module.exports.servicePersonIncomingItemsData = async(req, res) => {
+  try{
+    const incomingItemsData = await IncomingItemDetails.find().populate("servicePerson", "_id name contact");
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      data: incomingItemsData || []
+    });
+  }catch(error){
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
+module.exports.servicePersonOutgoingItemsData = async(req, res) => {
+  try{
+    const outgoingItemsData = await OutgoingItemDetails.find().populate("servicePerson", "_id name contact");
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      data: outgoingItemsData || []
+    });
+  }catch(error){
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 //*************************** Warehouse Access ****************************//
 module.exports.outgoingItemsData = async (req, res) => {
   try {
-    console.log("Req.body:", req.body);
     const {
       servicePersonName,
       servicePerContact,
@@ -106,7 +139,6 @@ module.exports.outgoingItemsData = async (req, res) => {
         message: "Service Person Contact Not Found",
       });
     }
-    console.log("serviceperson:", servicePersonData);
     const id = servicePersonData._id;
 
     const warehouseData = await Warehouse.findOne({ warehouseName: warehouse });
@@ -116,7 +148,6 @@ module.exports.outgoingItemsData = async (req, res) => {
         message: "Warehouse Doesn't Exist",
       });
     }
-    console.log("warhouseData", warehouseData);
     const warehouseId = warehouseData._id;
 
     const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
@@ -127,15 +158,12 @@ module.exports.outgoingItemsData = async (req, res) => {
       });
     }
 
-    console.log("warehouseItemRecord", warehouseItemRecord);
-
     for (let item of items) {
       const itemName = item.itemName;
       const quantityToAdjust = item.quantity;
 
       // Find the corresponding item in the Item schema
       const itemRecord = await Item.findOne({ itemName });
-      console.log("itemrecord", itemRecord);
       if (!itemRecord) {
         return res.status(404).json({
           success: false,
@@ -145,7 +173,6 @@ module.exports.outgoingItemsData = async (req, res) => {
 
       // Find the item in the warehouse's items array
       const warehouseItem = warehouseItemRecord.items.find(wItem => wItem.itemName === itemName);
-      console.log("warehouseItem", warehouseItem);
       if (!warehouseItem) {
         return res.status(404).json({
           success: false,
@@ -172,7 +199,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       }
       // Save the updated item record
       outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
-      console.log("ItemsSchemaData:", await itemRecord.save());
+      await itemRecord.save();
     }
 
     // Save the updated WarehouseItems record
@@ -206,7 +233,6 @@ module.exports.outgoingItemsData = async (req, res) => {
           servicePerson: id,
           items: outgoingItemsData,
         });
-        console.log("Outgoing:", existingOutgoingRecord);
         await existingOutgoingRecord.save();
       }
     }
@@ -227,7 +253,6 @@ module.exports.outgoingItemsData = async (req, res) => {
       approvedBy,
       pickupDate,
     });
-    console.log("returnsItem:", returnItems);
     await returnItems.save();
 
     res.status(200).json({
@@ -302,11 +327,9 @@ module.exports.updateOrderStatus = async (req, res) => {
   try {
     const { status, pickupItemId, incoming, arrivedDate } = req.body;
     const approvedBy = req.user.name;
-    console.log("Body", req.body);
 
     if (status === true && incoming === true) {
       const pickupItem = await PickupItem.findById(pickupItemId);
-      console.log("pickup", pickupItem);
       if (!pickupItem) {
         return res.status(404).json({
           success: false,
@@ -328,7 +351,6 @@ module.exports.updateOrderStatus = async (req, res) => {
           message: "User does not have permission to access this warehouse",
         });
       }
-      console.log("warhouseData", warehouseData);
       const warehouseId = warehouseData._id;
 
       const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
@@ -338,9 +360,6 @@ module.exports.updateOrderStatus = async (req, res) => {
           message: "Warehouse Items Data Not Found",
         });
       }
-
-      console.log("warehouseItemRecord", warehouseItemRecord);
-
       pickupItem.status = true;
       pickupItem.approvedBy = approvedBy;
       pickupItem.arrivedDate = arrivedDate;
@@ -360,7 +379,6 @@ module.exports.updateOrderStatus = async (req, res) => {
         }
 
         const warehouseItem = warehouseItemRecord.items.find(wItem => wItem.itemName === itemName);
-        console.log("warehouseItem", warehouseItem);
         if (!warehouseItem) {
           return res.status(404).json({
             success: false,
@@ -372,7 +390,7 @@ module.exports.updateOrderStatus = async (req, res) => {
           itemRecord.defective = parseInt(itemRecord.defective) + parseInt(quantityToAdjust); //Adding incoming items from SP to Items Defect Field
           warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust); //Addding incoming items from SP to WarehouseItems Defect Field
         }
-        console.log("ItemsSchemaData: ", await itemRecord.save());
+        await itemRecord.save();
 
       }
       await warehouseItemRecord.save();
@@ -383,7 +401,6 @@ module.exports.updateOrderStatus = async (req, res) => {
       const orderDetails = await IncomingItemDetails.findOne({
         servicePerson: servicePersonId,
       });
-      console.log("orderdetils", orderDetails);
       if (!orderDetails) {
         return res.status(400).json({
           success: false,
@@ -392,11 +409,9 @@ module.exports.updateOrderStatus = async (req, res) => {
       }
 
       for (let item of itemsToUpdate) {
-        console.log("Item", item);
         const matchingItem = orderDetails.items.find(
           (i) => i.itemName === item.itemName
         );
-        console.log("matching", matchingItem);
 
         if (!matchingItem) {
           return res.status(404).json({
@@ -431,7 +446,6 @@ module.exports.updateOrderStatus = async (req, res) => {
       });
     } else if (status === true && incoming === false) {
       const pickupItem = await PickupItem.findById(pickupItemId);
-      console.log("pickup", pickupItem);
       if (!pickupItem) {
         return res.status(404).json({
           success: false,
@@ -462,7 +476,6 @@ module.exports.updateOrderStatus = async (req, res) => {
       const outgoingOrderDetails = await OutgoingItemDetails.findOne({
         servicePerson: servicePersonId,
       });
-      console.log("orderdetils", outgoingOrderDetails);
       if (!outgoingOrderDetails) {
         return res.status(400).json({
           success: false,
@@ -471,11 +484,9 @@ module.exports.updateOrderStatus = async (req, res) => {
       }
 
       for (let item of itemsToUpdate) {
-        console.log("Item", item);
         const matchingItem = outgoingOrderDetails.items.find(
           (i) => i.itemName === item.itemName
         );
-        console.log("matching", matchingItem);
 
         if (!matchingItem) {
           return res.status(404).json({
@@ -540,7 +551,6 @@ module.exports.servicePersonDashboard = async (req, res) => {
         items: item.items,
       });
     });
-    console.log("Incoming", incomingItemData);
 
     // Add outgoing items to mergedData
     outgoingItemData.forEach((item) => {
@@ -549,8 +559,6 @@ module.exports.servicePersonDashboard = async (req, res) => {
         items: item.items,
       });
     });
-    console.log("Outgoing", outgoingItemData);
-    console.log("Merged", mergedData);
     res.status(200).json({
       success: true,
       message: "Data Merged Successfully",
@@ -616,9 +624,7 @@ module.exports.showWarehouseItems = async(req, res) => {
 
 module.exports.incomingItemsData = async (req, res) => {
   try {
-    console.log("Req.body:", req.body);
     const id = req.user._id;
-    console.log("ID:", id);
     const {
       farmerName,
       farmerContact,
@@ -666,7 +672,6 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Warehouse Doesn't Exist",
       });
     }
-    console.log("warhouseData", warehouseData);
     const warehouseId = warehouseData._id;
 
     const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
@@ -677,7 +682,6 @@ module.exports.incomingItemsData = async (req, res) => {
       });
     }
 
-    console.log("warehouseItemRecord", warehouseItemRecord);
 
     for (let item of items) {
       const itemName = item.itemName;
@@ -789,7 +793,6 @@ module.exports.incomingItemsData = async (req, res) => {
           servicePerson: id,
           items,
         });
-        console.log("Incoming: ", existingIncomingRecord);
         await existingIncomingRecord.save();
       }
     }
@@ -812,7 +815,6 @@ module.exports.incomingItemsData = async (req, res) => {
       approvedBy,
       pickupDate,
     });
-    console.log("returnsItem: ", returnItems);
     await returnItems.save();
 
     res.status(200).json({
@@ -831,7 +833,6 @@ module.exports.incomingItemsData = async (req, res) => {
 
 module.exports.pickupItemOfServicePerson = async (req, res) => {
   try {
-    console.log(req.user);
     const id = req.user._id;
     if (!id) {
       return res.status(404).json({
