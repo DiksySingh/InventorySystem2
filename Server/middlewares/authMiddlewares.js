@@ -9,7 +9,6 @@ require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
 module.exports.userVerification = (allowedRoles) => {
-  console.log(allowedRoles)
   return async (req, res, next) => {
     const token =
       req.cookies.accessToken || req.headers.authorization?.split(" ")[1];

@@ -44,7 +44,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, 
-}).single("image");
+}).array("photos", 4); ;
 
 const uploadHandler = (req, res, next) => {
   upload(req, res, (err) => {
@@ -60,6 +60,14 @@ const uploadHandler = (req, res, next) => {
         message: err.message,
       });
     }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No files uploaded!",
+      });
+    }
+
     next();
   });
 };
@@ -129,7 +137,4 @@ const uploadHandler = (req, res, next) => {
 //   }
 // };
 
-module.exports = {
-  uploadHandler,
-  // resizeImageMiddleware,
-};
+module.exports = uploadHandler;

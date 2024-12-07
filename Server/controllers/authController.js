@@ -169,7 +169,6 @@ module.exports.servicePersonSignup = async (req, res) => {
 module.exports.Login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
-    console.log(req.body);
     const options = {
       withCredentials: true,
       httpOnly: true,
@@ -244,8 +243,8 @@ module.exports.Login = async (req, res) => {
         message: `Logged in successfully`,
         id: user._id,
         email: user.email,
-        accessToken,
-        refreshToken,
+        // accessToken,
+        // refreshToken,
         role,
       });
   } catch (error) {

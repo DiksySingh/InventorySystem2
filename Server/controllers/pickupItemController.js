@@ -68,6 +68,58 @@ module.exports.servicePersonIncomingItemsData = async(req, res) => {
   }
 };
 
+// module.exports.servicePersonIncomingItemsData2 = async (req, res) => {
+//   try {
+//     const incomingItemsData = await IncomingItemDetails.aggregate([
+//       {
+//         $lookup: {
+//           from: "ServicePerson", // Replace with the actual collection name for `ServicePerson`
+//           localField: "servicePerson",
+//           foreignField: "_id",
+//           as: "servicePersonDetails",
+//         },
+//       },
+//       {
+//         $unwind: "$servicePersonDetails",
+//       },
+//       {
+//         $project: {
+//           _id: 1,
+//           servicePerson: {
+//             _id: "$servicePersonDetails._id",
+//             name: "$servicePersonDetails.name",
+//             contact: "$servicePersonDetails.contact",
+//           },
+//           items: {
+//             $filter: {
+//               input: "$items",
+//               as: "item",
+//               cond: { $ne: ["$$item.quantity", 0] },
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $match: {
+//           "items.0": { $exists: true }, // Only include documents where there are non-zero items
+//         },
+//       },
+//     ]);
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Data Fetched Successfully",
+//       data: incomingItemsData || [],
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 module.exports.servicePersonOutgoingItemsData = async(req, res) => {
   try{
     const outgoingItemsData = await OutgoingItemDetails.find().populate("servicePerson", "_id name contact");
