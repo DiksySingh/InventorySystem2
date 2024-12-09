@@ -14,6 +14,6 @@ router.get("/pickedup-items",userVerification(["serviceperson"]),pickupItemOfSer
 router.get("/approved-order-history", userVerification(['serviceperson']), viewApprovedOrderHistory);
 router.put("/update-outgoing-status", userVerification(["serviceperson"]), updateOrderStatus);
 
-router.post("/new-installation-data",userVerification(['serviceperson']), uploadHandler, createInstallationData );
+router.post("/new-installation-data",userVerification(['serviceperson']), uploadHandler, createInstallationData);
 
 module.exports = router;

@@ -26,15 +26,19 @@ const installationSchema = new Schema({
     },
     latitude: {
         type: String,
-        required: true
+        required: true      
     },
-    status: {
-        type: Boolean,
-        default: false
+    otpVerified: {
+        type: Schema.Types.ObjectId,
+        ref: "OTP"
+    },
+    installedBy: {
+        type: String,
     },
     installationDate: {
         type: Date,
-    }
+        required: true
+    },
 }, {collection: "inInstallationData"});
 
 const InstallationData = mongoose.model("InstallationData", installationSchema);
