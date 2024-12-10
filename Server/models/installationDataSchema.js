@@ -14,6 +14,22 @@ const installationSchema = new Schema({
         type: String, 
         required: true
     },
+    items: [
+        {
+            itemName: {
+                type: String,
+                required: true
+            },
+            quantity: {
+                type: Number,
+                required: true
+            }
+        }
+    ],
+    serialNumber: {
+        type: String,
+        required: true
+    },
     photos: [
         {
             type: String,
@@ -28,7 +44,11 @@ const installationSchema = new Schema({
         type: String,
         required: true      
     },
-    otpVerified: {
+    status: {
+        type: Boolean,
+        default: false
+    },
+    otpRecordId: {
         type: Schema.Types.ObjectId,
         ref: "OTP"
     },

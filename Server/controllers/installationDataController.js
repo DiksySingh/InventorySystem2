@@ -3,11 +3,36 @@ const InstallationData = require("../models/installationDataSchema");
 const PickupItem = require("../models/pickupItemSchema");
 const sendOtp = require("../helpers/otpGeneration.js");
 
+module.exports.getPickupItemData = async(req, res) => {
+    try{
+        const {pickupItemId} = req.query || req.body;
+        if(!pickupItemId){
+            return res.status(400).json({
+                success: false,
+                message: "PickupItemId Not Found"
+            });
+        }
+
+        const pickupItemData = await PickupItem.findById({_id: pickupItemId}).select("-servicePerson -servicePersonName -servicePerContact -image -warehouse -withoutRMU -rmuRemark -remark -status -incoming -approvedBy -pickupDate -__v");
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: pickupItemData || []
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
 module.exports.createInstallationData = async(req, res) => {
     try{
-        const {pickupItemId, farmerName, farmerContact, farmerVillage, longitude, latitude, status, installedBy, installationDate} = req.body;
+        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, longitude, latitude, status, installedBy, installationDate} = req.body;
         const servicePersonName = req.user.name;
-        if(!pickupItemId || !farmerName || !farmerContact || !farmerVillage || !installationDate){
+        if(!pickupItemId || !farmerName || !farmerContact || !farmerVillage || !items || !serialNumber || !installationDate){
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -28,6 +53,8 @@ module.exports.createInstallationData = async(req, res) => {
             farmerName,
             farmerContact: Number(farmerContact),
             farmerVillage,
+            items: JSON.parse(items),
+            serialNumber,
             photos: photoUrls,
             longitude,
             latitude,
@@ -84,7 +111,7 @@ module.exports.sendOtp = async(req, res) => {
             createdAt: new Date()
         });
         const otpData = await newOtpData.save();
-        installationData.otpVerified = otpData._id;
+        installationData.otpRecordId = otpData._id;
         await installationData.save();
 
         // const otpRecord = await OTP.findById({_id: installationData.otpVerified});
@@ -97,7 +124,7 @@ module.exports.sendOtp = async(req, res) => {
         // const phoneNumber = otpRecord.phoneNumber;
         // const otp = otpRecord.otp;
         const result = await sendOtp(phoneNumber, otpGenerate);
-        if(result.success){
+        if(result && result.success){
             return res.status(200).json({
                 success: true,
                 message: "OTP sent successfully",
@@ -179,16 +206,16 @@ module.exports.verifyOtp = async(req, res) => {
 
 module.exports.resendOTP = async (req, res) => {
     try{
-        const {pickupItemId} = req.body;
-        if(!pickupItemId) {
+        const {installationId} = req.body;
+        if(!installationId) {
             return res.status(400).json({
                 success: false,
                 message: "PickupItem ID Not Found"
             });
         }
 
-        const pickupItemData = await PickupItem.findById({_id: pickupItemId});
-        const otpRecordId = pickupItemData.otpRecordId;
+        const installationData = await InstallationData.findById({_id: installationId});
+        const otpRecordId = installationData.otpRecordId;
         const existingOtpRecord = await OTP.findById({_id: otpRecordId});
         if (!existingOtpRecord) {
             return res.status(404).json({
@@ -255,6 +282,12 @@ module.exports.getInstallationsData = async(req, res) => {
         });
     }
 };
+
+// module.exports.getWarehouseInstallationData = async (req, res) => {
+//     try{
+//         const warehouse = 
+//     }
+// };
 
 
 
