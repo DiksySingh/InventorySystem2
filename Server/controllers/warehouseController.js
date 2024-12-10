@@ -569,7 +569,7 @@ module.exports.viewApprovedOrderHistory = async(req, res) => {
             });
         }
 
-        const pickupItemData = await PickupItem.find({servicePerson: servicePersonId});
+        const pickupItemData = await PickupItem.find({servicePerson: servicePersonId}).sort({pickupDate: -1});
         
         let orderHistory = [];
 
