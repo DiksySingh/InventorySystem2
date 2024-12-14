@@ -2,6 +2,14 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const installationSchema = new Schema({
+    warehouseId: {
+        type: Schema.Types.ObjectId,
+        ref: "Warehouse"
+    },
+    servicePersonId: {
+        type: Schema.Types.ObjectId,
+        ref: "ServicePerson"
+    },
     farmerName: {
         type: String,
         required: true

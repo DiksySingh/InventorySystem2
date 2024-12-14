@@ -1,6 +1,9 @@
 const OTP = require("../models/otpVerificationSchema");
 const InstallationData = require("../models/installationDataSchema");
 const PickupItem = require("../models/pickupItemSchema");
+const Warehouse = require("../models/warehouseSchema");
+const OutgoingItemDetails = require("../models/outgoingItemsTotal");
+const ServicePerson = require("../models/servicePersonSchema");
 const sendOtp = require("../helpers/otpGeneration.js");
 
 module.exports.getPickupItemData = async(req, res) => {
@@ -30,8 +33,11 @@ module.exports.getPickupItemData = async(req, res) => {
 
 module.exports.createInstallationData = async(req, res) => {
     try{
-        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, longitude, latitude, status, installedBy, installationDate} = req.body;
+        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, longitude, latitude, status, installationDate} = req.body;
+        const servicePersonId= req.user._id;
         const servicePersonName = req.user.name;
+        const itemsData = JSON.parse(items);
+
         if(!pickupItemId || !farmerName || !farmerContact || !farmerVillage || !items || !serialNumber || !installationDate){
             return res.status(400).json({
                 success: false,
@@ -46,24 +52,6 @@ module.exports.createInstallationData = async(req, res) => {
             });
         }
 
-        //const photoFilenames = req.files.map((file) => file.filename);
-        const photoUrls = req.files.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`);
-
-        const newInstallation = new InstallationData({
-            farmerName,
-            farmerContact: Number(farmerContact),
-            farmerVillage,
-            items: JSON.parse(items),
-            serialNumber,
-            photos: photoUrls,
-            longitude,
-            latitude,
-            status,
-            installedBy: servicePersonName,
-            installationDate
-        });
-
-        const installationData = await newInstallation.save();
         const pickupItemData = await PickupItem.findById({_id: pickupItemId});
         if(!pickupItemData){
             return res.status(400).json({
@@ -72,13 +60,55 @@ module.exports.createInstallationData = async(req, res) => {
             });
         }
 
+        const warehouseData = await Warehouse.findOne({warehouseName: pickupItemData.warehouse});
+        const outgoingOrderDetails = await OutgoingItemDetails.findOne({servicePerson: servicePersonId});
+        
+        //const photoFilenames = req.files.map((file) => file.filename);
+        const photoUrls = req.files.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`);
+
+        const newInstallation = new InstallationData({
+            warehouseId: warehouseData._id,
+            servicePersonId: servicePersonId,
+            farmerName,
+            farmerContact: Number(farmerContact),
+            farmerVillage,
+            items: itemsData,
+            serialNumber,
+            photos: photoUrls,
+            longitude: longitude || "",
+            latitude: latitude || "",
+            status,
+            installedBy: servicePersonName,
+            installationDate
+        });
+
+        const installationData = await newInstallation.save();
         pickupItemData.installationId = installationData._id;
+        if(pickupItemData.incoming === false){
+        for(let item of itemsData){
+            const matchingItem = outgoingOrderDetails.items.find(i => i.itemName === item.itemName);
+            
+            if (matchingItem.quantity < item.quantity) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Not enough quantity for ${item.itemName}`,
+                });
+            }
+      
+            if (matchingItem.quantity === item.quantity) {
+                matchingItem.quantity = 0;
+            } else {
+                matchingItem.quantity -= item.quantity;
+            }
+        }
+        }
         await pickupItemData.save();
+        await outgoingOrderDetails.save();
 
         return res.status(200).json({
             success: true,
             message: "Data Logged Successfully",
-            installationData,
+            data: installationData,
         })
     }catch(error){
         return res.status(500).json({
@@ -91,7 +121,7 @@ module.exports.createInstallationData = async(req, res) => {
 
 module.exports.sendOtp = async(req, res) => {
     try{
-        const {installationId} = req.body;
+        const {installationId} = req.query;
         const installationData = await InstallationData.findById({_id: installationId});
         if(!installationData){
             return res.status(404).json({
@@ -102,7 +132,7 @@ module.exports.sendOtp = async(req, res) => {
 
         const phoneNumber = Number(installationData.farmerContact);
         const otpGenerate = Math.floor(100000 + Math.random() * 900000);
-        const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
         const newOtpData = new OTP({
             phoneNumber: phoneNumber,
             otp: otpGenerate,
@@ -114,28 +144,20 @@ module.exports.sendOtp = async(req, res) => {
         installationData.otpRecordId = otpData._id;
         await installationData.save();
 
-        // const otpRecord = await OTP.findById({_id: installationData.otpVerified});
-        // if(!otpRecord){
-        //     return res.status(404).json({
-        //         success: false,
-        //         message: "OTP Record Not Found For The Data"
-        //     });
-        // }
-        // const phoneNumber = otpRecord.phoneNumber;
-        // const otp = otpRecord.otp;
         const result = await sendOtp(phoneNumber, otpGenerate);
-        if(result && result.success){
+        console.log("Result: ",result);
+        if (result.success) {
             return res.status(200).json({
-                success: true,
-                message: "OTP sent successfully",
-                installationData,
-                otpData
+              success: true,
+              message: "OTP sent successfully",
+              installationData,
+              otpData,
             });
-        }else{
+          } else {
             return res.status(500).json({
-                success: false,
-                message: "Failed to send OTP",
-                error: result ? result.message : "Unknown error occurred while sending OTP",
+              success: false,
+              message: "Failed to send OTP",
+              error: result.error,
             });
         }
     }catch(error){
@@ -158,12 +180,6 @@ module.exports.verifyOtp = async(req, res) => {
         }
 
         const installationData = await InstallationData.findById({_id: installationId});
-        // if(!installationData){
-        //     return res.status(404).json({
-        //         success: false,
-        //         message: "Pickup Item Data Not Found"
-        //     });
-        // }
 
         const otpRecordId = installationData.otpRecordId;
         const otpRecord  = await OTP.findById({_id: otpRecordId});
@@ -190,7 +206,11 @@ module.exports.verifyOtp = async(req, res) => {
         }
 
         otpRecord.otpVerified = true;
+        installationData.status = true;
+        
         await otpRecord.save();
+        await installationData.save();
+
         return res.status(200).json({
             success: true,
             message: "OTP Verified Successfully"
@@ -204,7 +224,7 @@ module.exports.verifyOtp = async(req, res) => {
     }
 };
 
-module.exports.resendOTP = async (req, res) => {
+module.exports.resendOtp = async (req, res) => {
     try{
         const {installationId} = req.body;
         if(!installationId) {
@@ -224,7 +244,7 @@ module.exports.resendOTP = async (req, res) => {
             });
         }
         const newOtp = Math.floor(100000 + Math.random() * 900000);
-        const newExpiresAt = new Date(Date.now() + 2 * 60 * 1000);
+        const newExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
         const phoneNumber = existingOtpRecord.phoneNumber;
         existingOtpRecord.otp = newOtp;
@@ -257,7 +277,7 @@ module.exports.resendOTP = async (req, res) => {
 
 module.exports.getInstallationsData = async(req, res) => {
     try{
-        const installationsData = await InstallationData.find().sort({installationDate: -1});
+        const allInstallationsData = await InstallationData.find().sort({installationDate: -1});
 
         // const installationsWithPhotoUrls = installationsData.map(installation => {
         //     const photosWithUrls = installation.photos.map(photo =>
@@ -272,7 +292,7 @@ module.exports.getInstallationsData = async(req, res) => {
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            data: installationsData || []
+            data: allInstallationsData || []
         }); 
     }catch(error){
         return res.status(500).json({
@@ -283,11 +303,53 @@ module.exports.getInstallationsData = async(req, res) => {
     }
 };
 
-// module.exports.getWarehouseInstallationData = async (req, res) => {
-//     try{
-//         const warehouse = 
-//     }
-// };
+module.exports.getWarehouseInstallationData = async (req, res) => {
+    try{
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId){
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseId Not Found"
+            });
+        }
+        
+        const installationData = await InstallationData.find({warehouseId: warehouseId}).sort({installationDate: -1});
+        return res.status(200).json({
+            success: true,
+            message: "Installation Data Fetched Successfully",
+            data: installationData || []
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
 
+module.exports.getServicePersonInstallationData = async(req, res) => {
+    try{
+        const servicePersonId = req.query || req.body;
+        if(!servicePersonId){
+            return res.status(400).json({
+                success: false,
+                message: "ServicePersonId Not Found"
+            });
+        }
 
+        const installationData = await InstallationData.find({servicePersonId: servicePersonId}).sort({installationDate: -1});
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: installationData || []
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
 

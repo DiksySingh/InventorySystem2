@@ -51,15 +51,15 @@ module.exports.allOrderDetails = async (req, res) => {
   }
 };
 
-module.exports.servicePersonIncomingItemsData = async(req, res) => {
-  try{
+module.exports.servicePersonIncomingItemsData = async (req, res) => {
+  try {
     const incomingItemsData = await IncomingItemDetails.find().populate("servicePerson", "_id name contact");
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
       data: incomingItemsData || []
     });
-  }catch(error){
+  } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -120,15 +120,15 @@ module.exports.servicePersonIncomingItemsData = async(req, res) => {
 //   }
 // };
 
-module.exports.servicePersonOutgoingItemsData = async(req, res) => {
-  try{
+module.exports.servicePersonOutgoingItemsData = async (req, res) => {
+  try {
     const outgoingItemsData = await OutgoingItemDetails.find().populate("servicePerson", "_id name contact");
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
       data: outgoingItemsData || []
     });
-  }catch(error){
+  } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -167,7 +167,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       !farmerVillage ||
       !items ||
       !warehouse ||
-      !serialNumber||
+      !serialNumber ||
       !pickupDate
     ) {
       return res.status(400).json({
@@ -235,7 +235,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       if (incoming === false) {
         // Check if there is enough stock
         if (warehouseItem.quantity < quantityToAdjust || itemRecord.stock < quantityToAdjust) {
-          return res.status(400).json({  
+          return res.status(400).json({
             success: false,
             message: `Not enough stock for item ${itemName}`,
           });
@@ -257,37 +257,37 @@ module.exports.outgoingItemsData = async (req, res) => {
     // Save the updated WarehouseItems record
     await warehouseItemRecord.save();
 
-    if (incoming === false) {
-      // Update OutgoingItemDetails for outgoing items
-      let existingOutgoingRecord = await OutgoingItemDetails.findOne({
-        servicePerson: id,
-      });
+    // if (incoming === false) {
+    //   // Update OutgoingItemDetails for outgoing items
+    //   let existingOutgoingRecord = await OutgoingItemDetails.findOne({
+    //     servicePerson: id,
+    //   });
 
-      if (existingOutgoingRecord) {
-        // Update existing quantities or add new items
-        outgoingItemsData.forEach((outgoingItem) => {
-          const existingItemIndex = existingOutgoingRecord.items.findIndex(
-            (item) => item.itemName === outgoingItem.itemName
-          );
+    //   if (existingOutgoingRecord) {
+    //     // Update existing quantities or add new items
+    //     outgoingItemsData.forEach((outgoingItem) => {
+    //       const existingItemIndex = existingOutgoingRecord.items.findIndex(
+    //         (item) => item.itemName === outgoingItem.itemName
+    //       );
 
-          if (existingItemIndex > -1) {
-            existingOutgoingRecord.items[existingItemIndex].quantity +=
-              outgoingItem.quantity;
-          } else {
-            existingOutgoingRecord.items.push(outgoingItem);
-          }
-        });
+    //       if (existingItemIndex > -1) {
+    //         existingOutgoingRecord.items[existingItemIndex].quantity +=
+    //           outgoingItem.quantity;
+    //       } else {
+    //         existingOutgoingRecord.items.push(outgoingItem);
+    //       }
+    //     });
 
-        await existingOutgoingRecord.save();
-      } else {
-        // No existing record, so create a new one
-        existingOutgoingRecord = new OutgoingItemDetails({
-          servicePerson: id,
-          items: outgoingItemsData,
-        });
-        await existingOutgoingRecord.save();
-      }
-    }
+    //     await existingOutgoingRecord.save();
+    //   } else {
+    //     // No existing record, so create a new one
+    //     existingOutgoingRecord = new OutgoingItemDetails({
+    //       servicePerson: id,
+    //       items: outgoingItemsData,
+    //     });
+    //     await existingOutgoingRecord.save();
+    //   }
+    // }
 
     const returnItems = new PickupItem({
       servicePerson: id,
@@ -369,7 +369,7 @@ module.exports.warehouseOrderDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      
+
       error: error.message,
     });
   }
@@ -497,6 +497,7 @@ module.exports.updateOrderStatus = async (req, res) => {
         incomingDetails: orderDetails,
       });
     } else if (status === true && incoming === false) {
+      let outgoingItemsData = [];
       const pickupItem = await PickupItem.findById(pickupItemId);
       if (!pickupItem) {
         return res.status(404).json({
@@ -525,43 +526,75 @@ module.exports.updateOrderStatus = async (req, res) => {
       const itemsToUpdate = pickupItem.items;
       const servicePersonId = pickupItem.servicePerson;
 
-      const outgoingOrderDetails = await OutgoingItemDetails.findOne({
-        servicePerson: servicePersonId,
-      });
-      if (!outgoingOrderDetails) {
-        return res.status(400).json({
-          success: false,
-          message: "OutgoingItemDetails not found for the service person",
-        });
-      }
+      // const outgoingOrderDetails = await OutgoingItemDetails.findOne({
+      //   servicePerson: servicePersonId,
+      // });
+
+      // if (!outgoingOrderDetails) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "OutgoingItemDetails not found for the service person",
+      //   });
+      // }
 
       for (let item of itemsToUpdate) {
-        const matchingItem = outgoingOrderDetails.items.find(
-          (i) => i.itemName === item.itemName
-        );
+        let itemName = item.itemName;
+        let quantity = item.quantity;
+        outgoingItemsData.push({ itemName, quantity });
+        // const matchingItem = outgoingOrderDetails.items.find(
+        //   (i) => i.itemName === item.itemName
+        // );
 
-        if (!matchingItem) {
-          return res.status(404).json({
-            success: false,
-            message: `Item ${item.itemName} not found in OutgoingItemDetails`,
-          });
-        }
+        // if (!matchingItem) {
+        //   return res.status(404).json({
+        //     success: false,
+        //     message: `Item ${item.itemName} not found in OutgoingItemDetails`,
+        //   });
+        // }
 
-        if (matchingItem.quantity < item.quantity) {
-          return res.status(400).json({
-            success: false,
-            message: `Not enough quantity for ${item.itemName}`,
-          });
-        }
+        // if (matchingItem.quantity < item.quantity) {
+        //   return res.status(400).json({
+        //     success: false,
+        //     message: `Not enough quantity for ${item.itemName}`,
+        //   });
+        // }
 
-        if (matchingItem.quantity === item.quantity) {
-          matchingItem.quantity = 0;
-        } else {
-          matchingItem.quantity -= item.quantity;
-        }
+        // if (matchingItem.quantity === item.quantity) {
+        //   matchingItem.quantity = 0;
+        // } else {
+        //   matchingItem.quantity += item.quantity;
+        // }
       }
 
-      await outgoingOrderDetails.save();
+      // await outgoingOrderDetails.save();
+      let existingOutgoingRecord = await OutgoingItemDetails.findOne({
+        servicePerson: servicePersonId,
+      });
+
+      if (existingOutgoingRecord) {
+        // Update existing quantities or add new items
+        outgoingItemsData.forEach((outgoingItem) => {
+          const existingItemIndex = existingOutgoingRecord.items.findIndex(
+            (item) => item.itemName === outgoingItem.itemName
+          );
+
+          if (existingItemIndex > -1) {
+            existingOutgoingRecord.items[existingItemIndex].quantity +=
+              outgoingItem.quantity;
+          } else {
+            existingOutgoingRecord.items.push(outgoingItem);
+          }
+        });
+
+        await existingOutgoingRecord.save();
+      } else {
+        // No existing record, so create a new one
+        existingOutgoingRecord = new OutgoingItemDetails({
+          servicePerson: servicePersonId,
+          items: outgoingItemsData,
+        });
+        await existingOutgoingRecord.save();
+      }
 
       await pickupItem.save();
 
@@ -569,7 +602,7 @@ module.exports.updateOrderStatus = async (req, res) => {
         success: true,
         message: "Status updated and quantities adjusted successfully",
         pickupItem,
-        outgoingDetails: outgoingOrderDetails,
+        outgoingDetails: existingOutgoingRecord,
       });
     }
   } catch (error) {
@@ -591,7 +624,7 @@ module.exports.servicePersonDashboard = async (req, res) => {
     );
     const outgoingItemData = await OutgoingItemDetails.find({ servicePerson: servicePersonId }).select(
       "-servicePerson"
-    ); 
+    );
 
     // Create a unified response array
     const mergedData = [];
@@ -625,52 +658,52 @@ module.exports.servicePersonDashboard = async (req, res) => {
   }
 };
 
-module.exports.showWarehouseItems = async(req, res) => {
-  try{
-      const {option} = req.query;
-      if(!option){
-          return res.status(400).json({
-              success: false,
-              message: "Option is required"
-          });
-      }
-
-      const warehouseData = await Warehouse.findOne({warehouseName: option});
-      if(!warehouseData){
-          return res.status(404).json({
-              success: false,
-              message: "Warehouse Not Found"
-          });
-      }
-      
-
-      const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
-      // if(!warehouseItemsData){
-      //     return res.status(404).json({
-      //         success: false,
-      //         message: "WarehouseItems Data Not Found"
-      //     });
-      // }
-
-      let itemsData = [];
-      if(warehouseItemsData){
-        for(let item of warehouseItemsData.items){
-          itemsData.push(item.itemName);
-        }
-      }
-      // console.log(itemsData);
-
-      return res.status(200).json({
-          success: true,
-          message: "Data Fetched Successfully",
-          itemsData
+module.exports.showWarehouseItems = async (req, res) => {
+  try {
+    const { option } = req.query;
+    if (!option) {
+      return res.status(400).json({
+        success: false,
+        message: "Option is required"
       });
-  }catch(error){
-      return res.status(500).json({
-          success: false,
-          message: "Internal Server Error",
-          error: error.message
+    }
+
+    const warehouseData = await Warehouse.findOne({ warehouseName: option });
+    if (!warehouseData) {
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse Not Found"
       });
+    }
+
+
+    const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id });
+    // if(!warehouseItemsData){
+    //     return res.status(404).json({
+    //         success: false,
+    //         message: "WarehouseItems Data Not Found"
+    //     });
+    // }
+
+    let itemsData = [];
+    if (warehouseItemsData) {
+      for (let item of warehouseItemsData.items) {
+        itemsData.push(item.itemName);
+      }
+    }
+    // console.log(itemsData);
+
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      itemsData
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
   }
 }
 
@@ -701,7 +734,7 @@ module.exports.incomingItemsData = async (req, res) => {
       !farmerVillage ||
       !items ||
       !warehouse ||
-      !serialNumber || 
+      !serialNumber ||
       !pickupDate
     ) {
       return res.status(400).json({
@@ -741,7 +774,7 @@ module.exports.incomingItemsData = async (req, res) => {
 
       // const warehouseItem = warehouseItemRecord.items.find(i => i.itemName === itemName);
       // warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust);
-     
+
       outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
       // // Find the corresponding item in the Item schema
       // const itemRecord = await Item.findOne({ itemName });
@@ -781,7 +814,7 @@ module.exports.incomingItemsData = async (req, res) => {
       //   console.log("outgoingItemsData:", outgoingItemsData);
       // }
       // // Save the updated item record
-      
+
       //console.log("ItemsSchemaData:", await itemRecord.save());
     }
 
@@ -819,7 +852,7 @@ module.exports.incomingItemsData = async (req, res) => {
     //     await existingOutgoingRecord.save();
     //   }
     // } else {
-    if(incoming === true){
+    if (incoming === true) {
       // Update or create IncomingItemDetails for incoming items
       let existingIncomingRecord = await IncomingItemDetails.findOne({
         servicePerson: id,
@@ -893,12 +926,12 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
       });
     }
 
-    const page = parseInt(req.query.page) ;
+    const page = parseInt(req.query.page);
     const limit = parseInt(req.query.limit);
     const skip = (page - 1) * limit;
 
     const pickupItems = await PickupItem.find({ servicePerson: id })
-      .populate("servicePerson","-__v -password -refreshToken -role -createdAt -email")
+      .populate("servicePerson", "-__v -password -refreshToken -role -createdAt -email")
       .sort({ pickupDate: -1 })
       .skip(skip)
       .limit(limit)

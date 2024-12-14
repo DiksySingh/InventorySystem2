@@ -43,19 +43,6 @@ app.use(express.urlencoded({ extended: true }));
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Test route to set cookies
-
-// app.get('/set-cookie', (req, res) => {
-//   res.cookie('sessionId', 'abc123', {
-//       domain: process.env.IP_ADDRESS, // Replace with your server's IP address
-//       path: '/',
-//       httpOnly: true,
-//       secure: false, // Set to true if using HTTPS
-//       sameSite: 'Lax', // Adjust based on your needs
-//   });
-//   res.send('Cookie has been set');
-// });
-
 // Routes
 app.get("/", (req, res) => {
   res.send("Server Working Fine");
@@ -69,5 +56,5 @@ app.use("/service-team", serviceTeamRoute);
 
 // Start the server
 app.listen(PORT, () => {
-  console.log(`Server running at port: ${PORT}`); // Replace with your local IP
+  console.log(`Server running at port: ${PORT}`); 
 });

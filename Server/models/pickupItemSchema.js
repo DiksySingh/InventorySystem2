@@ -40,9 +40,6 @@ const pickupItemSchema = new Schema(
         },
       },
     ],
-    // rmu: {
-    //   type: 
-    // }
     image: {
       type: String,
       default: null

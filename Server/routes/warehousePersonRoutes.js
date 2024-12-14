@@ -12,6 +12,7 @@ const {
   viewOrdersApprovedHistory
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData,inDefectiveItemsOrderHistory,outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
+const { getWarehouseInstallationData } = require("../controllers/installationDataController");
 const router = require("express").Router();
 const { userVerification } = require("../middlewares/authMiddlewares");
 
@@ -37,5 +38,7 @@ router.get("/defective-order-history", userVerification(['warehouseAdmin']), inD
 router.get("/outgoing-defective-order", userVerification(['warehouseAdmin']), outgoingDefectiveOrderData);
 router.put("/update-defective-order-status", userVerification(['warehouseAdmin']), updateDefectiveOrderStatus);
 //router.delete("/deleteItem", userVerification(["warehouseAdmin"]), deleteItem);
+
+router.get("/warehouse-installation-data", userVerification(['warehouseAdmin']), getWarehouseInstallationData);
 
 module.exports = router;
