@@ -12,7 +12,7 @@ const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
 
 // Load environment variables
-const URI = process.env.MONGO_URL;
+const URI = process.env.MONGODB_URL;
 const PORT = process.env.PORT || 8001; 
 
 // MongoDB connection
@@ -36,9 +36,10 @@ app.use(cors({
   origin: true, // Allow all origins during development
   credentials: true, // Allow cookies to be sent
 }));
-app.use(cookieParser());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
