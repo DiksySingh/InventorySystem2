@@ -174,7 +174,7 @@ module.exports.deleteServicePerson = async (req, res) => {
 
 module.exports.allRepairRejectItemsData = async (req, res) => {
     try{
-        const allRepairRejectData = await RepairNRejectItems.find({});
+        const allRepairRejectData = await RepairNRejectItems.find({}).sort({createdAt: -1});
         if(!allRepairRejectData){
             return res.status(404).json({
                 success: false,

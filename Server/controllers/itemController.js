@@ -4,63 +4,6 @@ const IncomingItem = require("../models/incomingItemSchema");
 const WarehouseItems = require("../models/warehouseItemsSchema");
 const Warehouse = require("../models/warehouseSchema");
 
-
-// //Add New Item
-// module.exports.addItem = async (req, res) => {
-//   const itemName = req.body.itemName.trim();
-//   const { stock, createdAt, updatedAt } = req.body;
-//   console.log(stock);
-//   if (!itemName) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "itemName is required",
-//     });
-//   }
-  
-//   let isStock;
-//   if(stock !== undefined){
-//     isStock = stock;
-//   }else{
-//     isStock = 0;
-//   }
-
-//   try{
-//   const existingItem = await Item.findOne({itemName: { $regex: new RegExp(`^${itemName}$`, "i") }});
-//   console.log(existingItem);
-//   if(existingItem){
-//     return res.status(400).json({
-//       success: false,
-//       message: "Item exists in warehouse"
-//     });
-//   }
-  
-//     const newItem = new Item({ 
-//       itemName, 
-//       stock: isStock,
-//       createdAt, 
-//       updatedAt 
-//     });
-//     const itemData = await newItem.save();
-//     if (!itemData) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Data Insertion Failed",
-//       });
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Data Inserted Successfully",
-//       data: itemData,
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       error: error.message,
-//     });
-//   }
-// };
-
 //************************* Warehouse Access *****************************// 
 // View All Items
 module.exports.showItems = async (req, res) => {
@@ -287,7 +230,6 @@ module.exports.updateItemName = async (req, res) => {
   }
 };
 
-
 //Admin Access
 module.exports.showItemsData = async (req, res) => {
   try {
@@ -340,7 +282,6 @@ module.exports.showItemsData = async (req, res) => {
     });
   }
 };
-
 
 //Delete Item
 module.exports.deleteItem = async (req, res) => {

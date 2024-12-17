@@ -321,17 +321,6 @@ module.exports.outgoingItemsData = async (req, res) => {
   }
 };
 
-
-// // Modify the result to include the full URL of the image
-// const itemsWithImageUrl = pickupItems.map((item) => ({
-//   ...item.toObject(), // Convert to plain object to modify the response
-//   imageUrl: `${req.protocol}://${req.get("host")}/uploads/images/${
-//     item.image
-//   }`, // Construct image URL
-// }));
-
-// res.status(200).json(itemsWithImageUrl);
-
 module.exports.warehouseOrderDetails = async (req, res) => {
   try {
     const page = parseInt(req.query.page);
