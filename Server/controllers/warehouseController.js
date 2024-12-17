@@ -43,9 +43,9 @@ module.exports.addWarehouse = async (req, res) => {
             error: error.message
         });
     }
-}
+};
 
-module.exports.showWarehouses = async(req, res) => {
+module.exports.showWarehouses = async (req, res) => {
     try{
         const allWarehouses = await Warehouse.find().select("-__v -createdAt");
         if(!allWarehouses){
@@ -66,9 +66,9 @@ module.exports.showWarehouses = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
-module.exports.viewWarehousePersons = async(req, res) => {
+module.exports.viewWarehousePersons = async (req, res) => {
     try {
       const allWarehousePersons = await WarehousePerson.find()
       .populate("warehouse", "-_id -__v -createdAt")
@@ -93,9 +93,9 @@ module.exports.viewWarehousePersons = async(req, res) => {
         error: error.message
       });
     }
-  }
+};
   
-module.exports.viewServicePersons = async(req, res) => {
+module.exports.viewServicePersons = async (req, res) => {
     try{
       const allServicePersons = await ServicePerson.find().select("-password -role -createdAt -refreshToken -__v");
       if(!allServicePersons){
@@ -118,10 +118,10 @@ module.exports.viewServicePersons = async(req, res) => {
         error: error.message
       });
     }
-  };
+};
 
 //Delete Warehouse Person
-module.exports.deleteWarehousePerson = async(req, res) => {
+module.exports.deleteWarehousePerson = async (req, res) => {
     try{
         const {id} = req.query;
         if(!id){
@@ -144,10 +144,10 @@ module.exports.deleteWarehousePerson = async(req, res) => {
             error: error.message
         });
     }
-} 
+}; 
 
 //Delete Service Person
-module.exports.deleteServicePerson = async(req, res) => {
+module.exports.deleteServicePerson = async (req, res) => {
     try{
         const {id} = req.query;
         if(!id){
@@ -170,9 +170,9 @@ module.exports.deleteServicePerson = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
-module.exports.allRepairRejectItemsData = async(req, res) => {
+module.exports.allRepairRejectItemsData = async (req, res) => {
     try{
         const allRepairRejectData = await RepairNRejectItems.find({});
         if(!allRepairRejectData){
@@ -194,7 +194,7 @@ module.exports.allRepairRejectItemsData = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
 //***************** Warehouse Access *******************// 
 module.exports.addWarehouseItems = async (req, res) => {
@@ -268,7 +268,7 @@ module.exports.addWarehouseItems = async (req, res) => {
     }
 };
 
-module.exports.viewWarehouseItems = async(req, res) => {
+module.exports.viewWarehouseItems = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         if(!warehouseId){
@@ -303,9 +303,9 @@ module.exports.viewWarehouseItems = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
-module.exports.warehouseDashboard = async(req, res) => {
+module.exports.warehouseDashboard = async (req, res) => {
     try{
         const  warehouseId = req.user.warehouse;
         console.log(warehouseId)
@@ -337,9 +337,9 @@ module.exports.warehouseDashboard = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
-module.exports.newRepairNRejectItemData = async(req, res) => {
+module.exports.newRepairNRejectItemData = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         const personName = req.user.name;
@@ -465,7 +465,7 @@ module.exports.newRepairNRejectItemData = async(req, res) => {
     }
 };
 
-module.exports.warehouseRepairRejectItemsData = async(req, res) => {
+module.exports.warehouseRepairRejectItemsData = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         if(!warehouseId){
@@ -495,9 +495,9 @@ module.exports.warehouseRepairRejectItemsData = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
-module.exports.viewOrdersApprovedHistory = async(req, res) => {
+module.exports.viewOrdersApprovedHistory = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         if(!warehouseId){
@@ -529,9 +529,9 @@ module.exports.viewOrdersApprovedHistory = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
-module.exports.getWarehouse = async(req, res) => {
+module.exports.getWarehouse = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         if(!warehouseId){
@@ -555,11 +555,11 @@ module.exports.getWarehouse = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
 //****************** Service Person Access *************************//
 
-module.exports.viewApprovedOrderHistory = async(req, res) => {
+module.exports.viewApprovedOrderHistory = async (req, res) => {
     try {
         const servicePersonId = req.user._id;
         if(!servicePersonId){
@@ -591,10 +591,10 @@ module.exports.viewApprovedOrderHistory = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
 //Service Team Access 
-module.exports.allServicePersons = async(req, res) => {
+module.exports.allServicePersons = async (req, res) => {
     try{
       const allFieldServicePersons = await ServicePerson.find().select("-email -contact -password -role -createdAt -refreshToken -__v");
     //   if(!allFieldServicePersons){
@@ -619,7 +619,7 @@ module.exports.allServicePersons = async(req, res) => {
     }
 };
 
-module.exports.filterServicePersonById = async(req, res) => {
+module.exports.filterServicePersonById = async (req, res) => {
     try{
         const {id} = req.query;
         const servicePersonName = await ServicePerson.findById({_id: id}).select("-_id -email -contact -password -role -createdAt -refreshToken -__v");
@@ -635,5 +635,5 @@ module.exports.filterServicePersonById = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 

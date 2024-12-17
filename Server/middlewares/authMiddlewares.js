@@ -10,11 +10,11 @@ const jwt = require("jsonwebtoken");
 
 module.exports.userVerification = (allowedRoles) => {
   return async (req, res, next) => {
-    const token = req.cookies.accessToken || req.headers.authorization?.split(" ")[1];
+    const token = req.cookies.accessToken || req.headers.authorization?.split(" ")[1]; 
     if (!token) {
       return res.status(400).json({
         status: false,
-        message: "No token provided",
+        message: "No Token Provided",
       });
     }
 
@@ -32,10 +32,8 @@ module.exports.userVerification = (allowedRoles) => {
         });
       } else {
         try {
-          // console.log(data);
           let user;
 
-          // Fetch user or serviceperson based on the role
           if (data.role === "serviceperson") {
             user = await ServicePerson.findById(data.id);
           } else if(data.role === "warehouseAdmin") {
@@ -51,10 +49,8 @@ module.exports.userVerification = (allowedRoles) => {
             });
           }
 
-          // Check if the user's role matches any of the allowed roles
           if (Array.isArray(allowedRoles) && allowedRoles.includes(data.role)) {
             req.user = user;
-            // console.log(req.user);
             next();
           } else {
             return res.status(403).json({
@@ -86,7 +82,6 @@ module.exports.refreshToken = async (req, res) => {
       });
     }
 
-    // Verify the old refresh token
     jwt.verify(
       oldRefreshToken,
       process.env.REFRESH_TOKEN_KEY,
@@ -100,7 +95,6 @@ module.exports.refreshToken = async (req, res) => {
 
         const { id } = decoded;
 
-        // Match the refresh token in either User or ServicePerson schema
         let user;
         user = await Admin.findById(id);
         if (!user) {
@@ -110,13 +104,12 @@ module.exports.refreshToken = async (req, res) => {
             if(!user){
               return res.status(400).json({
               success: false,
-              message: "User or ServicePerson Not Found",
+              message: "Admin, WarehousePerson or ServicePerson Not Found",
             });
             }
           }
         }
 
-        // Check if the user or serviceperson exists and if the refresh token matches
         if (!user || user.refreshToken !== oldRefreshToken) {
           return res.status(403).json({
             success: false,
@@ -124,15 +117,12 @@ module.exports.refreshToken = async (req, res) => {
           });
         }
 
-        // Generate new tokens
         const newAccessToken = createSecretToken(user._id, role);
         const newRefreshToken = createRefreshToken(user._id);
 
-        // Save the new refresh token to the user's schema
         user.refreshToken = newRefreshToken;
         await user.save();
 
-        // Send the new tokens in response
         res
           .status(200)
           .cookie("accessToken", newAccessToken, {

@@ -9,6 +9,7 @@ const sendOtp = require("../helpers/otpGeneration.js");
 module.exports.getPickupItemData = async(req, res) => {
     try{
         const {pickupItemId} = req.query || req.body;
+        //console.log(pickupItemId);
         if(!pickupItemId){
             return res.status(400).json({
                 success: false,
@@ -16,7 +17,24 @@ module.exports.getPickupItemData = async(req, res) => {
             });
         }
 
-        const pickupItemData = await PickupItem.findById({_id: pickupItemId}).select("-servicePerson -servicePersonName -servicePerContact -image -warehouse -withoutRMU -rmuRemark -remark -status -incoming -approvedBy -pickupDate -__v");
+        const pickupItemData = await PickupItem.findById({_id: pickupItemId})
+            .select({
+                servicePerson: 0,
+                servicePersonName: 0,
+                servicePerContact: 0, 
+                image: 0, 
+                warehouse: 0,
+                withoutRMU: 0, 
+                rmuRemark: 0, 
+                remark: 0, 
+                status: 0, 
+                incoming: 0, 
+                approvedBy: 0, 
+                pickupDate: 0, 
+                __v: 0
+            });
+        //const pickupItemData = await PickupItem.find()
+        //console.log(pickupItemData);
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
