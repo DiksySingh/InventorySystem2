@@ -1,6 +1,6 @@
 const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus} = require("../controllers/pickupItemController");
 const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/warehouseController");
-const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp} = require("../controllers/installationDataController");
+const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp, getServicePersonInstallationData} = require("../controllers/installationDataController");
 // const {uploadHandler} = require("../middlewares/multerConfig");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
