@@ -70,4 +70,20 @@ const uploadHandler = (req, res, next) => {
   });
 };
 
-module.exports = uploadHandler;
+const parseNestedFields = (req, res, next) => {
+  try {
+    // Parse nested fields from FormData
+    if (req.body.items) {
+      req.body.items = JSON.parse(req.body.items);
+    }
+    next();
+  } catch (error) {
+    console.error("Error parsing nested fields:", error);
+    res.status(400).json({
+      success: false,
+      message: "Invalid JSON in nested fields.",
+    });
+  }
+};
+
+module.exports =  { uploadHandler, parseNestedFields };
