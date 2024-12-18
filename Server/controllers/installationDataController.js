@@ -5,6 +5,7 @@ const Warehouse = require("../models/warehouseSchema");
 const OutgoingItemDetails = require("../models/outgoingItemsTotal");
 const ServicePerson = require("../models/servicePersonSchema");
 const sendOtp = require("../helpers/otpGeneration.js");
+const handleBase64Images = require("../middlewares/base64ImageHandler.js");
 
 module.exports.getPickupItemData = async(req, res) => {
     try{
@@ -51,10 +52,11 @@ module.exports.getPickupItemData = async(req, res) => {
 
 module.exports.createInstallationData = async(req, res) => {
     try{
-        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, longitude, latitude, status, installationDate} = req.body;
+        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, photos, longitude, latitude, status, installationDate} = req.body;
         const servicePersonId= req.user._id;
         const servicePersonName = req.user.name;
-        const itemsData = JSON.parse(items);
+        //const itemsData = JSON.parse(items);
+        // console.log(req.body);
 
         if(!pickupItemId || !farmerName || !farmerContact || !farmerVillage || !items || !serialNumber || !installationDate){
             return res.status(400).json({
@@ -63,12 +65,15 @@ module.exports.createInstallationData = async(req, res) => {
             });
         }
 
-        if(!req.files || req.files.length === 0){
+        if (!photos || photos.length === 0) {
             return res.status(400).json({
-                success: false,
-                message: "No photos uploaded"
+              success: false,
+              message: "No photos uploaded"
             });
         }
+      
+        const savedPhotos = await handleBase64Images(photos);
+        // console.log(savedPhotos);
 
         const pickupItemData = await PickupItem.findById({_id: pickupItemId});
         if(!pickupItemData){
@@ -81,8 +86,8 @@ module.exports.createInstallationData = async(req, res) => {
         const warehouseData = await Warehouse.findOne({warehouseName: pickupItemData.warehouse});
         const outgoingOrderDetails = await OutgoingItemDetails.findOne({servicePerson: servicePersonId});
         
-        //const photoFilenames = req.files.map((file) => file.filename);
-        const photoUrls = req.files.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`);
+        const photoUrls = savedPhotos.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+        // console.log(photoUrls);
 
         const newInstallation = new InstallationData({
             warehouseId: warehouseData._id,
@@ -90,7 +95,7 @@ module.exports.createInstallationData = async(req, res) => {
             farmerName,
             farmerContact: Number(farmerContact),
             farmerVillage,
-            items: itemsData,
+            items: items,
             serialNumber,
             photos: photoUrls,
             longitude: longitude || "",
@@ -103,7 +108,7 @@ module.exports.createInstallationData = async(req, res) => {
         const installationData = await newInstallation.save();
         pickupItemData.installationId = installationData._id;
         if(pickupItemData.incoming === false){
-        for(let item of itemsData){
+        for(let item of items){
             const matchingItem = outgoingOrderDetails.items.find(i => i.itemName === item.itemName);
             
             if (matchingItem.quantity < item.quantity) {
