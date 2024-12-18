@@ -8,6 +8,10 @@ const handleBase64Images = async (photos) => {
       throw new Error("No images provided!");
     }
 
+    if (photos.length > 4) {
+        throw new Error("You can only upload up to 4 images.");
+    }
+
     const allowedFormats = ["jpeg", "jpg", "png"]; 
     const uploadDir = path.join(__dirname, "../uploads");
 
