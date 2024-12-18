@@ -28,6 +28,6 @@ router.get("/warehouse-to-warehouse-data", userVerification(['admin']), allDefec
 router.get("/incoming-items-data", userVerification(['admin']), servicePersonIncomingItemsData);
 router.get("/outgoing-items-data", userVerification(['admin']), servicePersonOutgoingItemsData);
 
-router.get("/installations-data",userVerification(['admin']), getInstallationsData);
+router.get("/all-installations-data",userVerification(['admin']), getInstallationsData);
 
 module.exports = router;

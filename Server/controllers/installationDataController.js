@@ -353,7 +353,7 @@ module.exports.getWarehouseInstallationData = async (req, res) => {
 
 module.exports.getServicePersonInstallationData = async(req, res) => {
     try{
-        const servicePersonId = req.query || req.body;
+        const servicePersonId = req.user._id;
         if(!servicePersonId){
             return res.status(400).json({
                 success: false,
