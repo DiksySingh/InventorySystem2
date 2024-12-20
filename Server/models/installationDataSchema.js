@@ -52,10 +52,6 @@ const installationSchema = new Schema({
         type: String,
         required: true      
     },
-    status: {
-        type: Boolean,
-        default: false
-    },
     otpRecordId: {
         type: Schema.Types.ObjectId,
         ref: "OTP"
@@ -67,6 +63,10 @@ const installationSchema = new Schema({
         type: Date,
         required: true
     },
+    installationDone: {
+        type: Boolean,
+        default: false
+    }
 }, {collection: "inInstallationData"});
 
 const InstallationData = mongoose.model("InstallationData", installationSchema);

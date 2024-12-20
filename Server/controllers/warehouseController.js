@@ -558,7 +558,6 @@ module.exports.getWarehouse = async (req, res) => {
 };
 
 //****************** Service Person Access *************************//
-
 module.exports.viewApprovedOrderHistory = async (req, res) => {
     try {
         const servicePersonId = req.user._id;

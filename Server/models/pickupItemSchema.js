@@ -79,10 +79,10 @@ const pickupItemSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "InstallationData"
     },
-    // otpRecordId: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: "OTP"
-    // },
+    installationDone: {
+      type: Boolean,
+      default: false
+    },
     pickupDate: {
       type: Date,
       required: true,

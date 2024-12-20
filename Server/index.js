@@ -12,7 +12,7 @@ const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
 
 // Load environment variables
-const URI = process.env.MONGODB_URL;
+const URI = process.env.MONGO_URL;
 const PORT = process.env.PORT || 8001; 
 
 // MongoDB connection

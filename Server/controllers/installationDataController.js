@@ -107,6 +107,7 @@ module.exports.createInstallationData = async(req, res) => {
 
         const installationData = await newInstallation.save();
         pickupItemData.installationId = installationData._id;
+        pickupItemData.installationDone = true;
         if(pickupItemData.incoming === false){
         for(let item of items){
             const matchingItem = outgoingOrderDetails.items.find(i => i.itemName === item.itemName);
