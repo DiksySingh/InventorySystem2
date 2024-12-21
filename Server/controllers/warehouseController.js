@@ -308,7 +308,6 @@ module.exports.viewWarehouseItems = async (req, res) => {
 module.exports.warehouseDashboard = async (req, res) => {
     try{
         const  warehouseId = req.user.warehouse;
-        console.log(warehouseId)
         if(!warehouseId){
             return res.status(400).json({
                 success: false,
@@ -317,7 +316,6 @@ module.exports.warehouseDashboard = async (req, res) => {
         }
 
         const warehouseData = await WarehouseItems.findOne({warehouse: warehouseId}).populate('warehouse', "warehouseName -_id");
-        console.log(warehouseData);
         if(!warehouseData){
             return res.status(404).json({
                 success: false,
@@ -343,7 +341,6 @@ module.exports.newRepairNRejectItemData = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         const personName = req.user.name;
-        console.log(warehouseId," ",personName);
         if(!warehouseId){
             return res.status(400).json({
                 success: false,
@@ -374,7 +371,6 @@ module.exports.newRepairNRejectItemData = async (req, res) => {
             });
         }
         const warehouseName = warehouseItemsRecord.warehouse.warehouseName;
-        console.log(warehouseName);
 
         const warehouseItem = warehouseItemsRecord.items.find(item => item.itemName === itemName);
         if(!warehouseItem){
@@ -383,7 +379,6 @@ module.exports.newRepairNRejectItemData = async (req, res) => {
                 message: "Item Not Found In Warehouse"
             });
         }
-        console.log(warehouseItem.defective);
 
         if(parseInt(repaired)){
             //Adjusting Warehouse Items Quantity, Defective, Repaired Field in WarehouseItems Schema

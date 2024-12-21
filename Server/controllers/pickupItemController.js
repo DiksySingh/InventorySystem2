@@ -246,8 +246,6 @@ module.exports.outgoingItemsData = async (req, res) => {
 
         // Decrease the stock in WarehouseItems schema
         warehouseItem.quantity -= quantityToAdjust;
-
-        console.log("outgoingItemsData:", outgoingItemsData);
       }
       // Save the updated item record
       outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
@@ -680,7 +678,6 @@ module.exports.showWarehouseItems = async (req, res) => {
         itemsData.push(item.itemName);
       }
     }
-    // console.log(itemsData);
 
     return res.status(200).json({
       success: true,

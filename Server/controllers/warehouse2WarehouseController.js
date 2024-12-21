@@ -1,14 +1,10 @@
 const WToW = require("../models/warehouse2WarehouseSchema");
 const Warehouse = require("../models/warehouseSchema");
 const WarehouseItems = require("../models/warehouseItemsSchema");
-const Item = require("../models/itemSchema");
-
 
 module.exports.sendingDefectiveItems = async(req, res) => {
     try{
         const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate} = req.body;
-        console.log(req.body);
-        console.log(fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate);
         if(!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate){
             return res.status(400).json({
                 success: false,
@@ -47,7 +43,7 @@ module.exports.sendingDefectiveItems = async(req, res) => {
                 } 
 
                 const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
-                console.log(warehouseItems);
+                
                 warehouseItems.defective = parseInt(warehouseItems.defective) - parseInt(quantity);
                 
             }
@@ -78,7 +74,6 @@ module.exports.sendingDefectiveItems = async(req, res) => {
                 } 
 
                 const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
-                console.log(warehouseItems);
                 warehouseItems.quantity = parseInt(warehouseItems.quantity) - parseInt(quantity);
             }
             await warehouseItemsData.save();

@@ -10,7 +10,6 @@ const handleBase64Images = require("../middlewares/base64ImageHandler.js");
 module.exports.getPickupItemData = async(req, res) => {
     try{
         const {pickupItemId} = req.query || req.body;
-        //console.log(pickupItemId);
         if(!pickupItemId){
             return res.status(400).json({
                 success: false,
@@ -34,8 +33,6 @@ module.exports.getPickupItemData = async(req, res) => {
                 pickupDate: 0, 
                 __v: 0
             });
-        //const pickupItemData = await PickupItem.find()
-        //console.log(pickupItemData);
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -52,16 +49,16 @@ module.exports.getPickupItemData = async(req, res) => {
 
 module.exports.createInstallationData = async(req, res) => {
     try{
-        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, photos, longitude, latitude, status, installationDate} = req.body;
+        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, photos, longitude, latitude,installationDone, installationDate} = req.body;
         const servicePersonId= req.user._id;
         const servicePersonName = req.user.name;
         //const itemsData = JSON.parse(items);
-        // console.log(req.body);
 
         if(!pickupItemId || !farmerName || !farmerContact || !farmerVillage || !items || !serialNumber || !installationDate){
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
+                
             });
         }
 
@@ -73,7 +70,6 @@ module.exports.createInstallationData = async(req, res) => {
         }
       
         const savedPhotos = await handleBase64Images(photos);
-        // console.log(savedPhotos);
 
         const pickupItemData = await PickupItem.findById({_id: pickupItemId});
         if(!pickupItemData){
@@ -85,9 +81,33 @@ module.exports.createInstallationData = async(req, res) => {
 
         const warehouseData = await Warehouse.findOne({warehouseName: pickupItemData.warehouse});
         const outgoingOrderDetails = await OutgoingItemDetails.findOne({servicePerson: servicePersonId});
+        if(!outgoingOrderDetails){
+            return res.status(400).json({
+                success: false,
+                message: "Outgoing items for the service person is not available"
+            });
+        }
         
         const photoUrls = savedPhotos.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-        // console.log(photoUrls);
+
+        if(pickupItemData.incoming === false){
+            for(let item of items){
+                const matchingItem = outgoingOrderDetails.items.find(i => i.itemName === item.itemName);
+                
+                if (matchingItem.quantity < item.quantity) {
+                    return res.status(400).json({
+                      success: false,
+                      message: `Not enough quantity for ${item.itemName}`,
+                    });
+                }
+          
+                if (matchingItem.quantity === item.quantity) {
+                    matchingItem.quantity = 0;
+                } else {
+                    matchingItem.quantity -= item.quantity;
+                }
+            }
+        }
 
         const newInstallation = new InstallationData({
             warehouseId: warehouseData._id,
@@ -100,7 +120,7 @@ module.exports.createInstallationData = async(req, res) => {
             photos: photoUrls,
             longitude: longitude || "",
             latitude: latitude || "",
-            status,
+            installationDone,
             installedBy: servicePersonName,
             installationDate
         });
@@ -108,24 +128,7 @@ module.exports.createInstallationData = async(req, res) => {
         const installationData = await newInstallation.save();
         pickupItemData.installationId = installationData._id;
         pickupItemData.installationDone = true;
-        if(pickupItemData.incoming === false){
-        for(let item of items){
-            const matchingItem = outgoingOrderDetails.items.find(i => i.itemName === item.itemName);
-            
-            if (matchingItem.quantity < item.quantity) {
-                return res.status(400).json({
-                  success: false,
-                  message: `Not enough quantity for ${item.itemName}`,
-                });
-            }
-      
-            if (matchingItem.quantity === item.quantity) {
-                matchingItem.quantity = 0;
-            } else {
-                matchingItem.quantity -= item.quantity;
-            }
-        }
-        }
+        
         await pickupItemData.save();
         await outgoingOrderDetails.save();
 
@@ -169,7 +172,6 @@ module.exports.sendOtp = async(req, res) => {
         await installationData.save();
 
         const result = await sendOtp(phoneNumber, otpGenerate);
-        console.log("Result: ",result);
         if (result.success) {
             return res.status(200).json({
               success: true,
