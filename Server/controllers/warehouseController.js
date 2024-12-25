@@ -414,7 +414,7 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: "Items successfully added to warehouse",
+            message: "Items stock added successfully",
             warehouseItemsRecord
         });
     }catch(error){
