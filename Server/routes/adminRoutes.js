@@ -2,7 +2,7 @@ const { warehousePersonSignup } = require("../controllers/authController");
 const { allOrderDetails, servicePersonIncomingItemsData, servicePersonIncomingItemsData2, servicePersonOutgoingItemsData } = require("../controllers/pickupItemController");
 const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
 const { 
-  addWarehouse, showWarehouses, viewWarehousePersons, viewServicePersons, 
+  addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
   deleteWarehousePerson, deleteServicePerson, allRepairRejectItemsData, 
 } = require("../controllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
@@ -14,6 +14,7 @@ const router = require("express").Router();
 router.post("/warehouse-person-signup", userVerification(['admin']), warehousePersonSignup);
 router.post("/add-warehouse",userVerification(['admin']), addWarehouse);
 router.get("/all-warehouses", userVerification(['admin']), showWarehouses);
+router.post("/add-item", userVerification(['admin']), addWarehouseItems);
 router.get("/dashboard",userVerification(['admin']), showItemsData);
 router.get("/all-warehouse-persons",userVerification(['admin']), viewWarehousePersons);
 router.get("/all-service-persons",userVerification(['admin']), viewServicePersons);

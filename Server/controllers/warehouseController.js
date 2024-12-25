@@ -197,16 +197,81 @@ module.exports.allRepairRejectItemsData = async (req, res) => {
 };
 
 //***************** Warehouse Access *******************// 
+// module.exports.addWarehouseItems = async (req, res) => {
+//     try {
+//         const warehouseId = req.user.warehouse;
+//         const { items, defective, repaired, rejected } = req.body;
+//         if(!warehouseId){
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "warehouseID not found"
+//             });
+//         }
+
+//         if (!items || !Array.isArray(items) || items.length === 0) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "items are required and should be a non-empty array"
+//             });
+//         }
+
+//         let warehouseItemsRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
+        
+//         if (!warehouseItemsRecord) {
+//             warehouseItemsRecord = new WarehouseItems({
+//                 warehouse:warehouseId,
+//                 items: []
+//             });
+//         }
+
+//         for (const newItem of items) {          
+//             newItem.itemName = newItem.itemName.trim();
+//             let itemRecord = await Item.findOne({ itemName: newItem.itemName });
+
+//             if (itemRecord) {
+//                 itemRecord.stock += newItem.quantity;
+//                 itemRecord.updatedAt = Date.now();
+//                 await itemRecord.save();
+//             } else {
+//                 itemRecord = new Item({
+//                     itemName: newItem.itemName,
+//                     stock: newItem.quantity,
+//                     defective,
+//                     repaired,
+//                     rejected,
+//                 });
+//                 await itemRecord.save();
+//             }
+
+//             const existingItem = warehouseItemsRecord.items.find(item => item.itemName === newItem.itemName);
+
+//             if (existingItem) {
+//                 existingItem.quantity += newItem.quantity;
+//             } else {
+//                 warehouseItemsRecord.items.push(newItem);
+//             }
+//         }
+
+//         await warehouseItemsRecord.save();
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Items successfully added to warehouse",
+//             warehouseItemsRecord
+//         });
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 module.exports.addWarehouseItems = async (req, res) => {
     try {
-        const warehouseId = req.user.warehouse;
+        // Extract items from the request body
         const { items, defective, repaired, rejected } = req.body;
-        if(!warehouseId){
-            return res.status(400).json({
-                success: false,
-                message: "warehouseID not found"
-            });
-        }
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({
@@ -215,17 +280,26 @@ module.exports.addWarehouseItems = async (req, res) => {
             });
         }
 
-        let warehouseItemsRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
-        
-        if (!warehouseItemsRecord) {
-            warehouseItemsRecord = new WarehouseItems({
-                warehouse:warehouseId,
-                items: []
-            });
+        // Validate and sanitize the items in req.body
+        for (const newItem of items) {
+            if (!newItem.itemName || typeof newItem.itemName !== "string") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Each item must have a valid itemName"
+                });
+            }
+
+            // Ensure itemName is trimmed
+            newItem.itemName = newItem.itemName.trim();
+
+            // Check if quantity is provided and is zero
+            if (!newItem.quantity || newItem.quantity !== 0) {
+                newItem.quantity = 0; // Set to zero if not provided or invalid
+            }
         }
 
-        for (const newItem of items) {          
-            newItem.itemName = newItem.itemName.trim();
+        // Update/Create items in the Item collection
+        for (const newItem of items) {
             let itemRecord = await Item.findOne({ itemName: newItem.itemName });
 
             if (itemRecord) {
@@ -242,22 +316,41 @@ module.exports.addWarehouseItems = async (req, res) => {
                 });
                 await itemRecord.save();
             }
-
-            const existingItem = warehouseItemsRecord.items.find(item => item.itemName === newItem.itemName);
-
-            if (existingItem) {
-                existingItem.quantity += newItem.quantity;
-            } else {
-                warehouseItemsRecord.items.push(newItem);
-            }
         }
 
-        await warehouseItemsRecord.save();
+        // Fetch all warehouses
+        const allWarehouses = await Warehouse.find();
+
+        // Update the warehouseItems for each warehouse
+        for (const warehouse of allWarehouses) {
+            let warehouseItemsRecord = await WarehouseItems.findOne({ warehouse: warehouse._id });
+
+            if (!warehouseItemsRecord) {
+                warehouseItemsRecord = new WarehouseItems({
+                    warehouse: warehouse._id,
+                    items: []
+                });
+            }
+
+            for (const newItem of items) {
+                const existingItem = warehouseItemsRecord.items.find(item => item.itemName === newItem.itemName);
+
+                if (!existingItem) {
+                    // Add the item with quantity set to zero
+                    warehouseItemsRecord.items.push({
+                        itemName: newItem.itemName,
+                        quantity: newItem.quantity // Will always be zero at this point
+                    });
+                }
+                // If the item already exists, leave the quantity unchanged
+            }
+
+            await warehouseItemsRecord.save();
+        }
 
         return res.status(200).json({
             success: true,
-            message: "Items successfully added to warehouse",
-            warehouseItemsRecord
+            message: "Items successfully added to all warehouses" //with quantity validated and set to zero where needed
         });
     } catch (error) {
         return res.status(500).json({
@@ -267,6 +360,72 @@ module.exports.addWarehouseItems = async (req, res) => {
         });
     }
 };
+
+module.exports.addWarehouseItemsStock = async (req, res) => {
+    try{
+        const warehouseId = req.user.warehouse;
+        const { items, defective } = req.body;
+
+        if(!warehouseId){
+            return res.status(400).json({
+                success: false,
+                message: "warehouseID not found"
+            });
+        }
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "items are required and should be a non-empty array"
+            });
+        }
+
+        let warehouseItemsRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
+
+        for (const newItem of items) {          
+            newItem.itemName = newItem.itemName.trim();
+            let itemRecord = await Item.findOne({ itemName: newItem.itemName });
+
+            if (!itemRecord) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Item Doesn't Exists"
+                });
+            }else{
+                itemRecord.stock += newItem.quantity;
+                itemRecord.defective += defective;
+                itemRecord.updatedAt = Date.now();
+                await itemRecord.save();
+            }
+
+            const existingItem = warehouseItemsRecord.items.find(item => item.itemName === newItem.itemName);
+
+            if(!existingItem){
+                return res.status(400).json({
+                    success: false,
+                    message: "Item Doesn't Exists In Warehouse"
+                });
+            }else{
+                existingItem.quantity += newItem.quantity;
+                existingItem.defective += defective;
+            }
+        }
+        await warehouseItemsRecord.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Items successfully added to warehouse",
+            warehouseItemsRecord
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 
 module.exports.viewWarehouseItems = async (req, res) => {
     try{

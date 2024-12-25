@@ -2,7 +2,7 @@ const { servicePersonSignup } = require("../controllers/authController");
 const { outgoingItemsData, warehouseOrderDetails, updateOrderStatus } = require("../controllers/pickupItemController");
 const { showItems, incomingItems, warehouseIncomingItemDetails} = require("../controllers/itemController");
 const { 
-  addWarehouseItems,
+  addWarehouseItemsStock,
   getWarehouse,
   showWarehouses,
   viewWarehouseItems,
@@ -20,7 +20,7 @@ const { userVerification } = require("../middlewares/authMiddlewares");
 router.get("/all-items", userVerification(['warehouseAdmin', 'serviceperson']), showItems);
 router.post("/service-person-signup",userVerification(['warehouseAdmin']), servicePersonSignup);   
 router.get("/dashboard", userVerification(['warehouseAdmin']), warehouseDashboard);
-router.post("/add-item", userVerification(['warehouseAdmin']), addWarehouseItems);
+router.post("/add-item-stock", userVerification(['warehouseAdmin']), addWarehouseItemsStock);
 router.get("/get-warehouse", userVerification(['warehouseAdmin']), getWarehouse);
 router.get("/all-warehouses", userVerification(['warehouseAdmin']), showWarehouses);
 router.get("/view-items", userVerification(['warehouseAdmin']), viewWarehouseItems);
