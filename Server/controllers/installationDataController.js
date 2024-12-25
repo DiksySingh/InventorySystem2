@@ -49,7 +49,7 @@ module.exports.getPickupItemData = async(req, res) => {
 
 module.exports.createInstallationData = async(req, res) => {
     try{
-        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, photos, longitude, latitude,installationDone, installationDate} = req.body;
+        const {pickupItemId, farmerName, farmerContact, farmerVillage, items, serialNumber, photos, longitude, latitude, installationDone, installationDate} = req.body;
         const servicePersonId= req.user._id;
         const servicePersonName = req.user.name;
         //const itemsData = JSON.parse(items);
@@ -58,7 +58,6 @@ module.exports.createInstallationData = async(req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
-                
             });
         }
 
