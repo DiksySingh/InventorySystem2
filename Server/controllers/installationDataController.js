@@ -251,7 +251,7 @@ module.exports.verifyOtp = async(req, res) => {
 
 module.exports.resendOtp = async (req, res) => {
     try{
-        const {installationId} = req.body;
+        const {installationId} = req.query;
         if(!installationId) {
             return res.status(400).json({
                 success: false,
