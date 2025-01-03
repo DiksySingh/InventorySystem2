@@ -34,7 +34,7 @@ module.exports.userVerification = (allowedRoles) => {
         try {
           let user;
 
-          if (data.role === "serviceperson") {
+          if (data.role === "serviceperson") {  
             user = await ServicePerson.findById(data.id);
           } else if(data.role === "warehouseAdmin") {
             user = await WarehousePerson.findById(data.id);

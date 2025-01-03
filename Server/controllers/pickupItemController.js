@@ -408,7 +408,8 @@ module.exports.updateOrderStatus = async (req, res) => {
         const itemName = item.itemName;
         const quantityToAdjust = item.quantity;
 
-        const itemRecord = await Item.findOne({ itemName });
+        // const itemRecord = await Item.findOne({ itemName });
+        const itemRecord = await Item.findOne({ itemName: { $regex: new RegExp(`^${itemName}$`, "i") } });
 
         if (!itemRecord) {
           return res.status(404).json({
@@ -417,7 +418,7 @@ module.exports.updateOrderStatus = async (req, res) => {
           });
         }
 
-        const warehouseItem = warehouseItemRecord.items.find(wItem => wItem.itemName === itemName);
+        const warehouseItem = warehouseItemRecord.items.find(wItem => new RegExp(`^${itemName}$`, "i").test(wItem.itemName));
         if (!warehouseItem) {
           return res.status(404).json({
             success: false,
@@ -562,7 +563,7 @@ module.exports.updateOrderStatus = async (req, res) => {
         // Update existing quantities or add new items
         outgoingItemsData.forEach((outgoingItem) => {
           const existingItemIndex = existingOutgoingRecord.items.findIndex(
-            (item) => item.itemName === outgoingItem.itemName
+            (item) => new RegExp(`^${outgoingItem.itemName}$`, "i").test(item.itemName)
           );
 
           if (existingItemIndex > -1) {
