@@ -506,7 +506,7 @@ module.exports.repairItemData = async (req, res) => {
                 message: "WarehouseID not found"
             });
         }
-        const {itemName, serialNumber, repaired, remark, createdAt} = req.body;
+        const {itemName, serialNumber, repaired, repairedBy, remark, createdAt} = req.body;
         if(!itemName || !repaired || !rejected || !createdAt){
             return res.status(400).json({
                 success: false,
@@ -601,6 +601,7 @@ module.exports.repairItemData = async (req, res) => {
             isRepaired: true,
             repaired: parseInt(repaired),
             rejected: 0,
+            repairedBy,
             remark: remark || "",
             createdAt, 
         })
@@ -727,6 +728,7 @@ module.exports.rejectItemData = async (req, res) => {
             isRepaired: false,
             repaired: 0,
             rejected: parseInt(rejected),
+            repairedBy: null,
             remark: remark || "",
             createdAt, 
         })

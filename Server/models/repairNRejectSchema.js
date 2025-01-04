@@ -31,6 +31,9 @@ const repairNRejectSchema = new Schema ({
     rejected: {
         type: Number,
     },
+    repairedBy: {
+        type: String,
+    },
     remark: {
         type: String,
         required: true
