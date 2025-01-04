@@ -30,7 +30,7 @@ router.post("/add-incoming-item", userVerification(["warehouseAdmin"]), incoming
 router.get("/incoming-items-data", userVerification(['warehouseAdmin']), warehouseIncomingItemDetails);
 router.get("/warehouse-in-out-orders",userVerification(["warehouseAdmin"]), warehouseOrderDetails);
 router.get("/approved-order-history", userVerification(['warehouseAdmin']), viewOrdersApprovedHistory);
-router.post("repair-item", userVerification(['warehouseAdmin']), repairItemData);
+router.post("/repair-item", userVerification(['warehouseAdmin']), repairItemData);
 router.post("/reject-item", userVerification(['warehouseAdmin']), rejectItemData);
 router.get("/repair-reject-itemData", userVerification(['warehouseAdmin']), warehouseRepairRejectItemsData);
 router.put("/update-incoming-status", userVerification(["warehouseAdmin"]), updateOrderStatus);
