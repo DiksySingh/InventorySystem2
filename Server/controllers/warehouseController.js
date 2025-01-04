@@ -496,7 +496,7 @@ module.exports.warehouseDashboard = async (req, res) => {
     }
 };
 
-module.exports.newRepairNRejectItemData = async (req, res) => {
+module.exports.repairItemData = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         const personName = req.user.name;
@@ -506,7 +506,7 @@ module.exports.newRepairNRejectItemData = async (req, res) => {
                 message: "WarehouseID not found"
             });
         }
-        const {itemName, repaired, rejected, createdAt} = req.body;
+        const {itemName, serialNumber, repaired, remark, createdAt} = req.body;
         if(!itemName || !repaired || !rejected || !createdAt){
             return res.status(400).json({
                 success: false,
@@ -565,6 +565,132 @@ module.exports.newRepairNRejectItemData = async (req, res) => {
             }
         }
 
+        // if(parseInt(rejected)){
+        //     //Adjusting Warehouse Items Defective and Rejected Field in WarehouseItems Schema
+        //     if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(rejected))){
+        //         warehouseItem.defective = parseInt(warehouseItem.defective) - parseInt(rejected);
+        //         warehouseItem.rejected = parseInt(warehouseItem.rejected) + parseInt(rejected);
+        //     }else{
+        //         return res.status(403).json({
+        //             success: false,
+        //             message: "Defective is less than rejected. Cannot be updated"
+        //         });
+        //     }
+
+        //     //Adjusting Items Defective and Rejected Field in ItemSchema
+        //     if(itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(rejected))){
+        //         itemRecord.defective = parseInt(itemRecord.defective) - parseInt(rejected);
+        //         itemRecord.rejected = parseInt(itemRecord.rejected) + parseInt(rejected);
+        //     }else{
+        //         return res.status(403).json({
+        //             success: false,
+        //             message: "Defective is less than rejected. Cannot be updated"
+        //         });
+        //     }
+        // }
+        
+        await itemRecord.save();
+        await warehouseItemsRecord.save();
+
+        const repairProductData = new RepairNRejectItems({
+            warehouseId: warehouseId,
+            warehousePerson: personName,
+            warehouseName: warehouseName,
+            itemName,
+            serialNumber: serialNumber || "",
+            isRepaired: true,
+            repaired: parseInt(repaired),
+            rejected: 0,
+            remark: remark || "",
+            createdAt, 
+        })
+
+        await repairProductData.save();
+
+        return res.status(200).json({
+            sucess: true,
+            message: "Data Inserted Successfully",
+            repairProductData
+        });
+
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.rejectItemData = async (req, res) => {
+    try{
+        const warehouseId = req.user.warehouse;
+        const personName = req.user.name;
+        if(!warehouseId){
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseID not found"
+            });
+        }
+        const {itemName, serialNumber, rejected, remark, createdAt} = req.body;
+        if(!itemName || !repaired || !rejected || !createdAt){
+            return res.status(400).json({
+                success: false,
+                message: "itemName is required"
+            });
+        }
+
+        const itemRecord = await Item.findOne({itemName});
+        if(!itemRecord){
+            return res.status(404).json({
+                success: false,
+                message: "Item Not Found In ItemSchema"
+            });
+        }
+
+        const warehouseItemsRecord = await WarehouseItems.findOne({warehouse: warehouseId}).populate('warehouse', "-__v -createdAt");
+        if(!warehouseItemsRecord){
+            return res.status(404).json({
+                success: false,
+                message: "WarehouseItemsRecord Not Found"
+            });
+        }
+        const warehouseName = warehouseItemsRecord.warehouse.warehouseName;
+
+        const warehouseItem = warehouseItemsRecord.items.find(item => item.itemName === itemName);
+        if(!warehouseItem){
+            return res.status(404).json({
+                success: false,
+                message: "Item Not Found In Warehouse"
+            });
+        }
+
+        // if(parseInt(repaired)){
+        //     //Adjusting Warehouse Items Quantity, Defective, Repaired Field in WarehouseItems Schema
+        //     if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(repaired) + parseInt(rejected))){
+        //         warehouseItem.defective = parseInt(warehouseItem.defective) - parseInt(repaired);
+        //         warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(repaired);
+        //         warehouseItem.repaired = parseInt(warehouseItem.repaired) + parseInt(repaired);
+        //     }else{
+        //         return res.status(403).json({
+        //             success: false,
+        //             message: "Defective is less than repaired. Cannot be updated"
+        //         });
+        //     }
+            
+        //     //Adjusting Items Stock, Defective, Repaired Field in ItemSchema
+        //     if(itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(repaired) + parseInt(rejected))){
+        //         itemRecord.defective = parseInt(itemRecord.defective) - parseInt(repaired);
+        //         itemRecord.stock = parseInt(itemRecord.stock) + parseInt(repaired);
+        //         itemRecord.repaired = parseInt(itemRecord.repaired) + parseInt(repaired);
+        //     }else{
+        //         return res.status(403).json({
+        //             success: false,
+        //             message: "Defective is less than repaired. Cannot be updated"
+        //         })
+        //     }
+        // }
+
         if(parseInt(rejected)){
             //Adjusting Warehouse Items Defective and Rejected Field in WarehouseItems Schema
             if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(rejected))){
@@ -592,22 +718,25 @@ module.exports.newRepairNRejectItemData = async (req, res) => {
         await itemRecord.save();
         await warehouseItemsRecord.save();
 
-        const newRepairRejectData = new RepairNRejectItems({
+        const rejectProductData = new RepairNRejectItems({
             warehouseId: warehouseId,
             warehousePerson: personName,
             warehouseName: warehouseName,
             itemName,
-            repaired: parseInt(repaired),
+            serialNumber: serialNumber || "",
+            isRepaired: false,
+            repaired: 0,
             rejected: parseInt(rejected),
+            remark: remark || "",
             createdAt, 
         })
 
-        await newRepairRejectData.save();
+        await rejectProductData.save();
 
         return res.status(200).json({
             sucess: true,
             message: "Data Inserted Successfully",
-            newRepairRejectData
+            newRepairRejectData: rejectProductData
         });
 
     }catch(error){
@@ -789,4 +918,16 @@ module.exports.filterServicePersonById = async (req, res) => {
         });
     }
 };
+
+// module.exports.itemRepairData = async (req, res) => {
+//     try {
+        
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
 

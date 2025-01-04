@@ -6,8 +6,9 @@ const {
   getWarehouse,
   showWarehouses,
   viewWarehouseItems,
-  warehouseDashboard, 
-  newRepairNRejectItemData, 
+  warehouseDashboard,
+  repairItemData, 
+  rejectItemData, 
   warehouseRepairRejectItemsData,  
   viewOrdersApprovedHistory
 } = require("../controllers/warehouseController");
@@ -29,7 +30,8 @@ router.post("/add-incoming-item", userVerification(["warehouseAdmin"]), incoming
 router.get("/incoming-items-data", userVerification(['warehouseAdmin']), warehouseIncomingItemDetails);
 router.get("/warehouse-in-out-orders",userVerification(["warehouseAdmin"]), warehouseOrderDetails);
 router.get("/approved-order-history", userVerification(['warehouseAdmin']), viewOrdersApprovedHistory);
-router.post("/repair-reject-item", userVerification(['warehouseAdmin']), newRepairNRejectItemData);
+router.post("repair-item", userVerification(['warehouseAdmin']), repairItemData);
+router.post("/reject-item", userVerification(['warehouseAdmin']), rejectItemData);
 router.get("/repair-reject-itemData", userVerification(['warehouseAdmin']), warehouseRepairRejectItemsData);
 router.put("/update-incoming-status", userVerification(["warehouseAdmin"]), updateOrderStatus);
 router.post("/defective-order-data", userVerification(['warehouseAdmin']), sendingDefectiveItems);

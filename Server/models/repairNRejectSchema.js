@@ -19,17 +19,25 @@ const repairNRejectSchema = new Schema ({
         type: String,
         required: true,
     },
+    serialNumber: {
+        type: String,
+    },
+    isRepaired: {
+        type: Boolean,
+    },
     repaired: {
         type: Number,
-        default: 0,
     },
     rejected: {
         type: Number,
-        default: 0,
+    },
+    remark: {
+        type: String,
+        required: true
     },
     createdAt: {
         type: Date,
-    }
+    },
 },{collection: "inRepairNRejectItems"});
 
 const RepairNRejectItems = mongoose.model("RepairNRejectItems", repairNRejectSchema);
