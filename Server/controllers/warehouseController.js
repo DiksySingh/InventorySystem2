@@ -541,7 +541,7 @@ module.exports.repairItemData = async (req, res) => {
 
         if(parseInt(repaired)){
             //Adjusting Warehouse Items Quantity, Defective, Repaired Field in WarehouseItems Schema
-            if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(repaired) + parseInt(rejected))){
+            if(warehouseItem.defective !== 0 && warehouseItem.defective >= (parseInt(repaired))){
                 warehouseItem.defective = parseInt(warehouseItem.defective) - parseInt(repaired);
                 warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(repaired);
                 warehouseItem.repaired = parseInt(warehouseItem.repaired) + parseInt(repaired);
@@ -553,7 +553,7 @@ module.exports.repairItemData = async (req, res) => {
             }
             
             //Adjusting Items Stock, Defective, Repaired Field in ItemSchema
-            if(itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(repaired) + parseInt(rejected))){
+            if(itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(repaired))){
                 itemRecord.defective = parseInt(itemRecord.defective) - parseInt(repaired);
                 itemRecord.stock = parseInt(itemRecord.stock) + parseInt(repaired);
                 itemRecord.repaired = parseInt(itemRecord.repaired) + parseInt(repaired);
