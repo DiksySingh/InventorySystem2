@@ -750,7 +750,7 @@ module.exports.rejectItemData = async (req, res) => {
     }
 };
 
-module.exports.warehouseRepairRejectItemsData = async (req, res) => {
+module.exports.warehouseRepairItemsData = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         if(!warehouseId){
@@ -760,7 +760,7 @@ module.exports.warehouseRepairRejectItemsData = async (req, res) => {
             });
         }
 
-        const allRepairRejectData = await RepairNRejectItems.find({warehouseId}).sort({createdAt: -1});
+        const allRepairItemData = await RepairNRejectItems.find({warehouseId: warehouseId, isRepaired: true}).sort({createdAt: -1});
         // if(!allRepairRejectData){
         //     return res.status(404).json({
         //         success: false,
@@ -771,7 +771,39 @@ module.exports.warehouseRepairRejectItemsData = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            allRepairRejectData: allRepairRejectData || [],
+            allRepairItemData: allRepairItemData || [],
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.warehouseRejectItemsData = async (req, res) => {
+    try{
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId){
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseID is required"
+            });
+        }
+
+        const allRejectItemData = await RepairNRejectItems.find({warehouseId: warehouseId, isRepaired: false}).sort({createdAt: -1});
+        // if(!allRepairRejectData){
+        //     return res.status(404).json({
+        //         success: false,
+        //         message: "Data Not Found For The Warehouse"
+        //     });
+        // }
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            allRejectItemData: allRejectItemData || [],
         });
     }catch(error){
         return res.status(500).json({
