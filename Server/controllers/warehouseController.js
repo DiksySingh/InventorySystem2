@@ -507,7 +507,7 @@ module.exports.repairItemData = async (req, res) => {
             });
         }
         const {itemName, serialNumber, repaired, repairedBy, remark, createdAt} = req.body;
-        if(!itemName || !repaired || !rejected || !createdAt){
+        if(!itemName || !repaired || !serialNumber || !remark || !repairedBy || !createdAt){
             return res.status(400).json({
                 success: false,
                 message: "itemName is required"
@@ -634,7 +634,7 @@ module.exports.rejectItemData = async (req, res) => {
             });
         }
         const {itemName, serialNumber, rejected, remark, createdAt} = req.body;
-        if(!itemName || !repaired || !rejected || !createdAt){
+        if(!itemName || !serialNumber || !remark || !rejected || !createdAt){
             return res.status(400).json({
                 success: false,
                 message: "itemName is required"
