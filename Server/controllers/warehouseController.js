@@ -952,16 +952,3 @@ module.exports.filterServicePersonById = async (req, res) => {
         });
     }
 };
-
-// module.exports.itemRepairData = async (req, res) => {
-//     try {
-        
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error",
-//             error: error.message
-//         });
-//     }
-// };
-
