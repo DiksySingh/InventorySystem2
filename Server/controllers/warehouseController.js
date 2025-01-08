@@ -365,6 +365,7 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
     try{
         const warehouseId = req.user.warehouse;
         const { items, defective } = req.body;
+        console.log(req.body);
 
         if(!warehouseId){
             return res.status(400).json({
