@@ -8,7 +8,7 @@ const handleBase64Images = async (photos) => {
       throw new Error("No images provided!");
     }
 
-    if (photos.length > 4) {
+    if (photos.length > 8) {
         throw new Error("You can only upload up to 4 images.");
     }
 
