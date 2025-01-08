@@ -36,17 +36,18 @@ const handleBase64Images = async (photos) => {
       }
 
       const base64Data = base64Image.split(",")[1]; // Extract base64 data
-      const sizeInBytes = (base64Data.length * 3) / 4 - (base64Data.endsWith("==") ? 2 : base64Data.endsWith("=") ? 1 : 0);
-      const sizeInMB = sizeInBytes / (1024 * 1024);
-      console.log(sizeInMB);
-      
-      const imageData = base64Image.replace(/^data:image\/\w+;base64,/, "");
+      //const sizeInBytes = (base64Data.length * 3) / 4 - (base64Data.endsWith("==") ? 2 : base64Data.endsWith("=") ? 1 : 0);
+      //const sizeInMB = sizeInBytes / (1024 * 1024);
+      const buffer = Buffer.from(base64Data, "base64");
+      console.log(buffer.length);
+
+      //const imageData = base64Image.replace(/^data:image\/\w+;base64,/, "");
       const fileName = `${Date.now()}_${index + 1}.${ext}`;
       const filePath = path.join(uploadDir, fileName);
 
       try {
         // Ensure the base64 data is valid
-        const buffer = Buffer.from(imageData, "base64");
+        //const buffer = Buffer.from(imageData, "base64");
         await fs.writeFile(filePath, buffer); // Write the buffer to a file
         savedFiles.push({ fileName, filePath });
       } catch (err) {
