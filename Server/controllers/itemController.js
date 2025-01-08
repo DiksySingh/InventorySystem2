@@ -69,16 +69,16 @@ module.exports.incomingItems = async (req, res) => {
       });
     }
     
-    const nondefectItem = quantity - defectiveItem;
+    //const nondefectItem = quantity - defectiveItem;
 
     const warehouseItem = warehouseItemsData.items.find(item => item.itemName === itemName)
-    warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(nondefectItem);
+    warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(quantity);
     if(defectiveItem !== 0){
       warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(defectiveItem);
     }
     await warehouseItemsData.save();
 
-    foundItem.stock = parseInt(foundItem.stock) + parseInt(nondefectItem);
+    foundItem.stock = parseInt(foundItem.stock) + parseInt(quantity);
     foundItem.defective = parseInt(foundItem.defective) + parseInt(defectiveItem);
     foundItem.updatedAt = Date.now();
     
