@@ -35,6 +35,11 @@ const handleBase64Images = async (photos) => {
         throw new Error(`Invalid format for image ${index + 1}. Allowed formats are jpeg, jpg, png.`);
       }
 
+      const base64Data = base64Image.split(",")[1]; // Extract base64 data
+      const sizeInBytes = (base64Data.length * 3) / 4 - (base64Data.endsWith("==") ? 2 : base64Data.endsWith("=") ? 1 : 0);
+      const sizeInMB = sizeInBytes / (1024 * 1024);
+      console.log(sizeInMB);
+      
       const imageData = base64Image.replace(/^data:image\/\w+;base64,/, "");
       const fileName = `${Date.now()}_${index + 1}.${ext}`;
       const filePath = path.join(uploadDir, fileName);
