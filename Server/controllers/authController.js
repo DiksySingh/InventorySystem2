@@ -113,8 +113,8 @@ module.exports.warehousePersonSignup = async(req, res) => {
 }
 
 module.exports.servicePersonSignup = async (req, res) => {
-  const { name, email, contact, password, createdAt, role } = req.body;
-  if (!name || !email || !contact || !password) {
+  const { name, email, contact, password, createdAt, role, longitude, latitude } = req.body;
+  if (!name || !email || !contact || !password ) {
     return res.status(400).json({
       success: false,
       message: "All fields are required",
@@ -138,6 +138,8 @@ module.exports.servicePersonSignup = async (req, res) => {
       email,
       contact,
       password: hashedPassword,
+      longitude: longitude || null,
+      latitude: latitude || null,
       createdAt,
       role,
       refreshToken: null,

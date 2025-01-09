@@ -31,6 +31,12 @@ const servicePersonSchema = new Schema({
         required: true,
         default: 'serviceperson'
     },
+    longitude: {
+        type: String,
+    },
+    latitude: {
+        type: String
+    },
     createdAt: {
         type: Date,
         default: Date.now

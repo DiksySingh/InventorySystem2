@@ -378,3 +378,36 @@ module.exports.getServicePersonInstallationData = async(req, res) => {
     }
 };
 
+module.exports.checkServicePersonLatLong = async (req, res) => {
+    try {
+        const servicePersonId = req.query;
+        if(!servicePersonId){
+            return res.status(400).json({
+                success: false,
+                message: "ServicePerson ID Not Found"
+            });
+        }
+        let isLatLong;
+        const servicePersonData = await ServicePerson.findOne({_id: servicePersonId});
+        if(servicePersonData){
+            if(servicePersonData.longitude !== null && servicePersonData.latitude !== null){
+                isLatLong = true;
+            }else{
+                isLatLong = false;
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            isLatLong: isLatLong
+        });
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
