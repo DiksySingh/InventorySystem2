@@ -172,49 +172,49 @@ module.exports.servicePersonSignup = async (req, res) => {
 };
 
 module.exports.updateServicePerson = async (req, res) => {
-  try{
-    const updates = req.body;
-    if(!updates.servicePersonId){
+  try {
+    const { servicePersonId, name, email, contact, longitude, latitude, updatedAt } = req.body;
+
+    if (!servicePersonId) {
       return res.status(400).json({
         success: false,
-        message: "Service Person ID Not Found"
+        message: "Service Person ID is required",
       });
     }
 
-    const servicePersonId = updates.servicePersonId;
-    const servicePersonData = await ServicePerson.findOne({_id: servicePersonId});
+    // Find the service person by ID
+    const servicePersonData = await ServicePerson.findOne({ _id: servicePersonId });
+    if (!servicePersonData) {
+      return res.status(404).json({
+        success: false,
+        message: "Service Person not found",
+      });
+    }
 
-    if(updates.name){
-      servicePersonData.name = updates.name;
+    if (name) servicePersonData.name = name;
+    if (email) servicePersonData.email = email;
+    if (contact) {
+      const parsedContact = parseInt(contact, 10);
+      servicePersonData.contact = parsedContact;
     }
-    if(updates.email){
-      servicePersonData.email = updates.email;
-    }
-    if(updates.contact){
-      servicePersonData.contact = parseInt(updates.contact);
-    }
-    if(updates.longitude){
-      servicePersonData.longitude = updates.longitude;
-    }
-    if(updates.latitude){
-      servicePersonData.latitude = updates.latitude;
-    }
-      
-    servicePersonData.updatedAt = Date.now;
-    servicePersonData.updatedBy = req.user._id;
+    if (longitude) servicePersonData.longitude = longitude;
+    if (latitude) servicePersonData.latitude = latitude;
+
+    servicePersonData.updatedAt = updatedAt;
+    servicePersonData.updatedBy = req.user?._id || null;
 
     const updatedData = await servicePersonData.save();
+
     return res.status(200).json({
       success: true,
-      message: "Service Person Updated Successfully",
-      data: updatedData
+      message: "Service Person updated successfully",
+      data: updatedData,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
