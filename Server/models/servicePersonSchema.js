@@ -41,6 +41,18 @@ const servicePersonSchema = new Schema({
         type: Date,
         default: Date.now
     },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    },
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'WarehousePerson'
+    },
+    updatedBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'Admin'
+    },
     refreshToken: {
         type: String,
         default: null

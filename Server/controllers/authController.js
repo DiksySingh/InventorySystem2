@@ -141,6 +141,7 @@ module.exports.servicePersonSignup = async (req, res) => {
       longitude: longitude || null,
       latitude: latitude || null,
       createdAt,
+      createdBy: req.user._id,
       role,
       refreshToken: null,
     });
@@ -153,7 +154,10 @@ module.exports.servicePersonSignup = async (req, res) => {
         email: newServicePrson.email,
         contact: newServicePrson.contact,
         password: newServicePrson.password,
+        longitude: newServicePrson.longitude,
+        latitude: newServicePrson.latitude,
         createdAt: newServicePrson.createdAt,
+        createdBy: newServicePrson.createdBy,
         role: newServicePrson.role,
         refreshToken,
       },
@@ -163,6 +167,54 @@ module.exports.servicePersonSignup = async (req, res) => {
       success: false,
       message: "Internal Server Error",
       error: error.message,
+    });
+  }
+};
+
+module.exports.updateServicePerson = async (req, res) => {
+  try{
+    const updates = req.body;
+    if(!updates.servicePersonId){
+      return res.status(400).json({
+        success: false,
+        message: "Service Person ID Not Found"
+      });
+    }
+
+    const servicePersonId = updates.servicePersonId;
+    const servicePersonData = await ServicePerson.findOne({_id: servicePersonId});
+
+    if(updates.name){
+      servicePersonData.name = updates.name;
+    }
+    if(updates.email){
+      servicePersonData.email = updates.email;
+    }
+    if(updates.contact){
+      servicePersonData.contact = parseInt(updates.contact);
+    }
+    if(updates.longitude){
+      servicePersonData.longitude = updates.longitude;
+    }
+    if(updates.latitude){
+      servicePersonData.latitude = updates.latitude;
+    }
+      
+    servicePersonData.updatedAt = Date.now;
+    servicePersonData.updatedBy = req.user._id;
+
+    const updatedData = await servicePersonData.save();
+    return res.status(200).json({
+      success: true,
+      message: "Service Person Updated Successfully",
+      data: updatedData
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
     });
   }
 };
