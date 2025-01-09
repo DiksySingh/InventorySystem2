@@ -39,7 +39,6 @@ const handleBase64Images = async (photos) => {
       //const sizeInBytes = (base64Data.length * 3) / 4 - (base64Data.endsWith("==") ? 2 : base64Data.endsWith("=") ? 1 : 0);
       //const sizeInMB = sizeInBytes / (1024 * 1024);
       const buffer = Buffer.from(base64Data, "base64");
-      console.log(buffer.length);
 
       //const imageData = base64Image.replace(/^data:image\/\w+;base64,/, "");
       const fileName = `${Date.now()}_${index + 1}.${ext}`;
