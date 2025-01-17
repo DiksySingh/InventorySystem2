@@ -113,7 +113,7 @@ module.exports.warehousePersonSignup = async(req, res) => {
 }
 
 module.exports.servicePersonSignup = async (req, res) => {
-  const { name, email, contact, password, createdAt, role, longitude, latitude } = req.body;
+  const { name, email, contact, password, createdAt, role, longitude, latitude, state, district, block } = req.body;
   if (!name || !email || !contact || !password ) {
     return res.status(400).json({
       success: false,
@@ -133,33 +133,44 @@ module.exports.servicePersonSignup = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newServicePrson = new ServicePerson({
+    
+    let blockArray;
+    if(block){
+      blockArray =  block.split(",").map((b) => b.trim());
+    }
+    
+    const newServicePerson = new ServicePerson({
       name,
       email,
       contact,
       password: hashedPassword,
       longitude: longitude || null,
       latitude: latitude || null,
+      state: state || "",
+      district: district || "",
+      block: blockArray || [],
       createdAt,
       createdBy: req.user._id,
       role,
       refreshToken: null,
     });
-    await newServicePrson.save();
+    await newServicePerson.save();
     res.status(200).json({
       success: true,
       message: "Service Person registered successfully",
       data: {
-        name: newServicePrson.name,
-        email: newServicePrson.email,
-        contact: newServicePrson.contact,
-        password: newServicePrson.password,
-        longitude: newServicePrson.longitude,
-        latitude: newServicePrson.latitude,
-        createdAt: newServicePrson.createdAt,
-        createdBy: newServicePrson.createdBy,
-        role: newServicePrson.role,
-        refreshToken,
+        name: newServicePerson.name,
+        email: newServicePerson.email,
+        contact: newServicePerson.contact,
+        password: newServicePerson.password,
+        longitude: newServicePerson.longitude,
+        latitude: newServicePerson.latitude,
+        createdAt: newServicePerson.createdAt,
+        createdBy: newServicePerson.createdBy,
+        role: newServicePerson.role,
+        state: newServicePerson.state,
+        district: newServicePerson.district,
+        block: newServicePerson.block,
       },
     });
   } catch (error) {
@@ -194,8 +205,7 @@ module.exports.updateServicePerson = async (req, res) => {
     if (name) servicePersonData.name = name;
     if (email) servicePersonData.email = email;
     if (contact) {
-      const parsedContact = parseInt(contact, 10);
-      servicePersonData.contact = parsedContact;
+      servicePersonData.contact = contact;
     }
     if (longitude) servicePersonData.longitude = longitude;
     if (latitude) servicePersonData.latitude = latitude;
@@ -304,6 +314,7 @@ module.exports.Login = async (req, res) => {
         message: `Logged in successfully`,
         id: user._id,
         email: user.email,
+        block: user.block,
         // accessToken,
         // refreshToken,
         role,
