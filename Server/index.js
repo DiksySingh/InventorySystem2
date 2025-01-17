@@ -7,6 +7,7 @@ const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 const authRoute = require("./routes/authRoute");
 const adminRoute = require("./routes/adminRoutes");
+const commonRoute = require("./routes/commonRoutes");
 const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
@@ -50,6 +51,7 @@ app.get("/", (req, res) => {
 
 app.use("/user", authRoute);
 app.use("/admin", adminRoute);
+app.use("/common", commonRoute);
 app.use("/warehouse-admin", warehousePersonRoute);
 app.use("/service-person", servicePersonRoute);
 app.use("/service-team", serviceTeamRoute);
