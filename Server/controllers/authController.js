@@ -314,7 +314,7 @@ module.exports.Login = async (req, res) => {
         message: `Logged in successfully`,
         id: user._id,
         email: user.email,
-        block: user.block,
+        block: user.block ? user.block : [],
         // accessToken,
         // refreshToken,
         role,
