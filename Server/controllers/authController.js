@@ -305,6 +305,7 @@ module.exports.Login = async (req, res) => {
     }
 
     // Set cookies for tokens
+    console.log(user.block);
     res
       .status(200)
       .cookie("accessToken", accessToken, options)
@@ -314,7 +315,7 @@ module.exports.Login = async (req, res) => {
         message: `Logged in successfully`,
         id: user._id,
         email: user.email,
-        block: user.block ? user.block : [],
+        block: user.block || [],
         // accessToken,
         // refreshToken,
         role,
