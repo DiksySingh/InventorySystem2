@@ -910,6 +910,7 @@ module.exports.viewApprovedOrderHistory = async (req, res) => {
     }
 };
 
+
 //Service Team Access 
 module.exports.allServicePersons = async (req, res) => {
     try{
@@ -946,6 +947,74 @@ module.exports.filterServicePersonById = async (req, res) => {
             data: servicePersonName || ""
         });
     }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.filterStateWiseServicePerson = async (req, res) => {
+    try {
+        const { state } = req.query;
+
+        if (state) {
+            // Query to count service persons in the specified state
+            const count = await ServicePerson.countDocuments({ state });
+            return res.status(200).json({
+                success: true,
+                message: `Number of service persons in state: ${state}`,
+                state,
+                count,
+            });
+        } else {
+            // Aggregate query to group service persons by state and count them
+            const servicePersonsByState = await ServicePerson.aggregate([
+                {
+                    $match: {
+                        state: { $ne: null } // Exclude documents with null state
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$state", // Group by state
+                        count: { $sum: 1 } // Count the number of documents
+                    }
+                },
+                {
+                    $project: {
+                        state: "$_id", // Rename `_id` to `state`
+                        count: 1, // Include the count field
+                        _id: 0 // Exclude the original `_id` field
+                    }
+                }
+            ]);
+
+            return res.status(200).json({
+                success: true,
+                message: "All service persons grouped by state",
+                data: servicePersonsByState,
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
+module.exports.servicePersonBlockData = async (req, res) => {
+    try {
+        const blockData = await ServicePerson.find().select("_id name block");
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: blockData || []
+        });
+    } catch (error) {
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",

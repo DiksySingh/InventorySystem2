@@ -31,6 +31,15 @@ const servicePersonSchema = new Schema({
         required: true,
         default: 'serviceperson'
     },
+    state: {
+        type: String,
+    },
+    district: {
+        type: String,
+    },
+    block: {
+        type: [String],
+    },
     longitude: {
         type: String,
     },

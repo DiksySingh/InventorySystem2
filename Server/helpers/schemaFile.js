@@ -116,3 +116,49 @@
 //         });
 //     }
 // });
+
+const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
+
+const quarterlySchema = new Schema({
+    farmerId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Farmer',
+        required: true
+    },
+    currentStatus: {
+        type: String,
+        required: true,
+    },
+    quarterly: {
+        type: String,
+        required: true,
+    },
+    image: {
+        type: [String],
+        required: true,
+    },
+    submitDate: {
+        type: Date,
+        default: Date.now,
+    },
+    created_At: {
+        type: Date,
+        default: Date.now
+    },
+    updated_At: {
+        type: Date
+    },
+    created_By: {
+        type: Schema.Types.ObjectId,
+        ref: "Employee",
+        required: true
+    },
+    updated_By: {
+        type: Schema.Types.ObjectId,
+        ref: "Employee"
+    }
+});
+
+const Quarterly = mongoose.model("Quarterly", quarterlySchema);
+module.exports = Quarterly;
