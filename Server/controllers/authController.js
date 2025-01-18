@@ -184,7 +184,7 @@ module.exports.servicePersonSignup = async (req, res) => {
 
 module.exports.updateServicePerson = async (req, res) => {
   try {
-    const { servicePersonId, name, email, contact, longitude, latitude, updatedAt } = req.body;
+    const { servicePersonId, name, email, contact, state, district, block, longitude, latitude, updatedAt } = req.body;
 
     if (!servicePersonId) {
       return res.status(400).json({
@@ -206,6 +206,13 @@ module.exports.updateServicePerson = async (req, res) => {
     if (email) servicePersonData.email = email;
     if (contact) {
       servicePersonData.contact = contact;
+    }
+    if(state) servicePersonData.state = state;
+    if(district) servicePersonData.district = district;
+    let blockArray;
+    if(block){
+      blockArray =  block.split(",").map((b) => b.trim());
+      servicePersonData.block = blockArray;
     }
     if (longitude) servicePersonData.longitude = longitude;
     if (latitude) servicePersonData.latitude = latitude;
