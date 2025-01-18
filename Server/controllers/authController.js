@@ -323,6 +323,8 @@ module.exports.Login = async (req, res) => {
         id: user._id,
         email: user.email,
         block: user.block || [],
+        latitude: user.latitude || null,
+        longitude: user.longitude || null,
         // accessToken,
         // refreshToken,
         role,
