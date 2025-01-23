@@ -117,42 +117,89 @@
 //     }
 // });
 
+// const mongoose = require("mongoose");
+// const Schema = mongoose.Schema;
+
+// const quarterlySchema = new Schema({
+//     farmerId: {
+//         type: Schema.Types.ObjectId,
+//         ref: 'Farmer',
+//         required: true
+//     },
+//     currentStatus: {
+//         type: String,
+//         required: true,
+//     },
+//     quarterly: {
+//         type: String,
+//         required: true,
+//     },
+//     image: {
+//         type: [String],
+//         required: true,
+//     },
+//     submitDate: {
+//         type: Date,
+//         default: Date.now,
+//     },
+//     created_At: {
+//         type: Date,
+//         default: Date.now
+//     },
+//     updated_At: {
+//         type: Date
+//     },
+//     created_By: {
+//         type: Schema.Types.ObjectId,
+//         ref: "Employee",
+//         required: true
+//     },
+//     updated_By: {
+//         type: Schema.Types.ObjectId,
+//         ref: "Employee"
+//     }
+// });
+
+// const Quarterly = mongoose.model("Quarterly", quarterlySchema);
+// module.exports = Quarterly;
+
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const quarterlySchema = new Schema({
+const installationSurveySchema = new Schema({
     farmerId: {
         type: Schema.Types.ObjectId,
-        ref: 'Farmer',
-        required: true
-    },
-    currentStatus: {
-        type: String,
+        ref: "Farmer",
         required: true,
     },
-    quarterly: {
-        type: String,
-        required: true,
-    },
-    image: {
+    consentLetter: {
         type: [String],
-        required: true,
     },
-    submitDate: {
-        type: Date,
-        default: Date.now,
+    consentWithFarmer: {
+        type: [String],
+    },
+    landDoc: {
+        type: [String]
+    },
+    challan: {
+        type: [String]
+    },
+    aadharFront: {
+        type: [String]
+    },
+    aadharBack: {
+        type: [String]
     },
     created_At: {
         type: Date,
-        default: Date.now
+        default: Date.now(),
     },
     updated_At: {
-        type: Date
+        type: Date,
     },
     created_By: {
         type: Schema.Types.ObjectId,
         ref: "Employee",
-        required: true
     },
     updated_By: {
         type: Schema.Types.ObjectId,
@@ -160,5 +207,5 @@ const quarterlySchema = new Schema({
     }
 });
 
-const Quarterly = mongoose.model("Quarterly", quarterlySchema);
-module.exports = Quarterly;
+const InstallationSurvey1 = mongoose.model("InstallationSurvey1", installationSurveySchema);
+module.exports = InstallationSurvey1;
