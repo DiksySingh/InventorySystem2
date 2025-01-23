@@ -914,7 +914,7 @@ module.exports.viewApprovedOrderHistory = async (req, res) => {
 //Service Team Access 
 module.exports.allServicePersons = async (req, res) => {
     try{
-      const allFieldServicePersons = await ServicePerson.find().select("-email -contact -password -role -createdAt -latitude -longitude -block -state -district -updatedAt -updatedBy -refreshToken -__v");
+      const allFieldServicePersons = await ServicePerson.find().select("-email -contact -password -role -createdAt -latitude -longitude -block -state -district -createdBy -updatedAt -updatedBy -refreshToken -__v");
     //   if(!allFieldServicePersons){
     //     return res.status(404).json({
     //       success: false,
