@@ -940,7 +940,7 @@ module.exports.allServicePersons = async (req, res) => {
 module.exports.filterServicePersonById = async (req, res) => {
     try{
         const {id} = req.query;
-        const servicePersonName = await ServicePerson.findById({_id: id}).select("-_id -email -contact -password -role -createdAt -refreshToken -__v");
+        const servicePersonName = await ServicePerson.findById({_id: id}).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
         return res.status(200).json({
             success: true,
             message: "Service Person Found",
