@@ -1,6 +1,7 @@
 const Admin = require("../models/adminSchema");
 const ServicePerson = require("../models/servicePersonSchema");
 const WarehousePerson = require("../models/warehousePersonSchema");
+const SurveyPerson = require("../models/surveyPersonSchema");
 const Warehouse = require("../models/warehouseSchema");
 const {
   createSecretToken,
@@ -51,26 +52,26 @@ module.exports.adminSignup = async (req, res) => {
   }
 };
 
-module.exports.warehousePersonSignup = async(req, res) => {
-  const {name, email, warehouse, contact, password, role, createdAt } = req.body;
-  if(!name || !email || !warehouse || !contact || !password) {
+module.exports.warehousePersonSignup = async (req, res) => {
+  const { name, email, warehouse, contact, password, role, createdAt } = req.body;
+  if (!name || !email || !warehouse || !contact || !password) {
     return res.status(400).json({
       success: false,
       message: "All fields are required",
     });
   }
 
-  try{
-    const existingWarehousePerson = await WarehousePerson.findOne({$or: [{ email }, { contact }]});
-    if(existingWarehousePerson){
+  try {
+    const existingWarehousePerson = await WarehousePerson.findOne({ $or: [{ email }, { contact }] });
+    if (existingWarehousePerson) {
       return res.status(400).json({
         success: false,
         message: "Warehouse Person Already Exists"
       });
     }
 
-    const existingWarehouse = await Warehouse.findOne({warehouseName: warehouse});
-    if(!existingWarehouse){
+    const existingWarehouse = await Warehouse.findOne({ warehouseName: warehouse });
+    if (!existingWarehouse) {
       return res.status(404).json({
         success: false,
         message: "Warehouse Not Found"
@@ -103,7 +104,7 @@ module.exports.warehousePersonSignup = async(req, res) => {
         //refreshToken,
       },
     });
-  }catch(error){
+  } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -114,7 +115,7 @@ module.exports.warehousePersonSignup = async(req, res) => {
 
 module.exports.servicePersonSignup = async (req, res) => {
   const { name, email, contact, password, createdAt, role, longitude, latitude, state, district, block } = req.body;
-  if (!name || !email || !contact || !password ) {
+  if (!name || !email || !contact || !password) {
     return res.status(400).json({
       success: false,
       message: "All fields are required",
@@ -133,12 +134,12 @@ module.exports.servicePersonSignup = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     let blockArray;
-    if(block){
-      blockArray =  block.split(",").map((b) => b.trim());
+    if (block) {
+      blockArray = block.split(",").map((b) => b.trim());
     }
-    
+
     const newServicePerson = new ServicePerson({
       name,
       email,
@@ -182,6 +183,76 @@ module.exports.servicePersonSignup = async (req, res) => {
   }
 };
 
+module.exports.surveyPersonSignup = async (req, res) => {
+  const {name, email, contact, password, role, longitude, latitude, state, district, block, createdAt} = req.body;
+  if (!name || !email || !contact || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "All fields are required",
+    });
+  }
+  try {
+    const existingSurveyPerson = await SurveyPerson.findOne({
+      $or: [{ email }, { contact }],
+    });
+    if (existingSurveyPerson) {
+      res.status(400).json({
+        success: false,
+        message: "Survey Person already exists",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    let blockArray;
+    if (block) {
+      blockArray = block.split(",").map((b) => b.trim());
+    }
+
+    const newSurveyPerson = new SurveyPerson({
+      name,
+      email,
+      contact,
+      password: hashedPassword,
+      longitude: longitude || null,
+      latitude: latitude || null,
+      state: state || "",
+      district: district || "",
+      block: blockArray || [],
+      createdAt,
+      createdBy: req.user._id,
+      role,
+      refreshToken: null,
+    });
+    await newSurveyPerson.save();
+    res.status(200).json({
+      success: true,
+      message: "Survey Person registered successfully",
+      data: {
+        name: newSurveyPerson.name,
+        email: newSurveyPerson.email,
+        contact: newSurveyPerson.contact,
+        password: newSurveyPerson.password,
+        longitude: newSurveyPerson.longitude,
+        latitude: newSurveyPerson.latitude,
+        createdAt: newSurveyPerson.createdAt,
+        createdBy: newSurveyPerson.createdBy,
+        role: newSurveyPerson.role,
+        state: newSurveyPerson.state,
+        district: newSurveyPerson.district,
+        block: newSurveyPerson.block,
+      },
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 module.exports.updateServicePerson = async (req, res) => {
   try {
     const { servicePersonId, name, email, contact, state, district, block, longitude, latitude, updatedAt } = req.body;
@@ -207,11 +278,11 @@ module.exports.updateServicePerson = async (req, res) => {
     if (contact) {
       servicePersonData.contact = contact;
     }
-    if(state) servicePersonData.state = state;
-    if(district) servicePersonData.district = district;
+    if (state) servicePersonData.state = state;
+    if (district) servicePersonData.district = district;
     let blockArray;
-    if(block){
-      blockArray =  block.split(",").map((b) => b.trim());
+    if (block) {
+      blockArray = block.split(",").map((b) => b.trim());
       servicePersonData.block = blockArray;
     }
     if (longitude) servicePersonData.longitude = longitude;
@@ -260,25 +331,31 @@ module.exports.Login = async (req, res) => {
     //   });
     // }
 
-    let user = await Admin.findOne({ 
+    let user = await Admin.findOne({
       email: email,
       role: role,
     });
     if (!user) {
-      user = await WarehousePerson.findOne({ 
-        email: email, 
-        role: role 
+      user = await WarehousePerson.findOne({
+        email: email,
+        role: role
       });
       if (!user) {
-        user = await ServicePerson.findOne({ 
-          email: email, 
-          role: role 
+        user = await ServicePerson.findOne({
+          email: email,
+          role: role
         });
-        if(!user){
-          return res.status(401).json({
-            success: false,
-            message: "Incorrect email or password",
+        if (!user) {
+          user = await SurveyPerson.findOne({
+            email: email,
+            role: role
           });
+          if (!user) {
+            return res.status(401).json({
+              success: false,
+              message: "Incorrect email or password",
+            });
+          }
         }
       }
     }
@@ -298,15 +375,19 @@ module.exports.Login = async (req, res) => {
 
     // Update the refreshToken in the database
     if (user.constructor.modelName === "Admin") {
-      await Admin.findByIdAndUpdate(user._id, { 
-        refreshToken: refreshToken 
+      await Admin.findByIdAndUpdate(user._id, {
+        refreshToken: refreshToken
       });
-    } else if(user.constructor.modelName === "WarehousePerson"){
-      await WarehousePerson.findByIdAndUpdate(user._id, { 
-        refreshToken: refreshToken 
+    } else if (user.constructor.modelName === "WarehousePerson") {
+      await WarehousePerson.findByIdAndUpdate(user._id, {
+        refreshToken: refreshToken
       });
-    }else {
+    } else if (user.constructor.modelName === "ServicePerson") {
       await ServicePerson.findByIdAndUpdate(user._id, {
+        refreshToken: refreshToken,
+      });
+    } else {
+      await SurveyPerson.findByIdAndUpdate(user._id, {
         refreshToken: refreshToken,
       });
     }
@@ -347,13 +428,13 @@ module.exports.Logout = async (req, res) => {
       await ServicePerson.findByIdAndUpdate(userID, {
         $set: { refreshToken: null },
       });
-    } else if (role === "warehouseAdmin"){
+    } else if (role === "warehouseAdmin") {
       await WarehousePerson.findByIdAndUpdate(userID, {
         $set: { refreshToken: null },
       });
-    }else{
-      await Admin.findByIdAndUpdate(userID, { 
-        $set: { refreshToken: null } 
+    } else {
+      await Admin.findByIdAndUpdate(userID, {
+        $set: { refreshToken: null }
       });
     }
 

@@ -23,18 +23,19 @@ const updateLatitudeLongitude = async (req, res) => {
         const sheetData = result.data;
 
         for (const row of sheetData) {
-            const { contact, district, block, longitude, latitude } = row;
+            //const { contact, district, block, longitude, latitude } = row;
+            const { contact, latitude, longitude} = row;
 
-            if (!contact || !district || !block || !longitude || !latitude) {
+            if (!contact || !latitude || !longitude) {
                 console.log(`Skipping row with missing fields: ${JSON.stringify(row)}`);
                 continue;
             }
             let phoneNumber = parseInt(contact);
-            let blockArray = block.split("-").map((b) => b.trim());
+            //let blockArray = block.split("-").map((b) => b.trim());
 
             const updatedPerson = await ServicePerson.findOneAndUpdate(
                 { contact: phoneNumber },
-                { district, block: blockArray, longitude, latitude },
+                { latitude,longitude},
                 { new: true, upsert: false }
             );
 

@@ -1,6 +1,7 @@
 const Admin = require("../models/adminSchema");
 const ServicePerson = require("../models/servicePersonSchema");
 const WarehousePerson = require("../models/warehousePersonSchema");
+const SurveyPerson = require("../models/surveyPersonSchema");
 const {
   createSecretToken,
   createRefreshToken,
@@ -38,7 +39,9 @@ module.exports.userVerification = (allowedRoles) => {
             user = await ServicePerson.findById(data.id);
           } else if(data.role === "warehouseAdmin") {
             user = await WarehousePerson.findById(data.id);
-          }else {
+          } else if(data.role === "surveyperson"){
+            user = await SurveyPerson.findById(data.id);
+          } else {
             user = await Admin.findById(data.id);
           }
 
@@ -102,10 +105,13 @@ module.exports.refreshToken = async (req, res) => {
           if (!user) {
             user = await WarehousePerson.findById(id);
             if(!user){
-              return res.status(400).json({
-              success: false,
-              message: "Admin, WarehousePerson or ServicePerson Not Found",
-            });
+              user = await SurveyPerson.findById(id);
+              if(!user){
+                return res.status(400).json({
+                  success: false,
+                  message: "Admin, WarehousePerson or ServicePerson Not Found",
+                });
+              }
             }
           }
         }
