@@ -111,7 +111,7 @@ module.exports.warehousePersonSignup = async (req, res) => {
       error: error.message
     });
   }
-}
+};
 
 module.exports.servicePersonSignup = async (req, res) => {
   const { name, email, contact, password, createdAt, role, longitude, latitude, state, district, block } = req.body;

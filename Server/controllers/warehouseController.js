@@ -5,6 +5,10 @@ const WarehouseItems = require("../models/warehouseItemsSchema");
 const ServicePerson = require("../models/servicePersonSchema");
 const RepairNRejectItems = require("../models/repairNRejectSchema");
 const PickupItem = require("../models/pickupItemSchema");
+const System = require("../models/systemSchema");
+const SystemItem = require("../models/systemItemSchema");
+const InstallationInventory = require("../models/installationInventorySchema");
+
 
 //****************** Admin Access ******************//
 module.exports.addWarehouse = async (req, res) => {
@@ -120,7 +124,6 @@ module.exports.viewServicePersons = async (req, res) => {
     }
 };
 
-//Delete Warehouse Person
 module.exports.deleteWarehousePerson = async (req, res) => {
     try{
         const {id} = req.query;
@@ -146,7 +149,6 @@ module.exports.deleteWarehousePerson = async (req, res) => {
     }
 }; 
 
-//Delete Service Person
 module.exports.deleteServicePerson = async (req, res) => {
     try{
         const {id} = req.query;
@@ -872,6 +874,163 @@ module.exports.getWarehouse = async (req, res) => {
             message: "Internal Server Error",
             error: error.message
         });
+    }
+};
+
+//Installation Controllers For Warehouse
+module.exports.addSystem = async (req, res) => {
+    try {
+        const {systemName} = req.body;
+        if(!systemName) {
+            return res.status(400).json({
+                success: false,
+                message: "systemName is required"
+            });
+        }
+
+        const existingSystem = await System.findOne({systemName});
+        if(existingSystem){
+            return res.status(400).json({
+                success: false,
+                message: "System Already Exists"
+            });
+        }
+
+        const newSystem = new System({systemName: systemName.trim()});
+        const savedSystem = await newSystem.save();
+        if(savedSystem) {
+            return res.status(200).json({
+                success: true,
+                message: "System Data Saved Successfully",
+                data: savedSystem
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.addSystemItem = async (req, res) => {
+    try {
+        const {systemId, itemName, quantity} = req.body;
+        const warehousePersonId = req.user._id;
+        if(!systemId || !itemName || !quantity){
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+
+        const insertData = {
+            systemId,
+            itemName: itemName.trim(),
+            quantity,
+            createdBy: warehousePersonId
+        };
+
+        const existingSystemItem = await SystemItem.findOne({itemName});
+        if(existingSystemItem) {
+            return res.status(400).json({
+                success: false,
+                message: "System Item Already Exists"
+            });
+        }
+
+        const newSystemItem = new SystemItem(insertData);
+        const savedSystemItem = await newSystemItem.save();
+
+        const newInventoryItem = new InstallationInventory({itemName, quantity: 0});
+        const savedInventoryItem = await newInventoryItem.save();
+
+        if(savedSystemItem && savedInventoryItem){
+            return res.status(200).json({
+                success: true,
+                message: "System Item Saved Successfully",
+                savedSystemItem,
+                savedInventoryItem
+            });
+        }
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.showSystems = async(req,res) => {
+    try {
+        const systems = await System.find()
+        .populate("createdBy", "name email") // Adjust the fields you want from the `WarehousePerson`
+        .populate("updatedBy", "name email");
+  
+      if(systems){
+        res.status(200).json({
+            success: true,
+            data: systems,
+        });
+      }
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+module.exports.showSystemItems = async (req, res) => {
+    try {
+        const { systemId } = req.body.systemId || req.query.systemId || req.params['systemId'] ; // systemId from the URL parameter
+
+        // Fetch system items by systemId and populate createdBy and updatedBy fields
+        const systemItems = await SystemItem.find({ systemId })
+          .populate("createdBy", "name email")  // Adjust the fields you want from the `WarehousePerson`
+          .populate("updatedBy", "name email");
+    
+        if (!systemItems.length) {
+            return res.status(404).json({ 
+                success: false,
+                message: "No system items found for this system." 
+            });
+        }
+        res.status(200).json({
+          success: true,
+          data: systemItems,
+        });
+
+      } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+};
+
+module.exports.addInventoryItem = async (req, res) => {
+    try {
+        const {itemName} = req.body;
+        if(!itemName) {
+            return res.status(400).json({
+                success: false,
+                message: "ItemName is required"
+            });
+        }
+
+        const newInventoryItem = new InstallationInventory({itemName, quantity});
+
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        })
     }
 };
 

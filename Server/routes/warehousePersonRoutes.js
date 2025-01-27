@@ -11,7 +11,8 @@ const {
   rejectItemData, 
   warehouseRepairItemsData, 
   warehouseRejectItemsData,
-  viewOrdersApprovedHistory
+  viewOrdersApprovedHistory,
+  addSystem
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData,inDefectiveItemsOrderHistory,outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/installationDataController");
@@ -44,5 +45,7 @@ router.put("/update-defective-order-status", userVerification(['warehouseAdmin']
 //router.delete("/deleteItem", userVerification(["warehouseAdmin"]), deleteItem);
 
 router.get("/warehouse-installation-data", userVerification(['warehouseAdmin']), getWarehouseInstallationData);
+
+router.post("/add-system", userVerification(['warehouseAdmin']), addSystem);
 
 module.exports = router;
