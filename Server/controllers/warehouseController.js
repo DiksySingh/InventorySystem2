@@ -1,3 +1,4 @@
+const axios = require("axios");
 const Item = require("../models/itemSchema");
 const Warehouse = require("../models/warehouseSchema");
 const WarehousePerson = require("../models/warehousePersonSchema");
@@ -1035,11 +1036,9 @@ module.exports.showSystems = async(req,res) => {
 
 module.exports.showSystemItems = async (req, res) => {
     try {
-        const { systemId } = req.body.systemId || req.query.systemId || req.params['systemId'] ; // systemId from the URL parameter
-
-        // Fetch system items by systemId and populate createdBy and updatedBy fields
-        const systemItems = await SystemItem.find({ systemId })
-          .populate("createdBy", "name email")  // Adjust the fields you want from the `WarehousePerson`
+        const { systemId } = req.query;
+        const systemItems = await SystemItem.find({ systemId: systemId })
+          .populate("createdBy", "name email")  
           .populate("updatedBy", "name email");
     
         if (!systemItems.length) {
@@ -1226,11 +1225,41 @@ module.exports.addNewInstallationData = async (req, res) => {
 module.exports.showNewInstallationDataToInstaller = async (req, res) => {
     try{
         const installerId = req.user._id
-        const showInstallationData = await FarmerItemsActivity.find({empId: installerId});
+        const activities = await FarmerItemsActivity.find({empId: installerId})
+        .populate({
+            path: "warehouseId",
+            select: {
+                "name": 1,
+                "email": 1,
+                "contact": 1
+            }
+        })
+        .populate({
+            path: "empId",
+            select: {
+                "name": 1,
+                "email": 1,
+                "contact": 1
+            }
+        });
+        const activitiesWithFarmerDetails = await Promise.all(
+            activities.map(async (activity) => {
+                const response = await axios.get(
+                    `http://88.222.214.93:8001/farmer/showSingleFarmer?id=${activity.farmerId}`
+                );
+                if(response){
+                    return {
+                        ...activity.toObject(),
+                        farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
+                    };
+                }
+            })
+        );
+
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            data: showInstallationData
+            data: activitiesWithFarmerDetails
         });
     } catch (error) {
         return res.status(500).json({
@@ -1243,8 +1272,16 @@ module.exports.showNewInstallationDataToInstaller = async (req, res) => {
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
     try {
-        // const warehouseId = req.user.warehouse;
-        // const 
+        const warehouseId = req.user.warehouse;
+        const showData = await FarmerItemsActivity.find({warehouseId: warehouseId})
+        .populate({
+            path: "warehouseId",
+            select: {
+                "name": 1,
+                "email": 1,
+                "contact": 1
+            }
+        });
         
     } catch (error) {
         return res.status(500).json({
