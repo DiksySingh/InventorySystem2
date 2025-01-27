@@ -1002,8 +1002,20 @@ module.exports.addSystemItem = async (req, res) => {
 module.exports.showSystems = async(req,res) => {
     try {
         const systems = await System.find()
-        .populate("createdBy", "name email") // Adjust the fields you want from the `WarehousePerson`
-        .populate("updatedBy", "name email");
+        .populate({
+            path: 'createdBy',
+            select: {
+                "name": 1,
+                "email": 1
+            }
+        }) // Adjust the fields you want from the `WarehousePerson`
+        .populate({
+            path: "updatedBy",
+            select: {
+                "name": 1,
+                "email": 1
+            }
+        }).select("-__v -createdAt -updatedAt");
   
       if(systems){
         res.status(200).json({
