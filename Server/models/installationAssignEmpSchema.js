@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const farmerItemsActivitySchema = new Schema({
+const installationAssignEmpSchema = new Schema({
     referenceType: {
         type: String,
         required: true,
@@ -11,37 +11,21 @@ const farmerItemsActivitySchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: "WarehousePerson"
     },
-    farmerId: {
-        type: Schema.Types.ObjectId,
-        required: true
-    },
     empId: {
         type: Schema.Types.ObjectId,
-        refPath: "referenceType",
-        required: true
+        required: true,
+        refPath: "referenceType", // Dynamically references the model based on referenceType
+    },
+    farmerId: {
+        type: Schema.Types.ObjectId,
+        required: true,
     },
     systemId: {
         type: Schema.Types.ObjectId,
         ref: "System",
         required: true
     },
-    itemsList: [
-        {
-            itemId: {
-                type: Schema.Types.ObjectId,
-                ref: "SystemItem",
-                required: true
-            },
-            quantity: {
-                type: Number,
-            },
-        }
-    ],
-    accepted: {
-        type: Boolean,
-        default: false
-    },
-    createdAt : {
+    createdAt: {
         type: Date,
         default: Date.now,
     },
@@ -50,14 +34,14 @@ const farmerItemsActivitySchema = new Schema({
     },
     createdBy: {
         type: Schema.Types.ObjectId,
+        required: true,
         refPath: "WarehousePerson",
-        required: true
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
         refPath: "WarehousePerson",
     }
-}, {collection: "inFarmerItemsActivities"});
+}, {collection: "inInstallationAssignEmp"});
 
-const FarmerItemsActivity = mongoose.model("FarmerItemsActivity", farmerItemsActivitySchema);
-module.exports = FarmerItemsActivity;
+const InstallationAssignEmp = mongoose.model("InstallationAssignEmp", installationAssignEmpSchema);
+module.exports = InstallationAssignEmp;

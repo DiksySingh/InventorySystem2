@@ -11,7 +11,7 @@ const systemItemSchema = new Schema({
         type: String,
         required: true
     },
-    quantity: {
+    quantity: {   //According to System
         type: Number,
         required: true
     },

@@ -8,6 +8,8 @@ const PickupItem = require("../models/pickupItemSchema");
 const System = require("../models/systemSchema");
 const SystemItem = require("../models/systemItemSchema");
 const InstallationInventory = require("../models/installationInventorySchema");
+const FarmerItemsActivity = require("../models/farmerItemsActivity");
+const InstallationAssignEmp = require("../models/installationAssignEmpSchema");
 
 
 //****************** Admin Access ******************//
@@ -1103,8 +1105,146 @@ module.exports.showInventoryItems = async (req, res) => {
 
 module.exports.updateItemQuantity = async (req, res) => {
     try {
-        const {itemName, quantity} = req.body;
-        const inventoryItemData = await InstallationInventory.findOneAndUpdate({itemName})
+        const {itemName, updatedQuantity} = req.body;
+        const filter = {
+            itemName: itemName
+        }
+        const update = {
+            quantity: updatedQuantity
+        }
+        const updatedItemData = await InstallationInventory.findOneAndUpdate(filter, update);
+        if(updatedItemData) {
+            return res.status(200).json({
+                success: true,
+                message: "Data Updated Successfully"
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.addNewInstallationData = async (req, res) => {
+    try {
+        const {farmerId, empId, systemId, itemsList} = req.body;
+        const warehousePersonId = req.user._id;
+        const warehouseId = req.user.warehouse;
+        if(!farmerId || !empId || !itemsList) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+
+        if(!Array.isArray(itemsList) || itemsList.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "itemsList should be a non-empty array"
+            });
+        }
+
+        let refType;
+        let empData = await ServicePerson.find({_id: empId});
+        if(!empData) {
+            empData = await SurveyPerson.find({_id: empId});
+            if(!empData) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Employee Data Is Not Available"
+                });
+            }
+            refType = "SurveyPerson"; 
+        }
+        refType = "ServicePerson";
+
+        for (const item of itemsList) {
+            const { itemId, quantity } = item;
+
+            // Find the item in InstallationInventory
+            const inventoryItem = await InstallationInventory.findById(itemId);
+
+            if (!inventoryItem) {
+                throw new Error(`Item with ID ${itemId} not found in inventory`);
+            }
+
+            if (inventoryItem.quantity < quantity) {
+                throw new Error(`Insufficient stock for item ${inventoryItem.itemName}`);
+            }
+
+            // Update inventory quantity
+            inventoryItem.quantity -= quantity;
+            inventoryItem.updatedAt = new Date();
+
+            await inventoryItem.save();
+        }
+
+        const accountData = {
+            warehouseId,
+            referenceType: refType,
+            empId,
+            farmerId,
+            systemId,
+            createdBy: warehousePersonId
+        };
+        console.log(accountData);
+
+        const activityData = {
+            warehouseId,
+            referenceType: refType,
+            farmerId,
+            empId,
+            itemsList,
+            createdBy: warehousePersonId
+        }
+        console.log(activityData);
+
+        const empAccountData = new InstallationAssignEmp(accountData);
+        await empAccountData.save();
+
+        const farmerActivity = new FarmerItemsActivity(activityData);
+        await farmerActivity.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Saved Successfully",
+            empAccountData,
+            farmerActivity
+        });
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
+module.exports.showNewInstallationDataToInstaller = async (req, res) => {
+    try{
+        const installerId = req.user._id
+        const showInstallationData = await FarmerItemsActivity.find({empId: installerId});
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: showInstallationData
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.showInstallationDataToWarehouse = async (req, res) => {
+    try {
+        // const warehouseId = req.user.warehouse;
+        // const 
         
     } catch (error) {
         return res.status(500).json({
@@ -1114,6 +1254,7 @@ module.exports.updateItemQuantity = async (req, res) => {
         });
     }
 };
+
 
 
 
