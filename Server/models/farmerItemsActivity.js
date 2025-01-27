@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const farmerAccountSchema = new Schema({
+const farmerItemsActivitySchema = new Schema({
     referenceType: {
         type: String,
         required: true,
@@ -11,9 +11,9 @@ const farmerAccountSchema = new Schema({
         type: Schema.Types.ObjectId,
         required: true
     },
-    systemId: {
+    empId: {
         type: Schema.Types.ObjectId,
-        ref: "System",
+        refPath: "referenceType",
         required: true
     },
     itemId: {
@@ -28,12 +28,10 @@ const farmerAccountSchema = new Schema({
         type: Date,
         default: Date.now,
     },
-    createdBy: {
-        type: Schema.Types.ObjectId,
-        refPath: 'referenceType',
-        required: true,
+    updatedAt: {
+        type: Date,
     }
-}, {collection: "inFarmerAccounts"});
+}, {collection: "inFarmerItemsActivities"});
 
-const FarmerAccount = mongoose.model("FarmerAccount", farmerAccountSchema);
-module.exports = FarmerAccount;
+const FarmerItemsActivity = mongoose.model("FarmerItemsActivity", farmerItemsActivitySchema);
+module.exports = FarmerItemsActivity;

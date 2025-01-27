@@ -877,10 +877,45 @@ module.exports.getWarehouse = async (req, res) => {
     }
 };
 
+module.exports.viewApprovedOrderHistory = async (req, res) => {
+    try {
+        const servicePersonId = req.user._id;
+        if(!servicePersonId){
+            return res.status(400).json({
+                success: false,
+                message: "servicePersonId not found"
+            });
+        }
+
+        const pickupItemData = await PickupItem.find({servicePerson: servicePersonId}).sort({pickupDate: -1});
+        
+        let orderHistory = [];
+
+        for(let order of pickupItemData){
+            if((order.incoming === false) && (order.status === true)){
+                    orderHistory.push(order);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "History Fetched Successfully",
+            orderHistory
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 //Installation Controllers For Warehouse
 module.exports.addSystem = async (req, res) => {
     try {
         const {systemName} = req.body;
+        const empId = req.user._id;
         if(!systemName) {
             return res.status(400).json({
                 success: false,
@@ -896,7 +931,7 @@ module.exports.addSystem = async (req, res) => {
             });
         }
 
-        const newSystem = new System({systemName: systemName.trim()});
+        const newSystem = new System({systemName: systemName.trim(), createdBy: empId});
         const savedSystem = await newSystem.save();
         if(savedSystem) {
             return res.status(200).json({
@@ -1012,54 +1047,39 @@ module.exports.showSystemItems = async (req, res) => {
     }
 };
 
-module.exports.addInventoryItem = async (req, res) => {
-    try {
-        const {itemName} = req.body;
-        if(!itemName) {
-            return res.status(400).json({
-                success: false,
-                message: "ItemName is required"
-            });
-        }
+// module.exports.addInventoryItem = async (req, res) => {
+//     try {
+//         const {itemName} = req.body;
+//         if(!itemName) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "ItemName is required"
+//             });
+//         }
 
-        const newInventoryItem = new InstallationInventory({itemName, quantity});
+//         const newInventoryItem = new InstallationInventory({itemName, quantity});
 
 
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message
-        })
-    }
-};
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         })
+//     }
+// };
 
 //****************** Service Person Access *************************//
-module.exports.viewApprovedOrderHistory = async (req, res) => {
+
+module.exports.showInventoryItems = async (req, res) => {
     try {
-        const servicePersonId = req.user._id;
-        if(!servicePersonId){
-            return res.status(400).json({
-                success: false,
-                message: "servicePersonId not found"
-            });
-        }
-
-        const pickupItemData = await PickupItem.find({servicePerson: servicePersonId}).sort({pickupDate: -1});
-        
-        let orderHistory = [];
-
-        for(let order of pickupItemData){
-            if((order.incoming === false) && (order.status === true)){
-                    orderHistory.push(order);
-            }
-        }
-
+        const inventorySystemItems = await InstallationInventory.find().select("-createdAt -updatedAt");
         return res.status(200).json({
             success: true,
-            message: "History Fetched Successfully",
-            orderHistory
+            message: "Data Fetched Successfully",
+            data: inventorySystemItems || []
         });
+        
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1068,6 +1088,21 @@ module.exports.viewApprovedOrderHistory = async (req, res) => {
         });
     }
 };
+
+module.exports.updateItemQuantity = async (req, res) => {
+    try {
+        const {itemName, quantity} = req.body;
+        const inventoryItemData = await InstallationInventory.findOneAndUpdate({itemName})
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 
 
 //Service Team Access 

@@ -12,7 +12,12 @@ const {
   warehouseRepairItemsData, 
   warehouseRejectItemsData,
   viewOrdersApprovedHistory,
-  addSystem
+  addSystem,
+  showSystems,
+  addSystemItem,
+  showSystemItems,
+  showInventoryItems,
+  updateItemQuantity
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData,inDefectiveItemsOrderHistory,outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/installationDataController");
@@ -47,5 +52,10 @@ router.put("/update-defective-order-status", userVerification(['warehouseAdmin']
 router.get("/warehouse-installation-data", userVerification(['warehouseAdmin']), getWarehouseInstallationData);
 
 router.post("/add-system", userVerification(['warehouseAdmin']), addSystem);
+router.get("/show-systems", userVerification(['warehouseAdmin']), showSystems);
+router.post("/add-system-item", userVerification(['warehouseAdmin']), addSystemItem);
+router.get("/show-system-items", userVerification(['warehouseAdmin']), showSystemItems);
+router.get("/show-inventory-items", userVerification(['warehouseAdmin']), showInventoryItems);
+router.put("/update-item-quantity", userVerification(['warehouseAdmin']), updateItemQuantity);
 
 module.exports = router;
