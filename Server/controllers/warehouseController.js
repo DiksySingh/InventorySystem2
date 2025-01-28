@@ -1131,8 +1131,9 @@ module.exports.updateItemQuantity = async (req, res) => {
 module.exports.addNewInstallationData = async (req, res) => {
     try {
         const { farmerId, empId, systemId, itemsList } = req.body;
+        console.log(req.body);
         const warehousePersonId = req.user._id;
-        const warehouseId = req.user.warehouse;
+        const warehouseId = warehousePersonId;
         if (!farmerId || !empId || !itemsList) {
             return res.status(400).json({
                 success: false,
@@ -1160,13 +1161,12 @@ module.exports.addNewInstallationData = async (req, res) => {
             refType = "SurveyPerson";
         }
         refType = "ServicePerson";
-
         for (const item of itemsList) {
             const { itemId, quantity } = item;
 
             // Find the item in InstallationInventory
             const systemItem = await SystemItem.findById(itemId);
-            const inventoryItem = await InstallationInventory.find({ itemName: systemItem.itemName });
+            const inventoryItem = await InstallationInventory.findOne({ itemName: systemItem.itemName });
             if (!inventoryItem) {
                 throw new Error(`Item with ID ${itemId} not found in inventory`);
             }
@@ -1176,9 +1176,8 @@ module.exports.addNewInstallationData = async (req, res) => {
             }
 
             // Update inventory quantity
-            inventoryItem.quantity -= quantity;
+            inventoryItem.quantity = parseInt(inventoryItem.quantity) - parseInt(quantity);
             inventoryItem.updatedAt = new Date();
-
             await inventoryItem.save();
         }
 
@@ -1219,7 +1218,8 @@ module.exports.addNewInstallationData = async (req, res) => {
     } catch (error) {
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error"
+            message: "Internal Server Error",
+            error: error.message
         });
     }
 };
@@ -1233,7 +1233,8 @@ module.exports.showNewInstallationDataToInstaller = async (req, res) => {
                 select: {
                     "name": 1,
                     "email": 1,
-                    "contact": 1
+                    "contact": 1,
+                    "warehouse": 1
                 }
             })
             .populate({
@@ -1274,8 +1275,8 @@ module.exports.showNewInstallationDataToInstaller = async (req, res) => {
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
     try {
-        const warehouseId = req.user.warehouse;
-        const showData = await FarmerItemsActivity.find({ warehouseId: warehouseId })
+        const warehousePersonId = req.user._id;
+        const showData = await FarmerItemsActivity.find({ warehouseId: warehousePersonId })
             .populate({
                 path: "warehouseId",
                 select: {
@@ -1283,7 +1284,34 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                     "email": 1,
                     "contact": 1
                 }
+            })
+            .populate({
+                path: "empId",
+                select: {
+                    "name": 1,
+                    "email": 1,
+                    "contact": 1
+                }
             });
+        const activitiesWithFarmerDetails = await Promise.all(
+            showData.map(async (data) => {
+                const response = await axios.get(
+                    `http://88.222.214.93:8001/farmer/showSingleFarmer?id=${data.farmerId}`
+                );
+                if (response) {
+                    return {
+                        ...data.toObject(),
+                        farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
+                    };
+                }
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: activitiesWithFarmerDetails
+        });
 
     } catch (error) {
         return res.status(500).json({
@@ -1433,3 +1461,39 @@ module.exports.showWarehousePersons = async (req, res) => {
         });
     }
 }
+
+module.exports.showIncomingItemsFromFarmer = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query; 
+        
+        const pageNumber = parseInt(page, 10);
+        const limitNumber = parseInt(limit, 10);
+        const skip = (pageNumber - 1) * limitNumber;
+        
+        const incomingItemsData = await PickupItem.find({ incoming: true })
+            .sort({ pickupDate: -1 })
+            .skip(skip)
+            .limit(limitNumber);
+
+        const totalItems = await PickupItem.countDocuments({ incoming: true });
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: incomingItemsData || [],
+            pagination: {
+                totalItems,
+                totalPages: Math.ceil(totalItems / limitNumber),
+                currentPage: pageNumber,
+                perPage: limitNumber
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+

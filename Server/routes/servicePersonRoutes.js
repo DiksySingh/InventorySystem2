@@ -1,5 +1,5 @@
 const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus} = require("../controllers/pickupItemController");
-const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/warehouseController");
+const {showWarehouses, viewApprovedOrderHistory, showNewInstallationDataToInstaller} = require("../controllers/warehouseController");
 const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp, getServicePersonInstallationData, checkServicePersonLatLong} = require("../controllers/installationDataController");
 // const {uploadHandler} = require("../middlewares/multerConfig");
 const { userVerification } = require("../middlewares/authMiddlewares");
@@ -22,5 +22,6 @@ router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
 
 router.get("/service-installation-data", userVerification(['serviceperson']), getServicePersonInstallationData);
+router.get("/show-new-install-data", userVerification(['serviceperson']), showNewInstallationDataToInstaller);
 
 module.exports = router;
