@@ -1,4 +1,5 @@
 const axios = require("axios");
+const handleBase64Images = require("../middlewares/base64ImageHandler");
 const Item = require("../models/itemSchema");
 const Warehouse = require("../models/warehouseSchema");
 const WarehousePerson = require("../models/warehousePersonSchema");
@@ -1130,11 +1131,47 @@ module.exports.updateItemQuantity = async (req, res) => {
 
 module.exports.addNewInstallationData = async (req, res) => {
     try {
-        const { farmerId, empId, systemId, itemsList } = req.body;
-        console.log(req.body);
+        const { 
+            farmerId, 
+            empId, 
+            systemId, 
+            itemsList, 
+            panelNumbers, 
+            pumpNumber, 
+            controllerNumber, 
+            rmuNumber, 
+            borePhoto, 
+            challanPhoto, 
+            landDocPhoto, 
+            sprinklerPhoto, 
+            boreFarmerPhoto, 
+            finalFoundationFarmerPhoto,
+            panelFarmerPhoto,
+            controllerBoxFarmerPhoto,
+            waterDischargeFarmerPhoto
+        } = req.body;
+
         const warehousePersonId = req.user._id;
-        const warehouseId = warehousePersonId;
-        if (!farmerId || !empId || !itemsList) {
+        const warehouseId = warehousePersonId; 
+
+        if (
+            !farmerId || 
+            !empId || 
+            !itemsList ||
+            !panelNumbers ||
+            !pumpNumber ||
+            !controllerNumber ||
+            !rmuNumber ||
+            !borePhoto || 
+            !challanPhoto || 
+            !landDocPhoto || 
+            !sprinklerPhoto || 
+            !boreFarmerPhoto || 
+            !finalFoundationFarmerPhoto ||
+            !panelFarmerPhoto ||
+            !controllerBoxFarmerPhoto ||
+            !waterDischargeFarmerPhoto
+        ) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -1161,6 +1198,35 @@ module.exports.addNewInstallationData = async (req, res) => {
             refType = "SurveyPerson";
         }
         refType = "ServicePerson";
+
+        const savedBorePhoto = await handleBase64Images(borePhoto);
+        const borePhotoUrl = savedBorePhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+        const savedChallanPhoto = await handleBase64Images(challanPhoto);
+        const challanPhotoUrl = savedChallanPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+        const savedLandDocPhoto = await handleBase64Images(landDocPhoto);
+        const landDocPhotoUrl = savedLandDocPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+        const savedSprinklerPhoto = await handleBase64Images(sprinklerPhoto);
+        const sprinklerPhotoUrl = savedSprinklerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+        const savedBoreFarmerPhoto = await handleBase64Images(boreFarmerPhoto);
+        const boreFarmerPhotoUrl = savedBoreFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+        const savedFoundationFarmerPhoto = await handleBase64Images(finalFoundationFarmerPhoto);
+        const foundationFarmerPhotoUrl = savedFoundationFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+        
+        const savedPanelFarmerPhoto = await handleBase64Images(panelFarmerPhoto);
+        const panelFarmerPhotoUrl = savedPanelFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+        const savedControllerFarmerPhoto = await handleBase64Images(controllerBoxFarmerPhoto);
+        const controllerFarmerPhotoUrl = savedControllerFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+        const savedWaterDischargePhoto = await handleBase64Images(waterDischargeFarmerPhoto);
+        const waterDischargeFarmerPhotoUrl = savedWaterDischargePhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
+
+
         for (const item of itemsList) {
             const { itemId, quantity } = item;
 
@@ -1189,7 +1255,6 @@ module.exports.addNewInstallationData = async (req, res) => {
             systemId,
             createdBy: warehousePersonId
         };
-        console.log(accountData);
 
         const activityData = {
             warehouseId,
@@ -1198,9 +1263,21 @@ module.exports.addNewInstallationData = async (req, res) => {
             empId,
             systemId,
             itemsList,
+            panelNumbers, 
+            pumpNumber, 
+            controllerNumber, 
+            rmuNumber, 
+            borePhoto: borePhotoUrl, 
+            challanPhoto: challanPhotoUrl, 
+            landDocPhoto: landDocPhotoUrl, 
+            sprinklerPhoto: sprinklerPhotoUrl, 
+            boreFarmerPhoto: boreFarmerPhotoUrl, 
+            finalFoundationFarmerPhoto: foundationFarmerPhotoUrl,
+            panelFarmerPhoto: panelFarmerPhotoUrl,
+            controllerBoxFarmerPhoto: controllerFarmerPhotoUrl,
+            waterDischargeFarmerPhoto: waterDischargeFarmerPhotoUrl,
             createdBy: warehousePersonId
         }
-        console.log(activityData);
 
         const empAccountData = new InstallationAssignEmp(accountData);
         await empAccountData.save();
@@ -1321,8 +1398,6 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
         });
     }
 };
-
-
 
 
 //Service Team Access 
@@ -1447,7 +1522,10 @@ module.exports.servicePersonBlockData = async (req, res) => {
 
 module.exports.showWarehousePersons = async (req, res) => {
     try {
-        const allWarehousePersons = await WarehousePerson.find().select("_id name");
+        const id = req.query.id;
+        const filter = {};
+        if(id) filter._id = id;
+        const allWarehousePersons = await WarehousePerson.find(filter).select("_id name");
         return res.status(200).json({
             success: true,
             message: "Warehouse Persons Data Fetched Successfully",
@@ -1460,7 +1538,7 @@ module.exports.showWarehousePersons = async (req, res) => {
             error: error.message
         });
     }
-}
+};
 
 module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
@@ -1496,5 +1574,5 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
             error: error.message
         });
     }
-}
+};
 

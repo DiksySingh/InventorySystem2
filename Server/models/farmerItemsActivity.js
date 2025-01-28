@@ -37,6 +37,59 @@ const farmerItemsActivitySchema = new Schema({
             },
         }
     ],
+    panelNumbers: {
+        type: [String],
+        required: true
+    },
+    pumpNumber: {
+        type: String,
+        required: true
+    },
+    controllerNumber: {
+        type: String,
+        required: true
+    },
+    rmuNumber: {
+        type:String,
+        required: true,
+        minlength: 15,
+    },
+    borePhoto: {
+        type: [String],
+        required: true
+    },
+    challanPhoto: {
+        type: [String],
+        required: true
+    },
+    landDocPhoto: {
+        type: [String],
+        required: true
+    },
+    sprinklerPhoto: {
+        type: [String],
+        required: true
+    },
+    boreFarmerPhoto: {
+        type: [String],
+        required: true
+    },
+    finalFoundationFarmerPhoto: {
+        type: [String],
+        required: true
+    },
+    panelFarmerPhoto: {
+        type: [String],
+        required: true
+    },
+    controllerBoxFarmerPhoto: {
+        type: [String],
+        required: true
+    },
+    waterDischargeFarmerPhoto: {
+        type: [String],
+        required: true
+    },
     accepted: {
         type: Boolean,
         default: false
