@@ -8,12 +8,6 @@ const inventoryAccountSchema = new Schema({
         required: true,
         enum: ["Admin", "WarehousePerson", "ServicePerson", "SurveyPerson"], // List of allowed models
     },
-      // Field that stores the ID of the referenced document
-    createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        refPath: "referenceType", // Dynamically references the model based on referenceType
-    },
     itemId: {
         type: Schema.Types.ObjectId,
         ref: "InstallationInventory",
@@ -27,15 +21,15 @@ const inventoryAccountSchema = new Schema({
         type: String,
         required: true
     },
-    // incoming: {
-    //     type: Boolean,
-    //     default: true,
-    // },
     createdAt: {
         type: Date,
         default: Date.now,
     },
-
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        refPath: "referenceType", // Dynamically references the model based on referenceType
+    },
 },);
 
 const InventoryAccount = mongoose.model("InventoryAccount", inventoryAccountSchema);

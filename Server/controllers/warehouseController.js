@@ -1416,3 +1416,20 @@ module.exports.servicePersonBlockData = async (req, res) => {
         });
     }
 };
+
+module.exports.showWarehousePersons = async (req, res) => {
+    try {
+        const allWarehousePersons = await WarehousePerson.find().select("_id name");
+        return res.status(200).json({
+            success: true,
+            message: "Warehouse Persons Data Fetched Successfully",
+            data: allWarehousePersons || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
