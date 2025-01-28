@@ -1473,7 +1473,8 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
         const incomingItemsData = await PickupItem.find({ incoming: true })
             .sort({ pickupDate: -1 })
             .skip(skip)
-            .limit(limitNumber);
+            .limit(limitNumber)
+            .select("-servicePerson -__v -image");
 
         const totalItems = await PickupItem.countDocuments({ incoming: true });
 
