@@ -13,6 +13,7 @@ const SystemItem = require("../models/systemItemSchema");
 const InstallationInventory = require("../models/installationInventorySchema");
 const FarmerItemsActivity = require("../models/farmerItemsActivity");
 const InstallationAssignEmp = require("../models/installationAssignEmpSchema");
+const InventoryAccount = require("../models/installationInventoryAccount");
 
 
 //****************** Admin Access ******************//
@@ -958,6 +959,7 @@ module.exports.addSystemItem = async (req, res) => {
     try {
         const { systemId, itemName, quantity } = req.body;
         const warehousePersonId = req.user._id;
+        // const warehouseId = req.user.warehouse;
         if (!systemId || !itemName || !quantity) {
             return res.status(400).json({
                 success: false,
@@ -980,18 +982,23 @@ module.exports.addSystemItem = async (req, res) => {
             });
         }
 
+        const allWarehouses = await Warehouse.find();
+        let newInventoryItem, savedInventoryItem;
+
+        for (let warehouse of allWarehouses){
+            const existingInventoryItem = await InstallationInventory.findOne({warehouseId: warehouse._id, itemName});
+            if(!existingInventoryItem) {
+                newInventoryItem = new InstallationInventory({warehouseId: warehouse._id, itemName, quantity: 0});
+                savedInventoryItem = await newInventoryItem.save();
+            }
+        }
         const newSystemItem = new SystemItem(insertData);
         const savedSystemItem = await newSystemItem.save();
-
-        const newInventoryItem = new InstallationInventory({ itemName, quantity: 0 });
-        const savedInventoryItem = await newInventoryItem.save();
-
         if (savedSystemItem && savedInventoryItem) {
             return res.status(200).json({
                 success: true,
-                message: "System Item Saved Successfully",
+                message: "System Item & Warehouse Inventory Item Added Successfully",
                 savedSystemItem,
-                savedInventoryItem
             });
         }
 
@@ -1086,9 +1093,10 @@ module.exports.showSystemItems = async (req, res) => {
 
 //****************** Service Person Access *************************//
 
-module.exports.showInventoryItems = async (req, res) => {
+module.exports.showInstallationInventoryItems = async (req, res) => {
     try {
-        const inventorySystemItems = await InstallationInventory.find().select("-createdAt -updatedAt");
+        const warehouseId = req.user.warehouse;
+        const inventorySystemItems = await InstallationInventory.find({warehouseId: warehouseId}).select("_id itemName");
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1106,14 +1114,15 @@ module.exports.showInventoryItems = async (req, res) => {
 
 module.exports.updateItemQuantity = async (req, res) => {
     try {
+        const warehouseId = req.user.warehouse;
         const { itemName, updatedQuantity } = req.body;
         const filter = {
+            warehouseId: warehouseId,
             itemName: itemName
         }
-        const update = {
-            quantity: updatedQuantity
-        }
-        const updatedItemData = await InstallationInventory.findOneAndUpdate(filter, update);
+        const itemData = await InstallationInventory.findOne(filter);
+        itemData.quantity = parseInt(itemData.quantity) + parseInt(updatedQuantity);
+        const updatedItemData = await itemData.save();
         if (updatedItemData) {
             return res.status(200).json({
                 success: true,
@@ -1399,6 +1408,64 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
     }
 };
 
+module.exports.itemComingToWarehouse = async(req, res) => {
+    try {
+        const {from, toWarehouse, items, company, arrivedDate } = req.body;
+        const role = req.user.role;
+        if(!from || !toWarehouse || !items || !company || !arrivedDate) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+
+        if(Array.isArray(items) || items.length === 0){
+            return res.status(400).json({
+                success: false,
+                message: "items is an array & should be non-empty"
+            });
+        }
+
+        let refType;
+        if(role === 'admin'){
+            refType = "Admin"
+        }else if (role === 'warehousePerson'){
+            refType = "WarehousePerson"
+        }
+
+        for (let item of items) {
+            const existingItem = await InstallationInventory.findOne({_id: item.itemId, warehouseId: req.user.warehouse});
+            existingItem.quantity = parseInt(existingItem.quantity) + parseInt(item.quantity);
+            await existingItem.save();
+        }
+
+        const insertData = {
+            referenceType: refType,
+            from,
+            toWarehouse,
+            items,
+            company,
+            arrivedDate,
+            createdBy: req.user._id
+        }
+
+        const incomingInstallationItems = new InventoryAccount(insertData);
+        const savedData = await incomingInstallationItems.save();
+        if(savedData) {
+            return res.status(200).json({
+                success: true,
+                message: "Items Added To Installation Inventory Account",
+                data: savedData
+            });
+        } 
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
 
 //Service Team Access 
 module.exports.allServiceSurveyPersons = async (req, res) => {
@@ -1437,11 +1504,14 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
 module.exports.filterServicePersonById = async (req, res) => {
     try {
         const { id } = req.query;
-        const servicePersonName = await ServicePerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+        let employeeName = await ServicePerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+        if(!employeeName) {
+            employeeName = await SurveyPerson.findById({_id: id}).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+        }
         return res.status(200).json({
             success: true,
             message: "Service Person Found",
-            data: servicePersonName || ""
+            data: employeeName || ""
         });
     } catch (error) {
         return res.status(500).json({

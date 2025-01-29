@@ -3,7 +3,7 @@ const { allOrderDetails, servicePersonIncomingItemsData, servicePersonIncomingIt
 const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
 const { 
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
-  deleteWarehousePerson, deleteServicePerson, allRepairRejectItemsData, 
+  deleteWarehousePerson, deleteServicePerson, allRepairRejectItemsData, addSystem, addSystemItem
 } = require("../controllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
 const {getInstallationsData} = require("../controllers/installationDataController");
@@ -32,5 +32,9 @@ router.get("/incoming-items-data", userVerification(['admin']), servicePersonInc
 router.get("/outgoing-items-data", userVerification(['admin']), servicePersonOutgoingItemsData);
 
 router.get("/all-installations-data",userVerification(['admin']), getInstallationsData);
+
+
+router.post("/add-system", userVerification(['admin']), addSystem);
+router.post("/add-system-item", userVerification(['admin']), addSystemItem);
 
 module.exports = router;

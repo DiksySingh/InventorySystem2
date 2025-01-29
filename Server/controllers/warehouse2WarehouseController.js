@@ -93,7 +93,7 @@ module.exports.sendingDefectiveItems = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
 module.exports.allDefectiveItemsData = async(req, res) => {
     try{
@@ -110,7 +110,7 @@ module.exports.allDefectiveItemsData = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
 module.exports.inDefectiveItemsData = async(req, res) => {
     try{
@@ -144,7 +144,7 @@ module.exports.inDefectiveItemsData = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
 module.exports.inDefectiveItemsOrderHistory = async(req, res) => {
     try{
@@ -202,7 +202,7 @@ module.exports.outgoingDefectiveOrderData = async(req, res) => {
             error: error.message
         });
     }
-}
+};
 
 module.exports.updateDefectiveOrderStatus = async(req, res) => {
     try{
@@ -256,4 +256,18 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
             error: error.message
         });
     }
-}
+};
+
+//Installation Inventory Warehouse To Warehouse Transaction
+module.exports.outgoingInstallationItemsToWarehouse = async (req, res) => {
+    try {
+        
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};

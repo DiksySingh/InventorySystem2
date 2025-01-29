@@ -36,15 +36,14 @@ module.exports.userVerification = (allowedRoles) => {
           let user;
 
           if (data.role === "serviceperson") {  
-            user = await ServicePerson.findById(data.id);
+            user = await ServicePerson.findById(data.id).select("-password -createdAt -refreshToken -__v");
           } else if(data.role === "warehouseAdmin") {
-            user = await WarehousePerson.findById(data.id);
+            user = await WarehousePerson.findById(data.id).select("-password -createdAt -refreshToken -__v");
           } else if(data.role === "surveyperson"){
-            user = await SurveyPerson.findById(data.id);
+            user = await SurveyPerson.findById(data.id).select("-password -createdAt -refreshToken -__v");
           } else {
-            user = await Admin.findById(data.id);
+            user = await Admin.findById(data.id).select("-password -createdAt -refreshToken -__v");
           }
-
           if (!user) {
             return res.status(404).json({
               status: false,
@@ -53,6 +52,7 @@ module.exports.userVerification = (allowedRoles) => {
           }
 
           if (Array.isArray(allowedRoles) && allowedRoles.includes(data.role)) {
+            // console.log(user);
             req.user = user;
             next();
           } else {

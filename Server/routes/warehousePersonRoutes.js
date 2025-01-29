@@ -16,10 +16,11 @@ const {
   showSystems,
   addSystemItem,
   showSystemItems,
-  showInventoryItems,
+  showInstallationInventoryItems,
   updateItemQuantity,
   addNewInstallationData,
-  showInstallationDataToWarehouse
+  showInstallationDataToWarehouse,
+  itemComingToWarehouse,
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData,inDefectiveItemsOrderHistory,outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/installationDataController");
@@ -53,15 +54,16 @@ router.put("/update-defective-order-status", userVerification(['warehouseAdmin']
 
 router.get("/warehouse-installation-data", userVerification(['warehouseAdmin']), getWarehouseInstallationData);
 
-router.post("/add-system", userVerification(['warehouseAdmin']), addSystem);
-router.get("/show-systems", userVerification(['warehouseAdmin']), showSystems);
-router.post("/add-system-item", userVerification(['warehouseAdmin']), addSystemItem);
-router.get("/show-system-items", userVerification(['warehouseAdmin']), showSystemItems);
-router.get("/show-inventory-items", userVerification(['warehouseAdmin']), showInventoryItems);
+// router.post("/add-system", userVerification(['warehouseAdmin']), addSystem);
+// router.post("/add-system-item", userVerification(['warehouseAdmin']), addSystemItem);
+router.get("/show-systems", userVerification(['warehouseAdmin', 'admin']), showSystems);
+router.get("/show-system-items", userVerification(['warehouseAdmin', 'admin']), showSystemItems);
+router.get("/show-inventory-items", userVerification(['warehouseAdmin']), showInstallationInventoryItems);
 router.put("/update-item-quantity", userVerification(['warehouseAdmin']), updateItemQuantity);
 router.post("/add-new-installation", userVerification(['warehouseAdmin']), addNewInstallationData);
 // router.get("/all-service-survey-person", userVerification(['warehouseAdmin']), allServiceSurveyPerson);
 router.get("/new-installation-data", userVerification(['warehouseAdmin']), showInstallationDataToWarehouse);
+router.post("/incoming-inventory-items", userVerification(['warehouseAdmin']), itemComingToWarehouse);
 
 
 module.exports = router;

@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const installationInventorySchema = new Schema({
+    warehouseId: {
+        type: Schema.Types.ObjectId,
+        ref: "Warehouse",
+        required: true,
+    },
     itemName: {
         type: String,
         required: true

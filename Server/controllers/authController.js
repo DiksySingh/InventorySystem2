@@ -28,11 +28,18 @@ module.exports.adminSignup = async (req, res) => {
   }
 
   try {
-    const existingUser = await Admin.findOne({ email });
-    if (existingUser) {
-      res.status(400).json({
+    const existingEmployee = await Promise.all([
+      Admin.findOne({ email: email }),
+      WarehousePerson.findOne({ email: email }),
+      ServicePerson.findOne({ email: email }),
+      SurveyPerson.findOne({ email: email })
+    ]);
+
+    // If any user exists in any collection, return an error
+    if (existingEmployee.some(emp => emp)) {
+      return res.status(400).json({
         success: false,
-        message: "User already exists",
+        message: "Employee Already Exists In Database",
       });
     }
 
@@ -40,7 +47,7 @@ module.exports.adminSignup = async (req, res) => {
     await newUser.save();
     res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message: "Admin registered successfully",
       data: newUser,
     });
   } catch (error) {
@@ -62,11 +69,18 @@ module.exports.warehousePersonSignup = async (req, res) => {
   }
 
   try {
-    const existingWarehousePerson = await WarehousePerson.findOne({ $or: [{ email }, { contact }] });
-    if (existingWarehousePerson) {
+    const existingEmployee = await Promise.all([
+      Admin.findOne({ $or: [{ email }, { contact }] }),
+      WarehousePerson.findOne({ $or: [{ email }, { contact }] }),
+      ServicePerson.findOne({ $or: [{ email }, { contact }] }),
+      SurveyPerson.findOne({ $or: [{ email }, { contact }] })
+    ]);
+
+    // If any user exists in any collection, return an error
+    if (existingEmployee.some(emp => emp)) {
       return res.status(400).json({
         success: false,
-        message: "Warehouse Person Already Exists"
+        message: "Employee Already Exists In Database",
       });
     }
 
@@ -123,13 +137,18 @@ module.exports.servicePersonSignup = async (req, res) => {
   }
 
   try {
-    const existingServicePerson = await ServicePerson.findOne({
-      $or: [{ email }, { contact }],
-    });
-    if (existingServicePerson) {
-      res.status(400).json({
+    const existingEmployee = await Promise.all([
+      Admin.findOne({ $or: [{ email }, { contact }] }),
+      WarehousePerson.findOne({ $or: [{ email }, { contact }] }),
+      ServicePerson.findOne({ $or: [{ email }, { contact }] }),
+      SurveyPerson.findOne({ $or: [{ email }, { contact }] })
+    ]);
+
+    // If any user exists in any collection, return an error
+    if (existingEmployee.some(emp => emp)) {
+      return res.status(400).json({
         success: false,
-        message: "Service Person already exists",
+        message: "Employee Already Exists In Database",
       });
     }
 
@@ -192,13 +211,18 @@ module.exports.surveyPersonSignup = async (req, res) => {
     });
   }
   try {
-    const existingSurveyPerson = await SurveyPerson.findOne({
-      $or: [{ email }, { contact }],
-    });
-    if (existingSurveyPerson) {
-      res.status(400).json({
+    const existingEmployee = await Promise.all([
+      Admin.findOne({ $or: [{ email }, { contact }] }),
+      WarehousePerson.findOne({ $or: [{ email }, { contact }] }),
+      ServicePerson.findOne({ $or: [{ email }, { contact }] }),
+      SurveyPerson.findOne({ $or: [{ email }, { contact }] })
+    ]);
+
+    // If any user exists in any collection, return an error
+    if (existingEmployee.some(emp => emp)) {
+      return res.status(400).json({
         success: false,
-        message: "Survey Person already exists",
+        message: "Employee Already Exists In Database",
       });
     }
 
@@ -324,13 +348,6 @@ module.exports.Login = async (req, res) => {
       });
     }
 
-    // if (!email || !password) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "All fields are required",
-    //   });
-    // }
-
     let user = await Admin.findOne({
       email: email,
       role: role,
@@ -393,7 +410,7 @@ module.exports.Login = async (req, res) => {
     }
 
     // Set cookies for tokens
-    console.log(user.block);
+    // console.log(user.block);
     res
       .status(200)
       .cookie("accessToken", accessToken, options)
