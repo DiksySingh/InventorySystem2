@@ -29,7 +29,7 @@ const farmerItemsActivitySchema = new Schema({
         {
             itemId: {
                 type: Schema.Types.ObjectId,
-                ref: "SystemItem",
+                ref: "InstallationInventory",
                 required: true
             },
             quantity: {
@@ -54,45 +54,13 @@ const farmerItemsActivitySchema = new Schema({
         required: true,
         minlength: 15,
     },
-    borePhoto: {
-        type: [String],
-        required: true
-    },
-    challanPhoto: {
-        type: [String],
-        required: true
-    },
-    landDocPhoto: {
-        type: [String],
-        required: true
-    },
-    sprinklerPhoto: {
-        type: [String],
-        required: true
-    },
-    boreFarmerPhoto: {
-        type: [String],
-        required: true
-    },
-    finalFoundationFarmerPhoto: {
-        type: [String],
-        required: true
-    },
-    panelFarmerPhoto: {
-        type: [String],
-        required: true
-    },
-    controllerBoxFarmerPhoto: {
-        type: [String],
-        required: true
-    },
-    waterDischargeFarmerPhoto: {
-        type: [String],
-        required: true
-    },
     accepted: {
         type: Boolean,
         default: false
+    },
+    installationDone: {
+        type: Boolean,
+        default: false,
     },
     createdAt : {
         type: Date,
@@ -108,7 +76,7 @@ const farmerItemsActivitySchema = new Schema({
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
-        refPath: "WarehousePerson",
+        refPath: "referenceType",
     }
 }, {collection: "inFarmerItemsActivities"});
 

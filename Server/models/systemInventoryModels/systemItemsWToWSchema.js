@@ -12,7 +12,7 @@ const systemItemsWToWSchema = new Schema({
         ref: 'Warehouse',
         required: true
     },
-    items: [
+    itemsList: [
         {
             itemId: {
                 type: Schema.Types.ObjectId,
@@ -39,8 +39,9 @@ const systemItemsWToWSchema = new Schema({
     },
     status: {
         type: Boolean,
+        default: false,
     },
-    incoming: {
+    outgoing: {
         type: Boolean
     },
     pickupDate: {
@@ -62,10 +63,6 @@ const systemItemsWToWSchema = new Schema({
         ref: "WarehousePerson",
         required: true
     },
-    updatedBy: {
-        type: Schema.Types.ObjectId,
-        ref: "WarehousePerson"
-    }
 },{collection: "inSystemInventoryWToW"});
 
 const SystemInventoryWToW = mongoose.model("SystemInventoryWToW", systemItemsWToWSchema);

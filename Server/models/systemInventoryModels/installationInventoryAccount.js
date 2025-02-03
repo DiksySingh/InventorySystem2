@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const installationInventoryAccount = new Schema({
+const incomingInstallationItemsAccount = new Schema({
     // Field to dynamically determine which model to reference
     referenceType: {
         type: String,
@@ -17,7 +17,7 @@ const installationInventoryAccount = new Schema({
         ref: "Warehouse",
         required: true
     },
-    items: [
+    itemsList: [
         {
             itemId: {
                 type: Schema.Types.ObjectId,
@@ -46,7 +46,7 @@ const installationInventoryAccount = new Schema({
         required: true,
         refPath: "referenceType", // Dynamically references the model based on referenceType
     },
-},);
+}, {collection: "inIncomingItemsAccounts"});
 
-const InventoryAccount = mongoose.model("InventoryAccount", installationInventoryAccount);
-module.exports = InventoryAccount;
+const IncomingItemsAccount = mongoose.model("IncomingItemsAccount", incomingInstallationItemsAccount);
+module.exports = IncomingItemsAccount;

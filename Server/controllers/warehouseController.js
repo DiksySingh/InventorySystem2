@@ -1,5 +1,5 @@
 const axios = require("axios");
-const handleBase64Images = require("../middlewares/base64ImageHandler");
+const imageHandlerWithPath = require("../middlewares/imageHandlerWithPath");
 const Item = require("../models/itemSchema");
 const Warehouse = require("../models/warehouseSchema");
 const WarehousePerson = require("../models/warehousePersonSchema");
@@ -8,12 +8,13 @@ const ServicePerson = require("../models/servicePersonSchema");
 const SurveyPerson = require("../models/surveyPersonSchema");
 const RepairNRejectItems = require("../models/repairNRejectSchema");
 const PickupItem = require("../models/pickupItemSchema");
-const System = require("../models/systemSchema");
-const SystemItem = require("../models/systemItemSchema");
-const InstallationInventory = require("../models/installationInventorySchema");
-const FarmerItemsActivity = require("../models/farmerItemsActivity");
-const InstallationAssignEmp = require("../models/installationAssignEmpSchema");
-const InventoryAccount = require("../models/installationInventoryAccount");
+const System = require("../models/systemInventoryModels/systemSchema");
+const SystemItem = require("../models/systemInventoryModels/systemItemSchema");
+const SystemInventoryWToW = require("../models/systemInventoryModels/systemItemsWToWSchema");
+const InstallationInventory = require("../models/systemInventoryModels/installationInventorySchema");
+const FarmerItemsActivity = require("../models/systemInventoryModels/farmerItemsActivity");
+const InstallationAssignEmp = require("../models/systemInventoryModels/installationAssignEmpSchema");
+const IncomingItemsAccount = require("../models/systemInventoryModels/installationInventoryAccount");
 
 
 //****************** Admin Access ******************//
@@ -434,7 +435,6 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
         });
     }
 };
-
 
 module.exports.viewWarehouseItems = async (req, res) => {
     try {
@@ -1149,15 +1149,6 @@ module.exports.addNewInstallationData = async (req, res) => {
             pumpNumber, 
             controllerNumber, 
             rmuNumber, 
-            borePhoto, 
-            challanPhoto, 
-            landDocPhoto, 
-            sprinklerPhoto, 
-            boreFarmerPhoto, 
-            finalFoundationFarmerPhoto,
-            panelFarmerPhoto,
-            controllerBoxFarmerPhoto,
-            waterDischargeFarmerPhoto
         } = req.body;
 
         const warehousePersonId = req.user._id;
@@ -1170,17 +1161,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             !panelNumbers ||
             !pumpNumber ||
             !controllerNumber ||
-            !rmuNumber ||
-            !borePhoto || 
-            !challanPhoto || 
-            !landDocPhoto || 
-            !sprinklerPhoto || 
-            !boreFarmerPhoto || 
-            !finalFoundationFarmerPhoto ||
-            !panelFarmerPhoto ||
-            !controllerBoxFarmerPhoto ||
-            !waterDischargeFarmerPhoto
-        ) {
+            !rmuNumber) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -1208,34 +1189,6 @@ module.exports.addNewInstallationData = async (req, res) => {
         }
         refType = "ServicePerson";
 
-        const savedBorePhoto = await handleBase64Images(borePhoto);
-        const borePhotoUrl = savedBorePhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-        const savedChallanPhoto = await handleBase64Images(challanPhoto);
-        const challanPhotoUrl = savedChallanPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-        const savedLandDocPhoto = await handleBase64Images(landDocPhoto);
-        const landDocPhotoUrl = savedLandDocPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-        const savedSprinklerPhoto = await handleBase64Images(sprinklerPhoto);
-        const sprinklerPhotoUrl = savedSprinklerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-        const savedBoreFarmerPhoto = await handleBase64Images(boreFarmerPhoto);
-        const boreFarmerPhotoUrl = savedBoreFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-        const savedFoundationFarmerPhoto = await handleBase64Images(finalFoundationFarmerPhoto);
-        const foundationFarmerPhotoUrl = savedFoundationFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-        
-        const savedPanelFarmerPhoto = await handleBase64Images(panelFarmerPhoto);
-        const panelFarmerPhotoUrl = savedPanelFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-        const savedControllerFarmerPhoto = await handleBase64Images(controllerBoxFarmerPhoto);
-        const controllerFarmerPhotoUrl = savedControllerFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-        const savedWaterDischargePhoto = await handleBase64Images(waterDischargeFarmerPhoto);
-        const waterDischargeFarmerPhotoUrl = savedWaterDischargePhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${file.fileName}`);
-
-
         for (const item of itemsList) {
             const { itemId, quantity } = item;
 
@@ -1262,6 +1215,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             empId,
             farmerId,
             systemId,
+            itemsList: itemsList,
             createdBy: warehousePersonId
         };
 
@@ -1276,80 +1230,22 @@ module.exports.addNewInstallationData = async (req, res) => {
             pumpNumber, 
             controllerNumber, 
             rmuNumber, 
-            borePhoto: borePhotoUrl, 
-            challanPhoto: challanPhotoUrl, 
-            landDocPhoto: landDocPhotoUrl, 
-            sprinklerPhoto: sprinklerPhotoUrl, 
-            boreFarmerPhoto: boreFarmerPhotoUrl, 
-            finalFoundationFarmerPhoto: foundationFarmerPhotoUrl,
-            panelFarmerPhoto: panelFarmerPhotoUrl,
-            controllerBoxFarmerPhoto: controllerFarmerPhotoUrl,
-            waterDischargeFarmerPhoto: waterDischargeFarmerPhotoUrl,
             createdBy: warehousePersonId
-        }
+        } 
+        
+        const farmerActivity = new FarmerItemsActivity(activityData);
+        await farmerActivity.save();
 
         const empAccountData = new InstallationAssignEmp(accountData);
         await empAccountData.save();
 
-        const farmerActivity = new FarmerItemsActivity(activityData);
-        await farmerActivity.save();
-
         return res.status(200).json({
             success: true,
             message: "Data Saved Successfully",
+            farmerActivity,
             empAccountData,
-            farmerActivity
         });
 
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message
-        });
-    }
-};
-
-module.exports.showNewInstallationDataToInstaller = async (req, res) => {
-    try {
-        const installerId = req.user._id
-        const activities = await FarmerItemsActivity.find({ empId: installerId })
-            .populate({
-                path: "warehouseId",
-                select: {
-                    "name": 1,
-                    "email": 1,
-                    "contact": 1,
-                    "warehouse": 1
-                }
-            })
-            .populate({
-                path: "empId",
-                select: {
-                    "name": 1,
-                    "email": 1,
-                    "contact": 1
-                }
-            });
-        const activitiesWithFarmerDetails = await Promise.all(
-            activities.map(async (activity) => {
-                const response = await axios.get(
-                    `http://88.222.214.93:8001/farmer/showSingleFarmer?id=${activity.farmerId}`
-                );
-                if (response) {
-                    return {
-                        ...activity.toObject(),
-                        farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
-                    };
-                }
-            })
-        );
-
-        return res.status(200).json({
-            success: true,
-            message: "Data Fetched Successfully",
-            data: activitiesWithFarmerDetails
-        });
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1378,7 +1274,7 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                     "email": 1,
                     "contact": 1
                 }
-            });
+            }).sort({createdAt: -1});
         const activitiesWithFarmerDetails = await Promise.all(
             showData.map(async (data) => {
                 const response = await axios.get(
@@ -1396,9 +1292,8 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            data: activitiesWithFarmerDetails
+            data: activitiesWithFarmerDetails || []
         });
-
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1410,16 +1305,16 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
 
 module.exports.itemComingToWarehouse = async(req, res) => {
     try {
-        const {from, toWarehouse, items, company, arrivedDate } = req.body;
+        const {from, toWarehouse, itemsList, company, arrivedDate } = req.body;
         const role = req.user.role;
-        if(!from || !toWarehouse || !items || !company || !arrivedDate) {
+        if(!from || !toWarehouse || !itemsList || !company || !arrivedDate) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
-        if(Array.isArray(items) || items.length === 0){
+        if(Array.isArray(itemsList) || itemsList.length === 0){
             return res.status(400).json({
                 success: false,
                 message: "items is an array & should be non-empty"
@@ -1433,7 +1328,7 @@ module.exports.itemComingToWarehouse = async(req, res) => {
             refType = "WarehousePerson"
         }
 
-        for (let item of items) {
+        for (let item of itemsList) {
             const existingItem = await InstallationInventory.findOne({_id: item.itemId, warehouseId: req.user.warehouse});
             existingItem.quantity = parseInt(existingItem.quantity) + parseInt(item.quantity);
             await existingItem.save();
@@ -1443,13 +1338,13 @@ module.exports.itemComingToWarehouse = async(req, res) => {
             referenceType: refType,
             from,
             toWarehouse,
-            items,
+            itemsList,
             company,
             arrivedDate,
             createdBy: req.user._id
         }
 
-        const incomingInstallationItems = new InventoryAccount(insertData);
+        const incomingInstallationItems = new IncomingItemsAccount(insertData);
         const savedData = await incomingInstallationItems.save();
         if(savedData) {
             return res.status(200).json({
@@ -1458,6 +1353,187 @@ module.exports.itemComingToWarehouse = async(req, res) => {
                 data: savedData
             });
         } 
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.incomingWToWItem = async (req, res) => {
+    try {
+        const {fromWarehouse, toWarehouse, itemsList, driverName, driverContact, remarks, outgoing, pickupDate} = req.body;
+        if(!fromWarehouse || !toWarehouse || !itemsList || !driverName || !driverContact || !remarks || !outgoing || !pickupDate) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+
+        if(!Array.isArray(itemsList) || itemsList.length === 0){
+            return res.status(400).json({
+                success: false,
+                message: "Items is an array & should be non-empty"
+            });
+        }
+        if(outgoing === true) {
+            for (let item of itemsList) {
+                const existingItemData = await InstallationInventory.findOne({ _id: item.itemId, warehouseId: fromWarehouse});
+            
+                existingItemData.quantity = parseInt(existingItemData?.quantity) - parseInt(item.quantity);
+            
+                await existingItemData.save();
+            }
+        }
+
+        const insertData = {
+            fromWarehouse,
+            toWarehouse,
+            itemsList,
+            driverName,
+            driverContact: Number(driverContact),
+            remarks,
+            outgoing,
+            pickupDate,
+            createdBy: req.user._id
+        }
+        const incomingInventoryStock = new SystemInventoryWToW(insertData);
+        const savedIncomingStock = await incomingInventoryStock.save();
+        if(savedIncomingStock) {
+            return res.status(200).json({
+                success: true,
+                message: "Incoming Inventory Stock Data Saved/Updated Successfully",
+                data: savedIncomingStock
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.showIncomingWToWItems = async (req, res) => {
+    try {
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId) {
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseId Not Found"
+            });
+        }
+
+        const result = await SystemInventoryWToW.find({toWarehouse: warehouseId, status: false}).sort({createdAt: -1});
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: result || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.showOutgoingWToWItems = async (req, res) => {
+    try {
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId) {
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseId Not Found"
+            });
+        }
+
+        const result = await SystemInventoryWToW.find({fromWarehouse: warehouseId}).sort({createdAt: -1});
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: result || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.acceptingWToWIncomingItems = async (req, res) => {
+    try {
+        const { transactionId, status, arrivedDate } = req.query;
+        if(!transactionId) {
+            return res.status(400).json({
+                success: false,
+                message: "TransactionId not found"
+            });
+        }
+        let incomingSystemItems = await SystemInventoryWToW.findOne({_id: transactionId});
+        if(!incomingSystemItems) {
+            return res.status(400).json({
+                success: false,
+                message: "Incoming System Items Data Not Found"
+            });
+        }
+        if(status === true) {
+            for (let item of itemsList) {
+                const existingItemData = await InstallationInventory.findOne({ _id: item.itemId, warehouseId: toWarehouse});
+            
+                existingItemData.quantity = parseInt(existingItemData?.quantity) + parseInt(item.quantity);
+            
+                await existingItemData.save();
+            }
+        }
+    
+        incomingSystemItems.status = status;
+        incomingSystemItems.arrivedDate = arrivedDate;
+        incomingSystemItems.approvedBy = req.user._id;
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+
+};
+
+module.exports.incomingWToWSystemItemsHistory = async (req, res) => {
+    try {
+        const warehouseId = req.user._id;
+        const approvedData = await SystemInventoryWToW.find({toWarehouse: warehouseId, status: true }).sort({arrivedDate: -1});
+        return res.status(200).json({
+            success: true,
+            message: "Approved Data Fetched Successfully",
+            data: approvedData || []
+        }); 
+    } catch (error) {
+        return res.status(200).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        })
+    }
+};
+
+module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
+    try {
+        const warehouseId = req.user.warehouse;
+        const approvedOutgoingItems = await SystemInventoryWToW.find({fromWarehouse: warehouseId, status: true}).sort({arrivedDate: -1});
+        return res.status(200).json({
+            success: true,
+            message: "Approved Outgoing Items History",
+            data: approvedOutgoingItems || []
+        });
     } catch (error) {
         return res.status(500).json({
             success: false,

@@ -25,6 +25,17 @@ const installationAssignEmpSchema = new Schema({
         ref: "System",
         required: true
     },
+    itemsList: [
+        {
+            itemId: {
+                type: Schema.Types.ObjectId,
+                ref: "InstallationInventory",
+            },
+            quantity: {
+                type: Number,
+            },
+        }
+    ],
     createdAt: {
         type: Date,
         default: Date.now,
