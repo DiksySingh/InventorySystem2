@@ -203,7 +203,7 @@ module.exports.servicePersonSignup = async (req, res) => {
 };
 
 module.exports.surveyPersonSignup = async (req, res) => {
-  const {name, email, contact, password, role, longitude, latitude, state, district, block, createdAt} = req.body;
+  const { name, email, contact, password, role, longitude, latitude, state, district, block, createdAt } = req.body;
   if (!name || !email || !contact || !password) {
     return res.status(400).json({
       success: false,
@@ -335,6 +335,7 @@ module.exports.Login = async (req, res) => {
   try {
     //const { email, password } = req.body;
     const { email, password, role } = req.body;
+    console.log(req.body);
     const options = {
       withCredentials: true,
       httpOnly: true,
@@ -348,37 +349,29 @@ module.exports.Login = async (req, res) => {
       });
     }
 
-    let user = await Admin.findOne({
-      email: email,
-      role: role,
-    });
+    let user = await Admin.findOne({ email, role }) ||
+      await WarehousePerson.findOne({ email, role }) ||
+      await ServicePerson.findOne({ email, role }) ||
+      await SurveyPerson.findOne({ email, role });
+console.log(user);
     if (!user) {
-      user = await WarehousePerson.findOne({
-        email: email,
-        role: role
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect email or password",
       });
-      if (!user) {
-        user = await ServicePerson.findOne({
-          email: email,
-          role: role
-        });
-        if (!user) {
-          user = await SurveyPerson.findOne({
-            email: email,
-            role: role
-          });
-          if (!user) {
-            return res.status(401).json({
-              success: false,
-              message: "Incorrect email or password",
-            });
-          }
-        }
-      }
+    }
+console.log("Hi");
+    // Check if the account is active
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact support.",
+      });
     }
 
     // Compare password
     const auth = await bcrypt.compare(password, user.password);
+    console.log(auth);
     if (!auth) {
       return res.status(401).json({
         success: false,
@@ -508,6 +501,35 @@ module.exports.updatePassword = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+module.exports.addIsActiveField = async (req, res) => {
+  try {
+    const allWarehousePersons = await WarehousePerson.find();
+    const allServicePersons = await ServicePerson.find();
+
+    for ( let emp of allServicePersons) {
+      emp.isActive = true;
+      emp.updatedBy = "67446a4296f7ef394e784136";
+      await emp.save();
+    }
+
+    for ( let emp of allWarehousePersons) {
+      emp.isActive = true;
+      emp.updatedBy = "67446a4296f7ef394e784136";
+      await emp.save();
+    }
+    return res.status(200).json({
+      success: true,
+      message: "isActive Added successfully"
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
     });
   }
 };

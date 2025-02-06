@@ -3,7 +3,7 @@ const { allOrderDetails, servicePersonIncomingItemsData, servicePersonIncomingIt
 const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
 const { 
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
-  deleteWarehousePerson, deleteServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSubItem
+  deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSubItem
 } = require("../controllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
 const {getInstallationsData} = require("../controllers/installationDataController");
@@ -24,8 +24,8 @@ router.get("/all-transactions-data", userVerification(["admin"]),allOrderDetails
 router.get("/upper-order-details", userVerification(["admin"]), allIncomingItemDetails);
 router.put("/update-item-name",userVerification(['admin']), updateItemName);
 router.get("/all-repair-reject-itemData",userVerification(['admin']), allRepairRejectItemsData);
-router.delete("/remove-warehouse-person",userVerification(['admin']), deleteWarehousePerson);
-router.delete("/remove-service-person",userVerification(['admin']), deleteServicePerson);
+router.delete("/deactivate-warehouse-person",userVerification(['admin']), deactivateWarehousePerson);
+router.delete("/deactivate-service-person",userVerification(['admin']), deactivateServicePerson);
 router.get("/warehouse-to-warehouse-data", userVerification(['admin']), allDefectiveItemsData);
 
 router.get("/incoming-items-data", userVerification(['admin']), servicePersonIncomingItemsData);

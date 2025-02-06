@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 const warehousePersonSchema = new Schema({
     name:{
         type: String,
-        requried: true
+        required: true
     },
     email:{
         type: String,
@@ -26,6 +26,10 @@ const warehousePersonSchema = new Schema({
     role: {
         type: String,
         default: "warehouseAdmin"
+    },
+    isActive: {
+        type: Boolean,
+        default: true,
     },
     createdAt: {
         type: Date,

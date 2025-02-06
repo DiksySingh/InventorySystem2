@@ -132,7 +132,7 @@ module.exports.viewServicePersons = async (req, res) => {
     }
 };
 
-module.exports.deleteWarehousePerson = async (req, res) => {
+module.exports.deactivateWarehousePerson = async (req, res) => {
     try {
         const { id } = req.query;
         if (!id) {
@@ -142,11 +142,12 @@ module.exports.deleteWarehousePerson = async (req, res) => {
             });
         }
 
-        const deletedWarehousePerson = await WarehousePerson.findByIdAndDelete(id);
+        const warehousePerson = await WarehousePerson.findById(id);
+        warehousePerson.isActive = false;
+        await warehousePerson.save();
         return res.status(200).json({
             success: true,
-            message: "Warehouse Person Removed Successfully",
-            deletedWarehousePerson
+            message: "Warehouse Person Deactivated Successfully",
         });
     } catch (error) {
         return res.status(500).json({
@@ -157,7 +158,7 @@ module.exports.deleteWarehousePerson = async (req, res) => {
     }
 };
 
-module.exports.deleteServicePerson = async (req, res) => {
+module.exports.deactivateServicePerson = async (req, res) => {
     try {
         const { id } = req.query;
         if (!id) {
@@ -167,11 +168,12 @@ module.exports.deleteServicePerson = async (req, res) => {
             });
         }
 
-        const deletedServicePerson = await ServicePerson.findByIdAndDelete(id);
+        const servicePerson = await ServicePerson.findById(id);
+        servicePerson.isActive = false;
+        await servicePerson.save();
         return res.status(200).json({
             success: true,
-            message: "Service Person Removed Successfully",
-            deletedServicePerson
+            message: "Service Person Deactivated Successfully",
         });
     } catch (error) {
         return res.status(500).json({
