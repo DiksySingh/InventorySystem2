@@ -1,9 +1,11 @@
+const axios = require("axios");
 const processExcelFile = require("../util/Excel/excelProcess");
 const ServicePerson = require("../models/servicePersonSchema");
 const SurveyPerson = require("../models/surveyPersonSchema");
 const imageHandlerWithPath = require("../middlewares/imageHandlerWithPath");
 const FarmerItemsActivity = require("../models/systemInventoryModels/farmerItemsActivity");
 const NewSystemInstallation = require("../models/systemInventoryModels/newSystemInstallationSchema");
+const EmpInstallationAccount = require("../models/systemInventoryModels/empInstallationItemAccount");
 
 const updateLatitudeLongitude = async (req, res) => {
     try {
@@ -122,19 +124,22 @@ const showNewInstallationDataToInstaller = async (req, res) => {
             .populate({
                 path: "warehouseId",
                 select: {
-                    "name": 1,
-                    "email": 1,
-                    "contact": 1,
-                    "warehouse": 1
+                    "warehouseName": 1,
                 }
             })
             .populate({
                 path: "empId",
                 select: {
                     "name": 1,
-                    "email": 1,
-                    "contact": 1
                 }
+            })
+            .populate({
+                path: "itemsList.subItemId", // Populate subItem details
+                model: "SubItem",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
             }).sort({createdAt: -1});
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
@@ -168,7 +173,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
     try {
         const {farmerId, empId, itemsList, accepted} = req.body;
 
-        if(!farmerId || !accepted) {
+        if(!farmerId || !empId || !itemsList || !accepted) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -185,6 +190,21 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         let empAccount = await EmpInstallationAccount.findOne({ empId });
 
+        let refType;
+        let empData = await ServicePerson.findOne({ _id: empId });
+        if (empData) {
+            refType = "ServicePerson";
+        }else {
+            empData = await SurveyPerson.findOne({ _id: empId });
+            if(!empData){
+                return res.status(400).json({
+                    success: false,
+                    message: "EmpID Not Found In Database"
+                })
+            }
+            refType = "SurveyPerson";
+        }
+
         if (!empAccount) {
             // If no record exists, create a new one
             empAccount = new EmpInstallationAccount({
@@ -196,14 +216,14 @@ const updateStatusOfIncomingItems = async (req, res) => {
         }
 
         for (const item of itemsList) {
-            const { itemId, quantity } = item;
+            const { subItemId, quantity } = item;
 
-            const existingItem = empAccount.itemsList.find(i => i.itemId === itemId);
+            const existingItem = empAccount.itemsList.find(i => i.subItemId === subItemId);
 
             if (existingItem) {
                 existingItem.quantity = parseInt(existingItem.quantity) +  parseInt(quantity);
             } else {
-                empAccount.items.push({ itemId: itemId, quantity });
+                empAccount.itemsList.push({ subItemId: subItemId, quantity });
             }
         }
 
@@ -245,7 +265,7 @@ const newSystemInstallation = async (req, res) => {
             controllerBoxFarmerPhoto,
             waterDischargeFarmerPhoto
         } = req.body;
-
+        const empId = req.user._id;
         if (!farmerId || !latitude || !longitude || !borePhoto || !challanPhoto || !landDocPhoto || !sprinklerPhoto ||!boreFarmerPhoto || !finalFoundationFarmerPhoto || !panelFarmerPhoto || !controllerBoxFarmerPhoto || !waterDischargeFarmerPhoto) {
             return res.status(400).json({
                 success:false,
@@ -254,18 +274,19 @@ const newSystemInstallation = async (req, res) => {
         }
 
         let refType;
-        let empData = await ServicePerson.find({ _id: req.user._id });
-        if (!empData) {
-            empData = await SurveyPerson.find({ _id: req.user._id });
-            if (!empData) {
+        let empData = await ServicePerson.findOne({ _id: empId });
+        if (empData) {
+            refType = "ServicePerson";
+        }else {
+            empData = await SurveyPerson.findOne({ _id: empId });
+            if(!empData){
                 return res.status(400).json({
                     success: false,
-                    message: "Employee Data Is Not Available"
-                });
+                    message: "EmpID Not Found In Database"
+                })
             }
             refType = "SurveyPerson";
         }
-        refType = "ServicePerson";
         
         const folderPath = "newInstallation"
         const savedBorePhoto = await imageHandlerWithPath(borePhoto, folderPath);
@@ -330,6 +351,8 @@ const newSystemInstallation = async (req, res) => {
         }
 
         farmerActivity.installationDone = true;
+        farmerActivity.updatedAt = new Date();
+        farmerActivity.updatedBy = empId;
         await farmerActivity.save();
         return res.status(200).json({
             success: true,

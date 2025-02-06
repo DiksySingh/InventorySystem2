@@ -15,12 +15,12 @@ const systemSchema = new Schema({
     },
     createdBy: {
         type: Schema.Types.ObjectId,
-        ref: "WarehousePerson",
+        ref: "Admin",
         required: true
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
-        ref: "WarehousePerson"
+        ref: "Admin"
     }
 },{collection: "inSystems"});
 

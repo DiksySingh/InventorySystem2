@@ -18,13 +18,14 @@ const empInstallationItemAccount = new Schema(
     },
     itemsList: [
       {
-        itemId: {
+        subItemId: {
           type: Schema.Types.ObjectId,
-          ref: "InstallationInventory"
+          ref: "SubItem"
         },
         quantity: {
           type: Number,
         },
+        _id: false,
       },
     ],
     createdAt: {

@@ -19,15 +19,16 @@ const incomingInstallationItemsAccount = new Schema({
     },
     itemsList: [
         {
-            itemId: {
+            subItemId: {
                 type: Schema.Types.ObjectId,
-                ref: "InstallationInventory",
+                ref: "SubItem",
                 required: true,
             },
             quantity: {
                 type: Number,
                 required: true
             },
+            _id: false
         }
     ],
     company: {

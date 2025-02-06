@@ -10,12 +10,13 @@ const RepairNRejectItems = require("../models/repairNRejectSchema");
 const PickupItem = require("../models/pickupItemSchema");
 const System = require("../models/systemInventoryModels/systemSchema");
 const SystemItem = require("../models/systemInventoryModels/systemItemSchema");
+const SubItem = require("../models/systemInventoryModels/subItemSchema");
 const SystemInventoryWToW = require("../models/systemInventoryModels/systemItemsWToWSchema");
 const InstallationInventory = require("../models/systemInventoryModels/installationInventorySchema");
 const FarmerItemsActivity = require("../models/systemInventoryModels/farmerItemsActivity");
 const InstallationAssignEmp = require("../models/systemInventoryModels/installationAssignEmpSchema");
-const IncomingItemsAccount = require("../models/systemInventoryModels/installationInventoryAccount");
-
+const IncomingItemsAccount = require("../models/systemInventoryModels/incomingNewSystemItems");
+const NewSystemInstallation = require("../models/systemInventoryModels/newSystemInstallationSchema");
 
 //****************** Admin Access ******************//
 module.exports.addWarehouse = async (req, res) => {
@@ -957,10 +958,10 @@ module.exports.addSystem = async (req, res) => {
 
 module.exports.addSystemItem = async (req, res) => {
     try {
-        const { systemId, itemName, quantity } = req.body;
-        const warehousePersonId = req.user._id;
+        const { systemId, itemName} = req.body;
+        const empId = req.user._id;
         // const warehouseId = req.user.warehouse;
-        if (!systemId || !itemName || !quantity) {
+        if (!systemId || !itemName) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -970,8 +971,7 @@ module.exports.addSystemItem = async (req, res) => {
         const insertData = {
             systemId,
             itemName: itemName.trim(),
-            quantity,
-            createdBy: warehousePersonId
+            createdBy: empId
         };
 
         const existingSystemItem = await SystemItem.findOne({ itemName });
@@ -982,26 +982,27 @@ module.exports.addSystemItem = async (req, res) => {
             });
         }
 
-        const allWarehouses = await Warehouse.find();
-        let newInventoryItem, savedInventoryItem;
-
-        for (let warehouse of allWarehouses){
-            const existingInventoryItem = await InstallationInventory.findOne({warehouseId: warehouse._id, itemName});
-            if(!existingInventoryItem) {
-                newInventoryItem = new InstallationInventory({warehouseId: warehouse._id, itemName, quantity: 0});
-                savedInventoryItem = await newInventoryItem.save();
-            }
-        }
         const newSystemItem = new SystemItem(insertData);
         const savedSystemItem = await newSystemItem.save();
-        if (savedSystemItem && savedInventoryItem) {
+
+        // const allWarehouses = await Warehouse.find();
+        // let newInventoryItem, savedInventoryItem;
+
+        // for (let warehouse of allWarehouses) {
+        //     const existingInventoryItem = await InstallationInventory.findOne({ warehouseId: warehouse._id, itemName });
+        //     if (!existingInventoryItem) {
+        //         newInventoryItem = new InstallationInventory({ warehouseId: warehouse._id, itemName, quantity: 0 });
+        //         savedInventoryItem = await newInventoryItem.save();
+        //     }
+        // }
+        
+        if (savedSystemItem) {
             return res.status(200).json({
                 success: true,
-                message: "System Item & Warehouse Inventory Item Added Successfully",
+                message: "System Item Added Successfully",
                 savedSystemItem,
             });
         }
-
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1011,24 +1012,66 @@ module.exports.addSystemItem = async (req, res) => {
     }
 };
 
+module.exports.addSubItem = async (req, res) => {
+    try {
+        const {systemId, itemId, subItemName, quantity} = req.body;
+        const empId = req.user._id;
+        if(!itemId || !quantity) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+
+        const systemItem = await SystemItem.findOne({_id: itemId});
+        if(!systemItem) {
+            return res.status(404).json({
+                success: false,
+                message: "SystemItem Not Found"
+            });
+        }
+
+        const insertSubItem = {
+            systemId,
+            itemId,
+            subItemName,
+            quantity,
+            createdBy: empId,
+        }
+
+        const newSubItem = new SubItem(insertSubItem);
+        const savedSubItem = await newSubItem.save();
+
+        const allWarehouses = await Warehouse.find();
+        let newInventoryItem, savedInventoryItem;
+
+        for (let warehouse of allWarehouses) {
+            const existingInventoryItem = await InstallationInventory.findOne({ warehouseId: warehouse._id, subItemId: savedSubItem._id });
+            if (!existingInventoryItem) {
+                newInventoryItem = new InstallationInventory({ warehouseId: warehouse._id, subItemId: savedSubItem._id, quantity: 0, createdBy: empId });
+                savedInventoryItem = await newInventoryItem.save();
+            }
+        }
+        
+        if(savedSubItem && savedInventoryItem) {
+            return res.status(200).json({
+                success: true,
+                message: "SubItem Added To Warehouses Successfully",
+                data: savedSubItem
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
 module.exports.showSystems = async (req, res) => {
     try {
-        const systems = await System.find()
-            .populate({
-                path: 'createdBy',
-                select: {
-                    "name": 1,
-                    "email": 1
-                }
-            }) // Adjust the fields you want from the `WarehousePerson`
-            .populate({
-                path: "updatedBy",
-                select: {
-                    "name": 1,
-                    "email": 1
-                }
-            }).select("-__v -createdAt -updatedAt");
-
+        const systems = await System.find().select("-__v -createdAt -updatedAt -createdBy -updatedBy").lean();
         if (systems) {
             res.status(200).json({
                 success: true,
@@ -1043,14 +1086,11 @@ module.exports.showSystems = async (req, res) => {
     }
 };
 
-module.exports.showSystemItems = async (req, res) => {
+module.exports.showSystemSubItems = async (req, res) => {
     try {
         const { systemId } = req.query;
-        const systemItems = await SystemItem.find({ systemId: systemId })
-            .populate("createdBy", "name email")
-            .populate("updatedBy", "name email");
-
-        if (!systemItems.length) {
+        const subItems = await SubItem.find({ systemId: systemId }).select("_id subItemName").lean();
+        if (!subItems.length) {
             return res.status(404).json({
                 success: false,
                 message: "No system items found for this system."
@@ -1058,7 +1098,7 @@ module.exports.showSystemItems = async (req, res) => {
         }
         res.status(200).json({
             success: true,
-            data: systemItems,
+            data: subItems,
         });
 
     } catch (error) {
@@ -1096,7 +1136,14 @@ module.exports.showSystemItems = async (req, res) => {
 module.exports.showInstallationInventoryItems = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
-        const inventorySystemItems = await InstallationInventory.find({warehouseId: warehouseId}).select("_id itemName");
+        const inventorySystemItems = await InstallationInventory.find({ warehouseId: warehouseId })
+        .populate({
+            path: "subItemId",
+            select: ({
+                "_id": 1,
+                "subItemName": 1,
+            })
+        }).select("-_id -warehouseId -createdAt -updatedAt -createdBy -updatedBy -__v").lean();
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1115,10 +1162,10 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 module.exports.updateItemQuantity = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
-        const { itemName, updatedQuantity } = req.body;
+        const { subItemId, updatedQuantity } = req.body;
         const filter = {
             warehouseId: warehouseId,
-            itemName: itemName
+            subItemId: subItemId
         }
         const itemData = await InstallationInventory.findOne(filter);
         itemData.quantity = parseInt(itemData.quantity) + parseInt(updatedQuantity);
@@ -1140,23 +1187,23 @@ module.exports.updateItemQuantity = async (req, res) => {
 
 module.exports.addNewInstallationData = async (req, res) => {
     try {
-        const { 
-            farmerId, 
-            empId, 
-            systemId, 
-            itemsList, 
-            panelNumbers, 
-            pumpNumber, 
-            controllerNumber, 
-            rmuNumber, 
+        const {
+            farmerId,
+            empId,
+            systemId,
+            itemsList,
+            panelNumbers,
+            pumpNumber,
+            controllerNumber,
+            rmuNumber,
         } = req.body;
 
         const warehousePersonId = req.user._id;
-        const warehouseId = warehousePersonId; 
+        const warehouseId = req.user.warehouse;
 
         if (
-            !farmerId || 
-            !empId || 
+            !farmerId ||
+            !empId ||
             !itemsList ||
             !panelNumbers ||
             !pumpNumber ||
@@ -1176,31 +1223,37 @@ module.exports.addNewInstallationData = async (req, res) => {
         }
 
         let refType;
-        let empData = await ServicePerson.find({ _id: empId });
-        if (!empData) {
-            empData = await SurveyPerson.find({ _id: empId });
-            if (!empData) {
+        let empData = await ServicePerson.findOne({ _id: empId });
+        if (empData) {
+            refType = "ServicePerson";
+        }else {
+            empData = await SurveyPerson.findOne({ _id: empId });
+            if(!empData){
                 return res.status(400).json({
                     success: false,
-                    message: "Employee Data Is Not Available"
-                });
+                    message: "EmpID Not Found In Database"
+                })
             }
             refType = "SurveyPerson";
         }
-        refType = "ServicePerson";
+       
 
         for (const item of itemsList) {
-            const { itemId, quantity } = item;
+            const { subItemId, quantity } = item;
 
             // Find the item in InstallationInventory
-            const systemItem = await SystemItem.findById(itemId);
-            const inventoryItem = await InstallationInventory.findOne({ itemName: systemItem.itemName });
+            const inventoryItem = await InstallationInventory.findOne({warehouseId: req.user.warehouse, subItemId }).populate({
+                path: "subItemId",
+                select: ({
+                    "subItemName": 1,
+                })
+            });
             if (!inventoryItem) {
-                throw new Error(`Item with ID ${itemId} not found in inventory`);
+                throw new Error(`SubItem with ID ${subItemId} not found in warehouse inventory`);
             }
 
             if (inventoryItem.quantity < quantity) {
-                throw new Error(`Insufficient stock for item ${inventoryItem.itemName}`);
+                throw new Error(`Insufficient stock for item ${inventoryItem.subItemId.subItemName}`);
             }
 
             // Update inventory quantity
@@ -1218,6 +1271,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             itemsList: itemsList,
             createdBy: warehousePersonId
         };
+        console.log(accountData);
 
         const activityData = {
             warehouseId,
@@ -1226,13 +1280,14 @@ module.exports.addNewInstallationData = async (req, res) => {
             empId,
             systemId,
             itemsList,
-            panelNumbers, 
-            pumpNumber, 
-            controllerNumber, 
-            rmuNumber, 
+            panelNumbers,
+            pumpNumber,
+            controllerNumber,
+            rmuNumber,
             createdBy: warehousePersonId
-        } 
-        
+        }
+        console.log(activityData);
+
         const farmerActivity = new FarmerItemsActivity(activityData);
         await farmerActivity.save();
 
@@ -1257,24 +1312,31 @@ module.exports.addNewInstallationData = async (req, res) => {
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
     try {
-        const warehousePersonId = req.user._id;
-        const showData = await FarmerItemsActivity.find({ warehouseId: warehousePersonId })
+        const warehouseId = req.user.warehouse;
+        const showData = await FarmerItemsActivity.find({ warehouseId: warehouseId })
             .populate({
                 path: "warehouseId",
                 select: {
-                    "name": 1,
-                    "email": 1,
-                    "contact": 1
+                  "_id": 0,
+                  "warehouseName": 1,
                 }
             })
             .populate({
                 path: "empId",
                 select: {
+                    "_id": 0,
                     "name": 1,
-                    "email": 1,
                     "contact": 1
                 }
-            }).sort({createdAt: -1});
+            })
+            .populate({
+                path: "itemsList.subItemId", // Populate subItem details
+                model: "SubItem",
+                select: ({
+                    "_id": 0,
+                    "subItemName": 1,
+                })
+            }).sort({ createdAt: -1 });
         const activitiesWithFarmerDetails = await Promise.all(
             showData.map(async (data) => {
                 const response = await axios.get(
@@ -1303,18 +1365,18 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
     }
 };
 
-module.exports.itemComingToWarehouse = async(req, res) => {
+module.exports.itemComingToWarehouse = async (req, res) => {
     try {
-        const {from, toWarehouse, itemsList, company, arrivedDate } = req.body;
+        const { from, toWarehouse, itemsList, company, arrivedDate } = req.body;
         const role = req.user.role;
-        if(!from || !toWarehouse || !itemsList || !company || !arrivedDate) {
+        if (!from || !toWarehouse || !itemsList || !company || !arrivedDate) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
-        if(Array.isArray(itemsList) || itemsList.length === 0){
+        if (!Array.isArray(itemsList) || itemsList.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: "items is an array & should be non-empty"
@@ -1322,14 +1384,14 @@ module.exports.itemComingToWarehouse = async(req, res) => {
         }
 
         let refType;
-        if(role === 'admin'){
+        if (role === 'admin') {
             refType = "Admin"
-        }else if (role === 'warehousePerson'){
+        } else if (role === 'warehouseAdmin') {
             refType = "WarehousePerson"
         }
 
         for (let item of itemsList) {
-            const existingItem = await InstallationInventory.findOne({_id: item.itemId, warehouseId: req.user.warehouse});
+            const existingItem = await InstallationInventory.findOne({ subItemId: item.subItemId, warehouseId: req.user.warehouse });
             existingItem.quantity = parseInt(existingItem.quantity) + parseInt(item.quantity);
             await existingItem.save();
         }
@@ -1346,13 +1408,47 @@ module.exports.itemComingToWarehouse = async(req, res) => {
 
         const incomingInstallationItems = new IncomingItemsAccount(insertData);
         const savedData = await incomingInstallationItems.save();
-        if(savedData) {
+        if (savedData) {
             return res.status(200).json({
                 success: true,
                 message: "Items Added To Installation Inventory Account",
                 data: savedData
             });
-        } 
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.showIncomingItemToWarehouse = async (req, res) => {
+    try {
+        const warehouseId = req.user.warehouse;
+        const incomingItems = await IncomingItemsAccount.find({toWarehouse: warehouseId})
+        .populate({
+            path: "toWarehouse",
+            select: ({
+                "_id": 0,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "itemsList.subItemId",
+            model: "SubItem",
+            select: ({
+                "_id": 1,
+                "subItemName": 1,
+            })
+        }).select("-createdAt -__v").lean();
+        
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: incomingItems || []
+        });
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1364,26 +1460,25 @@ module.exports.itemComingToWarehouse = async(req, res) => {
 
 module.exports.incomingWToWItem = async (req, res) => {
     try {
-        const {fromWarehouse, toWarehouse, itemsList, driverName, driverContact, remarks, outgoing, pickupDate} = req.body;
-        if(!fromWarehouse || !toWarehouse || !itemsList || !driverName || !driverContact || !remarks || !outgoing || !pickupDate) {
+        const { fromWarehouse, toWarehouse, itemsList, driverName, driverContact, remarks, outgoing, pickupDate } = req.body;
+        if (!fromWarehouse || !toWarehouse || !itemsList || !driverName || !driverContact || !remarks || !outgoing || !pickupDate) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
-        if(!Array.isArray(itemsList) || itemsList.length === 0){
+        if (!Array.isArray(itemsList) || itemsList.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: "Items is an array & should be non-empty"
             });
         }
-        if(outgoing === true) {
+
+        if (outgoing === true) {
             for (let item of itemsList) {
-                const existingItemData = await InstallationInventory.findOne({ _id: item.itemId, warehouseId: fromWarehouse});
-            
+                const existingItemData = await InstallationInventory.findOne({subItemId: item.subItemId, warehouseId: fromWarehouse });
                 existingItemData.quantity = parseInt(existingItemData?.quantity) - parseInt(item.quantity);
-            
                 await existingItemData.save();
             }
         }
@@ -1401,7 +1496,7 @@ module.exports.incomingWToWItem = async (req, res) => {
         }
         const incomingInventoryStock = new SystemInventoryWToW(insertData);
         const savedIncomingStock = await incomingInventoryStock.save();
-        if(savedIncomingStock) {
+        if (savedIncomingStock) {
             return res.status(200).json({
                 success: true,
                 message: "Incoming Inventory Stock Data Saved/Updated Successfully",
@@ -1420,14 +1515,36 @@ module.exports.incomingWToWItem = async (req, res) => {
 module.exports.showIncomingWToWItems = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
-        if(!warehouseId) {
+        if (!warehouseId) {
             return res.status(400).json({
                 success: false,
                 message: "WarehouseId Not Found"
             });
         }
 
-        const result = await SystemInventoryWToW.find({toWarehouse: warehouseId, status: false}).sort({createdAt: -1});
+        const result = await SystemInventoryWToW.find({ toWarehouse: warehouseId, status: false })
+        .populate({
+            path: "fromWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "toWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "itemsList.subItemId",
+            model: "SubItem",
+            select: ({
+                "_id": 1,
+                "subItemName": 1,
+            })
+        }).sort({ createdAt: -1 });
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1445,14 +1562,37 @@ module.exports.showIncomingWToWItems = async (req, res) => {
 module.exports.showOutgoingWToWItems = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
-        if(!warehouseId) {
+        if (!warehouseId) {
             return res.status(400).json({
                 success: false,
                 message: "WarehouseId Not Found"
             });
         }
 
-        const result = await SystemInventoryWToW.find({fromWarehouse: warehouseId}).sort({createdAt: -1});
+        const result = await SystemInventoryWToW.find({ fromWarehouse: warehouseId })
+        .populate({
+            path: "fromWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "toWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "itemsList.subItemId",
+            model: "SubItem",
+            select: ({
+                "_id": 1,
+                "subItemName": 1,
+            })
+        })
+        .select("-createdAt -createdBy -__v").sort({ pickupDate: -1 });
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1469,34 +1609,70 @@ module.exports.showOutgoingWToWItems = async (req, res) => {
 
 module.exports.acceptingWToWIncomingItems = async (req, res) => {
     try {
-        const { transactionId, status, arrivedDate } = req.query;
-        if(!transactionId) {
+        const { transactionId, status, arrivedDate } = req.body;
+        if (!transactionId) {
             return res.status(400).json({
                 success: false,
                 message: "TransactionId not found"
             });
         }
-        let incomingSystemItems = await SystemInventoryWToW.findOne({_id: transactionId});
-        if(!incomingSystemItems) {
+        let incomingSystemItems = await SystemInventoryWToW.findOne({ _id: transactionId })
+        .populate({
+            path: "fromWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "toWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "itemsList.subItemId",
+            model: "SubItem",
+            select: ({
+                "_id": 1,
+                "subItemName": 1,
+            })
+        }).select("-createdAt -createdBy -__v").sort({pickupDate: -1});
+        if (!incomingSystemItems) {
             return res.status(400).json({
                 success: false,
                 message: "Incoming System Items Data Not Found"
             });
         }
-        if(status === true) {
-            for (let item of itemsList) {
-                const existingItemData = await InstallationInventory.findOne({ _id: item.itemId, warehouseId: toWarehouse});
-            
+
+        if(incomingSystemItems.status === true) {
+            return res.status(400).json({
+                success: false,
+                message: "Incoming Items Already Approved"
+            });
+        }
+        
+        if (status === true) {
+            for (let item of incomingSystemItems.itemsList) {
+                const existingItemData = await InstallationInventory.findOne({ subItemId: item.subItemId, warehouseId: incomingSystemItems.toWarehouse });
+
                 existingItemData.quantity = parseInt(existingItemData?.quantity) + parseInt(item.quantity);
-            
+
                 await existingItemData.save();
             }
         }
-    
+
         incomingSystemItems.status = status;
         incomingSystemItems.arrivedDate = arrivedDate;
         incomingSystemItems.approvedBy = req.user._id;
-
+        const approvedData = await incomingSystemItems.save();
+        if(approvedData){
+            return res.status(200).json({
+                success: true,
+                message: "Incoming System Items Approved Successfully"
+            });
+        }
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1509,13 +1685,36 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
 
 module.exports.incomingWToWSystemItemsHistory = async (req, res) => {
     try {
-        const warehouseId = req.user._id;
-        const approvedData = await SystemInventoryWToW.find({toWarehouse: warehouseId, status: true }).sort({arrivedDate: -1});
+        const warehouseId = req.user.warehouse;
+        const approvedData = await SystemInventoryWToW.find({ toWarehouse: warehouseId, status: true })
+        .populate({
+            path: "fromWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "toWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "itemsList.subItemId",
+            model: "SubItem",
+            select: ({
+                "_id": 1,
+                "subItemName": 1,
+            })
+        }).sort({ arrivedDate: -1 });
+        console.log(approvedData);
         return res.status(200).json({
             success: true,
             message: "Approved Data Fetched Successfully",
             data: approvedData || []
-        }); 
+        });
     } catch (error) {
         return res.status(200).json({
             success: false,
@@ -1528,7 +1727,29 @@ module.exports.incomingWToWSystemItemsHistory = async (req, res) => {
 module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
-        const approvedOutgoingItems = await SystemInventoryWToW.find({fromWarehouse: warehouseId, status: true}).sort({arrivedDate: -1});
+        const approvedOutgoingItems = await SystemInventoryWToW.find({ fromWarehouse: warehouseId, status: true })
+        .populate({
+            path: "fromWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "toWarehouse",
+            select: ({
+                "_id": 1,
+                "warehouseName": 1,
+            })
+        })
+        .populate({
+            path: "itemsList.subItemId",
+            model: "SubItem",
+            select: ({
+                "_id": 1,
+                "subItemName": 1,
+            })
+        }).sort({ pickupDate: -1 });
         return res.status(200).json({
             success: true,
             message: "Approved Outgoing Items History",
@@ -1581,8 +1802,8 @@ module.exports.filterServicePersonById = async (req, res) => {
     try {
         const { id } = req.query;
         let employeeName = await ServicePerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
-        if(!employeeName) {
-            employeeName = await SurveyPerson.findById({_id: id}).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+        if (!employeeName) {
+            employeeName = await SurveyPerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
         }
         return res.status(200).json({
             success: true,
@@ -1670,7 +1891,7 @@ module.exports.showWarehousePersons = async (req, res) => {
     try {
         const id = req.query.id;
         const filter = {};
-        if(id) filter._id = id;
+        if (id) filter._id = id;
         const allWarehousePersons = await WarehousePerson.find(filter).select("_id name");
         return res.status(200).json({
             success: true,
@@ -1688,12 +1909,12 @@ module.exports.showWarehousePersons = async (req, res) => {
 
 module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
-        const { page = 1, limit = 10 } = req.query; 
-        
+        const { page = 1, limit = 10 } = req.query;
+
         const pageNumber = parseInt(page, 10);
         const limitNumber = parseInt(limit, 10);
         const skip = (pageNumber - 1) * limitNumber;
-        
+
         const incomingItemsData = await PickupItem.find({ incoming: true })
             .sort({ pickupDate: -1 })
             .skip(skip)
@@ -1722,3 +1943,19 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     }
 };
 
+// module.exports.showAllSystemInstallation = async (req, res) => {
+//     try {
+//         const allSystemInstallations = await NewSystemInstallation.find().select("-referenceType -createdBy -__v");
+//         return res.status(200).json({
+//             success: true,
+//             message: "Data Fetched Successfully",
+//             data: allSystemInstallations || []
+//         });
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         })
+//     }
+// };

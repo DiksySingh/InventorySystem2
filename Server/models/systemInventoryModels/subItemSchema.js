@@ -1,20 +1,25 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const systemItemSchema = new Schema({
+const subItemSchema = new Schema({
     systemId: {
         type: Schema.Types.ObjectId,
         ref: "System",
         required: true
     },
-    itemName: {
+    itemId: {
+        type: Schema.Types.ObjectId,
+        ref: "SystemItem",
+        required: true
+    },
+    subItemName: {
         type: String,
         required: true
     },
-    // quantity: {   //According to System
-    //     type: Number,
-    //     required: true
-    // },
+    quantity: {  
+        type: Number,
+        required: true
+    },
     createdAt: {
         type: Date,
         default: Date.now,
@@ -31,8 +36,8 @@ const systemItemSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: "Admin"
     }
-}, {collection: "inSystemItems"});
+}, {collection: "inSubItems"});
 
-const SystemItem = mongoose.model("SystemModel", systemItemSchema);
-module.exports = SystemItem;
+const SubItem = mongoose.model("SubItem", subItemSchema);
+module.exports = SubItem;
 

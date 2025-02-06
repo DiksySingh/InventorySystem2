@@ -9,7 +9,7 @@ const installationAssignEmpSchema = new Schema({
     },
     warehouseId: {
         type: Schema.Types.ObjectId,
-        ref: "WarehousePerson"
+        ref: "Warehouse"
     },
     empId: {
         type: Schema.Types.ObjectId,
@@ -27,13 +27,14 @@ const installationAssignEmpSchema = new Schema({
     },
     itemsList: [
         {
-            itemId: {
+            subItemId: {
                 type: Schema.Types.ObjectId,
-                ref: "InstallationInventory",
+                ref: "SubItem",
             },
             quantity: {
                 type: Number,
             },
+            _id: false,
         }
     ],
     createdAt: {

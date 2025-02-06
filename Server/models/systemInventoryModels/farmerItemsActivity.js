@@ -9,7 +9,7 @@ const farmerItemsActivitySchema = new Schema({
     },
     warehouseId: {
         type: Schema.Types.ObjectId,
-        ref: "WarehousePerson"
+        ref: "Warehouse"
     },
     farmerId: {
         type: Schema.Types.ObjectId,
@@ -27,14 +27,15 @@ const farmerItemsActivitySchema = new Schema({
     },
     itemsList: [
         {
-            itemId: {
+            subItemId: {
                 type: Schema.Types.ObjectId,
-                ref: "InstallationInventory",
+                ref: "SubItem",
                 required: true
             },
             quantity: {
                 type: Number,
             },
+            _id: false
         }
     ],
     panelNumbers: {

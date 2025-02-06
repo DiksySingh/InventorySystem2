@@ -7,8 +7,9 @@ const installationInventorySchema = new Schema({
         ref: "Warehouse",
         required: true,
     },
-    itemName: {
-        type: String,
+    subItemId: {
+        type: Schema.Types.ObjectId,
+        ref: "SubItem",
         required: true
     },
     quantity: {
@@ -22,6 +23,15 @@ const installationInventorySchema = new Schema({
     },
     updatedAt: {
         type: Date,
+    },
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: "Admin",
+        required: true
+    },
+    updatedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "WarehousePerson"
     }
 }, {collection: "inInstallationInventories"});
 
