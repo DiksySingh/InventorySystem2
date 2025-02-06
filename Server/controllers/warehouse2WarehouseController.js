@@ -1,6 +1,6 @@
-const WToW = require("../models/warehouse2WarehouseSchema");
-const Warehouse = require("../models/warehouseSchema");
-const WarehouseItems = require("../models/warehouseItemsSchema");
+const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema");
+const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
+const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
 
 module.exports.sendingDefectiveItems = async(req, res) => {
     try{

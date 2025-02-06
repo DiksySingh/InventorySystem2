@@ -1,8 +1,8 @@
-const Admin = require("../models/adminSchema");
-const ServicePerson = require("../models/servicePersonSchema");
-const WarehousePerson = require("../models/warehousePersonSchema");
-const SurveyPerson = require("../models/surveyPersonSchema");
-const Warehouse = require("../models/warehouseSchema");
+const Admin = require("../models/serviceInventoryModels/adminSchema");
+const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
+const WarehousePerson = require("../models/serviceInventoryModels/warehousePersonSchema");
+const SurveyPerson = require("../models/serviceInventoryModels/surveyPersonSchema");
+const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
 const {
   createSecretToken,
   createRefreshToken,

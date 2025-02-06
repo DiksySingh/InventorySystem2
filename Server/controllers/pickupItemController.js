@@ -1,11 +1,11 @@
 const moment = require("moment-timezone");
-const Item = require("../models/itemSchema");
-const PickupItem = require("../models/pickupItemSchema");
-const OutgoingItemDetails = require("../models/outgoingItemsTotal");
-const IncomingItemDetails = require("../models/incomingItemsTotal");
-const ServicePerson = require("../models/servicePersonSchema");
-const Warehouse = require("../models/warehouseSchema");
-const WarehouseItems = require("../models/warehouseItemsSchema");
+const Item = require("../models/serviceInventoryModels/itemSchema");
+const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
+const OutgoingItemDetails = require("../models/serviceInventoryModels/outgoingItemsTotal");
+const IncomingItemDetails = require("../models/serviceInventoryModels/incomingItemsTotal");
+const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
+const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
+const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
 
 //***************************** Admin Access **************************//
 module.exports.allOrderDetails = async (req, res) => {

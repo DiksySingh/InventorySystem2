@@ -1,9 +1,9 @@
-const OTP = require("../models/otpVerificationSchema");
-const InstallationData = require("../models/installationDataSchema");
-const PickupItem = require("../models/pickupItemSchema");
-const Warehouse = require("../models/warehouseSchema");
-const OutgoingItemDetails = require("../models/outgoingItemsTotal");
-const ServicePerson = require("../models/servicePersonSchema");
+const OTP = require("../models/serviceInventoryModels/otpVerificationSchema.js");
+const InstallationData = require("../models/serviceInventoryModels/installationDataSchema.js");
+const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema.js");
+const Warehouse = require("../models/serviceInventoryModels/warehouseSchema.js");
+const OutgoingItemDetails = require("../models/serviceInventoryModels/outgoingItemsTotal.js");
+const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema.js");
 const sendOtp = require("../helpers/otpGeneration.js");
 const handleBase64Images = require("../middlewares/base64ImageHandler.js");
 
