@@ -7,6 +7,11 @@ const stockUpdateActivitySchema = new Schema({
         enum: ["Admin", "WarehousePerson"],
         required: true
     },
+    warehouseId: {
+        type: Schema.Types.ObjectId,
+        ref: "Warehouse",
+        required: true
+    },
     subItemId: {
         type: Schema.Types.ObjectId,
         ref: "SubItem",

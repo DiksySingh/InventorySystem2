@@ -1173,7 +1173,7 @@ module.exports.updateItemQuantity = async (req, res) => {
         }
         const itemData = await InstallationInventory.findOne(filter);
         itemData.quantity = parseInt(itemData.quantity) + parseInt(updatedQuantity);
-
+        itemData.updatedBy = req.user._id;
         let refType;
         if(req.user.role === "admin") {
             refType = "Admin";
@@ -1183,6 +1183,7 @@ module.exports.updateItemQuantity = async (req, res) => {
 
         const insertData = {
             referenceType: refType,
+            warehouseId,
             subItemId,
             quantity: parseInt(updatedQuantity),
             createdAt: new Date(),
