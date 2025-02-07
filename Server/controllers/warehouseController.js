@@ -1943,27 +1943,26 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
         if (contact) {
             filter.farmerContact = Number(contact);
             filter.incoming = true;
-
-            const incomingItemsData = await PickupItem.find(filter)
-                .sort({ pickupDate: -1 })
-                .skip(skip)
-                .limit(limitNumber)
-                .select("-servicePerson -__v -image");
-
-            const totalItems = await PickupItem.countDocuments(filter);
-
-            return res.status(200).json({
-                success: true,
-                message: "Data Fetched Successfully",
-                data: incomingItemsData || [],
-                pagination: {
-                    totalItems,
-                    totalPages: Math.ceil(totalItems / limitNumber),
-                    currentPage: pageNumber,
-                    perPage: limitNumber
-                }
-            });
         }
+        const incomingItemsData = await PickupItem.find(filter)
+            .sort({ pickupDate: -1 })
+            .skip(skip)
+            .limit(limitNumber)
+            .select("-servicePerson -__v -image");
+
+        const totalItems = await PickupItem.countDocuments(filter);
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: incomingItemsData || [],
+            pagination: {
+                totalItems,
+                totalPages: Math.ceil(totalItems / limitNumber),
+                currentPage: pageNumber,
+                perPage: limitNumber
+            }
+        });
     } catch (error) {
         return res.status(500).json({
             success: false,
