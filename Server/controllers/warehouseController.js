@@ -1166,6 +1166,7 @@ module.exports.updateItemQuantity = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
         const { subItemId, updatedQuantity } = req.body;
+        console.log(req.body);
         const filter = {
             warehouseId: warehouseId,
             subItemId: subItemId
