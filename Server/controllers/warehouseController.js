@@ -1945,17 +1945,35 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
             filter.incoming = true;
         }
         const incomingItemsData = await PickupItem.find(filter)
+            .populate({
+                path: "servicePerson",
+                select: ({
+                    "_id": 0,
+                    "name": 1
+                })
+            })
             .sort({ pickupDate: -1 })
             .skip(skip)
             .limit(limitNumber)
-            .select("-servicePerson -__v -image");
+            .select("-servicePersonName -servicePerContact -__v -image -installationId -installationDone ").lean();
+
+        const formattedData = incomingItemsData.map(item => ({
+            ...item,
+            items: item.items.map(({ _id, ...rest }) => rest),
+            pickupDate: item.pickupDate
+            ? new Date(item.pickupDate).toISOString().split("T")[0]
+            : null,
+            arrivedDate: item.arrivedDate
+            ? new Date(item.arrivedDate).toISOString().split("T")[0]
+            : null
+        }));
 
         const totalItems = await PickupItem.countDocuments(filter);
 
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            data: incomingItemsData || [],
+            data: formattedData || [],
             pagination: {
                 totalItems,
                 totalPages: Math.ceil(totalItems / limitNumber),
