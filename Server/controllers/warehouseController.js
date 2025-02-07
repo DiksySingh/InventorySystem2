@@ -17,6 +17,7 @@ const FarmerItemsActivity = require("../models/systemInventoryModels/farmerItems
 const InstallationAssignEmp = require("../models/systemInventoryModels/installationAssignEmpSchema");
 const IncomingItemsAccount = require("../models/systemInventoryModels/incomingNewSystemItems");
 const NewSystemInstallation = require("../models/systemInventoryModels/newSystemInstallationSchema");
+const StockUpdateActivity = require("../models/systemInventoryModels/stockUpdateActivity");
 
 //****************** Admin Access ******************//
 module.exports.addWarehouse = async (req, res) => {
@@ -1171,11 +1172,30 @@ module.exports.updateItemQuantity = async (req, res) => {
         }
         const itemData = await InstallationInventory.findOne(filter);
         itemData.quantity = parseInt(itemData.quantity) + parseInt(updatedQuantity);
+
+        let refType;
+        if(req.user.role === "admin") {
+            refType = "Admin";
+        }else if(req.user.role === "warehouseAdmin"){
+            refType = "WarehousePerson"
+        }
+
+        const insertData = {
+            referenceType: refType,
+            subItemId,
+            quantity: parseInt(updatedQuantity),
+            createdAt: new Date(),
+            createdBy: req.user._id
+        }
+
+        const addStock = new StockUpdateActivity(insertData);
+        const savedStock = await addStock.save();
         const updatedItemData = await itemData.save();
-        if (updatedItemData) {
+
+        if (savedStock && updatedItemData) {
             return res.status(200).json({
                 success: true,
-                message: "Data Updated Successfully"
+                message: "Stock Activity & Data Updated Successfully"
             });
         }
     } catch (error) {
