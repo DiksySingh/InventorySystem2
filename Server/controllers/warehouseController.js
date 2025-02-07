@@ -961,7 +961,7 @@ module.exports.addSystem = async (req, res) => {
 
 module.exports.addSystemItem = async (req, res) => {
     try {
-        const { systemId, itemName} = req.body;
+        const { systemId, itemName } = req.body;
         const empId = req.user._id;
         // const warehouseId = req.user.warehouse;
         if (!systemId || !itemName) {
@@ -998,7 +998,7 @@ module.exports.addSystemItem = async (req, res) => {
         //         savedInventoryItem = await newInventoryItem.save();
         //     }
         // }
-        
+
         if (savedSystemItem) {
             return res.status(200).json({
                 success: true,
@@ -1017,17 +1017,17 @@ module.exports.addSystemItem = async (req, res) => {
 
 module.exports.addSubItem = async (req, res) => {
     try {
-        const {systemId, itemId, subItemName, quantity} = req.body;
+        const { systemId, itemId, subItemName, quantity } = req.body;
         const empId = req.user._id;
-        if(!itemId || !quantity) {
+        if (!itemId || !quantity) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
-        const systemItem = await SystemItem.findOne({_id: itemId});
-        if(!systemItem) {
+        const systemItem = await SystemItem.findOne({ _id: itemId });
+        if (!systemItem) {
             return res.status(404).json({
                 success: false,
                 message: "SystemItem Not Found"
@@ -1055,8 +1055,8 @@ module.exports.addSubItem = async (req, res) => {
                 savedInventoryItem = await newInventoryItem.save();
             }
         }
-        
-        if(savedSubItem && savedInventoryItem) {
+
+        if (savedSubItem && savedInventoryItem) {
             return res.status(200).json({
                 success: true,
                 message: "SubItem Added To Warehouses Successfully",
@@ -1140,13 +1140,13 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
         const inventorySystemItems = await InstallationInventory.find({ warehouseId: warehouseId })
-        .populate({
-            path: "subItemId",
-            select: ({
-                "_id": 1,
-                "subItemName": 1,
-            })
-        }).select("-_id -warehouseId -createdAt -updatedAt -createdBy -updatedBy -__v").lean();
+            .populate({
+                path: "subItemId",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
+            }).select("-_id -warehouseId -createdAt -updatedAt -createdBy -updatedBy -__v").lean();
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1175,9 +1175,9 @@ module.exports.updateItemQuantity = async (req, res) => {
         itemData.quantity = parseInt(itemData.quantity) + parseInt(updatedQuantity);
         itemData.updatedBy = req.user._id;
         let refType;
-        if(req.user.role === "admin") {
+        if (req.user.role === "admin") {
             refType = "Admin";
-        }else if(req.user.role === "warehouseAdmin"){
+        } else if (req.user.role === "warehouseAdmin") {
             refType = "WarehousePerson"
         }
 
@@ -1250,9 +1250,9 @@ module.exports.addNewInstallationData = async (req, res) => {
         let empData = await ServicePerson.findOne({ _id: empId });
         if (empData) {
             refType = "ServicePerson";
-        }else {
+        } else {
             empData = await SurveyPerson.findOne({ _id: empId });
-            if(!empData){
+            if (!empData) {
                 return res.status(400).json({
                     success: false,
                     message: "EmpID Not Found In Database"
@@ -1260,13 +1260,13 @@ module.exports.addNewInstallationData = async (req, res) => {
             }
             refType = "SurveyPerson";
         }
-       
+
 
         for (const item of itemsList) {
             const { subItemId, quantity } = item;
 
             // Find the item in InstallationInventory
-            const inventoryItem = await InstallationInventory.findOne({warehouseId: req.user.warehouse, subItemId }).populate({
+            const inventoryItem = await InstallationInventory.findOne({ warehouseId: req.user.warehouse, subItemId }).populate({
                 path: "subItemId",
                 select: ({
                     "subItemName": 1,
@@ -1341,8 +1341,8 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
             .populate({
                 path: "warehouseId",
                 select: {
-                  "_id": 0,
-                  "warehouseName": 1,
+                    "_id": 0,
+                    "warehouseName": 1,
                 }
             })
             .populate({
@@ -1451,23 +1451,23 @@ module.exports.itemComingToWarehouse = async (req, res) => {
 module.exports.showIncomingItemToWarehouse = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
-        const incomingItems = await IncomingItemsAccount.find({toWarehouse: warehouseId})
-        .populate({
-            path: "toWarehouse",
-            select: ({
-                "_id": 0,
-                "warehouseName": 1,
+        const incomingItems = await IncomingItemsAccount.find({ toWarehouse: warehouseId })
+            .populate({
+                path: "toWarehouse",
+                select: ({
+                    "_id": 0,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "itemsList.subItemId",
-            model: "SubItem",
-            select: ({
-                "_id": 1,
-                "subItemName": 1,
-            })
-        }).select("-createdAt -__v").lean();
-        
+            .populate({
+                path: "itemsList.subItemId",
+                model: "SubItem",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
+            }).select("-createdAt -__v").lean();
+
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1501,7 +1501,7 @@ module.exports.incomingWToWItem = async (req, res) => {
 
         if (outgoing === true) {
             for (let item of itemsList) {
-                const existingItemData = await InstallationInventory.findOne({subItemId: item.subItemId, warehouseId: fromWarehouse });
+                const existingItemData = await InstallationInventory.findOne({ subItemId: item.subItemId, warehouseId: fromWarehouse });
                 existingItemData.quantity = parseInt(existingItemData?.quantity) - parseInt(item.quantity);
                 await existingItemData.save();
             }
@@ -1547,28 +1547,28 @@ module.exports.showIncomingWToWItems = async (req, res) => {
         }
 
         const result = await SystemInventoryWToW.find({ toWarehouse: warehouseId, status: false })
-        .populate({
-            path: "fromWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "fromWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "toWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "toWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "itemsList.subItemId",
-            model: "SubItem",
-            select: ({
-                "_id": 1,
-                "subItemName": 1,
-            })
-        }).sort({ createdAt: -1 });
+            .populate({
+                path: "itemsList.subItemId",
+                model: "SubItem",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
+            }).sort({ createdAt: -1 });
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1594,29 +1594,29 @@ module.exports.showOutgoingWToWItems = async (req, res) => {
         }
 
         const result = await SystemInventoryWToW.find({ fromWarehouse: warehouseId })
-        .populate({
-            path: "fromWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "fromWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "toWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "toWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "itemsList.subItemId",
-            model: "SubItem",
-            select: ({
-                "_id": 1,
-                "subItemName": 1,
+            .populate({
+                path: "itemsList.subItemId",
+                model: "SubItem",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
             })
-        })
-        .select("-createdAt -createdBy -__v").sort({ pickupDate: -1 });
+            .select("-createdAt -createdBy -__v").sort({ pickupDate: -1 });
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -1641,28 +1641,28 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
             });
         }
         let incomingSystemItems = await SystemInventoryWToW.findOne({ _id: transactionId })
-        .populate({
-            path: "fromWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "fromWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "toWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "toWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "itemsList.subItemId",
-            model: "SubItem",
-            select: ({
-                "_id": 1,
-                "subItemName": 1,
-            })
-        }).select("-createdAt -createdBy -__v").sort({pickupDate: -1});
+            .populate({
+                path: "itemsList.subItemId",
+                model: "SubItem",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
+            }).select("-createdAt -createdBy -__v").sort({ pickupDate: -1 });
         if (!incomingSystemItems) {
             return res.status(400).json({
                 success: false,
@@ -1670,13 +1670,13 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
             });
         }
 
-        if(incomingSystemItems.status === true) {
+        if (incomingSystemItems.status === true) {
             return res.status(400).json({
                 success: false,
                 message: "Incoming Items Already Approved"
             });
         }
-        
+
         if (status === true) {
             for (let item of incomingSystemItems.itemsList) {
                 const existingItemData = await InstallationInventory.findOne({ subItemId: item.subItemId, warehouseId: incomingSystemItems.toWarehouse });
@@ -1691,7 +1691,7 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
         incomingSystemItems.arrivedDate = arrivedDate;
         incomingSystemItems.approvedBy = req.user._id;
         const approvedData = await incomingSystemItems.save();
-        if(approvedData){
+        if (approvedData) {
             return res.status(200).json({
                 success: true,
                 message: "Incoming System Items Approved Successfully"
@@ -1711,28 +1711,28 @@ module.exports.incomingWToWSystemItemsHistory = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
         const approvedData = await SystemInventoryWToW.find({ toWarehouse: warehouseId, status: true })
-        .populate({
-            path: "fromWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "fromWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "toWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "toWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "itemsList.subItemId",
-            model: "SubItem",
-            select: ({
-                "_id": 1,
-                "subItemName": 1,
-            })
-        }).sort({ arrivedDate: -1 });
+            .populate({
+                path: "itemsList.subItemId",
+                model: "SubItem",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
+            }).sort({ arrivedDate: -1 });
         console.log(approvedData);
         return res.status(200).json({
             success: true,
@@ -1752,28 +1752,28 @@ module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
         const approvedOutgoingItems = await SystemInventoryWToW.find({ fromWarehouse: warehouseId, status: true })
-        .populate({
-            path: "fromWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "fromWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "toWarehouse",
-            select: ({
-                "_id": 1,
-                "warehouseName": 1,
+            .populate({
+                path: "toWarehouse",
+                select: ({
+                    "_id": 1,
+                    "warehouseName": 1,
+                })
             })
-        })
-        .populate({
-            path: "itemsList.subItemId",
-            model: "SubItem",
-            select: ({
-                "_id": 1,
-                "subItemName": 1,
-            })
-        }).sort({ pickupDate: -1 });
+            .populate({
+                path: "itemsList.subItemId",
+                model: "SubItem",
+                select: ({
+                    "_id": 1,
+                    "subItemName": 1,
+                })
+            }).sort({ pickupDate: -1 });
         return res.status(200).json({
             success: true,
             message: "Approved Outgoing Items History",
@@ -1933,31 +1933,37 @@ module.exports.showWarehousePersons = async (req, res) => {
 
 module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
-        const { page = 1, limit = 10 } = req.query;
+        const { page = 1, limit = 10, contact } = req.query;
 
         const pageNumber = parseInt(page, 10);
         const limitNumber = parseInt(limit, 10);
         const skip = (pageNumber - 1) * limitNumber;
 
-        const incomingItemsData = await PickupItem.find({ incoming: true })
-            .sort({ pickupDate: -1 })
-            .skip(skip)
-            .limit(limitNumber)
-            .select("-servicePerson -__v -image");
+        let filter = { incoming: true };
+        if (contact) {
+            filter.farmerContact = Number(contact);
+            filter.incoming = true;
 
-        const totalItems = await PickupItem.countDocuments({ incoming: true });
+            const incomingItemsData = await PickupItem.find(filter)
+                .sort({ pickupDate: -1 })
+                .skip(skip)
+                .limit(limitNumber)
+                .select("-servicePerson -__v -image");
 
-        return res.status(200).json({
-            success: true,
-            message: "Data Fetched Successfully",
-            data: incomingItemsData || [],
-            pagination: {
-                totalItems,
-                totalPages: Math.ceil(totalItems / limitNumber),
-                currentPage: pageNumber,
-                perPage: limitNumber
-            }
-        });
+            const totalItems = await PickupItem.countDocuments(filter);
+
+            return res.status(200).json({
+                success: true,
+                message: "Data Fetched Successfully",
+                data: incomingItemsData || [],
+                pagination: {
+                    totalItems,
+                    totalPages: Math.ceil(totalItems / limitNumber),
+                    currentPage: pageNumber,
+                    perPage: limitNumber
+                }
+            });
+        }
     } catch (error) {
         return res.status(500).json({
             success: false,
