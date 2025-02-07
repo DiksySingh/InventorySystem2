@@ -335,7 +335,7 @@ module.exports.Login = async (req, res) => {
   try {
     //const { email, password } = req.body;
     const { email, password, role } = req.body;
-    console.log(req.body);
+
     const options = {
       withCredentials: true,
       httpOnly: true,
@@ -353,25 +353,23 @@ module.exports.Login = async (req, res) => {
       await WarehousePerson.findOne({ email, role }) ||
       await ServicePerson.findOne({ email, role }) ||
       await SurveyPerson.findOne({ email, role });
-console.log(user);
+
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "Incorrect email or password",
       });
     }
-console.log("Hi");
     // Check if the account is active
-    if (!user.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been deactivated. Please contact support.",
-      });
-    }
+      if (!user.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: "Your account has been deactivated. Please contact support.",
+        });
+      }
 
     // Compare password
     const auth = await bcrypt.compare(password, user.password);
-    console.log(auth);
     if (!auth) {
       return res.status(401).json({
         success: false,
