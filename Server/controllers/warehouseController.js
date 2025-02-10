@@ -1935,15 +1935,26 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
         const { contact, contact2 } = req.query;
 
-        // if (!contact) {
-        //     return res.status(400).json({
-        //         success: false,
-        //         message: "Contact is required"
-        //     });
-        // }
+        // Check if neither contact nor contact2 is provided
+        if (!contact && !contact2) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one contact (contact or contact2) is required"
+            });
+        }
 
-        let filter = { farmerContact: Number(contact), incoming: true };
+        let filter;
 
+        // If contact is provided, search for it
+        if (contact) {
+            filter = { farmerContact: Number(contact), incoming: true };
+        }
+        // If contact is not provided, but contact2 is, search for contact2
+        else if (contact2) {
+            filter = { farmerContact: Number(contact2), incoming: true };
+        }
+
+        // Search the database with the determined filter
         let incomingItemsData = await PickupItem.find(filter)
             .populate({
                 path: "servicePerson",
@@ -1955,25 +1966,14 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
 
         // If no data is found, return an empty array
         if (!incomingItemsData.length) {
-            filter = { farmerContact: Number(contact2), incoming: true };
-            incomingItemsData = await PickupItem.find(filter)
-                .populate({
-                    path: "servicePerson",
-                    select: { "_id": 0, "name": 1 }
-                })
-                .sort({ pickupDate: -1 })
-                .select("-servicePersonName -servicePerContact -__v -image -installationId -installationDone")
-                .lean();
-
-            if(!incomingItemsData.length){
-                return res.status(200).json({
-                    success: true,
-                    message: "No data found",
-                    data: []
-                });
-            }
+            return res.status(200).json({
+                success: true,
+                message: "No data found",
+                data: []
+            });
         }
 
+        // Format the data before returning
         const formattedData = incomingItemsData.map(item => ({
             ...item,
             items: item.items.map(({ _id, ...rest }) => rest),
@@ -1985,6 +1985,7 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
                 : null
         }));
 
+        // Return the fetched and formatted data
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
