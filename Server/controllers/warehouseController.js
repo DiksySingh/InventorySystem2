@@ -1933,18 +1933,18 @@ module.exports.showWarehousePersons = async (req, res) => {
 
 module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
-        const { contact } = req.query;
+        const { contact, contact2 } = req.query;
 
-        if (!contact) {
-            return res.status(400).json({
-                success: false,
-                message: "Contact is required"
-            });
-        }
+        // if (!contact) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: "Contact is required"
+        //     });
+        // }
 
-        const filter = { farmerContact: Number(contact), incoming: true };
+        let filter = { farmerContact: Number(contact), incoming: true };
 
-        const incomingItemsData = await PickupItem.find(filter)
+        let incomingItemsData = await PickupItem.find(filter)
             .populate({
                 path: "servicePerson",
                 select: { "_id": 0, "name": 1 }
@@ -1955,11 +1955,23 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
 
         // If no data is found, return an empty array
         if (!incomingItemsData.length) {
-            return res.status(200).json({
-                success: true,
-                message: "No data found",
-                data: []
-            });
+            filter = { farmerContact: Number(contact2), incoming: true };
+            incomingItemsData = await PickupItem.find(filter)
+                .populate({
+                    path: "servicePerson",
+                    select: { "_id": 0, "name": 1 }
+                })
+                .sort({ pickupDate: -1 })
+                .select("-servicePersonName -servicePerContact -__v -image -installationId -installationDone")
+                .lean();
+
+            if(!incomingItemsData.length){
+                return res.status(200).json({
+                    success: true,
+                    message: "No data found",
+                    data: []
+                });
+            }
         }
 
         const formattedData = incomingItemsData.map(item => ({
