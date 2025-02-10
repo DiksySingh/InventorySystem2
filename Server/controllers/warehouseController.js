@@ -1935,7 +1935,7 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
         const { contact, contact2 } = req.query;
 
-        // Check if neither contact nor contact2 is provided
+        // If neither contact nor contact2 is provided, return error
         if (!contact && !contact2) {
             return res.status(400).json({
                 success: false,
@@ -1943,18 +1943,25 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
             });
         }
 
-        let filter;
+        let filter = { incoming: true };
 
-        // If contact is provided, search for it
-        if (contact) {
-            filter = { farmerContact: Number(contact), incoming: true };
+        // If both contact and contact2 are provided, search for either of them
+        if (contact && contact2) {
+            filter.$or = [
+                { farmerContact: Number(contact) },
+                { farmerContact: Number(contact2) }
+            ];
         }
-        // If contact is not provided, but contact2 is, search for contact2
+        // If only contact is provided, search for it
+        else if (contact) {
+            filter.farmerContact = Number(contact);
+        }
+        // If only contact2 is provided, search for it
         else if (contact2) {
-            filter = { farmerContact: Number(contact2), incoming: true };
+            filter.farmerContact = Number(contact2);
         }
 
-        // Search the database with the determined filter
+        // Fetch data based on the filter
         let incomingItemsData = await PickupItem.find(filter)
             .populate({
                 path: "servicePerson",
