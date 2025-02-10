@@ -1933,54 +1933,52 @@ module.exports.showWarehousePersons = async (req, res) => {
 
 module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
-        const { page = 1, limit = 10, contact } = req.query;
+        const { contact } = req.query;
 
-        const pageNumber = parseInt(page, 10);
-        const limitNumber = parseInt(limit, 10);
-        const skip = (pageNumber - 1) * limitNumber;
-
-        let filter = { incoming: true };
-        if (contact) {
-            filter.farmerContact = Number(contact);
-            filter.incoming = true;
+        if (!contact) {
+            return res.status(400).json({
+                success: false,
+                message: "Contact is required"
+            });
         }
+
+        const filter = { farmerContact: Number(contact), incoming: true };
+
         const incomingItemsData = await PickupItem.find(filter)
             .populate({
                 path: "servicePerson",
-                select: ({
-                    "_id": 0,
-                    "name": 1
-                })
+                select: { "_id": 0, "name": 1 }
             })
             .sort({ pickupDate: -1 })
-            .skip(skip)
-            .limit(limitNumber)
-            .select("-servicePersonName -servicePerContact -__v -image -installationId -installationDone ").lean();
+            .select("-servicePersonName -servicePerContact -__v -image -installationId -installationDone")
+            .lean();
+
+        // If no data is found, return an empty array
+        if (!incomingItemsData.length) {
+            return res.status(200).json({
+                success: true,
+                message: "No data found",
+                data: []
+            });
+        }
 
         const formattedData = incomingItemsData.map(item => ({
             ...item,
             items: item.items.map(({ _id, ...rest }) => rest),
             pickupDate: item.pickupDate
-            ? new Date(item.pickupDate).toISOString().split("T")[0]
-            : null,
+                ? new Date(item.pickupDate).toISOString().split("T")[0]
+                : null,
             arrivedDate: item.arrivedDate
-            ? new Date(item.arrivedDate).toISOString().split("T")[0]
-            : null
+                ? new Date(item.arrivedDate).toISOString().split("T")[0]
+                : null
         }));
-
-        const totalItems = await PickupItem.countDocuments(filter);
 
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            data: formattedData || [],
-            pagination: {
-                totalItems,
-                totalPages: Math.ceil(totalItems / limitNumber),
-                currentPage: pageNumber,
-                perPage: limitNumber
-            }
+            data: formattedData
         });
+
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1989,6 +1987,7 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
         });
     }
 };
+
 
 // module.exports.showAllSystemInstallation = async (req, res) => {
 //     try {
