@@ -73,3 +73,10 @@ const uploadHandler = (req, res, next) => {
 
 
 module.exports =  { uploadHandler };
+
+if(!req.file){
+  return res.status(404).json({
+    success: false,
+    message: "No file uploaded"
+  });
+}

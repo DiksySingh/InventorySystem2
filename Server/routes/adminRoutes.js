@@ -3,7 +3,7 @@ const { allOrderDetails, servicePersonIncomingItemsData, servicePersonIncomingIt
 const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
 const { 
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
-  deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSubItem
+  deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSubItem, showSystemItems
 } = require("../controllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
 const {getInstallationsData} = require("../controllers/installationDataController");
@@ -37,5 +37,6 @@ router.get("/all-installations-data",userVerification(['admin']), getInstallatio
 router.post("/add-system", userVerification(['admin']), addSystem);
 router.post("/add-system-item", userVerification(['admin']), addSystemItem);
 router.post("/add-subItem", userVerification(['admin']), addSubItem);
+router.get("/show-system-item", userVerification(['admin']), showSystemItems);
 
 module.exports = router;

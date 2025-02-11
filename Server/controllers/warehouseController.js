@@ -1089,6 +1089,33 @@ module.exports.showSystems = async (req, res) => {
     }
 };
 
+module.exports.showSystemItems = async (req, res) => {
+    try {
+        const {systemId} = req.query;
+        if(!systemId) {
+            return res.status(400).json({
+                success: false,
+                message: "SystemId Not Found"
+            });
+        }
+
+        const systemItemData = await SystemItem.find({systemId}).select("_id itemName");
+        if(systemItemData) {
+            return res.status(200).json({
+                success: true,
+                message: "System Item Fetched Successfully",
+                data: systemItemData || []
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 module.exports.showSystemSubItems = async (req, res) => {
     try {
         const { systemId } = req.query;
