@@ -140,7 +140,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
                     "_id": 1,
                     "subItemName": 1,
                 })
-            }).sort({createdAt: -1});
+            }).sort({ createdAt: -1 });
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
                 const response = await axios.get(
@@ -171,32 +171,40 @@ const showNewInstallationDataToInstaller = async (req, res) => {
 
 const updateStatusOfIncomingItems = async (req, res) => {
     try {
-        const {farmerId, empId, itemsList, accepted} = req.body;
+        const { installationId, farmerId, empId, accepted } = req.body;
 
-        if(!farmerId || !empId || !itemsList || !accepted) {
+        if (!farmerId || !empId || !accepted) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
-        const farmerActivityData = await FarmerItemsActivity.findOne({farmerId});
-        if(!FarmerItemsActivity) {
+        const farmerActivityData = await FarmerItemsActivity.findOne({_id: installationId, farmerId })
+        .populate({
+            path: "itemsList.subItemId", // Populate subItemId inside itemsList array
+            select: "subItemName", // Select only the subItemName field
+        });
+        if (!FarmerItemsActivity) {
             return res.status(400).json({
                 success: false,
                 message: "Farmer Activity Data Not Found"
             });
         }
 
-        let empAccount = await EmpInstallationAccount.findOne({ empId });
+        let empAccount = await EmpInstallationAccount.findOne({ empId })
+            .populate({
+                path: "itemsList.subItemId", // Populate subItemId inside itemsList array
+                select: "subItemName", // Select only the subItemName field
+            });
 
         let refType;
         let empData = await ServicePerson.findOne({ _id: empId });
         if (empData) {
             refType = "ServicePerson";
-        }else {
+        } else {
             empData = await SurveyPerson.findOne({ _id: empId });
-            if(!empData){
+            if (!empData) {
                 return res.status(400).json({
                     success: false,
                     message: "EmpID Not Found In Database"
@@ -215,13 +223,13 @@ const updateStatusOfIncomingItems = async (req, res) => {
             });
         }
 
-        for (const item of itemsList) {
+        for (const item of farmerActivityData.itemsList) {
             const { subItemId, quantity } = item;
 
-            const existingItem = empAccount.itemsList.find(i => i.subItemId === subItemId);
+            const existingItem = empAccount.itemsList.find(i => i.subItemId.subItemName === subItemId.subItemName);
 
             if (existingItem) {
-                existingItem.quantity = parseInt(existingItem.quantity) +  parseInt(quantity);
+                existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
             } else {
                 empAccount.itemsList.push({ subItemId: subItemId, quantity });
             }
@@ -234,7 +242,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         farmerActivityData.updatedAt = new Date();
         farmerActivityData.updatedBy = empId;
         const savedFarmerActivity = await farmerActivityData.save();
-        if(savedFarmerActivity) {
+        if (savedFarmerActivity) {
             return res.status(200).json({
                 success: true,
                 message: "Farmer Activity Updated Successfully"
@@ -266,10 +274,10 @@ const newSystemInstallation = async (req, res) => {
             waterDischargeFarmerPhoto
         } = req.body;
         const empId = req.user._id;
-        if (!farmerId || !latitude || !longitude || !borePhoto || !challanPhoto || !landDocPhoto || !sprinklerPhoto ||!boreFarmerPhoto || !finalFoundationFarmerPhoto || !panelFarmerPhoto || !controllerBoxFarmerPhoto || !waterDischargeFarmerPhoto) {
+        if (!farmerId || !latitude || !longitude || !borePhoto || !challanPhoto || !landDocPhoto || !sprinklerPhoto || !boreFarmerPhoto || !finalFoundationFarmerPhoto || !panelFarmerPhoto || !controllerBoxFarmerPhoto || !waterDischargeFarmerPhoto) {
             return res.status(400).json({
-                success:false,
-                message:"All fields are required."
+                success: false,
+                message: "All fields are required."
             });
         }
 
@@ -277,9 +285,9 @@ const newSystemInstallation = async (req, res) => {
         let empData = await ServicePerson.findOne({ _id: empId });
         if (empData) {
             refType = "ServicePerson";
-        }else {
+        } else {
             empData = await SurveyPerson.findOne({ _id: empId });
-            if(!empData){
+            if (!empData) {
                 return res.status(400).json({
                     success: false,
                     message: "EmpID Not Found In Database"
@@ -287,7 +295,7 @@ const newSystemInstallation = async (req, res) => {
             }
             refType = "SurveyPerson";
         }
-        
+
         const folderPath = "newInstallation"
         const savedBorePhoto = await imageHandlerWithPath(borePhoto, folderPath);
         const borePhotoUrl = savedBorePhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
@@ -321,11 +329,11 @@ const newSystemInstallation = async (req, res) => {
             farmerId,
             latitude,
             longitude,
-            borePhoto: borePhotoUrl, 
-            challanPhoto: challanPhotoUrl, 
-            landDocPhoto: landDocPhotoUrl, 
-            sprinklerPhoto: sprinklerPhotoUrl, 
-            boreFarmerPhoto: boreFarmerPhotoUrl, 
+            borePhoto: borePhotoUrl,
+            challanPhoto: challanPhotoUrl,
+            landDocPhoto: landDocPhotoUrl,
+            sprinklerPhoto: sprinklerPhotoUrl,
+            boreFarmerPhoto: boreFarmerPhotoUrl,
             finalFoundationFarmerPhoto: foundationFarmerPhotoUrl,
             panelFarmerPhoto: panelFarmerPhotoUrl,
             controllerBoxFarmerPhoto: controllerFarmerPhotoUrl,
@@ -342,8 +350,8 @@ const newSystemInstallation = async (req, res) => {
             });
         }
 
-        const farmerActivity = await FarmerItemsActivity.findOne({farmerId});
-        if(!farmerActivity) {
+        const farmerActivity = await FarmerItemsActivity.findOne({ farmerId });
+        if (!farmerActivity) {
             return res.status(400).json({
                 success: false,
                 message: "Farmer Activity Not Found"
@@ -358,7 +366,7 @@ const newSystemInstallation = async (req, res) => {
             success: true,
             message: "Installation Data & Farmer Activity Saved/Updated Successfully"
         });
-        
+
     } catch (error) {
         return res.status(500).json({
             success: false,

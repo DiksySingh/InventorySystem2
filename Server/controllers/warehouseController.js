@@ -977,7 +977,7 @@ module.exports.addSystemItem = async (req, res) => {
             createdBy: empId
         };
 
-        const existingSystemItem = await SystemItem.findOne({systemId, itemName: itemName.trim()});
+        const existingSystemItem = await SystemItem.findOne({ systemId, itemName: itemName.trim() });
         if (existingSystemItem) {
             return res.status(400).json({
                 success: false,
@@ -1023,12 +1023,12 @@ module.exports.addSubItem = async (req, res) => {
             });
         }
 
-        const existingSubItem = await SubItem.findOne({ 
-            systemId, 
-            itemId, 
+        const existingSubItem = await SubItem.findOne({
+            systemId,
+            itemId,
             subItemName: { $regex: new RegExp("^" + subItemName + "$", "i") } // Case-insensitive search
         });
-        if(existingSubItem) {
+        if (existingSubItem) {
             return res.status(400).json({
                 success: false,
                 message: "Duplicate Data: With Same systemId, itemId and subItemName",
@@ -1062,10 +1062,10 @@ module.exports.addSubItem = async (req, res) => {
             // Find an existing inventory item in the warehouse and populate the subItemId to check its name
             const existingInventoryItem = await InstallationInventory.findOne({ warehouseId: warehouse._id })
                 .populate('subItemId'); // Populate subItemId to get the name field
-        
+
             // Check if an inventory item exists with the same name
             const itemExists = existingInventoryItem && existingInventoryItem.subItemId.subItemName.toLowerCase().trim() === savedSubItem.subItemName.toLowerCase().trim();
-        
+
             if (!itemExists) {
                 const newInventoryItem = new InstallationInventory({
                     warehouseId: warehouse._id,
@@ -1073,7 +1073,7 @@ module.exports.addSubItem = async (req, res) => {
                     quantity: 0,
                     createdBy: empId
                 });
-        
+
                 await newInventoryItem.save();
             }
         }
@@ -1112,16 +1112,16 @@ module.exports.showSystems = async (req, res) => {
 
 module.exports.showSystemItems = async (req, res) => {
     try {
-        const {systemId} = req.query;
-        if(!systemId) {
+        const { systemId } = req.query;
+        if (!systemId) {
             return res.status(400).json({
                 success: false,
                 message: "SystemId Not Found"
             });
         }
 
-        const systemItemData = await SystemItem.find({systemId}).select("_id itemName");
-        if(systemItemData) {
+        const systemItemData = await SystemItem.find({ systemId }).select("_id itemName");
+        if (systemItemData) {
             return res.status(200).json({
                 success: true,
                 message: "System Item Fetched Successfully",
@@ -1311,21 +1311,34 @@ module.exports.addNewInstallationData = async (req, res) => {
 
 
         for (const item of itemsList) {
-            const { subItemId, quantity } = item;
+            const { subItemId, quantity } = item; // Get subItemName instead of subItemId
 
-            // Find the item in InstallationInventory
-            const inventoryItem = await InstallationInventory.findOne({ warehouseId: req.user.warehouse, subItemId }).populate({
-                path: "subItemId",
-                select: ({
-                    "subItemName": 1,
-                })
-            });
+            const subItemData = await SubItem.findOne({ _id: subItemId });
+            if (!subItemData) {
+                return res.status(400).json({
+                    success: false,
+                    message: "SubItem Not Found"
+                });
+            }
+
+            // Find all inventory items in the warehouse
+            const inventoryItems = await InstallationInventory.find({ warehouseId: req.user.warehouse })
+                .populate({
+                    path: "subItemId",
+                    select: { subItemName: 1 },
+                });
+
+            // Find the item in the inventory based on subItemName (case-insensitive)
+            const inventoryItem = inventoryItems.find(
+                (inv) => inv.subItemId.subItemName.toLowerCase() === subItemData.subItemName.toLowerCase()
+            );
+
             if (!inventoryItem) {
-                throw new Error(`SubItem with ID ${subItemId} not found in warehouse inventory`);
+                throw new Error(`SubItem "${subItemData.subItemName}" not found in warehouse inventory`);
             }
 
             if (inventoryItem.quantity < quantity) {
-                throw new Error(`Insufficient stock for item ${inventoryItem.subItemId.subItemName}`);
+                throw new Error(`Insufficient stock for item "${subItemData.subItemName}"`);
             }
 
             // Update inventory quantity
@@ -1463,8 +1476,32 @@ module.exports.itemComingToWarehouse = async (req, res) => {
         }
 
         for (let item of itemsList) {
-            const existingItem = await InstallationInventory.findOne({ subItemId: item.subItemId, warehouseId: req.user.warehouse });
-            existingItem.quantity = parseInt(existingItem.quantity) + parseInt(item.quantity);
+            const { subItemId, quantity } = item;
+            const subItemData = await SubItem.findOne({ _id: subItemId });
+            if (!subItemData) {
+                return res.status(400).json({
+                    success: false,
+                    message: "SubItem Not Found"
+                });
+            }
+
+            const existingInventoryItems = await InstallationInventory.find({ warehouseId: req.user.warehouse })
+                .populate({
+                    path: "subItemId",
+                    select: "subItemName",
+                });
+
+            // Check if any inventory item has a subItemId with a matching subItemName
+            const existingItem = existingInventoryItems.find(
+                (inv) => inv.subItemId.subItemName.toLowerCase().trim() === subItemData.subItemName.toLowerCase().trim()
+            );
+
+            if (!existingItem) {
+                throw new Error(`SubItem "${subItemData.subItemName}" not found in warehouse inventory`);
+            }
+
+            // Update inventory quantity
+            existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
             await existingItem.save();
         }
 
@@ -1483,7 +1520,7 @@ module.exports.itemComingToWarehouse = async (req, res) => {
         if (savedData) {
             return res.status(200).json({
                 success: true,
-                message: "Items Added To Installation Inventory Account",
+                message: "Items Added & Stock Updated To Installation Inventory Account",
                 data: savedData
             });
         }
@@ -1549,9 +1586,32 @@ module.exports.incomingWToWItem = async (req, res) => {
 
         if (outgoing === true) {
             for (let item of itemsList) {
-                const existingItemData = await InstallationInventory.findOne({ subItemId: item.subItemId, warehouseId: fromWarehouse });
-                existingItemData.quantity = parseInt(existingItemData?.quantity) - parseInt(item.quantity);
-                await existingItemData.save();
+                const { subItemId, quantity } = item;
+                const subItemData = await SubItem.findOne({ _id: subItemId });
+                if (!subItemData) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "SubItem Not Found"
+                    });
+                }
+
+                const existingInventoryItems = await InstallationInventory.find({ warehouseId: req.user.warehouse })
+                    .populate({
+                        path: "subItemId",
+                        select: "subItemName",
+                    });
+
+                // Check if any inventory item has a subItemId with a matching subItemName
+                const existingItem = existingInventoryItems.find(
+                    (inv) => inv.subItemId.subItemName.toLowerCase().trim() === subItemData.subItemName.toLowerCase().trim()
+                );
+
+                if (!existingItem) {
+                    throw new Error(`SubItem "${subItemData.subItemName}" not found in warehouse inventory`);
+                }
+
+                existingItem.quantity = parseInt(existingItem?.quantity) - parseInt(quantity);
+                await existingItem.save();
             }
         }
 
@@ -1727,11 +1787,33 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
 
         if (status === true) {
             for (let item of incomingSystemItems.itemsList) {
-                const existingItemData = await InstallationInventory.findOne({ subItemId: item.subItemId, warehouseId: incomingSystemItems.toWarehouse });
+                const {subItemId, quantity} = item;
+                const subItemData = await SubItem.findOne({_id: subItemId});
+                if(!subItemData) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "SubItem Not Found"
+                    });
+                }
 
-                existingItemData.quantity = parseInt(existingItemData?.quantity) + parseInt(item.quantity);
+                const existingInventoryItems = await InstallationInventory.find({ warehouseId: req.user.warehouse })
+                    .populate({
+                        path: "subItemId",
+                        select: "subItemName",
+                    });
 
-                await existingItemData.save();
+                // Check if any inventory item has a subItemId with a matching subItemName
+                const existingItem = existingInventoryItems.find(
+                    (inv) => inv.subItemId.subItemName.toLowerCase().trim() === subItemData.subItemName.toLowerCase().trim()
+                );
+
+                if (!existingItem) {
+                    throw new Error(`SubItem "${subItemData.subItemName}" not found in warehouse inventory`);
+                }
+
+                existingItem.quantity = parseInt(existingItem?.quantity) + parseInt(quantity);
+
+                await existingItem.save();
             }
         }
 
@@ -2016,7 +2098,7 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
                 select: { "_id": 0, "name": 1 }
             })
             .sort({ pickupDate: -1 })
-            .select("-servicePersonName -servicePerContact -__v -image -installationId -installationDone")
+            .select("-servicePersonName -servicePerContact -__v -image")
             .lean();
 
         // If no data is found, return an empty array
