@@ -977,27 +977,16 @@ module.exports.addSystemItem = async (req, res) => {
             createdBy: empId
         };
 
-        const existingSystemItem = await SystemItem.findOne({ itemName });
+        const existingSystemItem = await SystemItem.findOne({systemId, itemName: itemName.trim()});
         if (existingSystemItem) {
             return res.status(400).json({
                 success: false,
-                message: "System Item Already Exists"
+                message: "Duplicate Data: systemId & itemName already exists"
             });
         }
 
         const newSystemItem = new SystemItem(insertData);
         const savedSystemItem = await newSystemItem.save();
-
-        // const allWarehouses = await Warehouse.find();
-        // let newInventoryItem, savedInventoryItem;
-
-        // for (let warehouse of allWarehouses) {
-        //     const existingInventoryItem = await InstallationInventory.findOne({ warehouseId: warehouse._id, itemName });
-        //     if (!existingInventoryItem) {
-        //         newInventoryItem = new InstallationInventory({ warehouseId: warehouse._id, itemName, quantity: 0 });
-        //         savedInventoryItem = await newInventoryItem.save();
-        //     }
-        // }
 
         if (savedSystemItem) {
             return res.status(200).json({
@@ -1019,7 +1008,7 @@ module.exports.addSubItem = async (req, res) => {
     try {
         const { systemId, itemId, subItemName, quantity } = req.body;
         const empId = req.user._id;
-        if (!itemId || !quantity) {
+        if (!systemId || !itemId || !subItemName || !quantity) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -1034,10 +1023,23 @@ module.exports.addSubItem = async (req, res) => {
             });
         }
 
+        const existingSubItem = await SubItem.findOne({ 
+            systemId, 
+            itemId, 
+            subItemName: { $regex: new RegExp("^" + subItemName + "$", "i") } // Case-insensitive search
+        });
+        if(existingSubItem) {
+            return res.status(400).json({
+                success: false,
+                message: "Duplicate Data: With Same systemId, itemId and subItemName",
+                data: existingSubItem,
+            })
+        }
+
         const insertSubItem = {
             systemId,
             itemId,
-            subItemName,
+            subItemName: subItemName.trim(),
             quantity,
             createdBy: empId,
         }
@@ -1046,17 +1048,36 @@ module.exports.addSubItem = async (req, res) => {
         const savedSubItem = await newSubItem.save();
 
         const allWarehouses = await Warehouse.find();
-        let newInventoryItem, savedInventoryItem;
+        //let newInventoryItem, savedInventoryItem;
+
+        // for (let warehouse of allWarehouses) {
+        //     const existingInventoryItem = await InstallationInventory.findOne({ warehouseId: warehouse._id, subItemId: savedSubItem._id });
+        //     if (!existingInventoryItem) {
+        //         newInventoryItem = new InstallationInventory({ warehouseId: warehouse._id, subItemId: savedSubItem._id, quantity: 0, createdBy: empId });
+        //         savedInventoryItem = await newInventoryItem.save();
+        //     }
+        // }
 
         for (let warehouse of allWarehouses) {
-            const existingInventoryItem = await InstallationInventory.findOne({ warehouseId: warehouse._id, subItemId: savedSubItem._id });
-            if (!existingInventoryItem) {
-                newInventoryItem = new InstallationInventory({ warehouseId: warehouse._id, subItemId: savedSubItem._id, quantity: 0, createdBy: empId });
-                savedInventoryItem = await newInventoryItem.save();
+            // Find an existing inventory item in the warehouse and populate the subItemId to check its name
+            const existingInventoryItem = await InstallationInventory.findOne({ warehouseId: warehouse._id })
+                .populate('subItemId'); // Populate subItemId to get the name field
+        
+            // Check if an inventory item exists with the same name
+            const itemExists = existingInventoryItem && existingInventoryItem.subItemId.subItemName.toLowerCase().trim() === savedSubItem.subItemName.toLowerCase().trim();
+        
+            if (!itemExists) {
+                const newInventoryItem = new InstallationInventory({
+                    warehouseId: warehouse._id,
+                    subItemId: savedSubItem._id,
+                    quantity: 0,
+                    createdBy: empId
+                });
+        
+                await newInventoryItem.save();
             }
         }
-
-        if (savedSubItem && savedInventoryItem) {
+        if (savedSubItem) {
             return res.status(200).json({
                 success: true,
                 message: "SubItem Added To Warehouses Successfully",
