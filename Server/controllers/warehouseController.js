@@ -20,6 +20,7 @@ const NewSystemInstallation = require("../models/systemInventoryModels/newSystem
 const StockUpdateActivity = require("../models/systemInventoryModels/stockUpdateActivity");
 
 //****************** Admin Access ******************//
+
 module.exports.addWarehouse = async (req, res) => {
     const { warehouseName, createdAt } = req.body;
     if (!warehouseName) {
@@ -947,7 +948,7 @@ module.exports.addSystem = async (req, res) => {
             return res.status(200).json({
                 success: true,
                 message: "System Data Saved Successfully",
-                data: savedSystem
+                data: savedSystem 
             });
         }
     } catch (error) {
@@ -1374,10 +1375,20 @@ module.exports.addNewInstallationData = async (req, res) => {
         console.log(activityData);
 
         const farmerActivity = new FarmerItemsActivity(activityData);
-        await farmerActivity.save();
+        const savedFarmerActivity = await farmerActivity.save();
 
         const empAccountData = new InstallationAssignEmp(accountData);
-        await empAccountData.save();
+        const savedEmpAccountData = await empAccountData.save();
+
+        if(savedFarmerActivity && savedEmpAccountData) {
+            try {
+                const apiUrl = `http://88.222.214.93:8001/warehouse/assignWarehouseUpdate?farmerId=${farmerId}`
+                await axios.put(apiUrl);
+                console.log("API request sent successfully");
+            } catch (error) {
+                console.log("Error sending API request: ", error.message);
+            }
+        }
 
         return res.status(200).json({
             success: true,
@@ -2064,7 +2075,6 @@ module.exports.showWarehousePersons = async (req, res) => {
 module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
         const { contact, contact2 } = req.query;
-
         // If neither contact nor contact2 is provided, return error
         if (!contact && !contact2) {
             return res.status(400).json({
@@ -2100,7 +2110,7 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
             .sort({ pickupDate: -1 })
             .select("-servicePersonName -servicePerContact -__v -image")
             .lean();
-
+        
         // If no data is found, return an empty array
         if (!incomingItemsData.length) {
             return res.status(200).json({
@@ -2138,20 +2148,19 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     }
 };
 
-
-// module.exports.showAllSystemInstallation = async (req, res) => {
-//     try {
-//         const allSystemInstallations = await NewSystemInstallation.find().select("-referenceType -createdBy -__v");
-//         return res.status(200).json({
-//             success: true,
-//             message: "Data Fetched Successfully",
-//             data: allSystemInstallations || []
-//         });
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error",
-//             error: error.message
-//         })
-//     }
-// };
+module.exports.showAllSystemInstallation = async (req, res) => {
+    try {
+        const allSystemInstallations = await NewSystemInstallation.find().select("-referenceType -createdBy -__v");
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: allSystemInstallations || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        })
+    }
+};

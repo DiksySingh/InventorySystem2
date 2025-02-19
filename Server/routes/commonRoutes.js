@@ -1,6 +1,7 @@
 const {updateLatitudeLongitude, addServicePersonState} = require("../controllers/servicePersonController");
 const {addIsActiveField} = require("../controllers/authController");
 const {generateJoiningFormPDF} = require("../helpers/generateJoiningFormPDF");
+const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel} = require("../controllers/pickupItemController");
 const router = require("express").Router();
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -10,4 +11,6 @@ router.put("/upload-excel", upload.single('file'), updateLatitudeLongitude);
 router.put("/uploadState", upload.single('file'), addServicePersonState);
 router.put("/add-isActive-field", addIsActiveField);
 router.get("/generate-pdf", generateJoiningFormPDF);
+router.get("/export-pickUpItems-excel", exportIncomingPickupItemsToExcel);
+router.get("/export-incoming-items-excel", exportIncomingTotalItemsToExcel);
 module.exports = router;

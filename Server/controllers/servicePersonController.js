@@ -120,7 +120,7 @@ const addServicePersonState = async (req, res) => {
 const showNewInstallationDataToInstaller = async (req, res) => {
     try {
         const installerId = req.user._id
-        const activities = await FarmerItemsActivity.find({ empId: installerId })
+        const activities = await FarmerItemsActivity.find({ empId: installerId , accepted: false})
             .populate({
                 path: "warehouseId",
                 select: {

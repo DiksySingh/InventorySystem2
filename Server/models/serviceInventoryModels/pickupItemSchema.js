@@ -18,15 +18,21 @@ const pickupItemSchema = new Schema(
     },
     farmerName: {
       type: String,
-      required: true,
     },
-    farmerContact: {
-      type: Number,
+    farmerContact: { //Used For Saral ID
+      type: Number,  
       required: true,
     },
     farmerVillage: {
       type: String,
-      required: true,
+    },
+    farmerComplaintId: {
+      type: String,
+      required: true
+    },
+    farmerSaralId:{
+      type:String,
+      required:true
     },
     items: [
       {
@@ -40,10 +46,6 @@ const pickupItemSchema = new Schema(
         },
       },
     ],
-    image: {
-      type: String,
-      default: null
-    },
     warehouse: {
       type: String,
       required: true,
