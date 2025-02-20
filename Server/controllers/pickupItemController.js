@@ -145,7 +145,6 @@ module.exports.outgoingItemsData = async (req, res) => {
   try {
     const {
       servicePerson,
-      farmerName,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -162,7 +161,6 @@ module.exports.outgoingItemsData = async (req, res) => {
     let contact = Number(farmerContact);
 
     if (
-      !farmerName ||
       !farmerContact ||
       !servicePerson ||
       !farmerComplaintId || 
@@ -292,7 +290,6 @@ module.exports.outgoingItemsData = async (req, res) => {
       servicePerson,
       servicePersonName: servicePersonData.name,
       servicePerContact: Number(servicePersonData.contact),
-      farmerName,
       farmerContact: contact,
       farmerComplaintId,
       farmerSaralId,
@@ -701,7 +698,6 @@ module.exports.incomingItemsData = async (req, res) => {
   try {
     const id = req.user._id;
     const {
-      farmerName,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -718,7 +714,6 @@ module.exports.incomingItemsData = async (req, res) => {
     } = req.body;
 
     if (
-      !farmerName ||
       !farmerContact ||
       !farmerComplaintId || 
       !farmerSaralId ||
@@ -876,7 +871,6 @@ module.exports.incomingItemsData = async (req, res) => {
       servicePerson: id,
       servicePersonName: req.user.name,
       servicePerContact: Number(req.user.contact),
-      farmerName,
       farmerContact: Number(farmerContact),
       farmerComplaintId,
       farmerSaralId,
