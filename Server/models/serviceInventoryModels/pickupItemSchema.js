@@ -10,27 +10,24 @@ const pickupItemSchema = new Schema(
     },
     servicePersonName: {
       type: String,
-      required: true,
     },
     servicePerContact: {
       type: Number,
-      required: true
     },
     farmerName: {
       type: String,
     },
-    farmerContact: { //Used For Saral ID
+    farmerContact: { 
       type: Number,  
-      required: true,
     },
     farmerVillage: {
       type: String,
     },
-    farmerComplaintId: {
-      type: String,
+    farmerComplaintId: {  // Used for tracking complaints for the farmer
+      type: Schema.Types.ObjectId,
       required: true
     },
-    farmerSaralId:{
+    farmerSaralId:{ // Used For Saral ID
       type:String,
       required:true
     },

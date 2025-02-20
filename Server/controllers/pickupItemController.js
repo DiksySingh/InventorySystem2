@@ -139,11 +139,13 @@ module.exports.servicePersonOutgoingItemsData = async (req, res) => {
 };
 
 //*************************** Warehouse Access ****************************//
+//Warehouse person sending back the items back to the farmer 
+//Added saralId and complaintId into the model for better tracking of the complaints
 module.exports.outgoingItemsData = async (req, res) => {
   try {
     const {
-      servicePersonName,
-      servicePerContact,
+      servicePerson,
+      farmerName,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -158,12 +160,11 @@ module.exports.outgoingItemsData = async (req, res) => {
     } = req.body;
 
     let contact = Number(farmerContact);
-    let servicePersonContact = Number(servicePerContact);
 
     if (
-      !servicePersonName ||
-      !servicePersonContact ||
+      !farmerName ||
       !farmerContact ||
+      !servicePerson ||
       !farmerComplaintId || 
       !farmerSaralId ||
       !items ||
@@ -185,14 +186,13 @@ module.exports.outgoingItemsData = async (req, res) => {
     }
 
     const outgoingItemsData = [];
-    const servicePersonData = await ServicePerson.findOne({ contact: servicePersonContact });
+    const servicePersonData = await ServicePerson.findOne({ _id: servicePerson });
     if (!servicePersonData) {
       return res.status(404).json({
         success: false,
         message: "Service Person Contact Not Found",
       });
     }
-    const id = servicePersonData._id;
 
     const warehouseData = await Warehouse.findOne({ warehouseName: warehouse });
     if (!warehouseData) {
@@ -289,9 +289,10 @@ module.exports.outgoingItemsData = async (req, res) => {
     // }
 
     const returnItems = new PickupItem({
-      servicePerson: id,
+      servicePerson,
       servicePersonName: servicePersonData.name,
-      servicePerContact: servicePersonData.contact,
+      servicePerContact: Number(servicePersonData.contact),
+      farmerName,
       farmerContact: contact,
       farmerComplaintId,
       farmerSaralId,
@@ -695,10 +696,12 @@ module.exports.showWarehouseItems = async (req, res) => {
   }
 }
 
+//Field service person is bringing the items from farmer
 module.exports.incomingItemsData = async (req, res) => {
   try {
     const id = req.user._id;
     const {
+      farmerName,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -714,9 +717,8 @@ module.exports.incomingItemsData = async (req, res) => {
       pickupDate
     } = req.body;
 
-    let contact = Number(farmerContact);
-
     if (
+      !farmerName ||
       !farmerContact ||
       !farmerComplaintId || 
       !farmerSaralId ||
@@ -874,7 +876,8 @@ module.exports.incomingItemsData = async (req, res) => {
       servicePerson: id,
       servicePersonName: req.user.name,
       servicePerContact: Number(req.user.contact),
-      farmerContact: contact,
+      farmerName,
+      farmerContact: Number(farmerContact),
       farmerComplaintId,
       farmerSaralId,
       items,
