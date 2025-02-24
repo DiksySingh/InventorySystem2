@@ -66,6 +66,10 @@ const pickupItemSchema = new Schema(
       type: Boolean,
       default: null
     },
+    itemResend: {
+      type: Boolean,
+      default: false,
+    },
     incoming: {
       type: Boolean,
       default: null

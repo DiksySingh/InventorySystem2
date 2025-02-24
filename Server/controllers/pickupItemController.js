@@ -298,6 +298,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       serialNumber,
       remark: remark || "",
       status,
+      itemResend: true,
       incoming,
       approvedBy,
       pickupDate,
@@ -355,7 +356,6 @@ module.exports.warehouseOrderDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
-
       error: error.message,
     });
   }
@@ -449,7 +449,7 @@ module.exports.updateOrderStatus = async (req, res) => {
 
       for (let item of itemsToUpdate) {
         const matchingItem = orderDetails.items.find(
-          (i) => i.itemName === item.itemName
+          (i) => i.itemName.toLowerCase().trim() === item.itemName.toLowerCase().trim()
         );
 
         if (!matchingItem) {
@@ -881,6 +881,7 @@ module.exports.incomingItemsData = async (req, res) => {
       withoutRMU,
       rmuRemark,
       status,
+      itemResend: false,
       incoming,
       approvedBy,
       pickupDate,
