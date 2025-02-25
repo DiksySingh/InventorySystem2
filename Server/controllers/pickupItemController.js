@@ -1,5 +1,7 @@
 const moment = require("moment-timezone");
 const XLSX = require("xlsx");
+const fs = require("fs");
+const path = require("path");
 const Item = require("../models/serviceInventoryModels/itemSchema");
 const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
 const OutgoingItemDetails = require("../models/serviceInventoryModels/outgoingItemsTotal");
@@ -157,7 +159,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       approvedBy,
       pickupDate,
     } = req.body;
-
+    console.log(req.body);
     let contact = Number(farmerContact);
 
     if (
@@ -170,6 +172,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       !serialNumber ||
       !pickupDate
     ) {
+      console.log("All fields are required")
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -177,6 +180,7 @@ module.exports.outgoingItemsData = async (req, res) => {
     }
 
     if (!Array.isArray(items) || items.length === 0) {
+      console.log("Items must be a non-empty array")
       return res.status(400).json({
         success: false,
         message: "Items must be a non-empty array",
@@ -234,6 +238,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       if (incoming === false) {
         // Check if there is enough stock
         if (warehouseItem.quantity < quantityToAdjust || itemRecord.stock < quantityToAdjust) {
+          console.log(`Not enough stock for item ${itemName}`)
           return res.status(400).json({
             success: false,
             message: `Not enough stock for item ${itemName}`,
@@ -960,53 +965,112 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
   }
 };
 
-module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
-    try {
-        // Fetch Data Where incoming = true and populate the servicePerson field
-        const pickupItems = await PickupItem.find({ incoming: true })
-            .populate("servicePerson", "name contact") // Populate servicePerson
-            .lean();
+// module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
+//     try {
+//         // Fetch Data Where incoming = true and populate the servicePerson field
+//         const pickupItems = await PickupItem.find({ incoming: true })
+//             .populate("servicePerson", "name contact") // Populate servicePerson
+//             .lean();
 
-        if (!pickupItems.length) {
-            return res.status(404).json({ success: false, message: "No data found with incoming: true" });
-        }
+//         if (!pickupItems.length) {
+//             return res.status(404).json({ success: false, message: "No data found with incoming: true" });
+//         }
 
-        // Convert JSON to a format suitable for Excel
-        const formattedData = pickupItems.map(item => ({
-            ServicePerson_Name: item.servicePerson ? item.servicePerson.name : "N/A",
-            //ServicePerson_Contact: item.servicePerson ? item.servicePerson.contact : "N/A",
-            FarmerName: item.farmerName,
-            FarmerContact: item.farmerContact,
-            Village: item.farmerVillage,
-            Warehouse: item.warehouse,
-            // SerialNumber: item.serialNumber,
-            Status: item.status ? "Received By Warehouse" : "Not Received By Warehouse",
-            // PickupDate: item.pickupDate ? new Date(item.pickupDate).toLocaleDateString() : "",
-            // ArrivedDate: item.arrivedDate ? new Date(item.arrivedDate).toLocaleDateString() : "",
-            Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", ") // Format items list
-        }));
+//         // Convert JSON to a format suitable for Excel
+//         const formattedData = pickupItems.map(item => ({
+//             ServicePerson_Name: item.servicePerson ? item.servicePerson.name : "N/A",
+//             //ServicePerson_Contact: item.servicePerson ? item.servicePerson.contact : "N/A",
+//             FarmerName: item.farmerName,
+//             FarmerContact: item.farmerContact,
+//             Village: item.farmerVillage,
+//             Warehouse: item.warehouse,
+//             // SerialNumber: item.serialNumber,
+//             Status: item.status ? "Received By Warehouse" : "Not Received By Warehouse",
+//             // PickupDate: item.pickupDate ? new Date(item.pickupDate).toLocaleDateString() : "",
+//             // ArrivedDate: item.arrivedDate ? new Date(item.arrivedDate).toLocaleDateString() : "",
+//             Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", ") // Format items list
+//         }));
 
-        // Create a new workbook and worksheet
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(formattedData);
-        XLSX.utils.book_append_sheet(wb, ws, "PickupItems");
+//         // Create a new workbook and worksheet
+//         const wb = XLSX.utils.book_new();
+//         const ws = XLSX.utils.json_to_sheet(formattedData);
+//         XLSX.utils.book_append_sheet(wb, ws, "PickupItems");
 
-        // Set response headers
-        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        res.setHeader("Content-Disposition", "attachment; filename=IncomingItems_Details.xlsx");
+//         // Set response headers
+//         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+//         res.setHeader("Content-Disposition", "attachment; filename=IncomingItems_Details.xlsx");
 
-        // Generate Excel file buffer and send response
-        const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-        return res.send(buffer);
+//         // Generate Excel file buffer and send response
+//         const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+//         return res.send(buffer);
         
-    } catch (error) {
-        console.error("Error exporting data:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message,
-        });
+//     } catch (error) {
+//         console.error("Error exporting data:", error);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message,
+//         });
+//     }
+// };
+
+module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
+  try {
+    // Fetch Data Where incoming = true and populate the servicePerson field
+    const pickupItems = await PickupItem.find({ incoming: true })
+        .populate("servicePerson", "name contact") // Populate servicePerson
+        .lean();
+
+    if (!pickupItems.length) {
+        return res.status(404).json({ success: false, message: "No data found with incoming: true" });
     }
+
+    // Convert JSON to a format suitable for Excel
+    const formattedData = pickupItems.map(item => ({
+        ServicePerson_Name: item.servicePerson ? item.servicePerson.name : "N/A",
+        FarmerName: item.farmerName,
+        FarmerContact: item.farmerContact,
+        Village: item.farmerVillage,
+        Warehouse: item.warehouse,
+        Status: item.status ? "Received By Warehouse" : "Not Received By Warehouse",
+        Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", ")
+    }));
+
+    // Create a new workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(formattedData);
+    XLSX.utils.book_append_sheet(wb, ws, "PickupItems");
+
+    // Define the uploads folder path
+    const uploadsDir = path.join(__dirname, "../uploads");
+
+    // Ensure the uploads directory exists
+    if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    // Define file path inside uploads folder
+    const filePath = path.join(uploadsDir, "IncomingItems_Details.xlsx");
+
+    // Write the Excel file to the uploads folder
+    XLSX.writeFile(wb, filePath);
+
+    console.log("File saved at:", filePath);
+
+    return res.json({
+        success: true,
+        message: "Excel file saved successfully",
+        filePath: filePath
+    });
+
+  } catch (error) {
+      console.error("Error exporting data:", error);
+      return res.status(500).json({
+          success: false,
+          message: "Internal Server Error",
+          error: error.message,
+      });
+  }
 };
 
 module.exports.exportIncomingTotalItemsToExcel = async (req, res) => {
