@@ -413,7 +413,7 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
                 await itemRecord.save();
             }
 
-            const existingItem = warehouseItemsRecord.items.find(item => item.itemName === itemName);
+            const existingItem = warehouseItemsRecord.items.find(item => item.itemName.toLowerCase().trim() === itemName.toLowerCase().trim());
 
             if (!existingItem) {
                 return res.status(400).json({
@@ -2164,3 +2164,4 @@ module.exports.showAllSystemInstallation = async (req, res) => {
         })
     }
 };
+
