@@ -3,7 +3,7 @@ const {addIsActiveField} = require("../controllers/authController");
 const {generateJoiningFormPDF} = require("../helpers/generateJoiningFormPDF");
 const {generateIncomingItemsPDF} = require("../helpers/generateIncomingItemsPDF");
 const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportPDF} = require("../helpers/generateReportPDF");
-const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel} = require("../controllers/pickupItemController");
+const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
 const router = require("express").Router();
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -11,6 +11,7 @@ const upload = multer({ storage });
 
 router.put("/upload-excel", upload.single('file'), updateLatitudeLongitude);
 router.put("/uploadState", upload.single('file'), addServicePersonState);
+router.put("/update-status", upload.single('file'), uploadExcelAndUpdatePickupItems)
 router.put("/add-isActive-field", addIsActiveField);
 router.get("/generate-pdf", generateJoiningFormPDF);
 router.post("/overall-report-pdf", generateOverallReportPDF);

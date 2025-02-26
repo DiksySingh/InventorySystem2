@@ -1933,8 +1933,8 @@ module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
 module.exports.allServiceSurveyPersons = async (req, res) => {
     try {
         const [servicePersons, surveyPersons] = await Promise.all([
-            ServicePerson.find().select("_id name"),
-            SurveyPerson.find().select("_id name")
+            ServicePerson.find().select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"),
+            SurveyPerson.find().select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v")
         ]);
 
         const allPersons = [
@@ -1945,7 +1945,14 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
         const cleanedData = allPersons.map((item) => ({
             _id: item._doc._id,
             name: item._doc.name,
-            role: item.role
+            role: item.role,
+            email: item._doc.email,
+            contact: item._doc.contact,
+            state: item._doc.state,
+            district:item._doc.district,
+            block: item._doc.block,
+            latitude: item._doc.latitude,
+            longitude: item._doc.longitude
         }));
 
         return res.status(200).json({

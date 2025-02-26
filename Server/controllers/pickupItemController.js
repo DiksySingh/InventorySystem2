@@ -1201,3 +1201,53 @@ module.exports.exportIncomingTotalItemsToExcel = async (req, res) => {
     });
   }
 };
+
+exports.uploadExcelAndUpdatePickupItems = async (req, res) => {
+  try {
+      if (!req.file) {
+          return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Read file buffer from memory
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+
+      // Convert Excel data to JSON
+      const data = XLSX.utils.sheet_to_json(sheet);
+
+      if (!data.length) {
+          return res.status(400).json({ error: "Excel file is empty" });
+      }
+
+      // Extract farmerContact numbers from Excel
+      const farmerContacts = data.map(row => row.farmerContact);
+
+      if (!farmerContacts.length) {
+          return res.status(400).json({ error: "No farmer contacts found in the file" });
+      }
+
+      // Update only records where incoming is true
+      const result = await PickupItem.updateMany(
+          {
+              farmerContact: { $in: farmerContacts }, // Match contacts from Excel
+              incoming: true // Apply filter
+          },
+          {
+              $set: {
+                  status: true,
+                  arrivedDate: new Date() // Directly setting the current date
+              }
+          }
+      );
+
+      res.status(200).json({
+          message: "Pickup items updated successfully",
+          updatedCount: result.modifiedCount
+      });
+
+  } catch (error) {
+      console.error("Error processing Excel upload:", error);
+      res.status(500).json({ error: "Failed to update pickup items" });
+  }
+};
