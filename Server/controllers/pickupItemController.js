@@ -218,13 +218,13 @@ module.exports.outgoingItemsData = async (req, res) => {
       const quantityToAdjust = item.quantity;
 
       // Find the corresponding item in the Item schema
-      const itemRecord = await Item.findOne({ itemName });
-      if (!itemRecord) {
-        return res.status(404).json({
-          success: false,
-          message: `Item ${itemName} not found in inventory`,
-        });
-      }
+      // const itemRecord = await Item.findOne({ itemName });
+      // if (!itemRecord) {
+      //   return res.status(404).json({
+      //     success: false,
+      //     message: `Item ${itemName} not found in inventory`,
+      //   });
+      // }
 
       // Find the item in the warehouse's items array
       const warehouseItem = warehouseItemRecord.items.find(wItem => wItem.itemName === itemName);
@@ -237,7 +237,7 @@ module.exports.outgoingItemsData = async (req, res) => {
 
       if (incoming === false) {
         // Check if there is enough stock
-        if (warehouseItem.quantity < quantityToAdjust || itemRecord.stock < quantityToAdjust) {
+        if (warehouseItem.quantity < quantityToAdjust) {
           console.log(`Not enough stock for item ${itemName}`)
           return res.status(400).json({
             success: false,
@@ -246,14 +246,14 @@ module.exports.outgoingItemsData = async (req, res) => {
         }
 
         // Decrease the stock in Item schema
-        itemRecord.stock -= quantityToAdjust;
+        //itemRecord.stock -= quantityToAdjust;
 
         // Decrease the stock in WarehouseItems schema
         warehouseItem.quantity -= quantityToAdjust;
       }
       // Save the updated item record
       outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
-      await itemRecord.save();
+      //await itemRecord.save();
     }
 
     // Save the updated WarehouseItems record

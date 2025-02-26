@@ -1,6 +1,7 @@
 const {updateLatitudeLongitude, addServicePersonState} = require("../controllers/servicePersonController");
 const {addIsActiveField} = require("../controllers/authController");
 const {generateJoiningFormPDF} = require("../helpers/generateJoiningFormPDF");
+const {generateIncomingItemsPDF} = require("../helpers/generateIncomingItemsPDF");
 const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportPDF} = require("../helpers/generateReportPDF");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel} = require("../controllers/pickupItemController");
 const router = require("express").Router();
@@ -17,4 +18,5 @@ router.post("/daily-report-pdf", generateDailyReportPDF);
 router.post("/distance-report-pdf", generateDistanceReportPDF);
 router.get("/export-pickUpItems-excel", exportIncomingPickupItemsToExcel);
 router.get("/export-incoming-items-excel", exportIncomingTotalItemsToExcel);
+router.post("/export-incomingItems-pdf", generateIncomingItemsPDF);
 module.exports = router;
