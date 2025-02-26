@@ -25,6 +25,7 @@ const pickupItemSchema = new Schema(
     },
     farmerComplaintId: {  // Used for tracking complaints for the farmer
       type: Schema.Types.ObjectId,
+      default: null
     },
     farmerSaralId:{ // Used For Saral ID
       type:String,
