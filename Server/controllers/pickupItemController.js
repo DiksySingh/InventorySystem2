@@ -165,8 +165,8 @@ module.exports.outgoingItemsData = async (req, res) => {
     if (
       !farmerContact ||
       !servicePerson ||
-      !farmerComplaintId || 
-      !farmerSaralId ||
+      // !farmerComplaintId || 
+      // !farmerSaralId ||
       !items ||
       !warehouse ||
       !serialNumber ||
@@ -296,8 +296,8 @@ module.exports.outgoingItemsData = async (req, res) => {
       servicePersonName: servicePersonData.name,
       servicePerContact: Number(servicePersonData.contact),
       farmerContact: contact,
-      farmerComplaintId,
-      farmerSaralId,
+      farmerComplaintId: farmerComplaintId || "",
+      farmerSaralId: farmerSaralId || "",
       items,
       warehouse,
       serialNumber,
@@ -310,17 +310,18 @@ module.exports.outgoingItemsData = async (req, res) => {
     });
     await returnItems.save();
 
-    const incomingItemsDataFromFarmer = await PickupItem.findOne({farmerComplaintId});
-    if(!incomingItemsDataFromFarmer) {
-      return res.status(404).json({
-        success: false,
-        message: "No incoming items found for the farmer"
-      });
+    if(farmerComplaintId && farmerSaralId){
+      const incomingItemsDataFromFarmer = await PickupItem.findOne({farmerComplaintId});
+      if(!incomingItemsDataFromFarmer) {
+        return res.status(404).json({
+          success: false,
+          message: "No incoming items found for the farmer"
+        });
+      }
+      incomingItemsDataFromFarmer.itemResend = true;
+      await incomingItemsDataFromFarmer.save();
     }
-
-    incomingItemsDataFromFarmer.itemResend = true;
-    await incomingItemsDataFromFarmer.save();
-
+    
     res.status(200).json({
       success: true,
       message: "Data Logged Successfully",
