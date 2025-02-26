@@ -296,7 +296,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       servicePersonName: servicePersonData.name,
       servicePerContact: Number(servicePersonData.contact),
       farmerContact: contact,
-      farmerComplaintId: farmerComplaintId || "",
+      farmerComplaintId: farmerComplaintId || null,
       farmerSaralId: farmerSaralId || "",
       items,
       warehouse,
