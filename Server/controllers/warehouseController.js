@@ -1933,8 +1933,8 @@ module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
 module.exports.allServiceSurveyPersons = async (req, res) => {
     try {
         const [servicePersons, surveyPersons] = await Promise.all([
-            ServicePerson.find().select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"),
-            SurveyPerson.find().select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v")
+            ServicePerson.find({isActive: true}).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"),
+            SurveyPerson.find({isActive: true}).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v")
         ]);
 
         const allPersons = [
