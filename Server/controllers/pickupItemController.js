@@ -161,7 +161,7 @@ module.exports.outgoingItemsData = async (req, res) => {
     } = req.body;
     console.log(req.body);
     let contact = Number(farmerContact);
-
+    //const warehousePersonName = req.user.name;
     if (
       !farmerContact ||
       !servicePerson ||
@@ -291,6 +291,15 @@ module.exports.outgoingItemsData = async (req, res) => {
     //   }
     // }
 
+    let refType;
+    if (req.user.role === "serviceperson") {
+      refType = "ServicePerson";
+    } else if (req.user.role === "warehouseAdmin") {
+      refType = "WarehousePerson"
+    } else if (req.user.role === "surveyperson") {
+      refType = "SurveyPerson"
+    }
+
     const returnItems = new PickupItem({
       servicePerson,
       servicePersonName: servicePersonData.name,
@@ -307,12 +316,14 @@ module.exports.outgoingItemsData = async (req, res) => {
       incoming,
       approvedBy,
       pickupDate,
+      referenceType: refType,
+      itemSendBy: req.user._id
     });
     await returnItems.save();
 
-    if(farmerComplaintId && farmerSaralId){
-      const incomingItemsDataFromFarmer = await PickupItem.findOne({farmerComplaintId});
-      if(!incomingItemsDataFromFarmer) {
+    if (farmerComplaintId && farmerSaralId) {
+      const incomingItemsDataFromFarmer = await PickupItem.findOne({ farmerComplaintId });
+      if (!incomingItemsDataFromFarmer) {
         return res.status(404).json({
           success: false,
           message: "No incoming items found for the farmer"
@@ -321,7 +332,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       incomingItemsDataFromFarmer.itemResend = true;
       await incomingItemsDataFromFarmer.save();
     }
-    
+
     res.status(200).json({
       success: true,
       message: "Data Logged Successfully",
@@ -732,7 +743,7 @@ module.exports.incomingItemsData = async (req, res) => {
 
     if (
       !farmerContact ||
-      !farmerComplaintId || 
+      !farmerComplaintId ||
       !farmerSaralId ||
       !items ||
       !warehouse ||
@@ -884,6 +895,15 @@ module.exports.incomingItemsData = async (req, res) => {
       }
     }
 
+    let refType;
+    if (req.user.role === "serviceperson") {
+      refType = "ServicePerson";
+    } else if (req.user.role === "warehouseAdmin") {
+      refType = "WarehousePerson"
+    } else if (req.user.role === "surveyperson") {
+      refType = "SurveyPerson"
+    }
+
     const returnItems = new PickupItem({
       servicePerson: id,
       servicePersonName: req.user.name,
@@ -902,6 +922,8 @@ module.exports.incomingItemsData = async (req, res) => {
       incoming,
       approvedBy,
       pickupDate,
+      referenceType: refType,
+      itemSendBy: req.user._id
     });
     await returnItems.save();
 
@@ -1015,7 +1037,7 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
 //         // Generate Excel file buffer and send response
 //         const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 //         return res.send(buffer);
-        
+
 //     } catch (error) {
 //         console.error("Error exporting data:", error);
 //         return res.status(500).json({
@@ -1204,50 +1226,50 @@ module.exports.exportIncomingTotalItemsToExcel = async (req, res) => {
 
 exports.uploadExcelAndUpdatePickupItems = async (req, res) => {
   try {
-      if (!req.file) {
-          return res.status(400).json({ error: "No file uploaded" });
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Read file buffer from memory
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    // Convert Excel data to JSON
+    const data = XLSX.utils.sheet_to_json(sheet);
+
+    if (!data.length) {
+      return res.status(400).json({ error: "Excel file is empty" });
+    }
+
+    // Extract farmerContact numbers from Excel
+    const farmerContacts = data.map(row => row.farmerContact);
+
+    if (!farmerContacts.length) {
+      return res.status(400).json({ error: "No farmer contacts found in the file" });
+    }
+
+    // Update only records where incoming is true
+    const result = await PickupItem.updateMany(
+      {
+        farmerContact: { $in: farmerContacts }, // Match contacts from Excel
+        incoming: true // Apply filter
+      },
+      {
+        $set: {
+          status: true,
+          arrivedDate: new Date() // Directly setting the current date
+        }
       }
+    );
 
-      // Read file buffer from memory
-      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-
-      // Convert Excel data to JSON
-      const data = XLSX.utils.sheet_to_json(sheet);
-
-      if (!data.length) {
-          return res.status(400).json({ error: "Excel file is empty" });
-      }
-
-      // Extract farmerContact numbers from Excel
-      const farmerContacts = data.map(row => row.farmerContact);
-
-      if (!farmerContacts.length) {
-          return res.status(400).json({ error: "No farmer contacts found in the file" });
-      }
-
-      // Update only records where incoming is true
-      const result = await PickupItem.updateMany(
-          {
-              farmerContact: { $in: farmerContacts }, // Match contacts from Excel
-              incoming: true // Apply filter
-          },
-          {
-              $set: {
-                  status: true,
-                  arrivedDate: new Date() // Directly setting the current date
-              }
-          }
-      );
-
-      res.status(200).json({
-          message: "Pickup items updated successfully",
-          updatedCount: result.modifiedCount
-      });
+    res.status(200).json({
+      message: "Pickup items updated successfully",
+      updatedCount: result.modifiedCount
+    });
 
   } catch (error) {
-      console.error("Error processing Excel upload:", error);
-      res.status(500).json({ error: "Failed to update pickup items" });
+    console.error("Error processing Excel upload:", error);
+    res.status(500).json({ error: "Failed to update pickup items" });
   }
 };

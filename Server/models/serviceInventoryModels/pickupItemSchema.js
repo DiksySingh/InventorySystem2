@@ -17,8 +17,8 @@ const pickupItemSchema = new Schema(
     farmerName: {
       type: String,
     },
-    farmerContact: { 
-      type: Number,  
+    farmerContact: {
+      type: Number,
     },
     farmerVillage: {
       type: String,
@@ -27,8 +27,8 @@ const pickupItemSchema = new Schema(
       type: Schema.Types.ObjectId,
       //default: null
     },
-    farmerSaralId:{ // Used For Saral ID
-      type:String,
+    farmerSaralId: { // Used For Saral ID
+      type: String,
     },
     items: [
       {
@@ -92,6 +92,14 @@ const pickupItemSchema = new Schema(
     arrivedDate: {
       type: Date,
     },
+    referenceType: {
+      type: String,
+      enum: ["ServicePerson", "SurveyPerson", "WarehousePerson"], // List of allowed models
+    },
+    itemSendBy: {
+      type: Schema.Types.ObjectId,
+      refPath: "referenceType",
+    }
   },
   { collection: "inPickupItems" }
 );
