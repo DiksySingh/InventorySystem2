@@ -206,7 +206,10 @@ exports.generateIncomingItemsPDF = async (req, res) => {
         const htmlContent = generateHTML(data);
 
         // Launch Puppeteer and generate PDF
-        const browser = await puppeteer.launch({ headless: true });
+        const browser = await puppeteer.launch({
+            headless: true, // Ensures it runs in headless mode
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+        });
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "networkidle0" });
         const date = new Date().toISOString().split('T')[0];

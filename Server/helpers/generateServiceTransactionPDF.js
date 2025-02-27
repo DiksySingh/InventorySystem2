@@ -200,7 +200,10 @@ module.exports.generateServicePersonTransactionPDF = async (req, res) => {
         // Generate HTML, even if no data is found
         const htmlContent = generateHTML(data);
 
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch({
+            headless: true, // Ensures it runs in headless mode
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+        });
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "load" });
 
