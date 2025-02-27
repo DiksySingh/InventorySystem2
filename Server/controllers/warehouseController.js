@@ -1973,9 +1973,9 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
 module.exports.filterServicePersonById = async (req, res) => {
     try {
         const { id } = req.query;
-        let employeeName = await ServicePerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+        let employeeName = await ServicePerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
         if (!employeeName) {
-            employeeName = await SurveyPerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -latitude -longitude -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+            employeeName = await SurveyPerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
         }
         return res.status(200).json({
             success: true,
