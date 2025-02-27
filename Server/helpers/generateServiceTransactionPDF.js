@@ -69,7 +69,7 @@ const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
 //     try {
 //         const localNow = moment().startOf("day"); // Local start of day (00:00 in local timezone)
 //         const utcStart = localNow.utc().toDate(); // Convert to UTC
-        
+
 //         // Correct UTC end of day calculation
 //         const utcEnd = moment(utcStart).add(1, "day").subtract(1, "millisecond").toDate();
 
@@ -185,9 +185,12 @@ const generateHTML = (data) => {
 
 module.exports.generateServicePersonTransactionPDF = async (req, res) => {
     try {
-        const localNow = moment().startOf("day");
-        const utcStart = localNow.utc().toDate();
-        const utcEnd = moment(utcStart).add(1, "day").subtract(1, "millisecond").toDate();
+        const now = moment(); // Current time
+        const startTime = moment().subtract(1, "days").hour(17).minute(14).second(0).millisecond(0); // Yesterday at 5:14 PM
+        const endTime = moment().hour(17).minute(14).second(0).millisecond(0); // Today at 5:14 PM
+
+        const utcStart = startTime.utc().toDate();
+        const utcEnd = endTime.utc().toDate();
 
         console.log("UTC Start:", utcStart);
         console.log("UTC End:", utcEnd);
@@ -202,7 +205,7 @@ module.exports.generateServicePersonTransactionPDF = async (req, res) => {
 
         const browser = await puppeteer.launch({
             headless: true, // Ensures it runs in headless mode
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "load" });
@@ -219,7 +222,7 @@ module.exports.generateServicePersonTransactionPDF = async (req, res) => {
 
         console.log(`PDF saved at: ${filePath}`);
 
-        res.status(200).json({ message: "PDF saved successfully"});
+        res.status(200).json({ message: "PDF saved successfully" });
 
     } catch (error) {
         console.error("Error generating PDF:", error);
