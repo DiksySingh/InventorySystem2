@@ -148,7 +148,7 @@ const generateHTML = (data) => {
             h2 { text-align: center; }
             table { width: 100%; border-collapse: collapse; margin: auto; }
             th, td { border: 1px solid black; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
+            th { background-color:rgb(240, 161, 161);  }
             .footer { text-align: center; margin-top: 15px; font-weight: bold; }
             @media print {
                 @page { margin-top: 40px; }
@@ -218,7 +218,7 @@ module.exports.generateWarehouseTransactionPDF = async (req, res) => {
 
         console.log(`PDF saved at: ${filePath}`);
 
-        res.status(200).json({ message: "PDF saved successfully", filePath });
+        res.status(200).json({ message: "PDF saved successfully"});
 
     } catch (error) {
         console.error("Error generating PDF:", error);
