@@ -159,15 +159,16 @@ const generateHTML = (data) => {
         </style>
     </head>
     <body>
-        <h2>Warehouse Outgoing Items Report</h2>
+        <h2>Warehouse Incoming Items Report</h2>
         <table>
             <thead>
-                <tr>  
+                <tr>
+                    
                     <th>Farmer Saral ID</th>
                     <th>Farmer Contact</th>
                     <th>Service Person</th>
                     <th>Contact</th>
-                    <th>From Warehouse</th>
+                    <th>To Warehouse</th>
                     <th>Total Quantity</th>
                     <th>Items</th>
                     <th>Pickup Date</th>
@@ -182,7 +183,7 @@ const generateHTML = (data) => {
     </html>`;
 };
 
-module.exports.generateWarehouseTransactionPDF = async (req, res) => {
+module.exports.generateServicePersonTransactionPDF = async (req, res) => {
     try {
         const localNow = moment().startOf("day");
         const utcStart = localNow.utc().toDate();
@@ -192,7 +193,7 @@ module.exports.generateWarehouseTransactionPDF = async (req, res) => {
         console.log("UTC End:", utcEnd);
 
         const data = await PickupItem.find({
-            incoming: false,
+            incoming: true,
             pickupDate: { $gte: utcStart, $lt: utcEnd }
         }).populate("servicePerson");
 
@@ -206,7 +207,7 @@ module.exports.generateWarehouseTransactionPDF = async (req, res) => {
         const uploadDir = path.join(__dirname, "../uploads");
         await fs.mkdir(uploadDir, { recursive: true });
 
-        const fileName = `OutgoingItemsReport_${moment().format("YYYY-MM-DD")}.pdf`;
+        const fileName = `IncomingItemsReport_${moment().format("YYYY-MM-DD")}.pdf`;
         const filePath = path.join(uploadDir, fileName);
 
         await page.pdf({ path: filePath, format: "A3", landscape: true, printBackground: true });
