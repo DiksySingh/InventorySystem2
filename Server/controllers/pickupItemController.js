@@ -428,7 +428,7 @@ module.exports.updateOrderStatus = async (req, res) => {
       }
       pickupItem.status = true;
       pickupItem.approvedBy = approvedBy;
-      pickupItem.arrivedDate = arrivedDate;
+      pickupItem.arrivedDate = new Date();
       const items = pickupItem.items;
 
       for (let item of items) {
