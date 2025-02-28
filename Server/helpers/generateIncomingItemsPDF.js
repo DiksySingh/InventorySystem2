@@ -214,7 +214,7 @@ exports.generateIncomingItemsPDF = async (req, res) => {
         await page.setContent(htmlContent, { waitUntil: "networkidle0" });
         const date = new Date().toISOString().split('T')[0];
         // Define file path for saving
-        const filePath = path.join(uploadDir, `ItemsReport_${date}.pdf`);
+        const filePath = path.join(uploadDir, `ServicePersonItemsReport_${date}.pdf`);
         await page.pdf({ path: filePath, format: "A3", landscape: true, printBackground: true });
 
         await browser.close();

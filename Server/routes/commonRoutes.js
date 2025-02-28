@@ -4,6 +4,7 @@ const {generateJoiningFormPDF} = require("../helpers/generateJoiningFormPDF");
 const {generateIncomingItemsPDF} = require("../helpers/generateIncomingItemsPDF");
 const {generateWarehouseTransactionPDF} = require("../helpers/generateWarehouseTransactionPDF");
 const {generateServicePersonTransactionPDF} = require("../helpers/generateServiceTransactionPDF");
+const {deleteReport} = require("../helpers/deleteReport");
 const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportPDF} = require("../helpers/generateReportPDF");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
 const router = require("express").Router();
@@ -24,4 +25,5 @@ router.get("/export-incoming-items-excel", exportIncomingTotalItemsToExcel);
 router.post("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for items remaining in the service person account
 router.post("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
 router.post("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
+router.post("/delete-reports", deleteReport); //PDF Delete from Server
 module.exports = router;

@@ -147,6 +147,7 @@ module.exports.outgoingItemsData = async (req, res) => {
   try {
     const {
       servicePerson,
+      farmerName,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -249,7 +250,7 @@ module.exports.outgoingItemsData = async (req, res) => {
         //itemRecord.stock -= quantityToAdjust;
 
         // Decrease the stock in WarehouseItems schema
-        warehouseItem.quantity -= quantityToAdjust;
+        warehouseItem.quantity = parseInt(warehouseItem.quantity) - parseInt(quantityToAdjust);
       }
       // Save the updated item record
       outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
@@ -304,6 +305,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       servicePerson,
       servicePersonName: servicePersonData.name,
       servicePerContact: Number(servicePersonData.contact),
+      farmerName: farmerName ||  "",
       farmerContact: contact,
       farmerComplaintId: farmerComplaintId || null,
       farmerSaralId: farmerSaralId || "",
@@ -726,6 +728,7 @@ module.exports.incomingItemsData = async (req, res) => {
   try {
     const id = req.user._id;
     const {
+      farmerName,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -908,6 +911,7 @@ module.exports.incomingItemsData = async (req, res) => {
       servicePerson: id,
       servicePersonName: req.user.name,
       servicePerContact: Number(req.user.contact),
+      farmerName: farmerName || "",
       farmerContact: Number(farmerContact),
       farmerComplaintId,
       farmerSaralId,
@@ -1002,7 +1006,7 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
 // module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
 //     try {
 //         // Fetch Data Where incoming = true and populate the servicePerson field
-//         const pickupItems = await PickupItem.find({ incoming: true })
+//         const pickupItems = await PickupItem.find({ incoming: true , status: null})
 //             .populate("servicePerson", "name contact") // Populate servicePerson
 //             .lean();
 
@@ -1014,12 +1018,12 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
 //         const formattedData = pickupItems.map(item => ({
 //             ServicePerson_Name: item.servicePerson ? item.servicePerson.name : "N/A",
 //             //ServicePerson_Contact: item.servicePerson ? item.servicePerson.contact : "N/A",
-//             FarmerName: item.farmerName,
-//             FarmerContact: item.farmerContact,
-//             Village: item.farmerVillage,
-//             Warehouse: item.warehouse,
+//             FarmerName: item.farmerName ? item.farmerName : " ",
+//             FarmerContact: item.farmerContact ? item.farmerContact : " ",
+//             //Village: item.farmerVillage,
+//             To_Warehouse: item.warehouse,
 //             // SerialNumber: item.serialNumber,
-//             Status: item.status ? "Received By Warehouse" : "Not Received By Warehouse",
+//             Status: "Not Received By Warehouse",
 //             // PickupDate: item.pickupDate ? new Date(item.pickupDate).toLocaleDateString() : "",
 //             // ArrivedDate: item.arrivedDate ? new Date(item.arrivedDate).toLocaleDateString() : "",
 //             Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", ") // Format items list
@@ -1048,86 +1052,158 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
 //     }
 // };
 
+// module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
+//   try {
+//     // Fetch Data Where incoming = true and populate the servicePerson field
+//     const pickupItems = await PickupItem.find({ incoming: true })
+//       .populate("servicePerson", "name contact") // Populate servicePerson
+//       .lean();
+
+//     if (!pickupItems.length) {
+//       return res.status(404).json({ success: false, message: "No data found with incoming: true" });
+//     }
+
+//     // Grouping data by servicePerson
+//     const servicePersonMap = {};
+
+//     pickupItems.forEach((item) => {
+//       if (!item.servicePerson) return; // Skip items without servicePerson
+
+//       const servicePersonId = item.servicePerson._id.toString();
+
+//       if (!servicePersonMap[servicePersonId]) {
+//         servicePersonMap[servicePersonId] = {
+//           ServicePerson_Name: item.servicePerson.name,
+//           ServicePerson_Contact: item.servicePerson.contact,
+//           Total_Items: 0,
+//           Items_List: new Set(), // Use a Set to avoid duplicate item names
+//         };
+//       }
+
+//       // Sum up the total quantity
+//       item.items.forEach((i) => {
+//         servicePersonMap[servicePersonId].Total_Items += i.quantity;
+//         servicePersonMap[servicePersonId].Items_List.add(i.itemName);
+//       });
+//     });
+
+//     // Convert grouped data to an array for Excel formatting
+//     const formattedData = Object.values(servicePersonMap).map((person) => ({
+//       ServicePerson_Name: person.ServicePerson_Name,
+//       ServicePerson_Contact: person.ServicePerson_Contact,
+//       Total_Items: person.Total_Items,
+//       Items_List: Array.from(person.Items_List).join(", "), // Convert Set to comma-separated string
+//     }));
+
+//     // Create a new workbook and worksheet
+//     const wb = XLSX.utils.book_new();
+//     const ws = XLSX.utils.json_to_sheet(formattedData);
+//     XLSX.utils.book_append_sheet(wb, ws, "ServicePerson_Items");
+
+//     // Define the uploads folder path
+//     const uploadsDir = path.join(__dirname, "../uploads");
+
+//     // Ensure the uploads directory exists
+//     if (!fs.existsSync(uploadsDir)) {
+//       fs.mkdirSync(uploadsDir, { recursive: true });
+//     }
+
+//     // Define file path inside uploads folder
+//     const filePath = path.join(uploadsDir, "ServicePerson_Items.xlsx");
+
+//     // Write the Excel file to the uploads folder
+//     XLSX.writeFile(wb, filePath);
+
+//     console.log("File saved at:", filePath);
+
+//     return res.json({
+//       success: true,
+//       message: "Excel file saved successfully",
+//       filePath: filePath,
+//     });
+
+//   } catch (error) {
+//     console.error("Error exporting data:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
   try {
-    // Fetch Data Where incoming = true and populate the servicePerson field
-    const pickupItems = await PickupItem.find({ incoming: true })
-      .populate("servicePerson", "name contact") // Populate servicePerson
-      .lean();
+      // Fetch Data Where incoming = true and status = null
+      const pickupItems = await PickupItem.find({ incoming: true, status: null })
+          .populate("servicePerson", "name contact") // Populate servicePerson
+          .lean();
 
-    if (!pickupItems.length) {
-      return res.status(404).json({ success: false, message: "No data found with incoming: true" });
-    }
-
-    // Grouping data by servicePerson
-    const servicePersonMap = {};
-
-    pickupItems.forEach((item) => {
-      if (!item.servicePerson) return; // Skip items without servicePerson
-
-      const servicePersonId = item.servicePerson._id.toString();
-
-      if (!servicePersonMap[servicePersonId]) {
-        servicePersonMap[servicePersonId] = {
-          ServicePerson_Name: item.servicePerson.name,
-          ServicePerson_Contact: item.servicePerson.contact,
-          Total_Items: 0,
-          Items_List: new Set(), // Use a Set to avoid duplicate item names
-        };
+      if (!pickupItems.length) {
+          return res.status(404).json({ success: false, message: "No data found with incoming: true" });
       }
 
-      // Sum up the total quantity
-      item.items.forEach((i) => {
-        servicePersonMap[servicePersonId].Total_Items += i.quantity;
-        servicePersonMap[servicePersonId].Items_List.add(i.itemName);
-      });
-    });
+      // Function to fetch farmer details from API using saralId
+      const fetchFarmerDetails = async (saralId) => {
+          try {
+              const apiResponse = await axios.get(`http://88.222.214.93:8001/inventory/showFarmerForApp?saralId=${saralId}`);
+              return apiResponse.data; // Ensure API returns an object with `name` and `contact`
+          } catch (error) {
+              console.error(`Error fetching farmer details for Saral ID: ${saralId}`, error.message);
+              return { name: "N/A", contact: "N/A" }; // Fallback values
+          }
+      };
 
-    // Convert grouped data to an array for Excel formatting
-    const formattedData = Object.values(servicePersonMap).map((person) => ({
-      ServicePerson_Name: person.ServicePerson_Name,
-      ServicePerson_Contact: person.ServicePerson_Contact,
-      Total_Items: person.Total_Items,
-      Items_List: Array.from(person.Items_List).join(", "), // Convert Set to comma-separated string
-    }));
+      // Process data and fetch missing farmer details
+      const formattedData = await Promise.all(
+          pickupItems.map(async (item) => {
+              let farmerName = item.farmerName || "N/A";
+              let farmerContact = item.farmerContact || "N/A";
 
-    // Create a new workbook and worksheet
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(formattedData);
-    XLSX.utils.book_append_sheet(wb, ws, "ServicePerson_Items");
+              // If farmer details are missing, fetch from API using saralId
+              if (!item.farmerName || !item.farmerContact) {
+                  if (item.saralId) {
+                      const farmerDetails = await fetchFarmerDetails(item.saralId);
+                      farmerName = farmerDetails.farmerName;
+                      console.log(farmerName);
+                      farmerContact = farmerDetails.contact;
+                      console.log(farmerContact);
+                  }
+              }
 
-    // Define the uploads folder path
-    const uploadsDir = path.join(__dirname, "../uploads");
+              return {
+                  ServicePerson_Name: item.servicePerson ? item.servicePerson.name : "N/A",
+                  FarmerName: farmerName,
+                  FarmerContact: farmerContact,
+                  To_Warehouse: item.warehouse,
+                  Status: "Not Received By Warehouse",
+                  Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", ") // Format items list
+              };
+          })
+      );
 
-    // Ensure the uploads directory exists
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
+      // Create a new workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(formattedData);
+      XLSX.utils.book_append_sheet(wb, ws, "PickupItems");
 
-    // Define file path inside uploads folder
-    const filePath = path.join(uploadsDir, "ServicePerson_Items.xlsx");
+      // Set response headers
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=IncomingItems_Details.xlsx");
 
-    // Write the Excel file to the uploads folder
-    XLSX.writeFile(wb, filePath);
-
-    console.log("File saved at:", filePath);
-
-    return res.json({
-      success: true,
-      message: "Excel file saved successfully",
-      filePath: filePath,
-    });
+      // Generate Excel file buffer and send response
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      return res.send(buffer);
 
   } catch (error) {
-    console.error("Error exporting data:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
+      console.error("Error exporting data:", error);
+      return res.status(500).json({
+          success: false,
+          message: "Internal Server Error",
+          error: error.message,
+      });
   }
 };
-
 
 module.exports.exportIncomingTotalItemsToExcel = async (req, res) => {
   try {
