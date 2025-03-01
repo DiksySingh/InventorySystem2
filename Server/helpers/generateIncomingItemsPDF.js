@@ -20,20 +20,20 @@ const IncomingItemDetails = require("../models/serviceInventoryModels/incomingIt
 //         <style>
 //             h2 { text-align: center; }
 //             body { font-family: Arial, sans-serif; margin: 20px; }
-//             table { 
-//                 width: 90%; 
-//                 border-collapse: collapse; 
+//             table {
+//                 width: 90%;
+//                 border-collapse: collapse;
 //                 margin: auto; /* Centers the table */
 //             }
-//             th, td { 
-//                 border: 1px solid black; 
-//                 padding: 8px; 
-//                 text-align: left; 
+//             th, td {
+//                 border: 1px solid black;
+//                 padding: 8px;
+//                 text-align: left;
 //             }
 //             th { background-color: #f2f2f2; }
-//             .footer { 
-//                 font-weight: bold; 
-//                 text-align: center; 
+//             .footer {
+//                 font-weight: bold;
+//                 text-align: center;
 //                 margin-top: 15px;
 //             }
 //             /* Page setup for printing */
@@ -67,20 +67,24 @@ const IncomingItemDetails = require("../models/serviceInventoryModels/incomingIt
 // };
 
 const generateHTML = (data) => {
-    // Calculate total quantity
-    const totalQuantity = data.reduce((sum, item) => sum + item.total, 0);
+  // Calculate total quantity
+  const totalQuantity = data.reduce((sum, item) => sum + item.total, 0);
 
-    let rows = data.map(
-        (item) => `
+  let rows = data
+    .map(
+      (item) => `
         <tr>
             <td>${item.name}</td>
             <td>${item.contact}</td>
             <td>${item.total}</td>
-            <td>${item.itemList.map(it => `${it.itemName} (x${it.quantity})`).join(", ")}</td>
+            <td>${item.itemList
+              .map((it) => `${it.itemName} (x${it.quantity})`)
+              .join(", ")}</td>
         </tr>`
-    ).join("");
+    )
+    .join("");
 
-    return `
+  return `
     <html>
     <head>
         <style>
@@ -143,89 +147,95 @@ const generateHTML = (data) => {
     </html>`;
 };
 
-
 exports.generateIncomingItemsPDF = async (req, res) => {
-    try {
-        // Fetch data from MongoDB
-        const data = await IncomingItemDetails.aggregate([
-            {
-                $lookup: {
-                    from: "inServicePersons",
-                    localField: "servicePerson",
-                    foreignField: "_id",
-                    as: "servicePersonDetails"
-                }
+  try {
+    // Fetch data from MongoDB
+    const data = await IncomingItemDetails.aggregate([
+      {
+        $lookup: {
+          from: "inServicePersons",
+          localField: "servicePerson",
+          foreignField: "_id",
+          as: "servicePersonDetails",
+        },
+      },
+      { $unwind: "$servicePersonDetails" },
+      {
+        $match: {
+          "servicePersonDetails.name": {
+            $nin: ["Atul Singh", "Nitesh Kumar"], // Exclude these names
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$servicePerson",
+          name: { $first: "$servicePersonDetails.name" },
+          contact: { $first: "$servicePersonDetails.contact" },
+          total: { $sum: { $sum: "$items.quantity" } },
+          itemList: {
+            $push: {
+              $filter: {
+                input: "$items",
+                as: "item",
+                cond: { $gt: ["$$item.quantity", 0] },
+              },
             },
-            { $unwind: "$servicePersonDetails" },
-            {
-                $match: {
-                    "servicePersonDetails.name": { 
-                        $nin: ["Atul Singh", "Nitesh Kumar"]  // Exclude these names
-                    }
-                }
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          name: 1,
+          contact: 1,
+          total: 1,
+          itemList: {
+            $reduce: {
+              input: "$itemList",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] },
             },
-            {
-                $group: {
-                    _id: "$servicePerson",
-                    name: { $first: "$servicePersonDetails.name" },
-                    contact: { $first: "$servicePersonDetails.contact" },
-                    total: { $sum: { $sum: "$items.quantity" } },
-                    itemList: {
-                        $push: {
-                            $filter: {
-                                input: "$items",
-                                as: "item",
-                                cond: { $gt: ["$$item.quantity", 0] }
-                            }
-                        }
-                    }
-                }
-            },
-            {
-                $project: {
-                    _id: 0,
-                    name: 1,
-                    contact: 1,
-                    total: 1,
-                    itemList: {
-                        $reduce: {
-                            input: "$itemList",
-                            initialValue: [],
-                            in: { $concatArrays: ["$$value", "$$this"] }
-                        }
-                    }
-                }
-            }
-        ]);
+          },
+        },
+      },
+    ]);
 
-        // Ensure uploads directory exists
-        const uploadDir = path.join(__dirname, "../uploads");
-        await fs.mkdir(uploadDir, { recursive: true });
+    // Ensure uploads directory exists
+    const uploadDir = path.join(__dirname, "../uploads");
+    await fs.mkdir(uploadDir, { recursive: true });
 
-        // Generate HTML content
-        const htmlContent = generateHTML(data);
+    // Generate HTML content
+    const htmlContent = generateHTML(data);
 
-        // Launch Puppeteer and generate PDF
-        const browser = await puppeteer.launch({
-            headless: true, // Ensures it runs in headless mode
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-        });
-        const page = await browser.newPage();
-        await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-        const date = new Date().toISOString().split('T')[0];
-        // Define file path for saving
-        const filePath = path.join(uploadDir, `ServicePersonItemsReport_${date}.pdf`);
-        await page.pdf({ path: filePath, format: "A3", landscape: true, printBackground: true });
+    // Launch Puppeteer and generate PDF
+    const browser = await puppeteer.launch({
+      headless: true, // Ensures it runs in headless mode
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+    const date = new Date().toISOString().split("T")[0];
+    // Define file path for saving
+    const filePath = path.join(
+      uploadDir,
+      `ServicePersonItemsReport_${date}.pdf`
+    );
+    await page.pdf({
+      path: filePath,
+      format: "A3",
+      landscape: true,
+      printBackground: true,
+    });
 
-        await browser.close();
+    await browser.close();
 
-        // Send success response (without file path)
-        res.status(200).json({
-            message: "PDF has been successfully generated"
-        });
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to generate PDF" });
-    }
+    // Send success response (without file path)
+    res.status(200).json({
+      message: "PDF has been successfully generated",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to generate PDF" });
+  }
 };

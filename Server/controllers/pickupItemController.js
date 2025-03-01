@@ -148,6 +148,7 @@ module.exports.outgoingItemsData = async (req, res) => {
     const {
       servicePerson,
       farmerName,
+      farmerVillage,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -307,6 +308,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       servicePerContact: Number(servicePersonData.contact),
       farmerName: farmerName ||  "",
       farmerContact: contact,
+      farmerVillage: farmerVillage || "",
       farmerComplaintId: farmerComplaintId || null,
       farmerSaralId: farmerSaralId || "",
       items,
@@ -729,6 +731,7 @@ module.exports.incomingItemsData = async (req, res) => {
     const id = req.user._id;
     const {
       farmerName,
+      farmerVillage,
       farmerContact,
       farmerComplaintId,
       farmerSaralId,
@@ -912,6 +915,7 @@ module.exports.incomingItemsData = async (req, res) => {
       servicePersonName: req.user.name,
       servicePerContact: Number(req.user.contact),
       farmerName: farmerName || "",
+      farmerVillage: farmerVillage || "",
       farmerContact: Number(farmerContact),
       farmerComplaintId,
       farmerSaralId,
