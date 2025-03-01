@@ -2,6 +2,7 @@ const moment = require("moment-timezone");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 const Item = require("../models/serviceInventoryModels/itemSchema");
 const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
 const OutgoingItemDetails = require("../models/serviceInventoryModels/outgoingItemsTotal");
@@ -1151,7 +1152,8 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
       const fetchFarmerDetails = async (saralId) => {
           try {
               const apiResponse = await axios.get(`http://88.222.214.93:8001/inventory/showFarmerForApp?saralId=${saralId}`);
-              return apiResponse.data; // Ensure API returns an object with `name` and `contact`
+              console.log(apiResponse);
+              return apiResponse.data.data; // Ensure API returns an object with `name` and `contact`
           } catch (error) {
               console.error(`Error fetching farmer details for Saral ID: ${saralId}`, error.message);
               return { name: "N/A", contact: "N/A" }; // Fallback values
@@ -1166,8 +1168,9 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
 
               // If farmer details are missing, fetch from API using saralId
               if (!item.farmerName || !item.farmerContact) {
-                  if (item.saralId) {
-                      const farmerDetails = await fetchFarmerDetails(item.saralId);
+                  if (item.farmerSaralId) {
+                      console.log(item.farmerSaralId);
+                      const farmerDetails = await fetchFarmerDetails(item.farmerSaralId);
                       farmerName = farmerDetails.farmerName;
                       console.log(farmerName);
                       farmerContact = farmerDetails.contact;
@@ -1181,7 +1184,8 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
                   FarmerContact: farmerContact,
                   To_Warehouse: item.warehouse,
                   Status: "Not Received By Warehouse",
-                  Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", ") // Format items list
+                  Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", "), // Format items list
+                  Transaction_Date: item.pickupDate ? item.pickupDate.toISOString().split('T')[0] : ""
               };
           })
       );
