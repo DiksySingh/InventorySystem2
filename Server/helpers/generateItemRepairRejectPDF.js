@@ -4,25 +4,25 @@ const fs = require("fs");
 const path = require("path");
 
 module.exports.generateItemRepairRejectPDF = async (req, res) => {
-  try {
-    // 🔹 Fetch all repair/reject items
-    const repairRejectData = await RepairNRejectItems.find().populate({
-      path: "warehouseId",
-      select: "warehouseName",
-    });
+    try {
+        // 🔹 Fetch all repair/reject items
+        const repairRejectData = await RepairNRejectItems.find().populate({
+            path: "warehouseId",
+            select: "warehouseName",
+        });
 
-    if (!repairRejectData.length) {
-      return res.status(404).json({ message: "No repair/reject items found!" });
-    }
+        if (!repairRejectData.length) {
+            return res.status(404).json({ message: "No repair/reject items found!" });
+        }
 
-    // 🔹 Create `uploads` folder if it doesn't exist
-    const uploadsDir = path.join(__dirname, "../uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
+        // 🔹 Create `uploads` folder if it doesn't exist
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
 
-    // 🔹 Prepare HTML content for the PDF
-    let htmlContent = `
+        // 🔹 Prepare HTML content for the PDF
+        let htmlContent = `
       <html>
       <head>
         <style>
@@ -57,8 +57,8 @@ module.exports.generateItemRepairRejectPDF = async (req, res) => {
           </thead>
           <tbody>
             ${repairRejectData
-              .map(
-                (item) => `
+                .map(
+                    (item) => `
               <tr>
                 <td>${item.warehouseName || " "}</td>
                 <td>${item.warehousePerson}</td>
@@ -70,34 +70,37 @@ module.exports.generateItemRepairRejectPDF = async (req, res) => {
                 <td>${item.remark || " "}</td>
               </tr>
             `
-              )
-              .join("")}
+                )
+                .join("")}
           </tbody>
         </table>
       </body>
       </html>
     `;
 
-    // 🔹 Launch Puppeteer and generate PDF
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+        // 🔹 Launch Puppeteer and generate PDF
+        const browser = await puppeteer.launch({
+            headless: true, // Ensures it runs in headless mode
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: "networkidle0" });
 
-    const date = new Date().toISOString().split("T")[0];
-    const pdfPath = path.join(uploadsDir, `RepairRejectReport_${date}.pdf`);
+        const date = new Date().toISOString().split("T")[0];
+        const pdfPath = path.join(uploadsDir, `RepairRejectReport_${date}.pdf`);
 
-    await page.pdf({
-      path: pdfPath,
-      format: "A2",
-      printBackground: true,
-    });
+        await page.pdf({
+            path: pdfPath,
+            format: "A2",
+            printBackground: true,
+        });
 
-    await browser.close();
-    console.log("PDF generated successfully:", pdfPath);
+        await browser.close();
+        console.log("PDF generated successfully:", pdfPath);
 
-    res.status(200).json({ success: true, message: "PDF Generated Successfully" });
-  } catch (error) {
-    console.error("Error generating PDF:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
+        res.status(200).json({ success: true, message: "PDF Generated Successfully" });
+    } catch (error) {
+        console.error("Error generating PDF:", error.message);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
 };

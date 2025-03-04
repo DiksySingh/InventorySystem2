@@ -4,29 +4,32 @@ const fs = require("fs");
 const path = require("path");
 
 module.exports.generateWarehouseStockReportPDF = async (req, res) => {
-  try {
-    // 🔹 Fetch all warehouses and their stock data
-    const warehouses = await WarehouseItems.find()
-      .populate({
-        path: "warehouse",
-        select: { warehouseName: 1 },
-      });
+    try {
+        // 🔹 Fetch all warehouses and their stock data
+        const warehouses = await WarehouseItems.find()
+            .populate({
+                path: "warehouse",
+                select: { warehouseName: 1 },
+            });
 
-    if (!warehouses.length) {
-      return res.status(404).json({ message: "No warehouses found!" });
-    }
+        if (!warehouses.length) {
+            return res.status(404).json({ message: "No warehouses found!" });
+        }
 
-    // 🔹 Create `uploads` folder if it doesn't exist
-    const uploadsDir = path.join(__dirname, "../uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
+        // 🔹 Create `uploads` folder if it doesn't exist
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
 
-    // 🔹 Launch Puppeteer
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
+        // 🔹 Launch Puppeteer
+        const browser = await puppeteer.launch({
+            headless: true, // Ensures it runs in headless mode
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
 
-    let htmlContent = `
+        let htmlContent = `
       <html>
       <head>
         <style>
@@ -47,11 +50,11 @@ module.exports.generateWarehouseStockReportPDF = async (req, res) => {
       <body>
     `;
 
-    // 🔹 Generate content for each warehouse
-    warehouses.forEach((warehouse, index) => {
-      const filteredItems = warehouse.items.filter(item => item.itemName !== "Laptop");
+        // 🔹 Generate content for each warehouse
+        warehouses.forEach((warehouse, index) => {
+            const filteredItems = warehouse.items.filter(item => item.itemName !== "Laptop");
 
-      htmlContent += `
+            htmlContent += `
         ${index > 0 ? '<div style="page-break-before: always;"></div>' : ""}
         <h2>Warehouse Stock Report - ${warehouse.warehouse.warehouseName}</h2>
         <table>
@@ -73,28 +76,28 @@ module.exports.generateWarehouseStockReportPDF = async (req, res) => {
           </tbody>
         </table>
       `;
-    });
+        });
 
-    htmlContent += `</body></html>`;
+        htmlContent += `</body></html>`;
 
-    // 🔹 Set page content and generate PDF
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+        // 🔹 Set page content and generate PDF
+        await page.setContent(htmlContent, { waitUntil: "networkidle0" });
 
-    const date = new Date().toISOString().split("T")[0];
-    const pdfPath = path.join(uploadsDir, `WarehouseStockReport_${date}.pdf`);
+        const date = new Date().toISOString().split("T")[0];
+        const pdfPath = path.join(uploadsDir, `WarehouseStockReport_${date}.pdf`);
 
-    await page.pdf({
-      path: pdfPath,
-      format: "A3",
-      printBackground: true,
-    });
+        await page.pdf({
+            path: pdfPath,
+            format: "A3",
+            printBackground: true,
+        });
 
-    await browser.close();
-    console.log("PDF generated successfully:", pdfPath);
+        await browser.close();
+        console.log("PDF generated successfully:", pdfPath);
 
-    res.status(200).json({ success: true, message: "PDF Generated Successfully" });
-  } catch (error) {
-    console.error("Error generating PDF:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
+        res.status(200).json({ success: true, message: "PDF Generated Successfully" });
+    } catch (error) {
+        console.error("Error generating PDF:", error.message);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
 };
