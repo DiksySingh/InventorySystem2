@@ -184,13 +184,12 @@ const generateHTML = (data) => {
 
 module.exports.generateWarehouseTransactionPDF = async (req, res) => {
     try {
-        const now = moment(); // Current time
-        const startTime = moment().subtract(1, "days").hour(17).minute(14).second(0).millisecond(0); // Yesterday at 5:14 PM
-        const endTime = moment().hour(17).minute(14).second(0).millisecond(0); // Today at 5:14 PM
-
+        const now = moment(); 
+        const startTime = moment().subtract(1, "days").hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes"); 
+        const endTime = moment().hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes"); 
+        
         const utcStart = startTime.utc().toDate();
         const utcEnd = endTime.utc().toDate();
-
         console.log("UTC Start:", utcStart);
         console.log("UTC End:", utcEnd);
 
