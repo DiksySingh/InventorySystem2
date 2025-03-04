@@ -528,13 +528,13 @@ module.exports.repairItemData = async (req, res) => {
             });
         }
 
-        const itemRecord = await Item.findOne({ itemName });
-        if (!itemRecord) {
-            return res.status(404).json({
-                success: false,
-                message: "Item Not Found In ItemSchema"
-            });
-        }
+        // const itemRecord = await Item.findOne({ itemName });
+        // if (!itemRecord) {
+        //     return res.status(404).json({
+        //         success: false,
+        //         message: "Item Not Found In ItemSchema"
+        //     });
+        // }
 
         const warehouseItemsRecord = await WarehouseItems.findOne({ warehouse: warehouseId }).populate('warehouse', "-__v -createdAt");
         if (!warehouseItemsRecord) {
@@ -567,16 +567,16 @@ module.exports.repairItemData = async (req, res) => {
             }
 
             //Adjusting Items Stock, Defective, Repaired Field in ItemSchema
-            if (itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(repaired))) {
-                itemRecord.defective = parseInt(itemRecord.defective) - parseInt(repaired);
-                itemRecord.stock = parseInt(itemRecord.stock) + parseInt(repaired);
-                itemRecord.repaired = parseInt(itemRecord.repaired) + parseInt(repaired);
-            } else {
-                return res.status(403).json({
-                    success: false,
-                    message: "Defective is less than repaired. Cannot be updated"
-                })
-            }
+            // if (itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(repaired))) {
+            //     itemRecord.defective = parseInt(itemRecord.defective) - parseInt(repaired);
+            //     itemRecord.stock = parseInt(itemRecord.stock) + parseInt(repaired);
+            //     itemRecord.repaired = parseInt(itemRecord.repaired) + parseInt(repaired);
+            // } else {
+            //     return res.status(403).json({
+            //         success: false,
+            //         message: "Defective is less than repaired. Cannot be updated"
+            //     })
+            // }
         }
 
         // if(parseInt(rejected)){
@@ -603,7 +603,7 @@ module.exports.repairItemData = async (req, res) => {
         //     }
         // }
 
-        await itemRecord.save();
+        //await itemRecord.save();
         await warehouseItemsRecord.save();
 
         const repairProductData = new RepairNRejectItems({
@@ -623,7 +623,7 @@ module.exports.repairItemData = async (req, res) => {
         await repairProductData.save();
 
         return res.status(200).json({
-            sucess: true,
+            success: true,
             message: "Data Inserted Successfully",
             repairProductData
         });
@@ -655,13 +655,13 @@ module.exports.rejectItemData = async (req, res) => {
             });
         }
 
-        const itemRecord = await Item.findOne({ itemName });
-        if (!itemRecord) {
-            return res.status(404).json({
-                success: false,
-                message: "Item Not Found In ItemSchema"
-            });
-        }
+        // const itemRecord = await Item.findOne({ itemName });
+        // if (!itemRecord) {
+        //     return res.status(404).json({
+        //         success: false,
+        //         message: "Item Not Found In ItemSchema"
+        //     });
+        // }
 
         const warehouseItemsRecord = await WarehouseItems.findOne({ warehouse: warehouseId }).populate('warehouse', "-__v -createdAt");
         if (!warehouseItemsRecord) {
@@ -719,18 +719,18 @@ module.exports.rejectItemData = async (req, res) => {
             }
 
             //Adjusting Items Defective and Rejected Field in ItemSchema
-            if (itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(rejected))) {
-                itemRecord.defective = parseInt(itemRecord.defective) - parseInt(rejected);
-                itemRecord.rejected = parseInt(itemRecord.rejected) + parseInt(rejected);
-            } else {
-                return res.status(403).json({
-                    success: false,
-                    message: "Defective is less than rejected. Cannot be updated"
-                });
-            }
+            // if (itemRecord.defective !== 0 && itemRecord.defective >= (parseInt(rejected))) {
+            //     itemRecord.defective = parseInt(itemRecord.defective) - parseInt(rejected);
+            //     itemRecord.rejected = parseInt(itemRecord.rejected) + parseInt(rejected);
+            // } else {
+            //     return res.status(403).json({
+            //         success: false,
+            //         message: "Defective is less than rejected. Cannot be updated"
+            //     });
+            // }
         }
 
-        await itemRecord.save();
+        //await itemRecord.save();
         await warehouseItemsRecord.save();
 
         const rejectProductData = new RepairNRejectItems({
@@ -2171,4 +2171,5 @@ module.exports.showAllSystemInstallation = async (req, res) => {
         })
     }
 };
+
 
