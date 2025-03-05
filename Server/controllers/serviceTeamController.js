@@ -59,3 +59,49 @@ module.exports.getWarehousePersonContacts = async (req, res) => {
         });
     }
 };
+
+module.exports.getServicePersonData = async (req, res) => {
+    try {
+        const { empId } = req.body;
+        console.log(empId);
+
+        if (!empId || !Array.isArray(empId) || empId.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "EmpId is required and must be an array",
+            });
+        }
+
+        // Fetch data from both models and filter required fields
+        const results = await Promise.all(empId.map(async (id) => {
+            const servicePerson = await ServicePerson.findOne(
+                { _id: id },
+                { name: 1, email: 1, contact: 1, state: 1, district: 1, block: 1, latitude: 1, longitude: 1, _id: 1 }
+            );
+            if (servicePerson) return servicePerson;
+
+            const surveyPerson = await SurveyPerson.findOne(
+                { _id: id },
+                { name: 1, email: 1, contact: 1, state: 1, district: 1, block: 1, latitude: 1, longitude: 1, _id: 1 }
+            );
+            if (surveyPerson) return surveyPerson;
+
+            return null; // If no record is found in both models
+        }));
+
+        // Filter out null values (cases where empId is not found in either model)
+        const filteredResults = results.filter(person => person !== null);
+
+        return res.status(200).json({
+            success: true,
+            data: filteredResults,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
