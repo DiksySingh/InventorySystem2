@@ -105,3 +105,36 @@ module.exports.getServicePersonData = async (req, res) => {
         });
     }
 };
+
+module.exports.allFieldPersonData = async (req, res) => {
+    try {
+        const [servicePersons, surveyPersons] = await Promise.all([
+            ServicePerson.find({isActive: true}).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 }),
+            SurveyPerson.find({isActive: true}).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 })
+        ]);
+
+        const allPersons = [
+            ...surveyPersons.map((person) => ({ ...person, role: "surveyperson" })),
+            ...servicePersons.map((person) => ({ ...person, role: "serviceperson" })),
+        ];
+
+        const cleanedData = allPersons.map((item) => ({
+            _id: item._doc._id,
+            name: item._doc.name,
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: cleanedData || []
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+

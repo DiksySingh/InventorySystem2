@@ -9,7 +9,8 @@ const {
 const { 
     getServicePersonContacts,
     getWarehousePersonContacts,
-    getServicePersonData
+    getServicePersonData,
+    allFieldPersonData
 } = require("../controllers/serviceTeamController");
 const {generateInstallationPDF} = require("../helpers/generateInstallationPDF");
 const router = require("express").Router();
@@ -24,5 +25,6 @@ router.get("/incoming-items-data", showIncomingItemsFromFarmer);
 router.post("/generate-installation-pdf", generateInstallationPDF);
 router.get("/service-person-contacts", getServicePersonContacts);
 router.get("/warehouse-person-contacts", getWarehousePersonContacts);
+router.get("/field-person-name", allFieldPersonData);
 
 module.exports = router;
