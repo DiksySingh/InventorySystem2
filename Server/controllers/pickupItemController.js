@@ -190,6 +190,20 @@ module.exports.outgoingItemsData = async (req, res) => {
       });
     }
 
+    const existingPickupData = await PickupItem.findOne({
+      farmerComplaintId,
+      farmerSaralId,
+      items: { $size: items.length, $all: items.map(item => ({ itemName: item.itemName, quantity: item.quantity }))},
+      incoming: false
+    });
+    
+    if (existingPickupData) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already submitted the form.",
+      });
+    }
+
     const outgoingItemsData = [];
     const servicePersonData = await ServicePerson.findOne({ _id: servicePerson });
     if (!servicePersonData) {
@@ -768,6 +782,21 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Items must be a non-empty array",
       });
     }
+
+    const existingPickupData = await PickupItem.findOne({
+      farmerComplaintId,
+      farmerSaralId,
+      items: { $size: items.length, $all: items.map(item => ({ itemName: item.itemName, quantity: item.quantity }))},
+      incoming: true
+    });
+    
+    if (existingPickupData) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already submitted the form.",
+      });
+    }
+    
     const outgoingItemsData = [];
 
     const warehouseData = await Warehouse.findOne({ warehouseName: warehouse });
