@@ -57,7 +57,17 @@ module.exports.allOrderDetails = async (req, res) => {
 
 module.exports.servicePersonIncomingItemsData = async (req, res) => {
   try {
-    const incomingItemsData = await IncomingItemDetails.find().populate("servicePerson", "_id name contact");
+    let incomingItemsData = await IncomingItemDetails.find()
+      .populate("servicePerson", "_id name contact");
+
+    // Filter out items where quantity is 0
+    incomingItemsData = incomingItemsData.map(item => {
+      return {
+        ...item.toObject(), // Convert Mongoose document to plain object
+        items: item.items.filter(it => it.quantity > 0) // Remove items with quantity 0
+      };
+    });
+
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
