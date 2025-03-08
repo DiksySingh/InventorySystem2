@@ -53,6 +53,7 @@ module.exports.generateItemRepairRejectPDF = async (req, res) => {
               <th>Rejected</th>
               <th>Repaired By</th>
               <th>Remark</th>
+              <th>Date</th>
             </tr>
           </thead>
           <tbody>
@@ -68,6 +69,7 @@ module.exports.generateItemRepairRejectPDF = async (req, res) => {
                 <td>${item.rejected || 0}</td>
                 <td>${item.repairedBy || " "}</td>
                 <td>${item.remark || " "}</td>
+                <td>${item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB") : " "}</td>
               </tr>
             `
                 )

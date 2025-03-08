@@ -5,8 +5,11 @@ const moment = require("moment");
 const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
 
 const generateHTML = (data) => {
+    let totalOverallQuantity = 0;
+
     let rows = data.map((item) => {
         const totalQuantity = item.items.reduce((sum, it) => sum + it.quantity, 0);
+        totalOverallQuantity += totalQuantity; // Accumulate the total
 
         return `
         <tr>
@@ -26,6 +29,14 @@ const generateHTML = (data) => {
     if (!rows) {
         rows = `<tr><td colspan="9" style="text-align:center; font-weight:bold;">No records available for today.</td></tr>`;
     }
+
+    // Add the total row at the bottom
+    const totalRow = `
+    <tr>
+        <td colspan="5" style="text-align:right; font-weight:bold;">Overall Total Quantity:</td>
+        <td style="font-weight:bold;">${totalOverallQuantity}</td>
+        <td colspan="3"></td>
+    </tr>`;
 
     return `
     <html>
@@ -50,7 +61,6 @@ const generateHTML = (data) => {
         <table>
             <thead>
                 <tr>
-                    
                     <th>Farmer Saral ID</th>
                     <th>Farmer Contact</th>
                     <th>Service Person</th>
@@ -64,6 +74,7 @@ const generateHTML = (data) => {
             </thead>
             <tbody>
                 ${rows}
+                ${totalRow} <!-- Add the total row -->
             </tbody>
         </table>
         <div class="footer">Generated on ${moment().format("DD-MM-YYYY")}</div>
