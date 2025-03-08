@@ -58,20 +58,28 @@ module.exports.allOrderDetails = async (req, res) => {
 module.exports.servicePersonIncomingItemsData = async (req, res) => {
   try {
     let incomingItemsData = await IncomingItemDetails.find()
-      .populate("servicePerson", "_id name contact");
+      .populate("servicePerson", "_id name contact isActive"); // Populate isActive field
 
-    // Filter out items where quantity is 0
-    incomingItemsData = incomingItemsData.map(item => {
-      return {
-        ...item.toObject(), // Convert Mongoose document to plain object
-        items: item.items.filter(it => it.quantity > 0) // Remove items with quantity 0
-      };
-    });
+    // Filter data based on conditions
+    incomingItemsData = incomingItemsData
+      .map(item => {
+        return {
+          ...item.toObject(), // Convert Mongoose document to a plain object
+          items: item.items.filter(it => it.quantity > 0) // Remove items with quantity 0
+        };
+      })
+      .filter(item => 
+        item.items.length > 0 &&  // Remove records with no valid items
+        item.servicePerson && // Ensure servicePerson exists
+        item.servicePerson.isActive === true && // Only include active service persons
+        item.servicePerson.name && item.servicePerson.contact && // Exclude servicePersons with null name/contact
+        !["Atul Singh", "Nitesh Kumar"].includes(item.servicePerson.name) // Exclude specific service persons
+      );
 
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
-      data: incomingItemsData || []
+      data: incomingItemsData.length > 0 ? incomingItemsData : [] // Return only if data is available
     });
   } catch (error) {
     return res.status(500).json({
@@ -81,6 +89,7 @@ module.exports.servicePersonIncomingItemsData = async (req, res) => {
     });
   }
 };
+
 
 // module.exports.servicePersonIncomingItemsData2 = async (req, res) => {
 //   try {
