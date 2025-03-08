@@ -341,7 +341,7 @@ module.exports.outgoingItemsData = async (req, res) => {
     await returnItems.save();
 
     if (farmerComplaintId && farmerSaralId) {
-      const incomingItemsDataFromFarmer = await PickupItem.findOne({ farmerComplaintId });
+      const incomingItemsDataFromFarmer = await PickupItem.findOne({ farmerComplaintId, farmerSaralId, incoming: true });
       if (!incomingItemsDataFromFarmer) {
         return res.status(404).json({
           success: false,

@@ -382,4 +382,5 @@ module.exports = {
     showNewInstallationDataToInstaller,
     updateStatusOfIncomingItems,
     newSystemInstallation
-}
+};
+
