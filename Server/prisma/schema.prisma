@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String  @id @default(uuid()) // UUID as primary key
+  name         String?
+  email        String?   @unique
+  contact      String? 
+  password     String?
+  roleId       String?
+  block        String?
+  district     String?
+  state        String?
+  isActive     Boolean?
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  role         Role?     @relation(fields: [roleId], references: [id])
+}
+
+model Role {
+  id    String @id @default(uuid()) // UUID for Role ID
+  name  String?  @unique
+  createdAt DateTime @default(now())
+  users User[]
+}
+
+model Item {
+  id         String  @id @default(uuid())
+  name       String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  rawMaterials ItemRawMaterial[]
+}
+
+model RawMaterial {
+  id         String  @id @default(uuid())
+  name       String?  @unique
+  stock      Int?          // Available stock quantity
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  items      ItemRawMaterial[]
+
+  stockMovements StockMovement[] // Track stock changes
+}
+
+model ItemRawMaterial {
+  id          String  @id @default(uuid())
+  itemId      String?
+  rawMaterialId String?
+  quantity    Int?   // Quantity required for one item
+
+  item        Item? @relation(fields: [itemId], references: [id])
+  rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+
+  @@unique([itemId, rawMaterialId]) // Ensures each item-rawMaterial pair is unique
+}
+
+model StockMovement {
+  id            String   @id @default(uuid())
+  rawMaterialId String?
+  quantity      Int?
+  type          String?   // "IN" (added) or "OUT" (used)
+  timestamp     DateTime @default(now())
+
+  rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+}

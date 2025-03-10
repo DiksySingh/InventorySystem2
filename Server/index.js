@@ -12,6 +12,11 @@ const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
 
+/* MySQL - Raw Material Management System Routes */
+const authRouter = require("./routes/rawMaterialItemsRoutes/authRouter");
+const adminRouter = require("./routes/rawMaterialItemsRoutes/adminRouter");
+const commonRouter = require("./routes/rawMaterialItemsRoutes/commonRouter");
+
 // Load environment variables
 const URI = process.env.MONGODB_URL;
 const PORT = process.env.PORT || 8001; 
@@ -71,6 +76,11 @@ app.use("/common", commonRoute);
 app.use("/warehouse-admin", warehousePersonRoute);
 app.use("/service-person", servicePersonRoute);
 app.use("/service-team", serviceTeamRoute);
+
+/* Raw Material Management System */
+app.use("/auth", authRouter);
+app.use("/admin", adminRouter);
+app.use("/common", commonRouter);
 
 // Start the server
 app.listen(PORT, () => {

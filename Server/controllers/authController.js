@@ -42,8 +42,9 @@ module.exports.adminSignup = async (req, res) => {
         message: "Employee Already Exists In Database",
       });
     }
-
-    const newUser = new Admin({ email, password, createdAt, role });
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new Admin({ email, password: hashedPassword, createdAt, role });
     await newUser.save();
     res.status(201).json({
       success: true,
@@ -91,13 +92,13 @@ module.exports.warehousePersonSignup = async (req, res) => {
         message: "Warehouse Not Found"
       });
     }
-
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newWarehousePerson = new WarehousePerson({
       name,
       email,
       warehouse: existingWarehouse._id,
       contact,
-      password,
+      password: hashedPassword,
       role,
       createdAt,
       refreshToken: null,
