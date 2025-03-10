@@ -71,7 +71,7 @@ module.exports.servicePersonIncomingItemsData = async (req, res) => {
       .filter(item => 
         item.items.length > 0 &&  // Remove records with no valid items
         item.servicePerson && // Ensure servicePerson exists
-        item.servicePerson.isActive === true && // Only include active service persons
+        // item.servicePerson.isActive === true && // Only include active service persons
         item.servicePerson.name && item.servicePerson.contact && // Exclude servicePersons with null name/contact
         !["Atul Singh", "Nitesh Kumar"].includes(item.servicePerson.name) // Exclude specific service persons
       );
@@ -402,9 +402,9 @@ module.exports.warehouseOrderDetails = async (req, res) => {
 
     const pickupItems = await PickupItem.find({ warehouse: warehouseData.warehouseName })
       .populate("servicePerson", "_id name contact")
+      .sort({ status: 1, pickupDate: -1 }) // Sort by status (null first), then pickupDate (descending)
       .skip(skip)
-      .limit(limit)
-      .sort({ pickupDate: -1 });
+      .limit(limit);
 
     const totalDocuments = await PickupItem.countDocuments();
     const totalPages = Math.ceil(totalDocuments / limit);
