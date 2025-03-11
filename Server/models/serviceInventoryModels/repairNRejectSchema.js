@@ -41,6 +41,10 @@ const repairNRejectSchema = new Schema ({
     createdAt: {
         type: Date,
     },
+    changeMaterial: {
+        type:String,
+        required:true
+    }
 },{collection: "inRepairNRejectItems"});
 
 const RepairNRejectItems = mongoose.model("RepairNRejectItems", repairNRejectSchema);

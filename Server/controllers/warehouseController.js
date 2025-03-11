@@ -520,9 +520,9 @@ module.exports.repairItemData = async (req, res) => {
                 message: "WarehouseID not found"
             });
         }
-        const { itemName, serialNumber, repaired, repairedBy, remark, createdAt } = req.body;
+        const { itemName, serialNumber, repaired, repairedBy, remark, createdAt, changeMaterial } = req.body;
         console.log(req.body)
-        if (!itemName || !repaired || !serialNumber || !remark || !repairedBy || !createdAt) {
+        if (!itemName || !repaired || !serialNumber || !remark || !repairedBy || !createdAt || !changeMaterial) {
             return res.status(400).json({
                 success: false,
                 message: "itemName is required"
@@ -619,6 +619,7 @@ module.exports.repairItemData = async (req, res) => {
             repairedBy,
             remark: remark || "",
             createdAt,
+            changeMaterial
         })
 
         await repairProductData.save();
