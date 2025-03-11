@@ -758,6 +758,7 @@ module.exports.rejectItemData = async (req, res) => {
         });
 
     } catch (error) {
+        console.log("RejectItemData",error)
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
