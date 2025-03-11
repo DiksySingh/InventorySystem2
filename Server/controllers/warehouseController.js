@@ -521,6 +521,7 @@ module.exports.repairItemData = async (req, res) => {
             });
         }
         const { itemName, serialNumber, repaired, repairedBy, remark, createdAt } = req.body;
+        console.log(req.body)
         if (!itemName || !repaired || !serialNumber || !remark || !repairedBy || !createdAt) {
             return res.status(400).json({
                 success: false,

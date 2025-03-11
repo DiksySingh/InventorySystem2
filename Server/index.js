@@ -16,7 +16,7 @@ const serviceTeamRoute = require("./routes/serviceTeamRoutes");
 const authRouter = require("./routes/rawMaterialItemsRoutes/authRouter");
 const adminRouter = require("./routes/rawMaterialItemsRoutes/adminRouter");
 const commonRouter = require("./routes/rawMaterialItemsRoutes/commonRouter");
-
+const testRouter = require("./routes/test");
 // Load environment variables
 const URI = process.env.MONGODB_URL;
 const PORT = process.env.PORT || 8001; 
@@ -81,6 +81,7 @@ app.use("/service-team", serviceTeamRoute);
 app.use("/auth", authRouter);
 app.use("/admin", adminRouter);
 app.use("/common", commonRouter);
+app.use("/test", testRouter);
 
 // Start the server
 app.listen(PORT, () => {
