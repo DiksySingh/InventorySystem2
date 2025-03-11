@@ -29,5 +29,5 @@ router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  /
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
 router.post("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
-router.post("/delete-reports", deleteReport); //PDF Delete from Server
+router.get("/delete-reports", deleteReport); //PDF Delete from Server
 module.exports = router;
