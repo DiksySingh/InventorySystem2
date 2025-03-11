@@ -24,10 +24,10 @@ router.post("/daily-report-pdf", generateDailyReportPDF);
 router.post("/distance-report-pdf", generateDistanceReportPDF);
 router.get("/export-pickUpItems-excel", exportIncomingPickupItemsToExcel);
 router.get("/export-incoming-items-excel", exportIncomingTotalItemsToExcel);
-router.post("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for items remaining in the service person account
-router.post("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
-router.post("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
+router.get("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for items remaining in the service person account
+router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
+router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
 router.post("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
-router.post("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
+router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
 router.post("/delete-reports", deleteReport); //PDF Delete from Server
 module.exports = router;
