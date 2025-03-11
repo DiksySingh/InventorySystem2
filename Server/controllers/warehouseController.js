@@ -649,6 +649,7 @@ module.exports.rejectItemData = async (req, res) => {
                 message: "WarehouseID not found"
             });
         }
+        console.log("rejectItemData",res.body)
         const { itemName, serialNumber, rejected, remark, createdAt } = req.body;
         if (!itemName || !serialNumber || !remark || !rejected || !createdAt) {
             return res.status(400).json({
