@@ -13,7 +13,7 @@ const repairNRejectSchema = new Schema ({
     },
     warehouseName: {
         type: String,
-        requried: true,
+        required: true,
     },
     itemName: {
         type: String,
@@ -42,8 +42,7 @@ const repairNRejectSchema = new Schema ({
         type: Date,
     },
     changeMaterial: {
-        type:String,
-        required:true
+        type:String
     }
 },{collection: "inRepairNRejectItems"});
 
