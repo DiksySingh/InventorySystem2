@@ -178,7 +178,7 @@ const addItem = async (req, res) => {
     }
 };
 
-const showItem = async (req, res) => {
+const showItems = async (req, res) => {
     try {
         const allItems = await prisma.item.findMany({
             select: {
@@ -259,6 +259,6 @@ module.exports = {
     deactivateEmployee,
     activateEmployee,
     addItem,
-    showItem,
+    showItems,
     addWarehouse
 };

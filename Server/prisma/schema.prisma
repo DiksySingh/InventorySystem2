@@ -113,6 +113,7 @@ model ServiceRecord {
   id             String   @id @default(uuid())
   itemId         String?   // The product that was serviced
   userId         String?   // The user (technician) who performed the service
+  repairedBy     String?
   servicedAt     DateTime  @default(now())
 
   status         String?   // "Repaired" or "Rejected"
