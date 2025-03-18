@@ -6,5 +6,6 @@ router.get("/showEmployees", adminController.showEmployees);
 router.put("/deactivateEmployee", adminController.deactivateEmployee);
 router.put("/activateEmployee", adminController.activateEmployee);
 router.post("/addItem", adminController.addItem);
+router.post("/addWarehouse", adminController.addWarehouse);
 
 module.exports = router;

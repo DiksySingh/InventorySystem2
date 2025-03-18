@@ -24,7 +24,7 @@ const PORT = process.env.PORT || 8001;
 // MongoDB connection
 main()
   .then(() => {
-    console.log("Connected to MongoDB");
+    console.log("Connected successfully to MongoDB");
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err);

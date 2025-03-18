@@ -14,7 +14,7 @@ datasource db {
 }
 
 model User {
-  id           String  @id @default(uuid()) // UUID as primary key
+  id           String  @id @default(uuid()) 
   name         String?
   email        String?   @unique
   contact      String? 
@@ -28,53 +28,107 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
-  role         Role?     @relation(fields: [roleId], references: [id])
+  role         Role? @relation(fields: [roleId], references: [id])
+  services     ServiceRecord[]  // Services performed by this user
 }
 
 model Role {
-  id    String @id @default(uuid()) // UUID for Role ID
-  name  String?  @unique
-  createdAt DateTime @default(now())
-  users User[]
+  id         String  @id @default(uuid()) 
+  name       String?  @unique
+  createdAt  DateTime @default(now())
+
+  users      User[]
+}
+
+model Warehouse {
+  id         String  @id @default(uuid()) 
+  name       String?  @unique  // Example: "Main Warehouse"
+  state      String?
+  createdAt  DateTime @default(now())
+
+  stockMovements StockMovement[]
 }
 
 model Item {
-  id         String  @id @default(uuid())
-  name       String?  @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String  @id @default(uuid()) 
+  name         String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   rawMaterials ItemRawMaterial[]
+  serviceRecords ServiceRecord[]
+  manufacturingUsage ManufacturingUsage[]
 }
 
 model RawMaterial {
-  id         String  @id @default(uuid())
-  name       String?  @unique
-  stock      Int?          // Available stock quantity
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  items      ItemRawMaterial[]
+  id              String  @id @default(uuid()) 
+  name            String?  @unique
+  stock           Int?    // Available stock quantity
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  stockMovements StockMovement[] // Track stock changes
+  stockMovements  StockMovement[]   // Tracks stock changes (incoming & used)
+  manufacturingUsages ManufacturingUsage[]  // Tracks raw material usage in manufacturing
+  serviceUsages   ServiceUsage[]  // Tracks raw materials used for servicing
+
+  ItemRawMaterial ItemRawMaterial[]
 }
 
 model ItemRawMaterial {
-  id          String  @id @default(uuid())
-  itemId      String?
-  rawMaterialId String?
-  quantity    Int?   // Quantity required for one item
+  id             String  @id @default(uuid()) 
+  itemId         String?
+  rawMaterialId  String?
+  quantity       Int?   // Quantity needed to manufacture one item
 
-  item        Item? @relation(fields: [itemId], references: [id])
-  rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  item           Item? @relation(fields: [itemId], references: [id])
+  rawMaterial    RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
-  @@unique([itemId, rawMaterialId]) // Ensures each item-rawMaterial pair is unique
+  @@unique([itemId, rawMaterialId]) // Ensures unique item-rawMaterial pair
 }
 
 model StockMovement {
-  id            String   @id @default(uuid())
-  rawMaterialId String?
-  quantity      Int?
-  type          String?   // "IN" (added) or "OUT" (used)
-  timestamp     DateTime @default(now())
+  id              String   @id @default(uuid())
+  rawMaterialId   String?
+  warehouseId     String?
+  quantity        Int?
+  type            String?   // "IN" (new stock) or "OUT" (used)
+  timestamp       DateTime @default(now())
 
-  rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  rawMaterial     RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
+}
+
+model ManufacturingUsage {
+  id              String   @id @default(uuid())
+  itemId          String?
+  rawMaterialId   String?
+  quantityUsed    Int?     // How much raw material was used for manufacturing
+  manufacturingDate DateTime @default(now())
+
+  item            Item? @relation(fields: [itemId], references: [id])
+  rawMaterial     RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+}
+
+model ServiceRecord {
+  id             String   @id @default(uuid())
+  itemId         String?   // The product that was serviced
+  userId         String?   // The user (technician) who performed the service
+  servicedAt     DateTime  @default(now())
+
+  status         String?   // "Repaired" or "Rejected"
+  remark         String?   // Reason for rejection or repair details
+
+  item           Item? @relation(fields: [itemId], references: [id])
+  user           User? @relation(fields: [userId], references: [id])
+  serviceUsages  ServiceUsage[] // Track raw materials used for servicing
+}
+
+model ServiceUsage {
+  id             String   @id @default(uuid())
+  serviceId      String?
+  rawMaterialId  String?
+  quantityUsed   Int?   // How much raw material was used in service
+
+  service        ServiceRecord? @relation(fields: [serviceId], references: [id])
+  rawMaterial    RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 }

@@ -3,7 +3,7 @@ const XLSX = require('xlsx');
 
 const W2W = async(req,res) =>{
     try {
-        let { startDate, endDate, toWarehouse , fromWarehouse} = req.query;
+        let { startDate, endDate, toWarehouse , fromWarehouse } = req.query;
         if (!startDate || !endDate) {
             return res.status(400).json({ message: "Start date and end date are required" });
         }
