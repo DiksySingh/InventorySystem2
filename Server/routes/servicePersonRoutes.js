@@ -1,4 +1,4 @@
-const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus} = require("../controllers/pickupItemController");
+const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus, showServicePersonRepairedHoldingItems, updateServicePersonHoldingItems} = require("../controllers/pickupItemController");
 const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/warehouseController");
 const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp, getServicePersonInstallationData, checkServicePersonLatLong} = require("../controllers/installationDataController");
 const {showNewInstallationDataToInstaller, updateStatusOfIncomingItems, newSystemInstallation} = require("../controllers/servicePersonController");
@@ -14,6 +14,8 @@ router.post("/incoming-items",userVerification(["serviceperson"]),incomingItemsD
 router.get("/pickedup-items",userVerification(["serviceperson"]),pickupItemOfServicePerson);
 router.get("/approved-order-history", userVerification(['serviceperson']), viewApprovedOrderHistory);
 router.put("/update-outgoing-status", userVerification(["serviceperson"]), updateOrderStatus);
+router.get("/show-holding-items", userVerification(['serviceperson']), showServicePersonRepairedHoldingItems);
+router.put("/update-holding-items", userVerification(['serviceperson']), updateServicePersonHoldingItems);
 
 router.get("/get-pickupItem-data", userVerification(['serviceperson']), getPickupItemData);
 router.get("/check-lat-long", userVerification(['serviceperson']), checkServicePersonLatLong);

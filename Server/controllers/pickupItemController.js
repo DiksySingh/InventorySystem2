@@ -1001,6 +1001,7 @@ module.exports.incomingItemsData = async (req, res) => {
 module.exports.pickupItemOfServicePerson = async (req, res) => {
   try {
     const id = req.user._id;
+    console.log(id);
     if (!id) {
       return res.status(404).json({
         success: false,
@@ -1018,7 +1019,7 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select("-__v");
-
+    console.log(pickupItems);
     if (!pickupItems) {
       return res.status(404).json({
         success: false,
@@ -1049,6 +1050,103 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.showServicePersonRepairedHoldingItems =  async (req, res) => {
+  try {
+    const { servicePersonId } = req.user._id;
+
+    // Fetch the outgoing items for the service person
+    const outgoingItems = await OutgoingItemDetails.findOne({
+      servicePerson: servicePersonId,
+    }).populate("servicePerson");
+
+    if (!outgoingItems) {
+      return res.status(404).json({
+        success: false,
+        message: "No outgoing items found for this service person.",
+      });
+    }
+
+    // Filter items with quantity > 0
+    const filteredItems = outgoingItems.items.filter((item) => item.quantity > 0);
+
+    return res.status(200).json({
+      success: true,
+      items: filteredItems,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+//On Submitting the complaint as resolve
+module.exports.updateServicePersonHoldingItems = async (req, res) => {
+  try {
+    const {servicePersonId} = req.user._id;
+    const {items} = req.body;
+
+    if(!items || items.length === 0 || !Array.isArray(items)){
+      return res.status(400).json({
+        success: false,
+        message: "Items is required and should be in array"
+      });
+    }
+    
+    const holdingItems = await OutgoingItemDetails.findOne({
+      servicePerson: servicePersonId
+    });
+
+    if(!holdingItems) {
+      return res.status(404).json({
+        success: false,
+        message: "No Data Found"
+      });
+    }
+
+    for(let item of items) {
+        const matchingItem = holdingItems.items.find(
+          (i) => i.itemName === item.itemName
+        );
+
+        if (!matchingItem) {
+          return res.status(404).json({
+            success: false,
+            message: `Item ${item.itemName} not found in OutgoingItemDetails`,
+          });
+        }
+
+        if (matchingItem.quantity < item.quantity) {
+          return res.status(400).json({
+            success: false,
+            message: `Not enough quantity for ${item.itemName}`,
+          });
+        }
+
+        if (matchingItem.quantity === item.quantity) {
+          matchingItem.quantity = 0;
+        } else {
+          matchingItem.quantity = parseInt(matchingItem.quantity) - parseInt(item.quantity);
+        }
+    }
+
+    await holdingItems.save();
+    return res.status(200).json({
+      success: true,
+      message: "Service Person Repaired Holding Items Updated Successfully"
+    });
+  } catch (error) {
+    return res.status(500).json({
       success: false,
       message: "Internal Server Error",
       error: error.message,
@@ -1188,7 +1286,7 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
 module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
   try {
       // Fetch Data Where incoming = true and status = null
-      const pickupItems = await PickupItem.find({ incoming: true, status: null })
+      const pickupItems = await PickupItem.find({ incoming: false, status: null })
           .populate("servicePerson", "name contact") // Populate servicePerson
           .lean();
 
@@ -1231,7 +1329,7 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
                   FarmerName: farmerName,
                   FarmerContact: farmerContact,
                   To_Warehouse: item.warehouse,
-                  Status: "Not Received By Warehouse",
+                  Status: "Not Approved By ServicePerson",
                   Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", "), // Format items list
                   Transaction_Date: item.pickupDate ? item.pickupDate.toISOString().split('T')[0] : ""
               };
@@ -1245,7 +1343,7 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
 
       // Set response headers
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=IncomingItems_Details.xlsx");
+      res.setHeader("Content-Disposition", "attachment; filename=PendingOutgoingItems_Details.xlsx");
 
       // Generate Excel file buffer and send response
       const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });

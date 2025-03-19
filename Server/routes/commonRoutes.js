@@ -2,6 +2,7 @@ const {updateLatitudeLongitude, addServicePersonState} = require("../controllers
 const {addIsActiveField} = require("../controllers/authController");
 const {generateJoiningFormPDF} = require("../helpers/generateJoiningFormPDF");
 const {generateIncomingItemsPDF} = require("../helpers/generateIncomingItemsPDF");
+const {servicePersonRepairedHoldingItemsPDF} = require("../helpers/servicePersonRepairedItemsAccount");
 const {generateWarehouseTransactionPDF} = require("../helpers/generateWarehouseTransactionPDF");
 const {generateServicePersonTransactionPDF} = require("../helpers/generateServiceTransactionPDF");
 const {generateWarehouseStockReportPDF} = require("../helpers/generateWarehouseStockReport");
@@ -25,6 +26,7 @@ router.post("/distance-report-pdf", generateDistanceReportPDF);
 router.get("/export-pickUpItems-excel", exportIncomingPickupItemsToExcel);
 router.get("/export-incoming-items-excel", exportIncomingTotalItemsToExcel);
 router.get("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for items remaining in the service person account
+router.get("/export-outgoingItems-pdf", servicePersonRepairedHoldingItemsPDF);
 router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
 router.post("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
