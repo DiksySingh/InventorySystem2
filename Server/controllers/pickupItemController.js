@@ -1078,7 +1078,7 @@ module.exports.showServicePersonRepairedHoldingItems =  async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      items: filteredItems,
+      items: filteredItems || [],
     });
 
   } catch (error) {
