@@ -11,6 +11,7 @@ const commonRoute = require("./routes/commonRoutes");
 const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
+// const prisma = require('./config/prismaClient');
 
 /* MySQL - Raw Material Management System Routes */
 const authRouter = require("./routes/rawMaterialItemsRoutes/authRouter");
