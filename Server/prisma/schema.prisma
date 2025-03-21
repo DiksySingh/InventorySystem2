@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DB_URL_LOCAL")
+  url      = env("SERVER_DB_URL_DEV")
 }
 
 model User {
@@ -132,4 +132,9 @@ model ServiceUsage {
 
   service        ServiceRecord? @relation(fields: [serviceId], references: [id])
   rawMaterial    RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+}
+
+model Test {
+  id String @id @default(uuid())
+  name String?
 }
