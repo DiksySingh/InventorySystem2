@@ -1059,13 +1059,11 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
 
 module.exports.showServicePersonRepairedHoldingItems =  async (req, res) => {
   try {
-    const { servicePersonId } = req.user._id;
-
+    const servicePersonId = req.user._id;
     // Fetch the outgoing items for the service person
     const outgoingItems = await OutgoingItemDetails.findOne({
       servicePerson: servicePersonId,
     }).populate("servicePerson");
-
     if (!outgoingItems) {
       return res.status(404).json({
         success: false,
