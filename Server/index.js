@@ -1,10 +1,14 @@
-require("dotenv").config();
+const dotenv = require('dotenv');
 const express = require("express");
 const app = express();
 const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
+const envFile = process.env.NODE_ENV === 'development' ? '.env.development' : process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: path.resolve(__dirname, envFile) });
+
+// MongoDB - Service Inventory Management System Routes
 const authRoute = require("./routes/authRoute");
 const adminRoute = require("./routes/adminRoutes");
 const commonRoute = require("./routes/commonRoutes");
