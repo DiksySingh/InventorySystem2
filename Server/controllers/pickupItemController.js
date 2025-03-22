@@ -1091,7 +1091,7 @@ module.exports.showServicePersonRepairedHoldingItems =  async (req, res) => {
 //On Submitting the complaint as resolve
 module.exports.updateServicePersonHoldingItems = async (req, res) => {
   try {
-    const {servicePersonId} = req.user._id;
+    const servicePersonId = req.user._id;
     const {items} = req.body;
 
     if(!items || items.length === 0 || !Array.isArray(items)){

@@ -282,6 +282,19 @@ module.exports.allRepairRejectItemsData = async (req, res) => {
 //     }
 // };
 
+module.exports.showItems = async (req, res) => {
+    try {
+        const itemsData = await Items
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
 module.exports.addWarehouseItems = async (req, res) => {
     try {
         // Extract items from the request body
