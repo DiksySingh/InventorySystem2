@@ -3,6 +3,7 @@ const ServicePerson = require("../models/serviceInventoryModels/servicePersonSch
 const WarehousePerson = require("../models/serviceInventoryModels/warehousePersonSchema");
 const SurveyPerson = require("../models/serviceInventoryModels/surveyPersonSchema");
 const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
+const Item = require("../models/serviceInventoryModels/itemSchema");
 const {
   createSecretToken,
   createRefreshToken,
@@ -532,3 +533,4 @@ module.exports.addIsActiveField = async (req, res) => {
     });
   }
 };
+
