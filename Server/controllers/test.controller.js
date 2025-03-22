@@ -1,5 +1,6 @@
 const W2WTransition = require('../models/serviceInventoryModels/warehouse2WarehouseSchema');
 const XLSX = require('xlsx');
+const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
 
 const W2W = async(req,res) =>{
     try {
@@ -59,6 +60,50 @@ const W2W = async(req,res) =>{
         })
     }
 }
+
+const getServicePersonForStates = async (req, res) => {
+    try {
+        const state = ["Maharashtra", "Punjab", "Chhattisgarh", "Rajasthan"];
+
+        // Assuming you have a ServicePerson model to fetch service persons from MongoDB
+        const servicePersons = await ServicePerson.find({ state: { $in: state } });
+
+        // Transform data into a format suitable for Excel
+        const data = servicePersons.map((person) => ({
+            Name: person.name,
+            Contact: person.contact,
+            Email: person.email,
+            State: person.state,
+        }));
+
+        // Create a new worksheet from the data
+        const worksheet = XLSX.utils.json_to_sheet(data);
+
+        // Create a new workbook and append the worksheet
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "ServicePersons");
+
+        // Write the workbook to a buffer
+        const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+        // Optional: Set headers for file download and Excel content type (if needed)
+        res.setHeader("Content-Disposition", "attachment; filename=Service_Persons.xlsx");
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+        // Send the buffer as the response
+        res.status(200).send(buffer);
+
+    } catch (error) {
+        console.error("Error generating Excel:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
-    W2W
+    W2W,
+    getServicePersonForStates
 }

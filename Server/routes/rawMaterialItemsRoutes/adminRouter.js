@@ -8,5 +8,7 @@ router.put("/activateEmployee", adminController.activateEmployee);
 router.post("/addItem", adminController.addItem);
 router.get("/showItems", adminController.showItems);
 router.post("/addWarehouse", adminController.addWarehouse);
+router.get("/showDefectiveItemsOfWarehouse", adminController.getDefectiveItemsForWarehouse);
+router.get("/showDefectiveItemsList", adminController.getDefectiveItemsListByWarehouse);
 
 module.exports = router;

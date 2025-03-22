@@ -4,5 +4,6 @@ const authController = require("../../controllers/rawMaterialItemsController/aut
 
 router.post("/signup", authController.addUser);
 router.post("/login", authController.login);
+router.post("/logout", authController.logout);
 
 module.exports = router;

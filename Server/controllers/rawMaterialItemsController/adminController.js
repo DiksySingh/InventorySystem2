@@ -1,5 +1,5 @@
 const prisma = require("../../config/prismaClient");
-
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const showEmployees = async (req, res) => {
     try {
         const allEmployees = await prisma.user.findMany({
@@ -16,7 +16,7 @@ const showEmployees = async (req, res) => {
             message: "Data Fetched Successfully",
             data: allEmployees || []
         })
-        
+
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -28,8 +28,8 @@ const showEmployees = async (req, res) => {
 
 const deactivateEmployee = async (req, res) => {
     try {
-        const {empId} = req.query;
-        if(!empId) {
+        const { empId } = req.query;
+        if (!empId) {
             return res.status(400).json({
                 success: false,
                 message: "EmpId is required"
@@ -42,7 +42,7 @@ const deactivateEmployee = async (req, res) => {
             }
         });
 
-        if(!existingEmployee) {
+        if (!existingEmployee) {
             return res.status(404).json({
                 success: false,
                 message: "Employee with empId doesn't exists"
@@ -81,8 +81,8 @@ const deactivateEmployee = async (req, res) => {
 
 const activateEmployee = async (req, res) => {
     try {
-        const {empId} = req.query;
-        if(!empId) {
+        const { empId } = req.query;
+        if (!empId) {
             return res.status(400).json({
                 success: false,
                 message: "EmpId is required"
@@ -95,7 +95,7 @@ const activateEmployee = async (req, res) => {
             }
         });
 
-        if(!existingEmployee) {
+        if (!existingEmployee) {
             return res.status(404).json({
                 success: false,
                 message: "Employee with empId doesn't exists"
@@ -254,11 +254,168 @@ const addWarehouse = async (req, res) => {
     }
 };
 
+const getDefectiveItemsForWarehouse = async (req, res) => {
+    try {
+        const warehouseName = "Bhiwani"; // Example warehouse name, can be dynamic if needed
+
+        const result = await WarehouseItems.aggregate([
+            {
+                $lookup: {
+                    from: "inWarehouses", // Name of the Warehouse collection in MongoDB
+                    localField: "warehouse",
+                    foreignField: "_id",
+                    as: "warehouseDetails",
+                },
+            },
+            { $unwind: "$warehouseDetails" }, // Unwind warehouse details array
+            { $match: { "warehouseDetails.warehouseName": warehouseName } }, // Match specific warehouse name
+            { $unwind: "$items" }, // Unwind items array to process individual items
+            {
+                $group: {
+                    _id: {
+                        $cond: [
+                            { $regexMatch: { input: "$items.itemName", regex: /motor/i } },
+                            "motor",
+                            {
+                                $cond: [
+                                    { $regexMatch: { input: "$items.itemName", regex: /pump/i } },
+                                    "pump",
+                                    {
+                                        $cond: [
+                                            { $regexMatch: { input: "$items.itemName", regex: /controller/i } },
+                                            "controller",
+                                            "others",
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    totalDefective: { $sum: "$items.defective" }, // Sum defective items
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalsByGroup: {
+                        $push: {
+                            item: {
+                                $concat: [
+                                    { $toUpper: { $substr: ["$_id", 0, 1] } }, // Capitalize first letter
+                                    { $toLower: { $substr: ["$_id", 1, { $strLenCP: "$_id" }] } }, // Rest in lowercase
+                                ],
+                            },
+                            defectiveCount: "$totalDefective",
+                        },
+                    },
+                    overallTotal: { $sum: "$totalDefective" }, // Calculate overall defective count
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    totalsByGroup: 1,
+                    overallTotal: 1,
+                },
+            },
+        ]);
+
+        // Handle case when no matching warehouse is found
+        if (result.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: `No defective items found for warehouse: ${warehouseName}`,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Defective items for warehouse: ${warehouseName}`,
+            data: result[0] || [], // Return the aggregated data
+        });
+    } catch (error) {
+        console.error("Error fetching defective items:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch defective items",
+            error: error.message,
+        });
+    }
+};
+
+const getDefectiveItemsListByWarehouse = async (req, res) => {
+    try {
+        const { itemName } = req.query; // Get warehouse and item names from query
+        const warehouseName = "Bhiwani";
+        if (!warehouseName || !itemName) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide both warehouseName and itemName to filter by.",
+            });
+        }
+
+        const items = await WarehouseItems.aggregate([
+            // Lookup to get warehouse details based on warehouse ID
+            {
+                $lookup: {
+                    from: "inWarehouses", // Collection name for warehouses in MongoDB
+                    localField: "warehouse",
+                    foreignField: "_id",
+                    as: "warehouseDetails",
+                },
+            },
+            { $unwind: "$warehouseDetails" }, // Unwind warehouse details to access fields
+            {
+                $match: {
+                    "warehouseDetails.warehouseName": warehouseName, // Filter by specific warehouse name
+                },
+            },
+            { $unwind: "$items" }, // Unwind items array to filter individual items
+            {
+                $match: {
+                    "items.itemName": { $regex: itemName, $options: "i" }, // Case-insensitive match for item name
+                },
+            },
+            {
+                $project: {
+                    itemName: "$items.itemName",
+                    // quantity: "$items.quantity",
+                    defective: "$items.defective",
+                    // repaired: "$items.repaired",
+                    // rejected: "$items.rejected",
+                },
+            },
+        ]);
+
+        if (items.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: `No items found matching '${itemName}' in warehouse '${warehouseName}'.`,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Items matching '${itemName}' in warehouse '${warehouseName}' found.`,
+            data: items || [],
+        });
+    } catch (error) {
+        console.error("Error fetching items:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch items.",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     showEmployees,
     deactivateEmployee,
     activateEmployee,
     addItem,
     showItems,
-    addWarehouse
+    addWarehouse,
+    getDefectiveItemsForWarehouse,
+    getDefectiveItemsListByWarehouse
 };

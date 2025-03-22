@@ -5,8 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "start:dev": "cross-env NODE_ENV=development node index.js",
-    "start:prod": "cross-env NODE_ENV=production node index.js",
+    "start:dev": "cross-env NODE_ENV=development nodemon index.js",
+    "start:prod": "cross-env NODE_ENV=production nodemon index.js",
     "migrate:local": "dotenv -e .env npx prisma migrate dev --name",
     "migrate:dev": "dotenv -e .env.development npx prisma migrate dev --name",
     "migrate:prod": "dotenv -e .env.production npx prisma migrate dev --name",
