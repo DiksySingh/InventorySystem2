@@ -132,7 +132,8 @@ const login = async (req, res) => {
 
 const logout = async (req, res) => {
     try {
-        const empId = req.user.id;
+        const empId = req.user?.id;
+        console.log(empId);
         if(!empId) {
             return res.status(400).json({
                 success: false,

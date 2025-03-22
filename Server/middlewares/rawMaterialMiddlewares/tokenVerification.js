@@ -1,21 +1,23 @@
 const jwt = require("jsonwebtoken");
 const prisma = require("../../config/prismaClient.js");
+const dotenv = require("dotenv");
+const envFile = process.env.NODE_ENV ? `.env.${process.env.NODE_ENV}` : '.env';
+dotenv.config({ path: envFile });
 
 module.exports.tokenVerification = (allowedRoles) => {
   return async (req, res, next) => {
     try {
       // Extract token from cookies or headers
       const token = req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
-
       if (!token) {
         return res.status(401).json({
           success: false,
           message: "No token provided",
         });
       }
-
       // Verify token
-      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, decoded) => {
+      jwt.verify(token, process.env.ACCESS_TOKEN_KEY, async (err, decoded) => {
+        console.log(err);
         if (err) {
           if (err.name === "TokenExpiredError") {
             return res.status(401).json({
@@ -39,7 +41,7 @@ module.exports.tokenVerification = (allowedRoles) => {
             // block: true,
             // district: true,
             // state: true,
-            // isActive: true,
+            isActive: true,
             //roleId: true,
             role: {
               select: { name: true } // Fetch role name
@@ -64,6 +66,7 @@ module.exports.tokenVerification = (allowedRoles) => {
 
         // Extract role name
         const userRole = user.role.name;
+        console.log(userRole);
 
         // Check if user role is allowed
         if (!allowedRoles.includes(userRole)) {
