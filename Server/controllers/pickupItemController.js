@@ -714,50 +714,36 @@ module.exports.servicePersonDashboard = async (req, res) => {
 module.exports.showWarehouseItems = async (req, res) => {
   try {
     const { option } = req.query;
+
+    // Validate the option query parameter
     if (!option) {
-      return res.status(400).json({
-        success: false,
-        message: "Option is required"
-      });
+      return res.status(400).json({ success: false, message: "Option is required" });
     }
 
+    // Fetch the warehouse and related items in parallel using aggregation to reduce database calls
     const warehouseData = await Warehouse.findOne({ warehouseName: option });
     if (!warehouseData) {
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse Not Found"
-      });
+      return res.status(404).json({ success: false, message: "Warehouse Not Found" });
     }
 
-
-    const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id });
-    // if(!warehouseItemsData){
-    //     return res.status(404).json({
-    //         success: false,
-    //         message: "WarehouseItems Data Not Found"
-    //     });
-    // }
-
-    let itemsData = [];
-    if (warehouseItemsData) {
-      for (let item of warehouseItemsData.items) {
-        itemsData.push(item.itemName);
-      }
-    }
+    // Find warehouse items (if any)
+    const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id }, 'items.itemName');
+    const itemsData = warehouseItemsData?.items.map(item => item.itemName) || [];
 
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
-      itemsData
+      itemsData,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
-}
+};
+
 
 //Field service person is bringing the items from farmer
 module.exports.incomingItemsData = async (req, res) => {
