@@ -414,19 +414,19 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
 
         for (const newItem of items) {
             let itemName = newItem.itemName.trim();
-            let itemRecord = await Item.findOne({ itemName: itemName });
+            // let itemRecord = await Item.findOne({ itemName: itemName });
 
-            if (!itemRecord) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Item Doesn't Exists"
-                });
-            } else {
-                itemRecord.stock = parseInt(itemRecord.stock) + parseInt(newItem.quantity);
-                itemRecord.defective = parseInt(itemRecord.defective) + parseInt(defective);
-                itemRecord.updatedAt = Date.now();
-                await itemRecord.save();
-            }
+            // if (!itemRecord) {
+            //     return res.status(400).json({
+            //         success: false,
+            //         message: "Item Doesn't Exists"
+            //     });
+            // } else {
+            //     itemRecord.stock = parseInt(itemRecord.stock) + parseInt(newItem.quantity);
+            //     itemRecord.defective = parseInt(itemRecord.defective) + parseInt(defective);
+            //     itemRecord.updatedAt = Date.now();
+            //     await itemRecord.save();
+            // }
 
             const existingItem = warehouseItemsRecord.items.find(item => item.itemName.toLowerCase().trim() === itemName.toLowerCase().trim());
 
