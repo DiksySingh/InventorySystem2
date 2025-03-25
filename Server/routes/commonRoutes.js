@@ -31,7 +31,7 @@ router.get("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for ite
 router.get("/export-outgoingItems-pdf", servicePersonRepairedHoldingItemsPDF);
 router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
-router.post("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
+router.get("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
 router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
 router.get("/delete-reports", deleteReport); //PDF Delete from Server

@@ -1270,7 +1270,7 @@ module.exports.updateServicePersonHoldingItems = async (req, res) => {
 module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
   try {
       // Fetch Data Where incoming = true and status = null
-      const pickupItems = await PickupItem.find({ incoming: false, status: null })
+      const pickupItems = await PickupItem.find({ incoming: true, status: null })
           .populate("servicePerson", "name contact") // Populate servicePerson
           .lean();
 
@@ -1313,7 +1313,7 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
                   FarmerName: farmerName,
                   FarmerContact: farmerContact,
                   To_Warehouse: item.warehouse,
-                  Status: "Not Approved By ServicePerson",
+                  Status: "Not Approved By Warehouse",
                   Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", "), // Format items list
                   Transaction_Date: item.pickupDate ? item.pickupDate.toISOString().split('T')[0] : ""
               };
@@ -1327,7 +1327,7 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
 
       // Set response headers
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=PendingOutgoingItems_Details.xlsx");
+      res.setHeader("Content-Disposition", "attachment; filename=PendingIncomingItems_Details.xlsx");
 
       // Generate Excel file buffer and send response
       const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
