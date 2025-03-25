@@ -74,7 +74,7 @@ module.exports.showWarehouses = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            data: allWarehouses,
+            allWarehouses,
         });
     } catch (error) {
         return res.status(500).json({
