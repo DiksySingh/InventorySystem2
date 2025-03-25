@@ -8,6 +8,8 @@ const {generateServicePersonTransactionPDF} = require("../helpers/generateServic
 const {generateWarehouseStockReportPDF} = require("../helpers/generateWarehouseStockReport");
 const {generateItemRepairRejectPDF} = require("../helpers/generateItemRepairRejectPDF");
 const {deleteReport} = require("../helpers/deleteReport");
+const {downloadActiveServicePersonsExcel} = require("../helpers/generateServicePersonData");
+const {generateDailyInDefectiveItems} = require("../helpers/generateSPDefectiveItemsToW");
 const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportPDF} = require("../helpers/generateReportPDF");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
 const router = require("express").Router();
@@ -31,5 +33,7 @@ router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  /
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
 router.post("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
+router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
 router.get("/delete-reports", deleteReport); //PDF Delete from Server
+router.get("/service-person-data", downloadActiveServicePersonsExcel);
 module.exports = router;

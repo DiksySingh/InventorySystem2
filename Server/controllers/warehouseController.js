@@ -18,6 +18,7 @@ const InstallationAssignEmp = require("../models/systemInventoryModels/installat
 const IncomingItemsAccount = require("../models/systemInventoryModels/incomingNewSystemItems");
 const NewSystemInstallation = require("../models/systemInventoryModels/newSystemInstallationSchema");
 const StockUpdateActivity = require("../models/systemInventoryModels/stockUpdateActivity");
+const StockHistory = require("../models/serviceInventoryModels/stockHistorySchema");
 
 //****************** Admin Access ******************//
 
@@ -391,6 +392,7 @@ module.exports.addWarehouseItems = async (req, res) => {
 module.exports.addWarehouseItemsStock = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
+        const empId = req.user._id;
         const { items, defective } = req.body;
         console.log(req.body);
 
@@ -436,6 +438,15 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
             } else {
                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(newItem.quantity);
                 existingItem.defective = parseInt(existingItem.defective) + parseInt(defective);
+
+                const stockHistory = new StockHistory({
+                    empId,
+                    warehouseId,
+                    itemName: existingItem.itemName,
+                    quantity: newItem.quantity,
+                    defective: defective
+                });
+                await stockHistory.save();
             }
         }
         await warehouseItemsRecord.save();
@@ -1990,9 +2001,9 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
 module.exports.filterServicePersonById = async (req, res) => {
     try {
         const { id } = req.query;
-        let employeeName = await ServicePerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+        let employeeName = await ServicePerson.findById({ _id: id }).select("-email -password -role -createdAt -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
         if (!employeeName) {
-            employeeName = await SurveyPerson.findById({ _id: id }).select("-_id -email -contact -password -role -createdAt -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
+            employeeName = await SurveyPerson.findById({ _id: id }).select("-email -password -role -createdAt -state -block -district -refreshToken -__v -createdAt -updatedAt -createdBy -updatedBy");
         }
         return res.status(200).json({
             success: true,
