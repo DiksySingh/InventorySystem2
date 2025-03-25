@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 
 module.exports.createSecretToken = (id, role) => {
     return jwt.sign({id, role}, process.env.ACCESS_TOKEN_KEY, {
-        expiresIn: 1 * 24 * 60 * 60
+        expiresIn: 5 * 24 * 60 * 60
     });
 };
 
