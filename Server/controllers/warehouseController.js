@@ -18,6 +18,7 @@ const InstallationAssignEmp = require("../models/systemInventoryModels/installat
 const IncomingItemsAccount = require("../models/systemInventoryModels/incomingNewSystemItems");
 const NewSystemInstallation = require("../models/systemInventoryModels/newSystemInstallationSchema");
 const StockUpdateActivity = require("../models/systemInventoryModels/stockUpdateActivity");
+const StockHistory = require("../models/serviceInventoryModels/stockHistorySchema");
 
 //****************** Admin Access ******************//
 
@@ -391,6 +392,7 @@ module.exports.addWarehouseItems = async (req, res) => {
 module.exports.addWarehouseItemsStock = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
+        const empId = req.user._id;
         const { items, defective } = req.body;
         console.log(req.body);
 
@@ -436,6 +438,15 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
             } else {
                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(newItem.quantity);
                 existingItem.defective = parseInt(existingItem.defective) + parseInt(defective);
+
+                const stockHistory = new StockHistory({
+                    empId,
+                    warehouseId,
+                    itemName: existingItem.itemName,
+                    quantity: newItem.quantity,
+                    defective: defective
+                });
+                await stockHistory.save();
             }
         }
         await warehouseItemsRecord.save();
