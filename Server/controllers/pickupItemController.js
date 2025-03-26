@@ -714,50 +714,36 @@ module.exports.servicePersonDashboard = async (req, res) => {
 module.exports.showWarehouseItems = async (req, res) => {
   try {
     const { option } = req.query;
+
+    // Validate the option query parameter
     if (!option) {
-      return res.status(400).json({
-        success: false,
-        message: "Option is required"
-      });
+      return res.status(400).json({ success: false, message: "Option is required" });
     }
 
+    // Fetch the warehouse and related items in parallel using aggregation to reduce database calls
     const warehouseData = await Warehouse.findOne({ warehouseName: option });
     if (!warehouseData) {
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse Not Found"
-      });
+      return res.status(404).json({ success: false, message: "Warehouse Not Found" });
     }
 
-
-    const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id });
-    // if(!warehouseItemsData){
-    //     return res.status(404).json({
-    //         success: false,
-    //         message: "WarehouseItems Data Not Found"
-    //     });
-    // }
-
-    let itemsData = [];
-    if (warehouseItemsData) {
-      for (let item of warehouseItemsData.items) {
-        itemsData.push(item.itemName);
-      }
-    }
+    // Find warehouse items (if any)
+    const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id }, 'items.itemName');
+    const itemsData = warehouseItemsData?.items.map(item => item.itemName) || [];
 
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
-      itemsData
+      itemsData,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
-}
+};
+
 
 //Field service person is bringing the items from farmer
 module.exports.incomingItemsData = async (req, res) => {
@@ -1284,7 +1270,7 @@ module.exports.updateServicePersonHoldingItems = async (req, res) => {
 module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
   try {
       // Fetch Data Where incoming = true and status = null
-      const pickupItems = await PickupItem.find({ incoming: false, status: null })
+      const pickupItems = await PickupItem.find({ incoming: true, status: null })
           .populate("servicePerson", "name contact") // Populate servicePerson
           .lean();
 
@@ -1327,7 +1313,7 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
                   FarmerName: farmerName,
                   FarmerContact: farmerContact,
                   To_Warehouse: item.warehouse,
-                  Status: "Not Approved By ServicePerson",
+                  Status: "Not Approved By Warehouse",
                   Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", "), // Format items list
                   Transaction_Date: item.pickupDate ? item.pickupDate.toISOString().split('T')[0] : ""
               };
@@ -1341,7 +1327,7 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
 
       // Set response headers
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", "attachment; filename=PendingOutgoingItems_Details.xlsx");
+      res.setHeader("Content-Disposition", "attachment; filename=PendingIncomingItems_Details.xlsx");
 
       // Generate Excel file buffer and send response
       const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });

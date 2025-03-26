@@ -5,6 +5,7 @@ const {
     servicePersonBlockData, 
     showWarehousePersons, 
     showIncomingItemsFromFarmer, 
+    showWarehouses
 } = require("../controllers/warehouseController");
 const { 
     getServicePersonContacts,
@@ -26,5 +27,6 @@ router.post("/generate-installation-pdf", generateInstallationPDF);
 router.get("/service-person-contacts", getServicePersonContacts);
 router.get("/warehouse-person-contacts", getWarehousePersonContacts);
 router.get("/field-person-name", allFieldPersonData);
+router.get("/show-warehouses", showWarehouses);
 
 module.exports = router;

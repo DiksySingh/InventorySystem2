@@ -63,22 +63,24 @@ module.exports.addWarehouse = async (req, res) => {
 module.exports.showWarehouses = async (req, res) => {
     try {
         const allWarehouses = await Warehouse.find().select("-__v -createdAt");
-        if (!allWarehouses) {
+
+        if (allWarehouses.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: "Warehouses Not Found"
+                message: "No Warehouses Found",
             });
         }
+
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            allWarehouses
+            allWarehouses,
         });
     } catch (error) {
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
-            error: error.message
+            error: error.message,
         });
     }
 };

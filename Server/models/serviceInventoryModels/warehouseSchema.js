@@ -6,6 +6,12 @@ const warehouseSchema = new Schema({
         type: String,
         required: true
     },
+    latitude: {
+        type: String
+    },
+    longitude: {
+        type: String
+    },
     createdAt: {
         type: Date,
         default: Date.now

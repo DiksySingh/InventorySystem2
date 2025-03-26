@@ -10,6 +10,7 @@ const {generateItemRepairRejectPDF} = require("../helpers/generateItemRepairReje
 const {deleteReport} = require("../helpers/deleteReport");
 const {downloadActiveServicePersonsExcel} = require("../helpers/generateServicePersonData");
 const {generateDailyInDefectiveItems} = require("../helpers/generateSPDefectiveItemsToW");
+const {exportToExcel} = require("../helpers/generateMHReport");
 const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportPDF} = require("../helpers/generateReportPDF");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
 const router = require("express").Router();
@@ -31,9 +32,10 @@ router.get("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for ite
 router.get("/export-outgoingItems-pdf", servicePersonRepairedHoldingItemsPDF);
 router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
-router.post("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
+router.get("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
 router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
 router.get("/delete-reports", deleteReport); //PDF Delete from Server
 router.get("/service-person-data", downloadActiveServicePersonsExcel);
+router.get("/get-mh-report", exportToExcel);
 module.exports = router;
