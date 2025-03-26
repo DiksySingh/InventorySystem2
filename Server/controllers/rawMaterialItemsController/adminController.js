@@ -202,6 +202,25 @@ const showItems = async (req, res) => {
     }
 };
 
+const rawMaterial = async (req, res) => {
+    try {
+        const {rawMaterialName} = req.body;
+        if(!rawMaterialName) {
+            return res.status(400).json({
+                success: false,
+                message: "rawMaterialName is required"
+            });
+        }
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        })
+    }
+}
+
 const addWarehouse = async (req, res) => {
     try {
         const { name, state } = req.body;
