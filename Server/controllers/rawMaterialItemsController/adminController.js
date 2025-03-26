@@ -202,7 +202,7 @@ const showItems = async (req, res) => {
     }
 };
 
-const rawMaterial = async (req, res) => {
+const addRawMaterial = async (req, res) => {
     try {
         const {rawMaterialName} = req.body;
         if(!rawMaterialName) {
@@ -211,6 +211,33 @@ const rawMaterial = async (req, res) => {
                 message: "rawMaterialName is required"
             });
         }
+
+        const name = rawMaterialName.trim(); // Trim only once
+
+        // Check if item already exists
+        const existingItem = await prisma.rawMaterial.findUnique({
+            where: { name }
+        });
+
+        if (existingItem) {
+            return res.status(400).json({
+                success: false,
+                message: "RawMaterial Already Exists"
+            });
+        }
+
+        const addRawMaterial = await prisma.rawMaterial.create({
+            data: {
+                name: rawMaterialName,
+                stock: 0
+            }
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "Raw-Material Added Successfully",
+            data: addRawMaterial
+        });
         
     } catch (error) {
         return res.status(500).json({
@@ -433,6 +460,7 @@ module.exports = {
     deactivateEmployee,
     activateEmployee,
     addItem,
+    addRawMaterial,
     showItems,
     addWarehouse,
     getDefectiveItemsForWarehouse,
