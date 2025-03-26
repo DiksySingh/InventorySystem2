@@ -30,6 +30,7 @@ model User {
 
   role         Role? @relation(fields: [roleId], references: [id])
   services     ServiceRecord[]  // Services performed by this user
+  stockMovements StockMovement[] //Stock Update performed by this user
 }
 
 model Role {
@@ -88,13 +89,15 @@ model ItemRawMaterial {
 
 model StockMovement {
   id              String   @id @default(uuid())
+  userId          String?
   rawMaterialId   String?
   warehouseId     String?
   quantity        Int?
   type            String?   // "IN" (new stock) or "OUT" (used)
-  timestamp       DateTime @default(now())
+  updatedAt       DateTime @default(now())
 
   rawMaterial     RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  user            User?       @relation(fields: [userId], references: [id])
   warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
 }
 
