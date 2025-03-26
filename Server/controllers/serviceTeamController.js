@@ -1,6 +1,7 @@
 const WarehousePerson = require("../models/serviceInventoryModels/warehousePersonSchema");
 const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
 const SurveyPerson = require("../models/serviceInventoryModels/surveyPersonSchema");
+const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
 
 module.exports.getServicePersonContacts = async (req, res) => {
     try {
@@ -137,4 +138,34 @@ module.exports.allFieldPersonData = async (req, res) => {
         });
     }
 };
+
+module.exports.showAllWarehouses = async (req, res) => {
+    try {
+        // Query warehouses that have non-null latitude and longitude values
+        const allWarehouses = await Warehouse.find({
+            latitude: { $exists: true, $ne: null, $ne:"" },
+            longitude: { $exists: true, $ne: null, $ne: "" },
+        }).select("-__v -createdAt");
+
+        if (allWarehouses.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No Warehouses Found",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            allWarehouses,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
 
