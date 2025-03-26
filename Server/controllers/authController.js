@@ -413,6 +413,7 @@ module.exports.Login = async (req, res) => {
         message: `Logged in successfully`,
         id: user._id,
         email: user.email,
+        contact: user.contact,
         block: user.block || [],
         latitude: user.latitude || null,
         longitude: user.longitude || null,
