@@ -5,13 +5,13 @@ const {
     servicePersonBlockData, 
     showWarehousePersons, 
     showIncomingItemsFromFarmer, 
-    showWarehouses
 } = require("../controllers/warehouseController");
 const { 
     getServicePersonContacts,
     getWarehousePersonContacts,
     getServicePersonData,
-    allFieldPersonData
+    allFieldPersonData,
+    showAllWarehouses
 } = require("../controllers/serviceTeamController");
 const {generateInstallationPDF} = require("../helpers/generateInstallationPDF");
 const router = require("express").Router();
@@ -27,6 +27,6 @@ router.post("/generate-installation-pdf", generateInstallationPDF);
 router.get("/service-person-contacts", getServicePersonContacts);
 router.get("/warehouse-person-contacts", getWarehousePersonContacts);
 router.get("/field-person-name", allFieldPersonData);
-router.get("/show-warehouses", showWarehouses);
+router.get("/show-warehouses", showAllWarehouses);
 
 module.exports = router;
