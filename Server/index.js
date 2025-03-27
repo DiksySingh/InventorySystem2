@@ -1,12 +1,12 @@
 const dotenv = require('dotenv');
+dotenv.config();
+const cookieParser = require("cookie-parser");
 const express = require("express");
 const app = express();
 const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
-const cookieParser = require("cookie-parser");
-const envFile = process.env.NODE_ENV === 'development' ? '.env.development' : process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
-dotenv.config({ path: path.resolve(__dirname, envFile) });
+
 // MongoDB - Service Inventory Management System Routes
 const authRoute = require("./routes/authRoute");
 const adminRoute = require("./routes/adminRoutes");
@@ -14,7 +14,6 @@ const commonRoute = require("./routes/commonRoutes");
 const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
-// const prisma = require('./config/prismaClient');
 
 /* MySQL - Raw Material Management System Routes */
 const authRouter = require("./routes/rawMaterialItemsRoutes/authRouter");
@@ -24,6 +23,25 @@ const testRouter = require("./routes/test");
 // Load environment variables
 const URI = process.env.MONGODB_URL;
 const PORT = process.env.PORT || 8001; 
+
+let databaseUrl;
+switch (process.env.NODE_ENV) {
+  case 'local':
+    databaseUrl = process.env.DATABASE_URL_LOCAL;
+    break;
+  case 'development':
+    databaseUrl = process.env.DATABASE_URL_DEVELOPMENT;
+    break;
+  case 'production':
+    databaseUrl = process.env.DATABASE_URL_PRODUCTION;
+    break;
+  default:
+    console.error('Invalid NODE_ENV! Please set NODE_ENV to local, development, or production.');
+    process.exit(1);
+}
+
+console.log(`Server running in ${process.env.NODE_ENV} mode`);
+console.log(`Using Database URL: ${databaseUrl}`);
 
 // MongoDB connection
 main()

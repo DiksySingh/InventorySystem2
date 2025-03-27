@@ -4,15 +4,20 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js",
-    "start:dev": "cross-env NODE_ENV=development nodemon index.js",
-    "start:prod": "cross-env NODE_ENV=production nodemon index.js",
-    "migrate:local": "dotenv -e .env npx prisma migrate dev --name",
-    "migrate:dev": "dotenv -e .env.development npx prisma migrate dev --name $npm_config_name",
-    "migrate:prod": "dotenv -e .env.production npx prisma migrate dev --name $npm_config_name",
-    "generate:local": "dotenv -e .env npx prisma generate",
-    "generate:dev": "dotenv -e .env.development npx prisma generate",
-    "generate:prod": "dotenv -e .env.production npx prisma generate",
+    "start:local": "cross-env NODE_ENV=local DATABASE_URL=$DATABASE_URL_LOCAL nodemon server.js",
+    "start:dev": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_DEVELOPMENT nodemon server.js",
+    "start:prod": "cross-env NODE_ENV=production DATABASE_URL=$DATABASE_URL_PRODUCTION node server.js",
+
+    "migrate:local": "cross-env NODE_ENV=local DATABASE_URL=$DATABASE_URL_LOCAL npx prisma migrate dev --name",
+    "migrate:dev": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_DEVELOPMENT npx prisma migrate dev --name",
+    "migrate:prod": "cross-env NODE_ENV=production DATABASE_URL=$DATABASE_URL_PRODUCTION npx prisma migrate dev --name",
+    "deploy:dev": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_DEVELOPMENT npx prisma migrate deploy",
+    "deploy:prod": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_PRODUCTION npx prisma migrate deploy",
+    
+
+    "generate:local": "cross-env NODE_ENV=local DATABASE_URL=$DATABASE_URL_LOCAL npx prisma generate",
+    "generate:dev": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_DEVELOPMENT npx prisma generate",
+    "generate:prod": "cross-env NODE_ENV=production DATABASE_URL=$DATABASE_URL_PRODUCTION npx prisma generate",
     "seed:dev": "env-cmd -f .env.development npx prisma db seed",
     "seed:prod": "env-cmd -f .env.production npx prisma db seed"
   },
