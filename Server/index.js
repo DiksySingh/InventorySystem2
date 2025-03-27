@@ -27,7 +27,7 @@ const MONGODB_URL = process.env.MONGODB_URL;
 const PORT = process.env.PORT || 8001;
 
 // console.log(`Server running in ${process.env.NODE_ENV || 'local'} mode`);
-console.log(`Using Database URL: ${process.env.DATABASE_URL}`);
+// console.log(`Using Database URL: ${process.env.DATABASE_URL}`);
 
 // MongoDB connection
 mongoose.connect(MONGODB_URL, {
