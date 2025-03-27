@@ -1,4 +1,8 @@
 const prisma = require("../../config/prismaClient");
+const xlsx = require('xlsx');
+const multer = require('multer');
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 const addRole = async(req, res) => {
     try {
@@ -101,8 +105,55 @@ const deleteRole = async (req, res) => {
     }
 };
 
+const addItemRawMaterialFromExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "Please upload an Excel file."
+            });
+        }
+
+        // Read Excel file from buffer using xlsx
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0]; // Get the first sheet
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        // Iterate through each row and upsert data into Prisma's ItemRawMaterial model
+        for (const row of sheetData) {
+            const { itemId, rawMaterialId, quantity } = row;
+
+            if (!itemId || !rawMaterialId || quantity == null) {
+                console.warn(`Skipping row due to missing required fields:`, row);
+                continue; // Skip rows with missing fields
+            }
+
+            // Upsert: Insert new or update existing entry
+            await prisma.itemRawMaterial.upsert({
+                where: { itemId_rawMaterialId: { itemId, rawMaterialId } },
+                update: { quantity },
+                create: { itemId, rawMaterialId, quantity },
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Data from Excel successfully inserted or updated.",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
+
 module.exports = {
     addRole,
     showRole, 
-    deleteRole
+    deleteRole,
+    addItemRawMaterialFromExcel,
+    upload 
 };

@@ -56,7 +56,7 @@ model Item {
 model RawMaterial {
   id                  String               @id @default(uuid())
   name                String?              @unique
-  stock               Int?
+  stock               Float?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   ItemRawMaterial     ItemRawMaterial[]
@@ -69,7 +69,7 @@ model ItemRawMaterial {
   id            String       @id @default(uuid())
   itemId        String?
   rawMaterialId String?
-  quantity      Int?
+  quantity      Float?
   item          Item?        @relation(fields: [itemId], references: [id])
   rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
@@ -82,7 +82,7 @@ model StockMovement {
   rawMaterialId String?
   userId        String?
   warehouseId   String?
-  quantity      Int?
+  quantity      Float?
   type          String?
   timestamp     DateTime     @default(now())
   rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
@@ -97,7 +97,7 @@ model ManufacturingUsage {
   id                String       @id @default(uuid())
   itemId            String?
   rawMaterialId     String?
-  quantityUsed      Int?
+  quantityUsed      Float?
   manufacturingDate DateTime     @default(now())
   item              Item?        @relation(fields: [itemId], references: [id])
   rawMaterial       RawMaterial? @relation(fields: [rawMaterialId], references: [id])
@@ -126,7 +126,7 @@ model ServiceUsage {
   id            String         @id @default(uuid())
   serviceId     String?
   rawMaterialId String?
-  quantityUsed  Int?
+  quantityUsed  Float?
   rawMaterial   RawMaterial?   @relation(fields: [rawMaterialId], references: [id])
   service       ServiceRecord? @relation(fields: [serviceId], references: [id])
 
