@@ -11,6 +11,7 @@
     "migrate:local": "cross-env NODE_ENV=local DATABASE_URL=$DATABASE_URL_LOCAL npx prisma migrate dev --name",
     "migrate:dev": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_DEVELOPMENT npx prisma migrate dev --name",
     "migrate:prod": "cross-env NODE_ENV=production DATABASE_URL=$DATABASE_URL_PRODUCTION npx prisma migrate dev --name",
+    "prisma:push": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_DEVELOPMENT npx prisma db push",
     "deploy:dev": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_DEVELOPMENT npx prisma migrate deploy",
     "deploy:prod": "cross-env NODE_ENV=development DATABASE_URL=$DATABASE_URL_PRODUCTION npx prisma migrate deploy",
     
