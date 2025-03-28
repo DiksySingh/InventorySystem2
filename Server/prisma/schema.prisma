@@ -21,8 +21,8 @@ model User {
   refreshToken String?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @default(now()) @updatedAt
-  services     ServiceRecord[]
   stocks       StockMovement[]
+  services     ServiceRecord[] // One-to-Many relationship with ServiceRecord
   role         Role?           @relation(fields: [roleId], references: [id])
 
   @@index([roleId], map: "User_roleId_fkey")
@@ -50,7 +50,6 @@ model Item {
   updatedAt          DateTime             @updatedAt
   rawMaterials       ItemRawMaterial[]
   manufacturingUsage ManufacturingUsage[]
-  serviceRecords     ServiceRecord[]
 }
 
 model RawMaterial {
@@ -107,34 +106,46 @@ model ManufacturingUsage {
 }
 
 model ServiceRecord {
-  id            String         @id @default(uuid())
-  itemId        String?
-  userId        String?
-  repairedBy    String?
-  servicedAt    DateTime       @default(now())
-  status        String?
-  remark        String?
-  item          Item?          @relation(fields: [itemId], references: [id])
-  user          User?          @relation(fields: [userId], references: [id])
-  serviceUsages ServiceUsage[]
+  id              String         @id @default(uuid()) // Unique Service Record ID
+  item            String?        // Main item being repaired (e.g., motor)  //Motor
+  subItem         String?        // Sub-item (e.g., capacitor, fuse) //MOTOR 10HP AC 380V
+  quantity        Float?         // Quantity of items handled    //1
+  serialNumber    String?        // Serial number of the serviced item //ABCB1234
+  faultAnalysis   String?        // Description of the fault or issue found  //Stamp Damaged
+  isRepaired      Boolean?       // Whether the main item was fixed //true
+  repairedBy      String?        // Name of the technician //Shiv
+  remarks         String?        // Additional repair notes // Deffective Items
+  repairedParts   Json?          // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
 
-  @@index([itemId], map: "ServiceRecord_itemId_fkey")
-  @@index([userId], map: "ServiceRecord_userId_fkey")
+  userId          String         // User who created the record (foreign key)
+  user            User           @relation(fields: [userId], references: [id])  // Relationship to User model
+
+  servicedAt      DateTime       @default(now())                           // Service date
+  updatedAt       DateTime       @updatedAt                                // Automatically updated timestamp
+  
+  serviceUsages   ServiceUsage[]                                           // Relationship to parts usage
+
+  @@index([serialNumber], map: "ServiceRecord_serialNumber_idx")           // Index on serialNumber for fast lookups
+  @@index([userId], map: "ServiceRecord_userId_idx")                       // Index on userId for efficient queries
 }
 
 model ServiceUsage {
-  id            String         @id @default(uuid())
-  serviceId     String?
-  rawMaterialId String?
-  quantityUsed  Float?
-  rawMaterial   RawMaterial?   @relation(fields: [rawMaterialId], references: [id])
-  service       ServiceRecord? @relation(fields: [serviceId], references: [id])
+  id            String         @id @default(uuid())               // Unique ID
+  serviceId     String         // Foreign key to ServiceRecord (One-to-Many)
+  rawMaterialId String?        // Material/part used
+  quantityUsed  Float?         // Quantity used in this service
+  // isRepaired    Boolean?       // Indicates if the part was repaired/replaced
+  // remarks       String?        // Additional notes for this part usage
 
-  @@index([rawMaterialId], map: "ServiceUsage_rawMaterialId_fkey")
-  @@index([serviceId], map: "ServiceUsage_serviceId_fkey")
+  // Relationships
+  rawMaterial   RawMaterial?   @relation(fields: [rawMaterialId], references: [id]) // Part reference
+  service       ServiceRecord?  @relation(fields: [serviceId], references: [id])    // Linked service record
+
+  // Timestamps
+  createdAt     DateTime       @default(now())                     // Record creation time
+  updatedAt     DateTime       @updatedAt                         // Last modification time
+
+  @@index([serviceId], map: "ServiceUsage_serviceId_fkey")        // Index for service lookups
+  @@index([rawMaterialId], map: "ServiceUsage_rawMaterialId_fkey")// Index for material lookups
 }
 
-model Test {
-  id   String  @id @default(uuid())
-  name String?
-}
