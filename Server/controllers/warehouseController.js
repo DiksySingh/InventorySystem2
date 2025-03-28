@@ -2202,50 +2202,75 @@ module.exports.showAllSystemInstallation = async (req, res) => {
     }
 };
 
-module.exports.deductFromDefectiveOfItems = async(req, res) => {
+module.exports.deductFromDefectiveOfItems = async (req, res) => {
     try {
-        const {itemName, quantity, isRepaired} = req.query;
-        if(!itemName || !quantity) {
-            return res.status(400).json({
-                success: false,
-                message: "itemName & quantity is required"
-            });
-        }
-        const warehouseId = '67446a8b27dae6f7f4d985dd';
-        const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseId});
-        if(!warehouseItemsData) {
-            return res.status(404).json({
-                success: false,
-                message: "Warehouse Items Data Not Found"
-            });
-        }
-
-        const itemsData = warehouseItemsData.items;
-
-        const existingItem = itemsData.map((item) => item.itemName === itemName)
-        if(!existingItem) {
-            return res.status(404).json({
-                success: false,
-                message: "Item Not Found In Warehouse"
-            });
-        }
-        if(isRepaired) {
-            existingItem.defective = parseInt(existingItem.defective) - parseInt(quantity);
-            existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
-        } else {
-            existingItem.defective = parseInt(existingItem.defective) - parseInt(quantity);
-        }
-
-        await warehouseItemsData.save();
-        return res.status(201).json({
-            success: false,
-            message: "Item Defective Updated Successfully"
+      const { itemName, quantity, isRepaired } = req.query;
+  
+      // Validate required fields
+      if (!itemName || !quantity) {
+        return res.status(400).json({
+          success: false,
+          message: "itemName & quantity are required",
         });
+      }
+  
+      const warehouseId = "67446a8b27dae6f7f4d985dd";
+  
+      // Find the warehouse items data by warehouseId
+      const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseId });
+  
+      if (!warehouseItemsData) {
+        return res.status(404).json({
+          success: false,
+          message: "Warehouse Items Data Not Found",
+        });
+      }
+  
+      // Check if itemName exists in the warehouse items
+      const itemIndex = warehouseItemsData.items.findIndex((item) => item.itemName === itemName);
+  
+      if (itemIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: "Item Not Found In Warehouse",
+        });
+      }
+  
+      // Get the item based on the found index
+      const itemToUpdate = warehouseItemsData.items[itemIndex];
+  
+      // Parse the quantity to be deducted
+      const quantityToUpdate = parseInt(quantity);
+  
+      // Check if defective stock is enough before reducing
+      if (itemToUpdate.defective < quantityToUpdate) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient defective stock. Available defective stock: ${itemToUpdate.defective}`,
+        });
+      }
+  
+      // Update quantities based on the isRepaired flag
+      if (isRepaired === "true") {
+        itemToUpdate.defective -= quantityToUpdate;
+        itemToUpdate.quantity += quantityToUpdate;
+      } else {
+        itemToUpdate.defective -= quantityToUpdate;
+      }
+  
+      // Save the updated warehouse items data
+      await warehouseItemsData.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: "Item defective count updated successfully",
+      });
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        error: error.message,
+      });
     }
-};
+  };
+  
