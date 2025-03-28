@@ -572,13 +572,13 @@ const updateRawMaterialStock = async (req, res) => {
                 },
                 user: userId
                     ? {
-                          connect: { id: userId }, // Connects to existing user if provided
-                      }
+                        connect: { id: userId }, // Connects to existing user if provided
+                    }
                     : undefined,
                 warehouse: warehouseId
                     ? {
-                          connect: { id: warehouseId }, // Connects to existing warehouse if provided
-                      }
+                        connect: { id: warehouseId }, // Connects to existing warehouse if provided
+                    }
                     : undefined,
                 quantity,
                 type
@@ -751,6 +751,88 @@ const getRawMaterialsByItemId = async (req, res) => {
     }
 };
 
+const addServiceRecord = async (req, res) => {
+    try {
+        const {
+            item,
+            subItem,
+            quantity,
+            serialNumber,
+            faultAnalysis,
+            isRepaired,
+            repairedBy,
+            remarks,
+            repairedParts, // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
+            userId,
+        } = req.body;
+
+        const serviceRecord = await prisma.serviceRecord.create({
+            data: {
+                item,
+                subItem,
+                quantity,
+                serialNumber,
+                faultAnalysis,
+                isRepaired,
+                repairedBy,
+                remarks,
+                repairedParts,
+                userId,
+            },
+        });
+
+        for (const part of repairedParts) {
+            const { rawMaterialId, quantity } = part;
+
+            await prisma.serviceUsage.create({
+                data: {
+                    serviceId: serviceRecord.id,
+                    rawMaterialId,
+                    quantityUsed: quantity,
+                },
+            });
+
+            const rawMaterial = await prisma.rawMaterial.findUnique({
+                where: { id: rawMaterialId },
+            });
+
+            if (rawMaterial) {
+                if (isRepaired) {
+                    await prisma.rawMaterial.update({
+                        where: { id: rawMaterialId },
+                        data: { stock: rawMaterial.stock - quantity },
+                    });
+                } else {
+                    await prisma.rawMaterial.update({
+                        where: { id: rawMaterialId },
+                        data: { stock: rawMaterial.stock + quantity },
+                    });
+                }
+            }
+        }
+
+        try {
+            const response = await axios.post(`http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`);
+            console.log('API Response:', response.data); // Log the API response
+        } catch (apiError) {
+            console.error('Error calling defective stock API:', apiError.message);
+        }
+
+        // Return success response
+        return res.status(201).json({
+            success: true,
+            message: 'Service record created successfully!',
+            serviceRecord,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create service record',
+            error: error.message,
+        });
+    }
+};
 
 module.exports = {
     showEmployees,
@@ -767,5 +849,6 @@ module.exports = {
     getItemsByName,
     getRawMaterialsByItemId,
     getDefectiveItemsForWarehouse,
-    getDefectiveItemsListByWarehouse
+    getDefectiveItemsListByWarehouse,
+    addServiceRecord
 };
