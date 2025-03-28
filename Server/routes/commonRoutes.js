@@ -1,5 +1,6 @@
 const {updateLatitudeLongitude, addServicePersonState} = require("../controllers/servicePersonController");
 const {addIsActiveField} = require("../controllers/authController");
+const {deductFromDefectiveOfItems} = require("../controllers/warehouseController");
 const {generateJoiningFormPDF} = require("../helpers/generateJoiningFormPDF");
 const {generateIncomingItemsPDF} = require("../helpers/generateIncomingItemsPDF");
 const {servicePersonRepairedHoldingItemsPDF} = require("../helpers/servicePersonRepairedItemsAccount");
@@ -38,4 +39,5 @@ router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
 router.get("/delete-reports", deleteReport); //PDF Delete from Server
 router.get("/service-person-data", downloadActiveServicePersonsExcel);
 router.get("/get-mh-report", exportToExcel);
+router.post("/update-item-defective", deductFromDefectiveOfItems);
 module.exports = router;
