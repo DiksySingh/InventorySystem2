@@ -2202,4 +2202,50 @@ module.exports.showAllSystemInstallation = async (req, res) => {
     }
 };
 
+module.exports.deductFromDefectiveOfItems = async(req, res) => {
+    try {
+        const {itemName, quantity, isRepaired} = req.query;
+        if(!itemName || !quantity) {
+            return res.status(400).json({
+                success: false,
+                message: "itemName & quantity is required"
+            });
+        }
+        const warehouseId = '67446a8b27dae6f7f4d985dd';
+        const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseId});
+        if(!warehouseItemsData) {
+            return res.status(404).json({
+                success: false,
+                message: "Warehouse Items Data Not Found"
+            });
+        }
 
+        const itemsData = warehouseItemsData.items;
+
+        const existingItem = itemsData.map((item) => item.itemName === itemName)
+        if(!existingItem) {
+            return res.status(404).json({
+                success: false,
+                message: "Item Not Found In Warehouse"
+            });
+        }
+        if(isRepaired) {
+            existingItem.defective = parseInt(existingItem.defective) - parseInt(quantity);
+            existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
+        } else {
+            existingItem.defective = parseInt(existingItem.defective) - parseInt(quantity);
+        }
+
+        await warehouseItemsData.save();
+        return res.status(201).json({
+            success: false,
+            message: "Item Defective Updated Successfully"
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
