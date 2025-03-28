@@ -17,5 +17,6 @@ router.get("/showDefectiveItemsOfWarehouse", adminController.getDefectiveItemsFo
 router.get("/showDefectiveItemsList", adminController.getDefectiveItemsListByWarehouse);
 router.get("/getItemsByName", adminController.getItemsByName);
 router.get("/getRawMaterialsByItemId", adminController.getRawMaterialsByItemId);
+router.post("/addServiceRecord", adminController.addServiceRecord);
 
 module.exports = router;
