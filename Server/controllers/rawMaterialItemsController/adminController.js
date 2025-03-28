@@ -510,11 +510,9 @@ const showRawMaterials = async (req, res) => {
     }
 }
 
-
-
 const updateRawMaterialStock = async (req, res) => {
     const { rawMaterialId, userId, warehouseId, quantity, type } = req.body;
-    //const userId = req.user.id;
+
     try {
         if (!rawMaterialId || !quantity || !type) {
             return res.status(400).json({
@@ -534,7 +532,7 @@ const updateRawMaterialStock = async (req, res) => {
             });
         }
 
-        // Step 3: Calculate updated stock based on type ("IN" or "OUT")
+        // Calculate updated stock based on type ("IN" or "OUT")
         let updatedStock;
         if (type === "IN") {
             updatedStock = (rawMaterial.stock || 0) + quantity;
@@ -553,23 +551,41 @@ const updateRawMaterialStock = async (req, res) => {
             });
         }
 
+        // Update the raw material's stock
         await prisma.rawMaterial.update({
             where: { id: rawMaterialId },
             data: { stock: updatedStock },
         });
 
+        if (userId) {
+            const userExists = await prisma.user.findUnique({ where: { id: userId } });
+            if (!userExists) {
+                return res.status(404).json({ success: false, message: "User not found" });
+            }
+        }
+
+        // Create stock movement with nested relation syntax
         const stockMovement = await prisma.stockMovement.create({
             data: {
-                rawMaterialId,
-                userId: userId || null,
-                warehouseId: warehouseId || null, // Optional warehouse tracking
+                rawMaterial: {
+                    connect: { id: rawMaterialId }, // Connects to existing rawMaterial
+                },
+                user: userId
+                    ? {
+                          connect: { id: userId }, // Connects to existing user if provided
+                      }
+                    : undefined,
+                warehouse: warehouseId
+                    ? {
+                          connect: { id: warehouseId }, // Connects to existing warehouse if provided
+                      }
+                    : undefined,
                 quantity,
-                type,
-                updatedAt: new Date(),
+                type
             },
         });
 
-        // Step 6: Return success response
+        // Return success response
         return res.status(201).json({
             success: true,
             message: "Stock updated successfully and stock movement entry created.",
@@ -584,6 +600,7 @@ const updateRawMaterialStock = async (req, res) => {
         });
     }
 };
+
 
 const deleteAllRawMaterials = async (req, res) => {
     try {
