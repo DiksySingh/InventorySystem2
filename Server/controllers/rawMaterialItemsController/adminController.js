@@ -1,5 +1,6 @@
 const prisma = require("../../config/prismaClient");
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
+const axios = require("axios");
 
 const getDefectiveItemsForWarehouse = async (req, res) => {
     try {
