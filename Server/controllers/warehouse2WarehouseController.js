@@ -2,91 +2,82 @@ const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema
 const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
 const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
 
-module.exports.sendingDefectiveItems = async(req, res) => {
-    try{
-        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate} = req.body;
-        if(!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate){
+module.exports.sendingDefectiveItems = async (req, res) => {
+    try {
+        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate } = req.body;
+
+        if (!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
+
         if (!Array.isArray(items) || items.length === 0) {
             return res.status(400).json({
-              success: false,
-              message: "Items must be a non-empty array",
+                success: false,
+                message: "Items must be a non-empty array",
             });
-        } 
-        if(isDefective === true){
-            const warehouseData = await Warehouse.findOne({warehouseName: fromWarehouse});
-            const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
-
-            const toWarehouseData = await Warehouse.findOne({warehouseName: toWarehouse});
-            const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
-            if(!toWarehouseItemsData){
-                return res.status(404).json({
-                    success: false,
-                    message: `To: ${toWarehouseData.warehouseName} Items Data Not Found`
-                });
-            }
-            
-            for(let item of items){
-                let itemName = item.itemName;
-                let quantity = item.quantity;
-
-                const toWarehouseItem = toWarehouseItemsData.items.find(i => itemName === i.itemName);
-                if(!toWarehouseItem){
-                    return res.status(400).json({
-                        success: false,
-                        message: `To: ${toWarehouseData.warehouseName} Item Doesn't Exist`
-                    });
-                } 
-
-                const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
-                
-                warehouseItems.defective = parseInt(warehouseItems.defective) - parseInt(quantity);
-                
-            }
-            await warehouseItemsData.save();
-        }else if(isDefective === false){
-            const warehouseData = await Warehouse.findOne({warehouseName: fromWarehouse});
-            const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
-
-            const toWarehouseData = await Warehouse.findOne({warehouseName: toWarehouse});
-            const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
-            if(!toWarehouseItemsData){
-                return res.status(404).json({
-                    success: false,
-                    message: `To: ${toWarehouseData.warehouseName} Items Data Not Found`
-                });
-            }
-
-            for(let item of items){
-                let itemName = item.itemName;
-                let quantity = item.quantity;
-
-                const toWarehouseItem = toWarehouseItemsData.items.find(i => itemName === i.itemName);
-                if(!toWarehouseItem){
-                    return res.status(400).json({
-                        success: false,
-                        message: `To: ${toWarehouseData.warehouseName} Item Doesn't Exist`
-                    });
-                } 
-
-                const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
-                warehouseItems.quantity = parseInt(warehouseItems.quantity) - parseInt(quantity);
-            }
-            await warehouseItemsData.save();
         }
 
-        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate});
+        const warehouseData = await Warehouse.findOne({ warehouseName: fromWarehouse });
+        const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id });
+        const toWarehouseData = await Warehouse.findOne({ warehouseName: toWarehouse });
+        const toWarehouseItemsData = await WarehouseItems.findOne({ warehouse: toWarehouseData._id });
+
+        if (!toWarehouseItemsData) {
+            return res.status(404).json({
+                success: false,
+                message: `To: ${toWarehouseData.warehouseName} Items Data Not Found`
+            });
+        }
+
+        for (let item of items) {
+            let itemName = item.itemName;
+            let quantity = item.quantity;
+
+            const toWarehouseItem = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+            if (!toWarehouseItem) {
+                return res.status(400).json({
+                    success: false,
+                    message: `To: ${toWarehouseData.warehouseName} Item Doesn't Exist`
+                });
+            }
+
+            const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
+
+            if (isDefective) {
+                // Ensure defective count doesn't go negative
+                if (warehouseItems.defective < quantity) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Insufficient defective stock for item: ${itemName} in ${fromWarehouse}`,
+                    });
+                }
+                warehouseItems.defective = Math.max(0, parseInt(warehouseItems.defective) - parseInt(quantity));
+            } else {
+                // Ensure regular quantity doesn't go negative
+                if (warehouseItems.quantity < quantity) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Insufficient stock for item: ${itemName} in ${fromWarehouse}`,
+                    });
+                }
+                warehouseItems.quantity = Math.max(0, parseInt(warehouseItems.quantity) - parseInt(quantity));
+            }
+        }
+
+        await warehouseItemsData.save();
+
+        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate });
         await createDefectiveOrder.save();
+
         return res.status(200).json({
             success: true,
             message: "Data Inserted Successfully",
             orderData: createDefectiveOrder
         });
-    }catch(error){
+    } catch (error) {
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
