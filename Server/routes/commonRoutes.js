@@ -12,6 +12,7 @@ const {deleteReport} = require("../helpers/deleteReport");
 const {downloadActiveServicePersonsExcel} = require("../helpers/generateServicePersonData");
 const {generateDailyInDefectiveItems} = require("../helpers/generateSPDefectiveItemsToW");
 const {exportToExcel} = require("../helpers/generateMHReport");
+const {generateBhiwaniInDefectiveItems} = require("../helpers/generateInDefectiveItemsOfBhiwani");
 const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportPDF} = require("../helpers/generateReportPDF");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
 const router = require("express").Router();
@@ -40,4 +41,5 @@ router.get("/delete-reports", deleteReport); //PDF Delete from Server
 router.get("/service-person-data", downloadActiveServicePersonsExcel);
 router.get("/get-mh-report", exportToExcel);
 router.post("/update-item-defective", deductFromDefectiveOfItems);
+router.get("/export-bhiwani-report", generateBhiwaniInDefectiveItems);
 module.exports = router;
