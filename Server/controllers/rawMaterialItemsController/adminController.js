@@ -869,8 +869,8 @@ const getItemRawMaterials = async (req, res) => {
   
       // Format the response
       const result = itemRawMaterials.map((entry) => ({
-        rawMaterialId: entry.rawMaterialId,
-        rawMaterialName: entry.rawMaterial.name,
+        id: entry.rawMaterialId,
+        name: entry.rawMaterial.name,
         quantity: entry.quantity,
       }));
   
