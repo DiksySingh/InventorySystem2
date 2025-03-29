@@ -890,6 +890,104 @@ const getItemRawMaterials = async (req, res) => {
     }
 };
 
+const getRepairedServiceRecords = async (req, res) => {
+    try {
+        // Fetch service records based on isRepaired filter and sort by servicedAt
+        const serviceRecords = await prisma.serviceRecord.findMany({
+          where: { isRepaired: true },
+          orderBy: { servicedAt: "desc" },
+        });
+    
+        const result = await Promise.all(
+          serviceRecords.map(async (record) => {
+            // Handle both string and object cases for `repairedParts`
+            const repairedParts = Array.isArray(record.repairedParts)
+              ? record.repairedParts // Already parsed (if it's an object/array)
+              : JSON.parse(record.repairedParts || "[]"); // Parse if it's a JSON string
+    
+            const rawMaterialDetails = await Promise.all(
+              repairedParts.map(async (part) => {
+                const rawMaterial = await prisma.rawMaterial.findUnique({
+                  where: { id: part.rawMaterialId },
+                });
+                return {
+                  rawMaterialId: part.rawMaterialId,
+                  rawMaterialName: rawMaterial?.name || "Unknown",
+                  quantity: part.quantity,
+                };
+              })
+            );
+    
+            return {
+              ...record,
+              repairedParts: rawMaterialDetails,
+            };
+          })
+        );
+    
+        res.status(200).json({
+          success: true,
+          message: `Repaired Service Records Fetched Successfully`,
+          data: result,
+        });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        error: error.message,
+      });
+    }
+};
+
+const getRejectedServiceRecords = async (req, res) => {
+    try {
+        // Fetch service records based on isRepaired filter and sort by servicedAt
+        const serviceRecords = await prisma.serviceRecord.findMany({
+          where: { isRepaired: false },
+          orderBy: { servicedAt: "desc" },
+        });
+    
+        const result = await Promise.all(
+          serviceRecords.map(async (record) => {
+            // Handle both string and object cases for `repairedParts`
+            const repairedParts = Array.isArray(record.repairedParts)
+              ? record.repairedParts // Already parsed (if it's an object/array)
+              : JSON.parse(record.repairedParts || "[]"); // Parse if it's a JSON string
+    
+            const rawMaterialDetails = await Promise.all(
+              repairedParts.map(async (part) => {
+                const rawMaterial = await prisma.rawMaterial.findUnique({
+                  where: { id: part.rawMaterialId },
+                });
+                return {
+                  rawMaterialId: part.rawMaterialId,
+                  rawMaterialName: rawMaterial?.name || "Unknown",
+                  quantity: part.quantity,
+                };
+              })
+            );
+    
+            return {
+              ...record,
+              repairedParts: rawMaterialDetails,
+            };
+          })
+        );
+    
+        res.status(200).json({
+          success: true,
+          message: `Rejected Service Records Fetched Successfully`,
+          data: result,
+        });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        error: error.message,
+      });
+    }
+}; 
+
 module.exports = {
     showEmployees,
     deactivateEmployee,
@@ -907,5 +1005,7 @@ module.exports = {
     getDefectiveItemsForWarehouse,
     getDefectiveItemsListByWarehouse,
     addServiceRecord,
-    getItemRawMaterials
+    getRepairedServiceRecords,
+    getRejectedServiceRecords,
+    getItemRawMaterials,
 };
