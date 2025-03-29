@@ -835,6 +835,61 @@ const addServiceRecord = async (req, res) => {
     }
 };
 
+const getItemRawMaterials = async (req, res) => {
+    const { itemName } = req.body; // Get itemName from request body
+  
+    if (!itemName) {
+      return res.status(400).json({ success: false, error: "Item name is required" });
+    }
+  
+    try {
+      // Extract the key name from itemName by taking the first part (before extra details)
+      const mainName = itemName.split(" ").slice(0, 3).join(" "); // Use the first 2-3 words as a key part
+  
+      // Find the item that exactly matches the key part of the itemName
+      const item = await prisma.item.findFirst({
+        where: {
+          name: mainName, // Exact match query
+        },
+      });
+      console.log(item)
+      if (!item) {
+        return res.status(404).json({ success: false, message: "Item Not Found" });
+      }
+  
+      // Fetch related raw materials if item is found
+      const itemRawMaterials = await prisma.itemRawMaterial.findMany({
+        where: {
+          itemId: item.id,
+        },
+        include: {
+          rawMaterial: true, // Include raw material details (name, etc.)
+        },
+      });
+  
+      // Format the response
+      const result = itemRawMaterials.map((entry) => ({
+        rawMaterialId: entry.rawMaterialId,
+        rawMaterialName: entry.rawMaterial.name,
+        quantity: entry.quantity,
+      }));
+  
+      // Return the result
+      return res.status(200).json({
+        success: true,
+        message: "Raw Material Fetched Successfully",
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error fetching raw materials:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        error: error.message,
+      });
+    }
+};
+
 module.exports = {
     showEmployees,
     deactivateEmployee,
@@ -851,5 +906,6 @@ module.exports = {
     getRawMaterialsByItemId,
     getDefectiveItemsForWarehouse,
     getDefectiveItemsListByWarehouse,
-    addServiceRecord
+    addServiceRecord,
+    getItemRawMaterials
 };
