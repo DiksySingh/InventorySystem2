@@ -836,17 +836,17 @@ const addServiceRecord = async (req, res) => {
 };
 
 const getItemRawMaterials = async (req, res) => {
-    const { itemName } = req.body; // Get itemName from request body
+    const { subItem } = req.body; // Get itemName from request body
   
-    if (!itemName) {
+    if (!subItem) {
       return res.status(400).json({ success: false, error: "Item name is required" });
     }
   
     try {
-      // Extract the key name from itemName by taking the first part (before extra details)
-      const mainName = itemName.split(" ").slice(0, 3).join(" "); // Use the first 2-3 words as a key part
+      // Extract the key name from subItem by taking the first part (before extra details)
+      const mainName = subItem.split(" ").slice(0, 3).join(" "); // Use the first 2-3 words as a key part
   
-      // Find the item that exactly matches the key part of the itemName
+      // Find the item that exactly matches the key part of the subItem
       const item = await prisma.item.findFirst({
         where: {
           name: mainName, // Exact match query
