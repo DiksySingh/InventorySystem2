@@ -64,6 +64,8 @@ module.exports.generateBhiwaniDailyReport = async (req, res) => {
 
         const utcStart = startTime.utc().toDate();
         const utcEnd = endTime.utc().toDate();
+        console.log(utcStart);
+        console.log(utcEnd);
 
         const itemNames = ["Motor", "Pump", "Controller"];
         const reportData = [];

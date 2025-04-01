@@ -128,6 +128,8 @@ module.exports.generateBhiwaniOverallReport = async (req, res) => {
 
         const utcStart = startTime.utc().toDate();
         const utcEnd = endTime.utc().toDate();
+        console.log(utcStart);
+        console.log(utcEnd);
 
         // Defective Incoming Items
         const defectiveIncoming = await PickupItem.aggregate([
