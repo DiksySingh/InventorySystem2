@@ -2,16 +2,19 @@ const puppeteer = require("puppeteer");
 const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
 const fs = require("fs");
 const path = require("path");
-
+const mongoose = require("mongoose"); // by shiv
 module.exports.generateWarehouseStockReportPDF = async (req, res) => {
     try {
         // 🔹 Fetch all warehouses and their stock data
-        const warehouses = await WarehouseItems.find()
+        const warehouseObjectId = new mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd"); // by shiv
+        const warehouses = await WarehouseItems.find({warehouse : warehouseObjectId})
             .populate({
                 path: "warehouse",
                 select: { warehouseName: 1 },
             });
-
+            warehouses.forEach(warehouse => {
+              warehouse.items.sort((a, b) => a.itemName.localeCompare(b.itemName));
+          });
         if (!warehouses.length) {
             return res.status(404).json({ message: "No warehouses found!" });
         }
@@ -52,7 +55,12 @@ module.exports.generateWarehouseStockReportPDF = async (req, res) => {
 
         // 🔹 Generate content for each warehouse
         warehouses.forEach((warehouse, index) => {
-            const filteredItems = warehouse.items.filter(item => item.itemName !== "Laptop");
+          const filteredItems = warehouse.items.filter(item => item.itemName !== "Laptop");
+          // by shiv 
+          // Calculate totals
+          const totalQuantity = filteredItems.reduce((sum, item) => sum + item.quantity, 0);
+          const totalDefective = filteredItems.reduce((sum, item) => sum + item.defective, 0);
+          // end by shiv
 
             htmlContent += `
         ${index > 0 ? '<div style="page-break-before: always;"></div>' : ""}
@@ -73,6 +81,11 @@ module.exports.generateWarehouseStockReportPDF = async (req, res) => {
                 <td>${item.defective}</td>
               </tr>
             `).join("")}
+             <tr>
+              <td><strong>Total</strong></td>
+              <td><strong>${totalQuantity}</strong></td>
+              <td><strong>${totalDefective}</strong></td>
+            </tr>
           </tbody>
         </table>
       `;
