@@ -113,7 +113,8 @@ module.exports.generateBhiwaniOverallDefectiveReport = async (req, res) => {
             totalRepaired,
             totalRejected
         });
-
+        const uploadsDir = path.join(__dirname, "../uploads");
+        await fs.mkdir(uploadsDir, { recursive: true });
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "load" });

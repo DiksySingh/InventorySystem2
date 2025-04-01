@@ -309,6 +309,8 @@ module.exports.generateBhiwaniOverallReport = async (req, res) => {
         // Generate the HTML report
         const htmlContent = generateHTML(defectiveIncoming, outgoingItems, repairedItems, rejectedItems);
 
+        const uploadsDir = path.join(__dirname, "../uploads");
+        await fs.mkdir(uploadsDir, { recursive: true });
         // Launch Puppeteer to generate PDF
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
