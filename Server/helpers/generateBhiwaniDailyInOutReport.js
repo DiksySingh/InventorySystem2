@@ -59,8 +59,11 @@ const generateHTML = (data, totals) => {
 
 module.exports.generateBhiwaniDailyReport = async (req, res) => {
     try {
-        const startTime = moment().subtract(1, "days").startOf('day').utc().toDate();
-        const endTime = moment().endOf('day').utc().toDate();
+        const startTime = moment().subtract(1, "days").hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes");
+        const endTime = moment().hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes");
+
+        const utcStart = startTime.utc().toDate();
+        const utcEnd = endTime.utc().toDate();
 
         const itemNames = ["Motor", "Pump", "Controller"];
         const reportData = [];
@@ -69,35 +72,35 @@ module.exports.generateBhiwaniDailyReport = async (req, res) => {
 
         for (const itemName of itemNames) {
             const defectiveCount = await PickupItem.aggregate([
-                { $match: { incoming: true, warehouse: "Bhiwani", pickupDate: { $gte: startTime, $lt: endTime } } },
+                { $match: { incoming: true, warehouse: "Bhiwani", pickupDate: { $gte: utcStart, $lt: utcEnd } } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
-            
+
             const defectiveIncomingCount = await WToW.aggregate([
-                { $match: { toWarehouse: "Bhiwani", isDefective: true, pickupDate: { $gte: startTime, $lt: endTime } } },
+                { $match: { toWarehouse: "Bhiwani", isDefective: true, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
-            
+
             const outgoingCount = await PickupItem.aggregate([
-                { $match: { incoming: false, warehouse: "Bhiwani", pickupDate: { $gte: startTime, $lt: endTime } } },
+                { $match: { incoming: false, warehouse: "Bhiwani", pickupDate: { $gte: utcStart, $lt: utcEnd } } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
-            
+
             const repairedOutgoingCount = await WToW.aggregate([
-                { $match: { fromWarehouse: "Bhiwani", isDefective: false, pickupDate: { $gte: startTime, $lt: endTime } } },
+                { $match: { fromWarehouse: "Bhiwani", isDefective: false, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
-            
+
             const repairRejectData = await RepairNRejectItems.aggregate([
-                { $match: { warehouseName: "Bhiwani", createdAt: { $gte: startTime, $lt: endTime }, itemName: { $regex: itemName, $options: "i" } } },
+                { $match: { warehouseName: "Bhiwani", createdAt: { $gte: utcStart, $lt: utcEnd }, itemName: { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, repaired: { $sum: "$repaired" }, rejected: { $sum: "$rejected" } } }
             ]);
 
