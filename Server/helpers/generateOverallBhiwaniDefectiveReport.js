@@ -120,7 +120,7 @@ module.exports.generateBhiwaniOverallDefectiveReport = async (req, res) => {
         await page.setContent(htmlContent, { waitUntil: "load" });
 
         const fileName = `BhiwaniStockDefectiveReport_${moment().format("YYYY-MM-DD")}.pdf`;
-        const filePath = path.join(__dirname, "../uploads", fileName);
+        const filePath = path.join(uploadsDir, fileName);
         await page.pdf({ path: filePath, format: "A4", printBackground: true });
         await browser.close();
 
