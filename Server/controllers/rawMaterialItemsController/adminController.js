@@ -923,7 +923,7 @@ const getRepairedServiceRecords = async (req, res) => {
     try {
         // Fetch service records based on isRepaired filter and sort by servicedAt
         const serviceRecords = await prisma.serviceRecord.findMany({
-            where: { isRepaired: 1 },
+            where: { isRepaired: { equals: true } },
             orderBy: { servicedAt: "desc" },
         });
 
@@ -972,7 +972,7 @@ const getRejectedServiceRecords = async (req, res) => {
     try {
         // Fetch service records based on isRepaired filter and sort by servicedAt
         const serviceRecords = await prisma.serviceRecord.findMany({
-            where: { isRepaired: 0 },
+            where: { isRepaired: { equals: false } },
             orderBy: { servicedAt: "desc" },
         });
 
