@@ -1,21 +1,25 @@
 const puppeteer = require("puppeteer");
+const mongoose = require("mongoose");
+const moment = require("moment");
 const fs = require("fs").promises;
 const path = require("path");
-const moment = require("moment");
 const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
-const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
 const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema");
+const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
 
-const generateHTML = (data, totals) => {
-    const itemRows = data.map((item) => `
-        <tr>
-            <td>${item.itemName}</td>
-            <td>${item.incoming}</td>
-            <td>${item.outgoing}</td>
-            <td>${item.repaired}</td>
-            <td>${item.rejected}</td>
-        </tr>
-    `).join("");
+const generateHTML = (defectiveIncoming, outgoingItems, repairedItems, rejectedItems) => {
+    const generateRows = (data) => {
+        return data.map((item) => `
+            <tr>
+                <td>${item._id}</td>
+                <td>${item.quantity}</td>
+            </tr>
+        `).join('');
+    };
+
+    const totalQuantity = (data) => {
+        return data.reduce((sum, item) => sum + item.quantity, 0);
+    };
 
     return `
     <html>
@@ -30,109 +34,103 @@ const generateHTML = (data, totals) => {
         </style>
     </head>
     <body>
-        <h3>Bhiwani Daily Report (Motor, Pump, Controller)</h3>
+        <h3>Bhiwani Daily In-Out Report</h3>
+
+        <h3>Defective Incoming Items</h3>
         <table>
             <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Defective Nos</th>
-                    <th>Outgoing Nos</th>
-                    <th>Repaired Nos</th>
-                    <th>Rejected Nos</th>
-                </tr>
+                <tr><th>Item Name</th><th>Quantity</th></tr>
             </thead>
-            <tbody>
-                ${itemRows}
-                <tr style="font-weight: bold;">
-                    <td>Total</td>
-                    <td>${totals.totalIncoming}</td>
-                    <td>${totals.totalOutgoing}</td>
-                    <td>${totals.totalRepaired}</td>
-                    <td>${totals.totalRejected}</td>
-                </tr>
-            </tbody>
+            <tbody>${generateRows(defectiveIncoming)}</tbody>
+            <tfoot><tr><th>Total</th><th>${totalQuantity(defectiveIncoming)}</th></tr></tfoot>
         </table>
+
+        <h3>Repaired Outgoing Items</h3>
+        <table>
+            <thead>
+                <tr><th>Item Name</th><th>Quantity</th></tr>
+            </thead>
+            <tbody>${generateRows(outgoingItems)}</tbody>
+            <tfoot><tr><th>Total</th><th>${totalQuantity(outgoingItems)}</th></tr></tfoot>
+        </table>
+
+        <h3>Warehouse Repaired Items</h3>
+        <table>
+            <thead>
+                <tr><th>Item Name</th><th>Quantity</th></tr>
+            </thead>
+            <tbody>${generateRows(repairedItems)}</tbody>
+            <tfoot><tr><th>Total</th><th>${totalQuantity(repairedItems)}</th></tr></tfoot>
+        </table>
+
+        <h3>Warehouse Rejected Items</h3>
+        <table>
+            <thead>
+                <tr><th>Item Name</th><th>Quantity</th></tr>
+            </thead>
+            <tbody>${generateRows(rejectedItems)}</tbody>
+            <tfoot><tr><th>Total</th><th>${totalQuantity(rejectedItems)}</th></tr></tfoot>
+        </table>
+
         <div class="footer">Generated on ${moment().format("DD-MM-YYYY")}</div>
     </body>
     </html>`;
 };
 
-module.exports.generateBhiwaniDailyReport = async (req, res) => {
+module.exports.generateBhiwaniOverallReport = async (req, res) => {
     try {
         const startTime = moment().subtract(1, "days").hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes");
         const endTime = moment().hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes");
-
         const utcStart = startTime.utc().toDate();
         const utcEnd = endTime.utc().toDate();
-        console.log(utcStart);
-        console.log(utcEnd);
 
-        const itemNames = ["Motor", "Pump", "Controller"];
-        const reportData = [];
+        const defectivePickupIncoming = await PickupItem.aggregate([
+            { $match: { warehouse: "Bhiwani", incoming: true, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
+            { $unwind: "$items" },
+            { $group: { _id: "$items.itemName", quantity: { $sum: "$items.quantity" } } }
+        ]);
 
-        let totalIncoming = 0, totalOutgoing = 0, totalRepaired = 0, totalRejected = 0;
+        const outgoingPickupItems = await PickupItem.aggregate([
+            { $match: { warehouse: "Bhiwani", incoming: false, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
+            { $unwind: "$items" },
+            { $group: { _id: "$items.itemName", quantity: { $sum: "$items.quantity" } } }
+        ]);
 
-        for (const itemName of itemNames) {
-            const defectiveCount = await PickupItem.aggregate([
-                { $match: { incoming: true, warehouse: "Bhiwani", pickupDate: { $gte: utcStart, $lt: utcEnd } } },
-                { $unwind: "$items" },
-                { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
-                { $group: { _id: null, total: { $sum: "$items.quantity" } } }
-            ]);
+        const defectiveWToWIncoming = await WToW.aggregate([
+            { $match: { toWarehouse: "Bhiwani", isDefective: true, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
+            { $unwind: "$items" },
+            { $group: { _id: "$items.itemName", quantity: { $sum: "$items.quantity" } } }
+        ]);
 
-            const defectiveIncomingCount = await WToW.aggregate([
-                { $match: { toWarehouse: "Bhiwani", isDefective: true, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
-                { $unwind: "$items" },
-                { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
-                { $group: { _id: null, total: { $sum: "$items.quantity" } } }
-            ]);
+        const outgoingWToWItems = await WToW.aggregate([
+            { $match: { fromWarehouse: "Bhiwani", isDefective: false, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
+            { $unwind: "$items" },  // If items is an array
+            { $group: { _id: "$items.itemName", quantity: { $sum: "$items.quantity" } } }
+        ]);
 
-            const outgoingCount = await PickupItem.aggregate([
-                { $match: { incoming: false, warehouse: "Bhiwani", pickupDate: { $gte: utcStart, $lt: utcEnd } } },
-                { $unwind: "$items" },
-                { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
-                { $group: { _id: null, total: { $sum: "$items.quantity" } } }
-            ]);
+        const repairedItems = await RepairNRejectItems.aggregate([
+            { $match: { warehouseName: "Bhiwani", isRepaired: true, createdAt: { $gte: utcStart, $lt: utcEnd } } },
+            { $group: { _id: "$itemName", quantity: { $sum: "$repaired" } } }
+        ]);
 
-            const repairedOutgoingCount = await WToW.aggregate([
-                { $match: { fromWarehouse: "Bhiwani", isDefective: false, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
-                { $unwind: "$items" },
-                { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
-                { $group: { _id: null, total: { $sum: "$items.quantity" } } }
-            ]);
+        const rejectedItems = await RepairNRejectItems.aggregate([
+            { $match: { warehouseName: "Bhiwani", isRepaired: false, createdAt: { $gte: utcStart, $lt: utcEnd } } },
+            { $group: { _id: "$itemName", quantity: { $sum: "$rejected" } } }
+        ]);
 
-            const repairRejectData = await RepairNRejectItems.aggregate([
-                { $match: { warehouseName: "Bhiwani", createdAt: { $gte: utcStart, $lt: utcEnd }, itemName: { $regex: itemName, $options: "i" } } },
-                { $group: { _id: null, repaired: { $sum: "$repaired" }, rejected: { $sum: "$rejected" } } }
-            ]);
+        const defectiveIncoming = mergeAndSumQuantities([...defectivePickupIncoming, ...defectiveWToWIncoming]);
+        const outgoingItems = mergeAndSumQuantities([...outgoingPickupItems, ...outgoingWToWItems]);
 
-            const defectiveTotal = (defectiveCount[0]?.total || 0) + (defectiveIncomingCount[0]?.total || 0);
-            const outgoingTotal = (outgoingCount[0]?.total || 0) + (repairedOutgoingCount[0]?.total || 0);
-            const repairedTotal = repairRejectData[0]?.repaired || 0;
-            const rejectedTotal = repairRejectData[0]?.rejected || 0;
+        const htmlContent = generateHTML(defectiveIncoming, outgoingItems, repairedItems, rejectedItems);
 
-            totalIncoming += defectiveTotal;
-            totalOutgoing += outgoingTotal;
-            totalRepaired += repairedTotal;
-            totalRejected += rejectedTotal;
-
-            reportData.push({
-                itemName,
-                incoming: defectiveTotal,
-                outgoing: outgoingTotal,
-                repaired: repairedTotal,
-                rejected: rejectedTotal,
-            });
-        }
-
-        const htmlContent = generateHTML(reportData, { totalIncoming, totalOutgoing, totalRepaired, totalRejected });
         const uploadsDir = path.join(__dirname, "../uploads");
         await fs.mkdir(uploadsDir, { recursive: true });
+
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "load" });
 
-        const fileName = `BhiwaniDailyReport_${moment().format("YYYY-MM-DD")}.pdf`;
+        const fileName = `BhiwaniDailyItemsInOutReport_${moment().format("YYYY-MM-DD")}.pdf`;
         const filePath = path.join(uploadsDir, fileName);
         await page.pdf({ path: filePath, format: "A4", printBackground: true });
         await browser.close();
@@ -142,4 +140,16 @@ module.exports.generateBhiwaniDailyReport = async (req, res) => {
         console.error("Error generating PDF:", error);
         res.status(500).send("Internal Server Error");
     }
+};
+
+const mergeAndSumQuantities = (data) => {
+    return data.reduce((acc, item) => {
+        const existingItem = acc.find((i) => i._id === item._id);
+        if (existingItem) {
+            existingItem.quantity += item.quantity;
+        } else {
+            acc.push({ _id: item._id, quantity: item.quantity });
+        }
+        return acc;
+    }, []);
 };

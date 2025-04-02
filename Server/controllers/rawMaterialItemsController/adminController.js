@@ -797,18 +797,29 @@ const addServiceRecord = async (req, res) => {
                 where: { id: rawMaterialId },
             });
 
-            if (rawMaterial) {
-                if (isRepaired) {
-                    await prisma.rawMaterial.update({
-                        where: { id: rawMaterialId },
-                        data: { stock: rawMaterial.stock - quantity },
-                    });
-                } else {
-                    await prisma.rawMaterial.update({
-                        where: { id: rawMaterialId },
-                        data: { stock: rawMaterial.stock + quantity },
+            if (!rawMaterial) {
+                return res.status(404).json({
+                    success: false,
+                    message: `Raw Material with ID ${rawMaterialId} not found`,
+                });
+            }
+
+            if (isRepaired) {
+                if (rawMaterial.stock < quantity) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Not enough stock for Raw Material ID ${rawMaterialId}. Available: ${rawMaterial.stock}, Required: ${quantity}`,
                     });
                 }
+                await prisma.rawMaterial.update({
+                    where: { id: rawMaterialId },
+                    data: { stock: rawMaterial.stock - quantity },
+                });
+            } else {
+                await prisma.rawMaterial.update({
+                    where: { id: rawMaterialId },
+                    data: { stock: rawMaterial.stock + quantity },
+                });
             }
         }
 
@@ -837,56 +848,56 @@ const addServiceRecord = async (req, res) => {
 
 const getItemRawMaterials = async (req, res) => {
     const { subItem } = req.body; // Get itemName from request body
-  
+
     if (!subItem) {
-      return res.status(400).json({ success: false, error: "Item name is required" });
+        return res.status(400).json({ success: false, error: "Item name is required" });
     }
-  
+
     try {
-      // Extract the key name from subItem by taking the first part (before extra details)
-      const mainName = subItem.split(" ").slice(0, 3).join(" "); // Use the first 2-3 words as a key part
-  
-      // Find the item that exactly matches the key part of the subItem
-      const item = await prisma.item.findFirst({
-        where: {
-          name: mainName, // Exact match query
-        },
-      });
-      console.log(item)
-      if (!item) {
-        return res.status(404).json({ success: false, message: "Item Not Found" });
-      }
-  
-      // Fetch related raw materials if item is found
-      const itemRawMaterials = await prisma.itemRawMaterial.findMany({
-        where: {
-          itemId: item.id,
-        },
-        include: {
-          rawMaterial: true, // Include raw material details (name, etc.)
-        },
-      });
-  
-      // Format the response
-      const result = itemRawMaterials.map((entry) => ({
-        id: entry.rawMaterialId,
-        name: entry.rawMaterial.name,
-        quantity: entry.quantity,
-      }));
-  
-      // Return the result
-      return res.status(200).json({
-        success: true,
-        message: "Raw Material Fetched Successfully",
-        data: result,
-      });
+        // Extract the key name from subItem by taking the first part (before extra details)
+        const mainName = subItem.split(" ").slice(0, 3).join(" "); // Use the first 2-3 words as a key part
+
+        // Find the item that exactly matches the key part of the subItem
+        const item = await prisma.item.findFirst({
+            where: {
+                name: mainName, // Exact match query
+            },
+        });
+        console.log(item)
+        if (!item) {
+            return res.status(404).json({ success: false, message: "Item Not Found" });
+        }
+
+        // Fetch related raw materials if item is found
+        const itemRawMaterials = await prisma.itemRawMaterial.findMany({
+            where: {
+                itemId: item.id,
+            },
+            include: {
+                rawMaterial: true, // Include raw material details (name, etc.)
+            },
+        });
+
+        // Format the response
+        const result = itemRawMaterials.map((entry) => ({
+            id: entry.rawMaterialId,
+            name: entry.rawMaterial.name,
+            quantity: entry.quantity,
+        }));
+
+        // Return the result
+        return res.status(200).json({
+            success: true,
+            message: "Raw Material Fetched Successfully",
+            data: result,
+        });
     } catch (error) {
-      console.error("Error fetching raw materials:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Internal Server Error",
-        error: error.message,
-      });
+        console.error("Error fetching raw materials:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
     }
 };
 
@@ -894,48 +905,48 @@ const getRepairedServiceRecords = async (req, res) => {
     try {
         // Fetch service records based on isRepaired filter and sort by servicedAt
         const serviceRecords = await prisma.serviceRecord.findMany({
-          where: { isRepaired: true },
-          orderBy: { servicedAt: "desc" },
+            where: { isRepaired: { equals: true } },
+            orderBy: { servicedAt: "desc" },
         });
-    
+
         const result = await Promise.all(
-          serviceRecords.map(async (record) => {
-            // Handle both string and object cases for `repairedParts`
-            const repairedParts = Array.isArray(record.repairedParts)
-              ? record.repairedParts // Already parsed (if it's an object/array)
-              : JSON.parse(record.repairedParts || "[]"); // Parse if it's a JSON string
-    
-            const rawMaterialDetails = await Promise.all(
-              repairedParts.map(async (part) => {
-                const rawMaterial = await prisma.rawMaterial.findUnique({
-                  where: { id: part.rawMaterialId },
-                });
+            serviceRecords.map(async (record) => {
+                // Handle both string and object cases for `repairedParts`
+                const repairedParts = Array.isArray(record.repairedParts)
+                    ? record.repairedParts // Already parsed (if it's an object/array)
+                    : JSON.parse(record.repairedParts || "[]"); // Parse if it's a JSON string
+
+                const rawMaterialDetails = await Promise.all(
+                    repairedParts.map(async (part) => {
+                        const rawMaterial = await prisma.rawMaterial.findUnique({
+                            where: { id: part.rawMaterialId },
+                        });
+                        return {
+                            rawMaterialId: part.rawMaterialId,
+                            rawMaterialName: rawMaterial?.name || "Unknown",
+                            quantity: part.quantity,
+                        };
+                    })
+                );
+
                 return {
-                  rawMaterialId: part.rawMaterialId,
-                  rawMaterialName: rawMaterial?.name || "Unknown",
-                  quantity: part.quantity,
+                    ...record,
+                    repairedParts: rawMaterialDetails,
                 };
-              })
-            );
-    
-            return {
-              ...record,
-              repairedParts: rawMaterialDetails,
-            };
-          })
+            })
         );
-    
+
         res.status(200).json({
-          success: true,
-          message: `Repaired Service Records Fetched Successfully`,
-          data: result,
+            success: true,
+            message: `Repaired Service Records Fetched Successfully`,
+            data: result,
         });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Internal Server Error",
-        error: error.message,
-      });
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
     }
 };
 
@@ -943,50 +954,50 @@ const getRejectedServiceRecords = async (req, res) => {
     try {
         // Fetch service records based on isRepaired filter and sort by servicedAt
         const serviceRecords = await prisma.serviceRecord.findMany({
-          where: { isRepaired: false },
-          orderBy: { servicedAt: "desc" },
+            where: { isRepaired: { equals: false } },
+            orderBy: { servicedAt: "desc" },
         });
-    
+
         const result = await Promise.all(
-          serviceRecords.map(async (record) => {
-            // Handle both string and object cases for `repairedParts`
-            const repairedParts = Array.isArray(record.repairedParts)
-              ? record.repairedParts // Already parsed (if it's an object/array)
-              : JSON.parse(record.repairedParts || "[]"); // Parse if it's a JSON string
-    
-            const rawMaterialDetails = await Promise.all(
-              repairedParts.map(async (part) => {
-                const rawMaterial = await prisma.rawMaterial.findUnique({
-                  where: { id: part.rawMaterialId },
-                });
+            serviceRecords.map(async (record) => {
+                // Handle both string and object cases for `repairedParts`
+                const repairedParts = Array.isArray(record.repairedParts)
+                    ? record.repairedParts // Already parsed (if it's an object/array)
+                    : JSON.parse(record.repairedParts || "[]"); // Parse if it's a JSON string
+
+                const rawMaterialDetails = await Promise.all(
+                    repairedParts.map(async (part) => {
+                        const rawMaterial = await prisma.rawMaterial.findUnique({
+                            where: { id: part.rawMaterialId },
+                        });
+                        return {
+                            rawMaterialId: part.rawMaterialId,
+                            rawMaterialName: rawMaterial?.name || "Unknown",
+                            quantity: part.quantity,
+                        };
+                    })
+                );
+
                 return {
-                  rawMaterialId: part.rawMaterialId,
-                  rawMaterialName: rawMaterial?.name || "Unknown",
-                  quantity: part.quantity,
+                    ...record,
+                    repairedParts: rawMaterialDetails,
                 };
-              })
-            );
-    
-            return {
-              ...record,
-              repairedParts: rawMaterialDetails,
-            };
-          })
+            })
         );
-    
+
         res.status(200).json({
-          success: true,
-          message: `Rejected Service Records Fetched Successfully`,
-          data: result,
+            success: true,
+            message: `Rejected Service Records Fetched Successfully`,
+            data: result,
         });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Internal Server Error",
-        error: error.message,
-      });
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
     }
-}; 
+};
 
 module.exports = {
     showEmployees,
