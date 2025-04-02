@@ -113,7 +113,7 @@ model ServiceRecord {
   serialNumber    String?        // Serial number of the serviced item //ABCB1234
   faultAnalysis   String?        // Description of the fault or issue found  //Stamp Damaged
   isRepaired      Boolean?           // Whether the main item was fixed //true
-  repairedBy      String?        // Name of the technician //Shiv
+  repairedRejectedBy      String?        // Name of the technician //Shiv
   remarks         String?        // Additional repair notes // Deffective Items
   repairedParts   Json?          // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
 

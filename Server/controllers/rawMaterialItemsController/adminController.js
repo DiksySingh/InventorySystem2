@@ -761,7 +761,7 @@ const addServiceRecord = async (req, res) => {
             serialNumber,
             faultAnalysis,
             isRepaired,
-            repairedBy,
+            repairedRejectedBy,
             remarks,
             repairedParts, // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
             userId,
@@ -774,7 +774,7 @@ const addServiceRecord = async (req, res) => {
             !serialNumber ||
             !faultAnalysis ||
             !isRepaired ||
-            !repairedBy ||
+            !repairedRejectedBy ||
             !remarks ||
             !repairedParts ||
             !userId
@@ -795,7 +795,7 @@ const addServiceRecord = async (req, res) => {
                 isRepaired,
                 repairedBy,
                 remarks,
-                repairedParts,
+                repairedRejectedBy,
                 userId,
             },
         });
