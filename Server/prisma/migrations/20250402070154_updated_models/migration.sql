@@ -111,7 +111,7 @@ CREATE TABLE `ServiceRecord` (
     `quantity` DOUBLE NULL,
     `serialNumber` VARCHAR(191) NULL,
     `faultAnalysis` VARCHAR(191) NULL,
-    `isRepaired` BOOLEAN NULL,
+    `isRepaired` INTEGER NULL,
     `repairedBy` VARCHAR(191) NULL,
     `remarks` VARCHAR(191) NULL,
     `repairedParts` JSON NULL,
