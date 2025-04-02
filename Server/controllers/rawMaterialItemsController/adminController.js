@@ -346,7 +346,7 @@ const addItem = async (req, res) => {
         let { name } = req.body;
 
         // Validate input
-        if (!name || typeof name !== "string" || name.trim() === "") {
+        if (!name || name.trim() === "") {
             return res.status(400).json({
                 success: false,
                 message: "Invalid item name"
@@ -793,9 +793,9 @@ const addServiceRecord = async (req, res) => {
                 serialNumber,
                 faultAnalysis,
                 isRepaired,
-                repairedBy,
-                remarks,
                 repairedRejectedBy,
+                remarks,
+                repairedParts,
                 userId,
             },
         });
