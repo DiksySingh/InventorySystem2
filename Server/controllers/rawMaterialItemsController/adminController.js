@@ -767,6 +767,24 @@ const addServiceRecord = async (req, res) => {
             userId,
         } = req.body;
 
+        if(
+            !item ||
+            !subItem ||
+            !quantity ||
+            !serialNumber ||
+            !faultAnalysis ||
+            !isRepaired ||
+            !repairedBy ||
+            !remarks ||
+            !repairedParts ||
+            !userId
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+        
         const serviceRecord = await prisma.serviceRecord.create({
             data: {
                 item,
