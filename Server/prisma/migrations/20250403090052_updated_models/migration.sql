@@ -56,6 +56,7 @@ CREATE TABLE `RawMaterial` (
     `id` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NULL,
     `stock` DOUBLE NULL,
+    `unit` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
@@ -82,6 +83,7 @@ CREATE TABLE `StockMovement` (
     `userId` VARCHAR(191) NULL,
     `warehouseId` VARCHAR(191) NULL,
     `quantity` DOUBLE NULL,
+    `unit` VARCHAR(191) NULL,
     `type` VARCHAR(191) NULL,
     `timestamp` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
@@ -96,6 +98,7 @@ CREATE TABLE `ManufacturingUsage` (
     `itemId` VARCHAR(191) NULL,
     `rawMaterialId` VARCHAR(191) NULL,
     `quantityUsed` DOUBLE NULL,
+    `unit` VARCHAR(191) NULL,
     `manufacturingDate` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     INDEX `ManufacturingUsage_itemId_fkey`(`itemId`),
@@ -130,11 +133,22 @@ CREATE TABLE `ServiceUsage` (
     `serviceId` VARCHAR(191) NOT NULL,
     `rawMaterialId` VARCHAR(191) NULL,
     `quantityUsed` DOUBLE NULL,
+    `unit` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     INDEX `ServiceUsage_serviceId_fkey`(`serviceId`),
     INDEX `ServiceUsage_rawMaterialId_fkey`(`rawMaterialId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Unit` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `Unit_name_key`(`name`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

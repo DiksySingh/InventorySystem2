@@ -36,7 +36,7 @@ const generateHTML = (defectiveIncoming, outgoingItems, repairedItems, rejectedI
     <body>
         <h3>Bhiwani Daily In-Out Report</h3>
 
-        <h3>Defective Incoming Items</h3>
+        <h3>Today Faulty In</h3>
         <table>
             <thead>
                 <tr><th>Item Name</th><th>Quantity</th></tr>
@@ -45,25 +45,7 @@ const generateHTML = (defectiveIncoming, outgoingItems, repairedItems, rejectedI
             <tfoot><tr><th>Total</th><th>${totalQuantity(defectiveIncoming)}</th></tr></tfoot>
         </table>
 
-        <h3>Repaired Outgoing Items</h3>
-        <table>
-            <thead>
-                <tr><th>Item Name</th><th>Quantity</th></tr>
-            </thead>
-            <tbody>${generateRows(outgoingItems)}</tbody>
-            <tfoot><tr><th>Total</th><th>${totalQuantity(outgoingItems)}</th></tr></tfoot>
-        </table>
-
-        <h3>Warehouse Repaired Items</h3>
-        <table>
-            <thead>
-                <tr><th>Item Name</th><th>Quantity</th></tr>
-            </thead>
-            <tbody>${generateRows(repairedItems)}</tbody>
-            <tfoot><tr><th>Total</th><th>${totalQuantity(repairedItems)}</th></tr></tfoot>
-        </table>
-
-        <h3>Warehouse Rejected Items</h3>
+        <h3>Today Rejected Quantity</h3>
         <table>
             <thead>
                 <tr><th>Item Name</th><th>Quantity</th></tr>
@@ -72,12 +54,21 @@ const generateHTML = (defectiveIncoming, outgoingItems, repairedItems, rejectedI
             <tfoot><tr><th>Total</th><th>${totalQuantity(rejectedItems)}</th></tr></tfoot>
         </table>
 
+        <h3>Today Repaired Items Dispatched</h3>
+        <table>
+            <thead>
+                <tr><th>Item Name</th><th>Quantity</th></tr>
+            </thead>
+            <tbody>${generateRows(outgoingItems)}</tbody>
+            <tfoot><tr><th>Total</th><th>${totalQuantity(outgoingItems)}</th></tr></tfoot>
+        </table>
+
         <div class="footer">Generated on ${moment().format("DD-MM-YYYY")}</div>
     </body>
     </html>`;
 };
 
-module.exports.generateBhiwaniOverallReport = async (req, res) => {
+module.exports.generateBhiwaniDailyInOutReport = async (req, res) => {
     try {
         const startTime = moment().subtract(1, "days").hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes");
         const endTime = moment().hour(17).minute(14).second(0).millisecond(0).subtract(5, "hours").subtract(30, "minutes");

@@ -56,13 +56,17 @@ model RawMaterial {
   id                  String               @id @default(uuid())
   name                String?              @unique
   stock               Float?
+  unit                String?              
+
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+
   ItemRawMaterial     ItemRawMaterial[]
   manufacturingUsages ManufacturingUsage[]
   serviceUsages       ServiceUsage[]
   stockMovements      StockMovement[]
 }
+
 
 model ItemRawMaterial {
   id            String       @id @default(uuid())
@@ -82,8 +86,10 @@ model StockMovement {
   userId        String?
   warehouseId   String?
   quantity      Float?
+  unit          String?
   type          String?
   timestamp     DateTime     @default(now())
+
   rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
   warehouse     Warehouse?   @relation(fields: [warehouseId], references: [id])
   user          User?        @relation(fields: [userId], references: [id])
@@ -97,12 +103,14 @@ model ManufacturingUsage {
   itemId            String?
   rawMaterialId     String?
   quantityUsed      Float?
+  unit            String?      // Reference to Unit 
   manufacturingDate DateTime     @default(now())
   item              Item?        @relation(fields: [itemId], references: [id])
   rawMaterial       RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
   @@index([itemId], map: "ManufacturingUsage_itemId_fkey")
   @@index([rawMaterialId], map: "ManufacturingUsage_rawMaterialId_fkey")
+ 
 }
 
 model ServiceRecord {
@@ -136,6 +144,8 @@ model ServiceUsage {
   quantityUsed  Float?         // Quantity used in this service
   // isRepaired    Boolean?       // Indicates if the part was repaired/replaced
   // remarks       String?        // Additional notes for this part usage
+  unit        String?         // Reference to Unit
+ 
 
   // Relationships
   rawMaterial   RawMaterial?   @relation(fields: [rawMaterialId], references: [id]) // Part reference
@@ -149,3 +159,8 @@ model ServiceUsage {
   @@index([rawMaterialId], map: "ServiceUsage_rawMaterialId_fkey")// Index for material lookups
 }
 
+model Unit {
+  id          String    @id @default(uuid())
+  name        String    @unique  // Example: "kg", "liters", "pieces"
+  createdAt   DateTime  @default(now())
+}
