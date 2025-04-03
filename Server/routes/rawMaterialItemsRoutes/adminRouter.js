@@ -21,5 +21,7 @@ router.post("/addServiceRecord", adminController.addServiceRecord);
 router.get("/getItemRawMaterials", adminController.getItemRawMaterials);
 router.get("/getRepairedServiceRecords", adminController.getRepairedServiceRecords);
 router.get("/getRejectedServiceRecords", adminController.getRejectedServiceRecords);
+router.post("/addUnit", adminController.addUnit);
+router.get("/showUnit", adminController.showUnit);
 
 module.exports = router;

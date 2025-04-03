@@ -1176,9 +1176,70 @@ const getRejectedServiceRecords = async (req, res) => {
 
 const addUnit = async(req, res) => {
     try {
-        
+        const {name} = req.body;
+        if(!name) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+
+
+        const unitName = name.trim(); // Trim only once
+
+        // Check if item already exists
+        const existingUnit = await prisma.unit.findUnique({
+            where: { name: unitName }
+        });
+
+        if (existingUnit) {
+            return res.status(400).json({
+                success: false,
+                message: "Unit Already Exists"
+            });
+        }
+
+        const addUnit = await prisma.unit.create({
+            data: {
+                name: name
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Unit Added Successfully`,
+            data: addUnit,
+        });
+
     } catch (error) {
-        
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
+const showUnit = async (req, res) => {
+    try {
+        const getUnit = await prisma.unit.findMany({
+            select: {
+                id: true,
+                name: true,
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Units Fetched Successfully`,
+            data: getUnit,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
     }
 };
 
@@ -1202,4 +1263,6 @@ module.exports = {
     getRepairedServiceRecords,
     getRejectedServiceRecords,
     getItemRawMaterials,
+    addUnit,
+    showUnit
 };
