@@ -149,11 +149,57 @@ const addItemRawMaterialFromExcel = async (req, res) => {
     }
 };
 
+const updateRawMaterialsUnitByExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: "No file uploaded" });
+        }
+
+        // Read file buffer from Multer
+        const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (!sheetData.length) {
+            return res.status(400).json({ error: "Empty file uploaded" });
+        }
+
+        let updatedCount = 0; // Counter for successful updates
+
+        // Loop through each row and update the database
+        for (const row of sheetData) {
+            const { name, unit } = row;
+
+            if (!name || !unit) {
+                continue; // Skip rows with missing data
+            }
+
+            // Update the unit where name matches
+            const result = await prisma.rawMaterial.updateMany({
+                where: { name: name },
+                data: { unit: unit },
+            });
+
+            // Count successful updates
+            if (result.count > 0) {
+                updatedCount += result.count;
+            }
+        }
+
+        res.status(200).json({ message: "RawMaterial units updated successfully", updatedCount });
+
+    } catch (error) {
+        console.error("Error updating raw materials:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
 
 module.exports = {
     addRole,
     showRole, 
     deleteRole,
     addItemRawMaterialFromExcel,
+    updateRawMaterialsUnitByExcel,
     upload 
 };
