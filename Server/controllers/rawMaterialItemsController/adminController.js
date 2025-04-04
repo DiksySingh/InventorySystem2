@@ -443,12 +443,13 @@ const deleteItem = async (req, res) => {
 const addRawMaterial = async (req, res) => {
     try {
         const { rawMaterialName, unit } = req.body;
-        if (!rawMaterialName) {
+        if (!rawMaterialName || !unit) {
             return res.status(400).json({
                 success: false,
                 message: "rawMaterialName is required"
             });
         }
+        console.log(req.body);
 
         const name = rawMaterialName.trim(); // Trim only once
 
@@ -471,6 +472,7 @@ const addRawMaterial = async (req, res) => {
                 unit: unit
             }
         });
+        console.log(addRawMaterial);
 
         return res.status(201).json({
             success: true,
