@@ -820,7 +820,7 @@ const addServiceRecord = async (req, res) => {
             if (!rawMaterial) {
                 return res.status(404).json({
                     success: false,
-                    message: `Raw Material with ID ${rawMaterialId} not found`,
+                    message: `Raw Material with ID ${rawMaterial.name} not found`,
                 });
             }
 
@@ -828,7 +828,7 @@ const addServiceRecord = async (req, res) => {
                 if (rawMaterial.stock < quantity) {
                     return res.status(400).json({
                         success: false,
-                        message: `Not enough stock for Raw Material ID ${rawMaterialId}. Available: ${rawMaterial.stock}, Required: ${quantity}`,
+                        message: `Not enough stock for Raw Material ID ${rawMaterial.name}. Available: ${rawMaterial.stock}, Required: ${quantity}`,
                     });
                 }
                 await prisma.rawMaterial.update({
@@ -1100,6 +1100,7 @@ const getRepairedServiceRecords = async (req, res) => {
                             rawMaterialId: part.rawMaterialId,
                             rawMaterialName: rawMaterial?.name || "Unknown",
                             quantity: part.quantity,
+                            unit: part.unit
                         };
                     })
                 );
@@ -1149,6 +1150,7 @@ const getRejectedServiceRecords = async (req, res) => {
                             rawMaterialId: part.rawMaterialId,
                             rawMaterialName: rawMaterial?.name || "Unknown",
                             quantity: part.quantity,
+                            unit: part.unit
                         };
                     })
                 );
