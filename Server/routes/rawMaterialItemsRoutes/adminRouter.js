@@ -5,26 +5,27 @@ const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/to
 
 router.get("/showEmployees", tokenVerification(['Admin']), adminController.showEmployees);
 router.put("/deactivateEmployee", tokenVerification(['Admin']), adminController.deactivateEmployee);
-router.put("/activateEmployee", adminController.activateEmployee);
-router.post("/addItem", adminController.addItem);
-router.post("/addRawMaterial", adminController.addRawMaterial);
-router.get("/showItems", adminController.showItems);
-router.get("/showRawMaterials", adminController.showRawMaterials);
-router.delete("/deleteItem", adminController.deleteItem);
-router.delete("/deleteAllRawMaterials", adminController.deleteAllRawMaterials);
-router.post("/updateRawMaterialStock", adminController.updateRawMaterialStock);
-router.post("/addWarehouse", adminController.addWarehouse);
-router.get("/showDefectiveItemsOfWarehouse", adminController.getDefectiveItemsForWarehouse);
-router.get("/showDefectiveItemsList", adminController.getDefectiveItemsListByWarehouse);
-router.get("/getItemsByName", adminController.getItemsByName);
-router.get("/getRawMaterialsByItemId", adminController.getRawMaterialsByItemId);
-router.post("/addServiceRecord", adminController.addServiceRecord);
-router.get("/getItemRawMaterials", adminController.getItemRawMaterials);
-router.get("/getRepairedServiceRecords", adminController.getRepairedServiceRecords);
-router.get("/getRejectedServiceRecords", adminController.getRejectedServiceRecords);
-router.post("/addUnit", adminController.addUnit);
-router.get("/showUnit", adminController.showUnit);
-router.post("/attachItemToRawMaterial", adminController.attachItemToRawMaterial);
-router.post("/")
+router.put("/activateEmployee", tokenVerification(['Admin']), adminController.activateEmployee);
+router.post("/addItem", tokenVerification(['Admin']),  adminController.addItem);
+router.post("/addRawMaterial", tokenVerification(['Admin']), adminController.addRawMaterial);
+router.get("/showItems", tokenVerification(['Admin']), adminController.showItems);
+router.get("/showRawMaterials", tokenVerification(['Admin']), adminController.showRawMaterials);
+router.delete("/deleteItem", tokenVerification(['Admin']), adminController.deleteItem);
+router.delete("/deleteAllRawMaterials", tokenVerification(['Admin']), adminController.deleteAllRawMaterials);
+router.post("/updateRawMaterialStock", tokenVerification(['Admin']), adminController.updateRawMaterialStock);
+router.post("/addWarehouse", tokenVerification(['Admin']), adminController.addWarehouse);
+router.get("/showDefectiveItemsOfWarehouse", tokenVerification(['Admin']), adminController.getDefectiveItemsForWarehouse);
+router.get("/showDefectiveItemsList", tokenVerification(['Admin']), adminController.getDefectiveItemsListByWarehouse);
+router.get("/getItemsByName", tokenVerification(['Admin']), adminController.getItemsByName);
+router.get("/getRawMaterialsByItemId", tokenVerification(['Admin']), adminController.getRawMaterialsByItemId);
+router.post("/addServiceRecord", tokenVerification(['Admin']), adminController.addServiceRecord);
+router.get("/getItemRawMaterials", tokenVerification(['Admin']), adminController.getItemRawMaterials);
+router.get("/getRepairedServiceRecords", tokenVerification(['Admin']), adminController.getRepairedServiceRecords);
+router.get("/getRejectedServiceRecords", tokenVerification(['Admin']), adminController.getRejectedServiceRecords);
+router.post("/addUnit", tokenVerification(['Admin']), adminController.addUnit);
+router.get("/showUnit", tokenVerification(['Admin']), adminController.showUnit);
+router.post("/attachItemToRawMaterial", tokenVerification(['Admin']), adminController.attachItemToRawMaterial);
+router.post("/updateItemRawMaterial", tokenVerification(['Admin']), adminController.updateItemRawMaterial);
+router.delete("/deleteItemRawMaterial", tokenVerification(['Admin']), adminController.deleteItemRawMaterial);
 
 module.exports = router;
