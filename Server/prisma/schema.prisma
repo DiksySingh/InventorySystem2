@@ -21,6 +21,8 @@ model User {
   refreshToken String?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @default(now()) @updatedAt
+
+  updatedItems     ItemRawMaterial[] @relation("UserUpdates")
   stocks       StockMovement[]
   services     ServiceRecord[] // One-to-Many relationship with ServiceRecord
   role         Role?           @relation(fields: [roleId], references: [id])
@@ -73,8 +75,14 @@ model ItemRawMaterial {
   itemId        String?
   rawMaterialId String?
   quantity      Float?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  updatedBy     String?
+
+  user          User?         @relation("UserUpdates", fields: [updatedBy], references: [id])
   item          Item?        @relation(fields: [itemId], references: [id])
   rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  
 
   @@unique([itemId, rawMaterialId])
   @@index([rawMaterialId], map: "ItemRawMaterial_rawMaterialId_fkey")

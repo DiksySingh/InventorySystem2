@@ -1301,6 +1301,92 @@ const showUnit = async (req, res) => {
     }
 };
 
+const updateItemRawMaterial = async (req, res) => {
+    const { itemId, rawMaterialId, quantity, name } = req.body;
+
+    if (!itemId || !rawMaterialId) {
+        return res.status(400).json({
+            success: false,
+            message: "itemId and rawMaterialId are required",
+        });
+    }
+
+    try {
+        // If quantity is provided, update it directly in ItemRawMaterial
+        if (quantity !== 0) {
+            await prisma.itemRawMaterial.update({
+                where: {
+                    itemId_rawMaterialId: {
+                        itemId,
+                        rawMaterialId,
+                    },
+                },
+                data: {
+                    quantity: parseFloat(quantity),
+                },
+            });
+        }
+
+        // If name is provided, update the name in RawMaterial table
+        if (name) {
+            await prisma.rawMaterial.update({
+                where: {
+                    id: rawMaterialId,
+                },
+                data: {
+                    name,
+                },
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Raw Material and/or Quantity updated successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
+const deleteItemRawMaterial = async (req, res) => {
+    const { itemId, rawMaterialId } = req.body;
+
+    if (!itemId || !rawMaterialId) {
+        return res.status(400).json({
+            success: false,
+            message: "itemId and rawMaterialId are required to delete the row",
+        });
+    }
+
+    try {
+        await prisma.itemRawMaterial.delete({
+            where: {
+                itemId_rawMaterialId: {
+                    itemId,
+                    rawMaterialId,
+                },
+            },
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "ItemRawMaterial row deleted successfully",
+        });
+    } catch (error) {
+        console.error("Delete Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
+
 module.exports = {
     showEmployees,
     deactivateEmployee,
@@ -1322,5 +1408,8 @@ module.exports = {
     getRejectedServiceRecords,
     getItemRawMaterials,
     addUnit,
-    showUnit
+    showUnit,
+    attachItemToRawMaterial,
+    updateItemRawMaterial,
+    deleteItemRawMaterial
 };

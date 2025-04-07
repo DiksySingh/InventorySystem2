@@ -24,5 +24,7 @@ router.get("/getRepairedServiceRecords", adminController.getRepairedServiceRecor
 router.get("/getRejectedServiceRecords", adminController.getRejectedServiceRecords);
 router.post("/addUnit", adminController.addUnit);
 router.get("/showUnit", adminController.showUnit);
+router.post("/attachItemToRawMaterial", adminController.attachItemToRawMaterial);
+router.post("/")
 
 module.exports = router;
