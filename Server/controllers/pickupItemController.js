@@ -474,14 +474,14 @@ module.exports.updateOrderStatus = async (req, res) => {
         const quantityToAdjust = item.quantity;
 
         // const itemRecord = await Item.findOne({ itemName });
-        const itemRecord = await Item.findOne({ itemName: { $regex: new RegExp(`^${itemName}$`, "i") } });
+        // const itemRecord = await Item.findOne({ itemName: { $regex: new RegExp(`^${itemName}$`, "i") } });
 
-        if (!itemRecord) {
-          return res.status(404).json({
-            success: false,
-            message: `Item ${itemName} not found in inventory`,
-          });
-        }
+        // if (!itemRecord) {
+        //   return res.status(404).json({
+        //     success: false,
+        //     message: `Item ${itemName} not found in inventory`,
+        //   });
+        // }
 
         const warehouseItem = warehouseItemRecord.items.find(wItem => new RegExp(`^${itemName}$`, "i").test(wItem.itemName));
         if (!warehouseItem) {
@@ -492,10 +492,10 @@ module.exports.updateOrderStatus = async (req, res) => {
         }
 
         if (incoming === true) {
-          itemRecord.defective = parseInt(itemRecord.defective) + parseInt(quantityToAdjust); //Adding incoming items from SP to Items Defect Field
-          warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust); //Addding incoming items from SP to WarehouseItems Defect Field
+          // itemRecord.defective = parseInt(itemRecord.defective) + parseInt(quantityToAdjust); //Adding incoming items from SP to Items Defect Field
+          warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust); //Adding incoming items from SP to WarehouseItems Defect Field
         }
-        await itemRecord.save();
+        //await itemRecord.save();
 
       }
       await warehouseItemRecord.save();
