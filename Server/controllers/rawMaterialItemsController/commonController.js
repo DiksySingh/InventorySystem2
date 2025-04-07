@@ -194,6 +194,58 @@ const updateRawMaterialsUnitByExcel = async (req, res) => {
     }
 };
 
+const importRawMaterialsByExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No file uploaded",
+            });
+        }
+
+        const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = xlsx.utils.sheet_to_json(sheet);
+        console.log(jsonData);
+
+        let insertedCount = 0;
+
+        for (const row of jsonData) {
+            console.log(row);
+            const name = row.name;
+            const unit = row.unit;
+
+            if (!name || !unit) continue;
+
+            try {
+                await prisma.rawMaterial.create({
+                    data: {
+                        name: name.trim(),
+                        unit: unit.trim(),
+                        stock: 0,
+                    },
+                });
+                insertedCount++;
+            } catch (err) {
+                console.log(`Skipping duplicate or invalid entry: ${name}`);
+                // Could log or handle duplicates here
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `${insertedCount} RawMaterials inserted successfully`,
+        });
+    } catch (error) {
+        console.error("Excel import error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
 
 module.exports = {
     addRole,
@@ -201,5 +253,6 @@ module.exports = {
     deleteRole,
     addItemRawMaterialFromExcel,
     updateRawMaterialsUnitByExcel,
+    importRawMaterialsByExcel,
     upload 
 };

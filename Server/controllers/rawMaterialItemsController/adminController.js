@@ -1023,51 +1023,105 @@ const addServiceRecord = async (req, res) => {
 //     }
 // };
 
-const getItemRawMaterials = async (req, res) => {
-    const {subItem} = req.query; // Get itemName from request body
+// const getItemRawMaterials = async (req, res) => {
+//     const {subItem} = req.query; // Get itemName from request body
+//     console.log(subItem);
+//     if (!subItem) {
+//         return res.status(400).json({ success: false, error: "Item name is required" });
+//     }
 
+//     try {
+//         // Extract the key name from subItem by taking the first part (before extra details)
+//         const mainName = subItem.split(" ").slice(0, 4).join(" "); // Use the first 2-3 words as a key part
+
+//         // Find the item that exactly matches the key part of the subItem
+//         const item = await prisma.item.findFirst({
+//             where: {
+//                 name: mainName, // Exact match query
+//             },
+//         });
+//         console.log(item)
+//         if (!item) {
+//             return res.status(404).json({ success: false, message: "Item Not Found" });
+//         }
+
+//         // Fetch related raw materials if item is found
+//         const itemRawMaterials = await prisma.itemRawMaterial.findMany({
+//             where: {
+//                 itemId: item.id,
+//             },
+//             include: {
+//                 rawMaterial: true, // Include raw material details (name, etc.)
+//             },
+//         });
+
+//         // Format the response
+//         const result = itemRawMaterials.map((entry) => ({
+//             id: entry.rawMaterialId,
+//             name: entry.rawMaterial.name,
+//             quantity: entry.quantity,
+//         }));
+
+//         // Return the result
+//         return res.status(200).json({
+//             success: true,
+//             message: "Raw Material Fetched Successfully",
+//             data: result,
+//         });
+//     } catch (error) {
+//         console.error("Error fetching raw materials:", error);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message,
+//         });
+//     }
+// };
+
+const getItemRawMaterials = async (req, res) => {
+    const { subItem } = req.query;
+    console.log(subItem);
     if (!subItem) {
         return res.status(400).json({ success: false, error: "Item name is required" });
     }
 
     try {
-        // Extract the key name from subItem by taking the first part (before extra details)
-        const mainName = subItem.split(" ").slice(0, 3).join(" "); // Use the first 2-3 words as a key part
+        const allItems = await prisma.item.findMany();
+        const lowerSubItem = subItem.toLowerCase();
 
-        // Find the item that exactly matches the key part of the subItem
-        const item = await prisma.item.findFirst({
-            where: {
-                name: mainName, // Exact match query
-            },
+        // Try to find closest match manually
+        const matchedItem = allItems.find(item => {
+            const name = item.name.toLowerCase();
+            return lowerSubItem.includes(name) || name.includes(lowerSubItem);
         });
-        console.log(item)
-        if (!item) {
+        console.log(matchedItem);
+
+        
+        if (!matchedItem) {
             return res.status(404).json({ success: false, message: "Item Not Found" });
         }
 
-        // Fetch related raw materials if item is found
         const itemRawMaterials = await prisma.itemRawMaterial.findMany({
             where: {
-                itemId: item.id,
+                itemId: matchedItem.id,
             },
             include: {
-                rawMaterial: true, // Include raw material details (name, etc.)
+                rawMaterial: true,
             },
         });
-
-        // Format the response
+        console.log(itemRawMaterials);
         const result = itemRawMaterials.map((entry) => ({
             id: entry.rawMaterialId,
             name: entry.rawMaterial.name,
             quantity: entry.quantity,
         }));
 
-        // Return the result
         return res.status(200).json({
             success: true,
             message: "Raw Material Fetched Successfully",
             data: result,
         });
+
     } catch (error) {
         console.error("Error fetching raw materials:", error);
         return res.status(500).json({

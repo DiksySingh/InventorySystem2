@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../../controllers/rawMaterialItemsController/adminController");
+const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 
-router.get("/showEmployees", adminController.showEmployees);
-router.put("/deactivateEmployee", adminController.deactivateEmployee);
+router.get("/showEmployees", tokenVerification(['Admin']), adminController.showEmployees);
+router.put("/deactivateEmployee", tokenVerification(['Admin']), adminController.deactivateEmployee);
 router.put("/activateEmployee", adminController.activateEmployee);
 router.post("/addItem", adminController.addItem);
 router.post("/addRawMaterial", adminController.addRawMaterial);
