@@ -25,7 +25,7 @@ router.get("/getRejectedServiceRecords", tokenVerification(['Admin']), adminCont
 router.post("/addUnit", tokenVerification(['Admin']), adminController.addUnit);
 router.get("/showUnit", tokenVerification(['Admin']), adminController.showUnit);
 router.post("/attachItemToRawMaterial", tokenVerification(['Admin']), adminController.attachItemToRawMaterial);
-router.post("/updateItemRawMaterial", tokenVerification(['Admin']), adminController.updateItemRawMaterial);
+router.put("/updateItemRawMaterial", tokenVerification(['Admin']), adminController.updateItemRawMaterial);
 router.delete("/deleteItemRawMaterial", tokenVerification(['Admin']), adminController.deleteItemRawMaterial);
 
 module.exports = router;
