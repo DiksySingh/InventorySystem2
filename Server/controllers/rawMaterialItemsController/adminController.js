@@ -937,7 +937,7 @@ const addServiceRecord = async (req, res) => {
                 if (!rawMaterial) {
                     return res.status(404).json({
                         success: false,
-                        message: `Raw Material with ID ${rawMaterialId} not found`,
+                        message: `Raw Material - ${rawMaterial.name} not found`,
                     });
                 }
 
