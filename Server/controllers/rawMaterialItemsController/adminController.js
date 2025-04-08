@@ -847,7 +847,7 @@ const addServiceRecord = async (req, res) => {
 
         try {
             const response = await axios.post(`http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`);
-            console.log('API Response:', response.data); // Log the API response
+            console.log('API Response:', response.data);
         } catch (apiError) {
             console.error('Error calling defective stock API:', apiError.message);
         }
@@ -868,206 +868,50 @@ const addServiceRecord = async (req, res) => {
     }
 };
 
-// const addServiceRecord = async (req, res) => {
-//     try {
-//         const {
-//             item,
-//             subItem,
-//             quantity,
-//             serialNumber,
-//             faultAnalysis,
-//             isRepaired,
-//             repairedRejectedBy,
-//             remarks,
-//             repairedParts, // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
-//             userId,
-//         } = req.body;
-//         console.log(req.body);
-
-//         if (!item || !subItem || !quantity || !serialNumber || !faultAnalysis || !repairedRejectedBy || !remarks || !repairedParts || !userId) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "All fields are required",
-//             });
-//         }
-
-//         // 1️⃣ Find the closest matching item for subItem
-//         const matchingItems = await prisma.item.findMany({
-//             where: {
-//                 name: {
-//                     contains: subItem.split(" ").slice(0, 3).join(" "), // Using first 3 words for fuzzy match
-//                 },
-//             },
-//         });
-
-//         if (!matchingItems.length) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: `No matching item found for '${subItem}' in Item model`,
-//             });
-//         }
-
-//         // Pick the best match (longest common substring match)
-//         let bestMatch = matchingItems[0];
-//         let bestMatchLength = 0;
-
-//         for (const item of matchingItems) {
-//             const commonSubstring = item.name.split(" ").filter(word => subItem.includes(word)).join(" ");
-//             if (commonSubstring.length > bestMatchLength) {
-//                 bestMatch = item;
-//                 bestMatchLength = commonSubstring.length;
-//             }
-//         }
-//         const subItemId = bestMatch.id; // Get the ID of the best match
-//         console.log(subItemId)
-
-//         // 2️⃣ Create the service record
-//         const serviceRecord = await prisma.serviceRecord.create({
-//             data: {
-//                 item,
-//                 subItem,
-//                 quantity,
-//                 serialNumber,
-//                 faultAnalysis,
-//                 isRepaired,
-//                 repairedRejectedBy,
-//                 remarks,
-//                 repairedParts,
-//                 userId,
-//             },
-//         });
-
-//         for (const part of repairedParts) {
-//             const { rawMaterialId, quantity: repairedQuantity } = part;
-
-//             // 3️⃣ Find matching ItemRawMaterial entry where itemId = subItemId and rawMaterialId matches
-//             const itemRawMaterial = await prisma.itemRawMaterial.findFirst({
-//                 where: {
-//                     itemId: subItemId,
-//                     rawMaterialId: rawMaterialId,
-//                 },
-//             });
-
-//             if (!itemRawMaterial) {
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: `ItemRawMaterial not found for subItem ID ${subItemId} and RawMaterial ID ${rawMaterialId}`,
-//                 });
-//             }
-
-//             const requiredQuantity = itemRawMaterial.quantity * repairedQuantity; // Multiply
-
-//             // 4️⃣ Find the raw material in the RawMaterial model
-//             const rawMaterial = await prisma.rawMaterial.findUnique({
-//                 where: { id: rawMaterialId },
-//             });
-
-//             if (!rawMaterial) {
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: `Raw Material with ID ${rawMaterialId} not found`,
-//                 });
-//             }
-
-//             if (isRepaired) {
-//                 if (rawMaterial.stock < requiredQuantity) {
-//                     return res.status(400).json({
-//                         success: false,
-//                         message: `Not enough stock for Raw Material ID ${rawMaterialId}. Available: ${rawMaterial.stock}, Required: ${requiredQuantity}`,
-//                     });
-//                 }
-//                 await prisma.rawMaterial.update({
-//                     where: { id: rawMaterialId },
-//                     data: { stock: rawMaterial.stock - requiredQuantity },
-//                 });
-//             } else {
-//                 await prisma.rawMaterial.update({
-//                     where: { id: rawMaterialId },
-//                     data: { stock: rawMaterial.stock + requiredQuantity },
-//                 });
-//             }
-
-//             // 5️⃣ Save service usage record
-//             await prisma.serviceUsage.create({
-//                 data: {
-//                     serviceId: serviceRecord.id,
-//                     rawMaterialId,
-//                     quantityUsed: requiredQuantity,
-//                 },
-//             });
-//         }
-
-//         // 6️⃣ Call external API
-//         try {
-//             const response = await axios.post(
-//                 `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`
-//             );
-//             console.log("API Response:", response.data);
-//         } catch (apiError) {
-//             console.error("Error calling defective stock API:", apiError.message);
-//         }
-
-//         // Return success response
-//         return res.status(201).json({
-//             success: true,
-//             message: "Service record created successfully!",
-//             serviceRecord,
-//         });
-
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: "Failed to create service record",
-//             error: error.message,
-//         });
-//     }
-// };
-
 // const getItemRawMaterials = async (req, res) => {
-//     const {subItem} = req.query; // Get itemName from request body
+//     const { subItem } = req.query;
 //     console.log(subItem);
 //     if (!subItem) {
 //         return res.status(400).json({ success: false, error: "Item name is required" });
 //     }
 
 //     try {
-//         // Extract the key name from subItem by taking the first part (before extra details)
-//         const mainName = subItem.split(" ").slice(0, 4).join(" "); // Use the first 2-3 words as a key part
+//         const allItems = await prisma.item.findMany();
+//         const lowerSubItem = subItem.toLowerCase();
 
-//         // Find the item that exactly matches the key part of the subItem
-//         const item = await prisma.item.findFirst({
-//             where: {
-//                 name: mainName, // Exact match query
-//             },
+//         // Try to find closest match manually
+//         const matchedItem = allItems.find(item => {
+//             const name = item.name.toLowerCase();
+//             return lowerSubItem.includes(name) || name.includes(lowerSubItem);
 //         });
-//         console.log(item)
-//         if (!item) {
+//         console.log(matchedItem);
+
+        
+//         if (!matchedItem) {
 //             return res.status(404).json({ success: false, message: "Item Not Found" });
 //         }
 
-//         // Fetch related raw materials if item is found
 //         const itemRawMaterials = await prisma.itemRawMaterial.findMany({
 //             where: {
-//                 itemId: item.id,
+//                 itemId: matchedItem.id,
 //             },
 //             include: {
-//                 rawMaterial: true, // Include raw material details (name, etc.)
+//                 rawMaterial: true,
 //             },
 //         });
-
-//         // Format the response
+//         console.log(itemRawMaterials);
 //         const result = itemRawMaterials.map((entry) => ({
 //             id: entry.rawMaterialId,
 //             name: entry.rawMaterial.name,
 //             quantity: entry.quantity,
 //         }));
 
-//         // Return the result
 //         return res.status(200).json({
 //             success: true,
 //             message: "Raw Material Fetched Successfully",
 //             data: result,
 //         });
+
 //     } catch (error) {
 //         console.error("Error fetching raw materials:", error);
 //         return res.status(500).json({
@@ -1080,45 +924,58 @@ const addServiceRecord = async (req, res) => {
 
 const getItemRawMaterials = async (req, res) => {
     const { subItem } = req.query;
-    console.log(subItem);
+
     if (!subItem) {
         return res.status(400).json({ success: false, error: "Item name is required" });
     }
 
     try {
-        const allItems = await prisma.item.findMany();
-        const lowerSubItem = subItem.toLowerCase();
-
-        // Try to find closest match manually
-        const matchedItem = allItems.find(item => {
-            const name = item.name.toLowerCase();
-            return lowerSubItem.includes(name) || name.includes(lowerSubItem);
-        });
-        console.log(matchedItem);
-
+        const keyword = subItem.toLowerCase().split(" ")[0]; // Extract keyword like "MOTOR"
         
-        if (!matchedItem) {
-            return res.status(404).json({ success: false, message: "Item Not Found" });
+        // Fetch all items
+        const allItems = await prisma.item.findMany();
+
+        // Filter items that contain the keyword
+        const matchedItems = allItems.filter(item =>
+            item.name.toLowerCase().includes(keyword)
+        );
+        console.log(matchedItems);
+
+        if (matchedItems.length === 0) {
+            return res.status(404).json({ success: false, message: "No matching items found" });
         }
 
-        const itemRawMaterials = await prisma.itemRawMaterial.findMany({
-            where: {
-                itemId: matchedItem.id,
-            },
-            include: {
-                rawMaterial: true,
-            },
-        });
-        console.log(itemRawMaterials);
-        const result = itemRawMaterials.map((entry) => ({
-            id: entry.rawMaterialId,
-            name: entry.rawMaterial.name,
-            quantity: entry.quantity,
-        }));
+        const rawMaterialMap = new Map();
+
+        for (const item of matchedItems) {
+            const itemRawMaterials = await prisma.itemRawMaterial.findMany({
+                where: {
+                    itemId: item.id,
+                },
+                include: {
+                    rawMaterial: true,
+                },
+            });
+
+            for (const entry of itemRawMaterials) {
+                const id = entry.rawMaterialId;
+
+                // Avoid duplicates
+                if (!rawMaterialMap.has(id)) {
+                    rawMaterialMap.set(id, {
+                        id,
+                        name: entry.rawMaterial.name,
+                        quantity: entry.quantity,
+                    });
+                }
+            }
+        }
+
+        const result = Array.from(rawMaterialMap.values());
 
         return res.status(200).json({
             success: true,
-            message: "Raw Material Fetched Successfully",
+            message: "Unique Raw Materials Fetched Successfully",
             data: result,
         });
 
