@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../../controllers/rawMaterialItemsController/adminController");
+const {generateServiceRecordPDF} = require("../../helpers/rawMaterialItemsHelpers/generateReports");
 const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 
 router.get("/showEmployees", tokenVerification(['Admin']), adminController.showEmployees);
@@ -27,5 +28,7 @@ router.get("/showUnit", tokenVerification(['Admin']), adminController.showUnit);
 router.post("/attachItemToRawMaterial", tokenVerification(['Admin']), adminController.attachItemToRawMaterial);
 router.put("/updateItemRawMaterial", tokenVerification(['Admin']), adminController.updateItemRawMaterial);
 router.delete("/deleteItemRawMaterial", tokenVerification(['Admin']), adminController.deleteItemRawMaterial);
+
+router.get("/generateServiceRecordPDF", generateServiceRecordPDF);
 
 module.exports = router;
