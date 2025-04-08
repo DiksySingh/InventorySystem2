@@ -924,11 +924,10 @@ const addServiceRecord = async (req, res) => {
             });
         }
 
-        // Prepare map for raw materials and validate stock
         const rawMaterialMap = {};
 
         for (const part of repairedParts) {
-            const { rawMaterialId, quantity } = part;
+            const { rawMaterialId, quantity, unit } = part;
 
             if (!rawMaterialMap[rawMaterialId]) {
                 const rawMaterial = await prisma.rawMaterial.findUnique({
@@ -947,6 +946,15 @@ const addServiceRecord = async (req, res) => {
 
             const rawMaterial = rawMaterialMap[rawMaterialId];
 
+            // ✅ Check unit match
+            if (rawMaterial.unit !== unit) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Unit mismatch for ${rawMaterial.name}. Expected: ${rawMaterial.unit}, Provided: ${unit}`,
+                });
+            }
+
+            // ✅ Check stock if repaired
             if (isRepaired && rawMaterial.stock < quantity) {
                 return res.status(400).json({
                     success: false,
@@ -955,7 +963,7 @@ const addServiceRecord = async (req, res) => {
             }
         }
 
-        // Create the service record
+        // ✅ Create service record
         const serviceRecord = await prisma.serviceRecord.create({
             data: {
                 item,
@@ -968,11 +976,10 @@ const addServiceRecord = async (req, res) => {
                 remarks,
                 repairedParts,
                 userId,
-                // servicedAt: new Date(), // Optional: include timestamp
             },
         });
 
-        // Update stock and log service usage
+        // ✅ Update stock and log service usage
         for (const part of repairedParts) {
             const { rawMaterialId, quantity, unit } = part;
             const rawMaterial = rawMaterialMap[rawMaterialId];
@@ -996,7 +1003,7 @@ const addServiceRecord = async (req, res) => {
             });
         }
 
-        // Call external API
+        // ✅ Call external API
         try {
             const response = await axios.post(
                 `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`
@@ -1006,12 +1013,13 @@ const addServiceRecord = async (req, res) => {
             console.error("Error calling defective stock API:", apiError.message);
         }
 
-        // Final success response
+        // ✅ Success Response
         return res.status(201).json({
             success: true,
             message: "Service record created successfully!",
             serviceRecord,
         });
+
     } catch (error) {
         console.error("Error adding service record:", error);
         return res.status(500).json({
