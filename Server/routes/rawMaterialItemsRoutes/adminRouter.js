@@ -1,12 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../../controllers/rawMaterialItemsController/adminController");
+const {generateServiceRecordPDF} = require("../../helpers/rawMaterialItemsHelpers/generateReports");
+const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 
-router.get("/showEmployees", adminController.showEmployees);
-router.put("/deactivateEmployee", adminController.deactivateEmployee);
-router.put("/activateEmployee", adminController.activateEmployee);
-router.post("/addItem", adminController.addItem);
-router.get("/showItems", adminController.showItems);
-router.post("/addWarehouse", adminController.addWarehouse);
+router.get("/showEmployees", tokenVerification(['Admin']), adminController.showEmployees);
+router.put("/deactivateEmployee", tokenVerification(['Admin']), adminController.deactivateEmployee);
+router.put("/activateEmployee", tokenVerification(['Admin']), adminController.activateEmployee);
+router.post("/addItem", tokenVerification(['Admin']),  adminController.addItem);
+router.post("/addRawMaterial", tokenVerification(['Admin']), adminController.addRawMaterial);
+router.get("/showItems", tokenVerification(['Admin']), adminController.showItems);
+router.get("/showRawMaterials", tokenVerification(['Admin']), adminController.showRawMaterials);
+router.delete("/deleteItem", tokenVerification(['Admin']), adminController.deleteItem);
+router.delete("/deleteAllRawMaterials", tokenVerification(['Admin']), adminController.deleteAllRawMaterials);
+router.post("/updateRawMaterialStock", tokenVerification(['Admin']), adminController.updateRawMaterialStock);
+router.post("/addWarehouse", tokenVerification(['Admin']), adminController.addWarehouse);
+router.get("/showDefectiveItemsOfWarehouse", tokenVerification(['Admin']), adminController.getDefectiveItemsForWarehouse);
+router.get("/showDefectiveItemsList", tokenVerification(['Admin']), adminController.getDefectiveItemsListByWarehouse);
+router.get("/getItemsByName", tokenVerification(['Admin']), adminController.getItemsByName);
+router.get("/getRawMaterialsByItemId", tokenVerification(['Admin']), adminController.getRawMaterialsByItemId);
+router.post("/addServiceRecord", tokenVerification(['Admin']), adminController.addServiceRecord);
+router.get("/getItemRawMaterials", tokenVerification(['Admin']), adminController.getItemRawMaterials);
+router.get("/getRepairedServiceRecords", tokenVerification(['Admin']), adminController.getRepairedServiceRecords);
+router.get("/getRejectedServiceRecords", tokenVerification(['Admin']), adminController.getRejectedServiceRecords);
+router.post("/addUnit", tokenVerification(['Admin']), adminController.addUnit);
+router.get("/showUnit", tokenVerification(['Admin']), adminController.showUnit);
+router.post("/attachItemToRawMaterial", tokenVerification(['Admin']), adminController.attachItemToRawMaterial);
+router.put("/updateItemRawMaterial", tokenVerification(['Admin']), adminController.updateItemRawMaterial);
+router.delete("/deleteItemRawMaterial", tokenVerification(['Admin']), adminController.deleteItemRawMaterial);
+
+router.get("/generateServiceRecordPDF", generateServiceRecordPDF);
 
 module.exports = router;

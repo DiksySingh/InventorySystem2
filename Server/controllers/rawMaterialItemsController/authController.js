@@ -61,7 +61,7 @@ const login = async (req, res) => {
         const {email, password, roleId} = req.body;
         const options = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "development",
+            secure: false,
         }
         if(!email || !password || !roleId) {
             return res.status(400).json({
@@ -128,9 +128,50 @@ const login = async (req, res) => {
             error: error.message
         });
     }
+};
+
+const logout = async (req, res) => {
+    try {
+        const empId = req.user?.id;
+        console.log(empId);
+        if(!empId) {
+            return res.status(400).json({
+                success: false,
+                message: "EmpId Not Found"
+            });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: empId },  
+            data: { refreshToken: null },
+        });
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User Not Found",
+            });
+        }
+
+        return res
+        .status(200)
+        .clearCookie("accessToken", { httpOnly: true, secure: false })
+        .clearCookie("refreshToken", { httpOnly: true, secure: false })
+        .json({
+          success: true,
+          message: "Logged Out Successfully",
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
 }
 
 module.exports = {
     addUser,
     login,
+    logout
 };

@@ -1,23 +1,17 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("SERVER_DB_URL_DEV")
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String  @id @default(uuid()) 
+  id           String          @id @default(uuid())
   name         String?
-  email        String?   @unique
-  contact      String? 
+  email        String?         @unique
+  contact      String?
   password     String?
   roleId       String?
   block        String?
@@ -25,116 +19,156 @@ model User {
   state        String?
   isActive     Boolean?
   refreshToken String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @default(now()) @updatedAt
 
-  role         Role? @relation(fields: [roleId], references: [id])
-  services     ServiceRecord[]  // Services performed by this user
+  updatedItems     ItemRawMaterial[] @relation("UserUpdates")
+  stocks       StockMovement[]
+  services     ServiceRecord[] // One-to-Many relationship with ServiceRecord
+  role         Role?           @relation(fields: [roleId], references: [id])
+
+  @@index([roleId], map: "User_roleId_fkey")
 }
 
 model Role {
-  id         String  @id @default(uuid()) 
-  name       String?  @unique
-  createdAt  DateTime @default(now())
-
-  users      User[]
+  id        String   @id @default(uuid())
+  name      String?  @unique
+  createdAt DateTime @default(now())
+  users     User[]
 }
 
 model Warehouse {
-  id         String  @id @default(uuid()) 
-  name       String?  @unique  // Example: "Main Warehouse"
-  state      String?
-  createdAt  DateTime @default(now())
-
+  id             String          @id @default(uuid())
+  name           String?         @unique
+  state          String?
+  createdAt      DateTime        @default(now())
   stockMovements StockMovement[]
 }
 
 model Item {
-  id           String  @id @default(uuid()) 
-  name         String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  rawMaterials ItemRawMaterial[]
-  serviceRecords ServiceRecord[]
+  id                 String               @id @default(uuid())
+  name               String?              @unique
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  rawMaterials       ItemRawMaterial[]
   manufacturingUsage ManufacturingUsage[]
 }
 
 model RawMaterial {
-  id              String  @id @default(uuid()) 
-  name            String?  @unique
-  stock           Int?    // Available stock quantity
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String               @id @default(uuid())
+  name                String?              @unique
+  stock               Float?
+  unit                String?              
 
-  stockMovements  StockMovement[]   // Tracks stock changes (incoming & used)
-  manufacturingUsages ManufacturingUsage[]  // Tracks raw material usage in manufacturing
-  serviceUsages   ServiceUsage[]  // Tracks raw materials used for servicing
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
-  ItemRawMaterial ItemRawMaterial[]
+  ItemRawMaterial     ItemRawMaterial[]
+  manufacturingUsages ManufacturingUsage[]
+  serviceUsages       ServiceUsage[]
+  stockMovements      StockMovement[]
 }
 
+
 model ItemRawMaterial {
-  id             String  @id @default(uuid()) 
-  itemId         String?
-  rawMaterialId  String?
-  quantity       Int?   // Quantity needed to manufacture one item
+  id            String       @id @default(uuid())
+  itemId        String?
+  rawMaterialId String?
+  quantity      Float?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  updatedBy     String?
 
-  item           Item? @relation(fields: [itemId], references: [id])
-  rawMaterial    RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  user          User?         @relation("UserUpdates", fields: [updatedBy], references: [id])
+  item          Item?        @relation(fields: [itemId], references: [id])
+  rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  
 
-  @@unique([itemId, rawMaterialId]) // Ensures unique item-rawMaterial pair
+  @@unique([itemId, rawMaterialId])
+  @@index([rawMaterialId], map: "ItemRawMaterial_rawMaterialId_fkey")
 }
 
 model StockMovement {
-  id              String   @id @default(uuid())
-  rawMaterialId   String?
-  warehouseId     String?
-  quantity        Int?
-  type            String?   // "IN" (new stock) or "OUT" (used)
-  timestamp       DateTime @default(now())
+  id            String       @id @default(uuid())
+  rawMaterialId String?
+  userId        String?
+  warehouseId   String?
+  quantity      Float?
+  unit          String?
+  type          String?
+  timestamp     DateTime     @default(now())
 
-  rawMaterial     RawMaterial? @relation(fields: [rawMaterialId], references: [id])
-  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
+  rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  warehouse     Warehouse?   @relation(fields: [warehouseId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id])
+
+  @@index([rawMaterialId], map: "StockMovement_rawMaterialId_fkey")
+  @@index([warehouseId], map: "StockMovement_warehouseId_fkey")
 }
 
 model ManufacturingUsage {
-  id              String   @id @default(uuid())
-  itemId          String?
-  rawMaterialId   String?
-  quantityUsed    Int?     // How much raw material was used for manufacturing
-  manufacturingDate DateTime @default(now())
+  id                String       @id @default(uuid())
+  itemId            String?
+  rawMaterialId     String?
+  quantityUsed      Float?
+  unit            String?      // Reference to Unit 
+  manufacturingDate DateTime     @default(now())
+  item              Item?        @relation(fields: [itemId], references: [id])
+  rawMaterial       RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
-  item            Item? @relation(fields: [itemId], references: [id])
-  rawMaterial     RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  @@index([itemId], map: "ManufacturingUsage_itemId_fkey")
+  @@index([rawMaterialId], map: "ManufacturingUsage_rawMaterialId_fkey")
+ 
 }
 
 model ServiceRecord {
-  id             String   @id @default(uuid())
-  itemId         String?   // The product that was serviced
-  userId         String?   // The user (technician) who performed the service
-  repairedBy     String?
-  servicedAt     DateTime  @default(now())
+  id              String         @id @default(uuid()) // Unique Service Record ID
+  item            String?        // Main item being repaired (e.g., motor)  //Motor
+  subItem         String?        // Sub-item (e.g., capacitor, fuse) //MOTOR 10HP AC 380V
+  quantity        Float?         // Quantity of items handled    //1
+  serialNumber    String?        // Serial number of the serviced item //ABCB1234
+  faultAnalysis   String?        // Description of the fault or issue found  //Stamp Damaged
+  isRepaired      Boolean?           // Whether the main item was fixed //true
+  repairedRejectedBy      String?        // Name of the technician //Shiv
+  remarks         String?        // Additional repair notes // Deffective Items
+  repairedParts   Json?          // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
 
-  status         String?   // "Repaired" or "Rejected"
-  remark         String?   // Reason for rejection or repair details
+  userId          String         // User who created the record (foreign key)
+  user            User           @relation(fields: [userId], references: [id])  // Relationship to User model
 
-  item           Item? @relation(fields: [itemId], references: [id])
-  user           User? @relation(fields: [userId], references: [id])
-  serviceUsages  ServiceUsage[] // Track raw materials used for servicing
+  servicedAt      DateTime       @default(now())                           // Service date
+  updatedAt       DateTime       @updatedAt                                // Automatically updated timestamp
+  
+  serviceUsages   ServiceUsage[]                                           // Relationship to parts usage
+
+  @@index([serialNumber], map: "ServiceRecord_serialNumber_idx")           // Index on serialNumber for fast lookups
+  @@index([userId], map: "ServiceRecord_userId_idx")                       // Index on userId for efficient queries
 }
 
 model ServiceUsage {
-  id             String   @id @default(uuid())
-  serviceId      String?
-  rawMaterialId  String?
-  quantityUsed   Int?   // How much raw material was used in service
+  id            String         @id @default(uuid())               // Unique ID
+  serviceId     String         // Foreign key to ServiceRecord (One-to-Many)
+  rawMaterialId String?        // Material/part used
+  quantityUsed  Float?         // Quantity used in this service
+  // isRepaired    Boolean?       // Indicates if the part was repaired/replaced
+  // remarks       String?        // Additional notes for this part usage
+  unit        String?         // Reference to Unit
+ 
 
-  service        ServiceRecord? @relation(fields: [serviceId], references: [id])
-  rawMaterial    RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  // Relationships
+  rawMaterial   RawMaterial?   @relation(fields: [rawMaterialId], references: [id]) // Part reference
+  service       ServiceRecord?  @relation(fields: [serviceId], references: [id])    // Linked service record
+
+  // Timestamps
+  createdAt     DateTime       @default(now())                     // Record creation time
+  updatedAt     DateTime       @updatedAt                         // Last modification time
+
+  @@index([serviceId], map: "ServiceUsage_serviceId_fkey")        // Index for service lookups
+  @@index([rawMaterialId], map: "ServiceUsage_rawMaterialId_fkey")// Index for material lookups
 }
 
-model Test {
-  id String @id @default(uuid())
-  name String?
+model Unit {
+  id          String    @id @default(uuid())
+  name        String    @unique  // Example: "kg", "liters", "pieces"
+  createdAt   DateTime  @default(now())
 }

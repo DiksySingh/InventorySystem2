@@ -5,14 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "migrate:local": "npx prisma migrate dev --dotenv-file .env --name",
-    "migrate:dev": "npx prisma migrate dev --dotenv-file .env.development --name",
-    "migrate:prod": "npx prisma migrate dev --dotenv-file .env.production --name",
-    "generate:local": "npm prisma generate --dotenv-file .env",
-    "generate:dev": "npm prisma generate --dotenv-file .env.development",
-    "generate:prod": "npm prisma generate --dotenv-file .env.production",
-    "seed:dev": "env-cmd -f .env.development npx prisma db seed",
-    "seed:prod": "env-cmd -f .env.production npx prisma db seed"
+    "dev": "nodemon index.js",
+    "seed": "npx prisma db seed"
   },
   "author": "",
   "license": "ISC",
@@ -42,6 +36,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
+    "dotenv-cli": "^8.0.0",
     "env-cmd": "^10.1.0",
     "prisma": "^6.5.0"
   }
