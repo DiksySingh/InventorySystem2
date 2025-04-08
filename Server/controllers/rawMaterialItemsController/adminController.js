@@ -939,7 +939,6 @@ const getItemRawMaterials = async (req, res) => {
         const matchedItems = allItems.filter(item =>
             item.name.toLowerCase().includes(keyword)
         );
-        console.log(matchedItems);
 
         if (matchedItems.length === 0) {
             return res.status(404).json({ success: false, message: "No matching items found" });

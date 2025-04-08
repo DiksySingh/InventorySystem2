@@ -17,7 +17,6 @@ module.exports.tokenVerification = (allowedRoles) => {
       }
       // Verify token
       jwt.verify(token, process.env.ACCESS_TOKEN_KEY, async (err, decoded) => {
-        console.log(err);
         if (err) {
           if (err.name === "TokenExpiredError") {
             return res.status(401).json({
@@ -66,7 +65,6 @@ module.exports.tokenVerification = (allowedRoles) => {
 
         // Extract role name
         const userRole = user.role.name;
-        console.log(userRole);
 
         // Check if user role is allowed
         if (!allowedRoles.includes(userRole)) {
@@ -77,7 +75,6 @@ module.exports.tokenVerification = (allowedRoles) => {
         }
 
         req.user = user;
-        console.log(req.user); // Attach user data to request
         next();
       });
     } catch (error) {
