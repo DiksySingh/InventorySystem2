@@ -1322,7 +1322,7 @@ const showUnit = async (req, res) => {
 const updateItemRawMaterial = async (req, res) => {
     const { itemId, rawMaterialId, quantity, name } = req.body;
 
-    if (!itemId || !rawMaterialId || !updatedBy) {
+    if (!itemId || !rawMaterialId) {
         return res.status(400).json({
             success: false,
             message: "itemId, rawMaterialId, and updatedBy are required",
