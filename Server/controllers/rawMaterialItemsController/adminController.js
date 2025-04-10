@@ -1321,7 +1321,7 @@ const showUnit = async (req, res) => {
 
 const updateItemRawMaterial = async (req, res) => {
     const { itemId, rawMaterialId, quantity, name } = req.body;
-
+    console.log(req.body);
     if (!itemId || !rawMaterialId) {
         return res.status(400).json({
             success: false,
@@ -1348,6 +1348,7 @@ const updateItemRawMaterial = async (req, res) => {
         }
 
         if (quantity !== 0 || quantity !== undefined || quantity !== null) {
+            console.log("Hi");
             updateData.quantity = parseFloat(quantity);
         }
 
@@ -1360,7 +1361,7 @@ const updateItemRawMaterial = async (req, res) => {
             },
             data: updateData,
         });
-
+        console.log("Hi2")
         return res.status(200).json({
             success: true,
             message: "Raw Material and/or Quantity updated successfully",
