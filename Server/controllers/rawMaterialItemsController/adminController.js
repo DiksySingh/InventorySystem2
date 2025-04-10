@@ -728,7 +728,7 @@ const getRawMaterialsByItemId = async (req, res) => {
             where: { itemId },
             select: {
                 rawMaterial: {
-                    select: { name: true },
+                    select: { id: true, name: true },
                 },
                 quantity: true,
             },
