@@ -1321,60 +1321,76 @@ const showUnit = async (req, res) => {
 
 const updateItemRawMaterial = async (req, res) => {
     const { itemId, rawMaterialId, quantity, name } = req.body;
-    console.log(req.body);
+    console.log("Request body:", req.body);
+  
     if (!itemId || !rawMaterialId) {
-        return res.status(400).json({
-            success: false,
-            message: "itemId, rawMaterialId, and updatedBy are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "itemId and rawMaterialId are required",
+      });
     }
-
+  
     try {
-        // Always update updatedBy (and quantity if it's provided)
-        const updateData = {
-            updatedBy: req.user.id,
-        };
-
-        // If name is provided, update name in RawMaterial table
-        if (name) {
-            await prisma.rawMaterial.update({
-                where: {
-                    id: rawMaterialId,
-                },
-                data: {
-                    name,
-                },
-            });
-        }
-
-        if (quantity !== 0 || quantity !== undefined || quantity !== null) {
-            console.log("Hi");
-            updateData.quantity = parseFloat(quantity);
-        }
-
-        await prisma.itemRawMaterial.update({
-            where: {
-                itemId_rawMaterialId: {
-                    itemId,
-                    rawMaterialId,
-                },
-            },
-            data: updateData,
+      const updateData = {
+        updatedBy: req.user.id,
+      };
+      console.log(updateData);
+      // Check if the composite entry exists
+      const existing = await prisma.itemRawMaterial.findUnique({
+        where: {
+          itemId_rawMaterialId: {
+            itemId,
+            rawMaterialId,
+          },
+        },
+      });
+  
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: "Item-RawMaterial link not found",
         });
-        console.log("Hi2")
-        return res.status(200).json({
-            success: true,
-            message: "Raw Material and/or Quantity updated successfully",
+      }
+  
+      // Update RawMaterial name if provided
+      if (name) {
+        await prisma.rawMaterial.update({
+          where: { id: rawMaterialId },
+          data: { name },
         });
-
+      }
+  
+      // Update quantity if valid
+      if (quantity !== undefined && quantity !== null && !isNaN(quantity)) {
+        console.log("Hi")
+        updateData.quantity = parseFloat(quantity);
+      }
+  
+      // Update itemRawMaterial link
+      await prisma.itemRawMaterial.update({
+        where: {
+          itemId_rawMaterialId: {
+            itemId,
+            rawMaterialId,
+          },
+        },
+        data: updateData,
+      });
+      console.log("Hi2");
+      return res.status(200).json({
+        success: true,
+        message: "Raw Material and/or Quantity updated successfully",
+      });
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message,
-        });
+      console.error("Update Error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        error: error.message,
+      });
     }
-};
+  };
+  
 
 const deleteItemRawMaterial = async (req, res) => {
     const { itemId, rawMaterialId } = req.body;
