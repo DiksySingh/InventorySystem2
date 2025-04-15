@@ -25,6 +25,7 @@ model User {
   updatedItems     ItemRawMaterial[] @relation("UserUpdates")
   stocks       StockMovement[]
   services     ServiceRecord[] // One-to-Many relationship with ServiceRecord
+  productionLogs ProductionLog[]
   role         Role?           @relation(fields: [roleId], references: [id])
 
   @@index([roleId], map: "User_roleId_fkey")
@@ -52,6 +53,7 @@ model Item {
   updatedAt          DateTime             @updatedAt
   rawMaterials       ItemRawMaterial[]
   manufacturingUsage ManufacturingUsage[]
+  productionLogs ProductionLog[]
 }
 
 model RawMaterial {
@@ -120,7 +122,17 @@ model ManufacturingUsage {
   @@index([rawMaterialId], map: "ManufacturingUsage_rawMaterialId_fkey")
  
 }
-
+model ProductionLog {
+  id                String   @id @default(uuid())
+  itemId            String
+  itemName          String   // NEW FIELD
+  quantityProduced  Int
+  manufacturingDate DateTime @default(now())
+  rawMaterials      Json
+  userId            String
+  item              Item?     @relation(fields: [itemId], references: [id])
+  user              User?     @relation(fields: [userId], references: [id])
+}
 model ServiceRecord {
   id              String         @id @default(uuid()) // Unique Service Record ID
   item            String?        // Main item being repaired (e.g., motor)  //Motor
