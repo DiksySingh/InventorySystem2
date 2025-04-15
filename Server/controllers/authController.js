@@ -9,6 +9,7 @@ const {
   createRefreshToken,
 } = require("../util/secretToken");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const { refreshToken } = require("../middlewares/authMiddlewares");
 
 module.exports.adminSignup = async (req, res) => {
@@ -535,3 +536,68 @@ module.exports.addIsActiveField = async (req, res) => {
   }
 };
 
+
+module.exports.validateRefreshToken = async (req, res) => {
+  const refreshToken = req.body.refreshToken;
+  const options = {
+    httpOnly: true,
+    secure: false, // Set to true in production with HTTPS
+  };
+
+  if (!refreshToken) {
+    return res.status(401).json({ success: false, message: 'Refresh token required' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_KEY);
+
+    let user = null;
+    let role = null;
+
+    // Try to find user in Admin
+    user = await Admin.findById(decoded.id);
+    if (user && user.refreshToken === refreshToken) role = 'admin';
+
+    // If not Admin, check ServicePerson
+    if (!user || user.refreshToken !== refreshToken) {
+      user = await ServicePerson.findById(decoded.id);
+      if (user && user.refreshToken === refreshToken) role = 'serviceperson';
+    }
+
+    // If still not found, check SurveyPerson
+    if (!user || user.refreshToken !== refreshToken) {
+      user = await SurveyPerson.findById(decoded.id);
+      if (user && user.refreshToken === refreshToken) role = 'surveyperson';
+    }
+
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(403).json({ success: false, message: 'Invalid refresh token' });
+    }
+
+    // Generate new tokens
+    const newAccessToken = createSecretToken(user._id, role);
+    const newRefreshToken = createRefreshToken(user._id);
+
+    // Update user's refresh token
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    // Set cookies
+    return res
+      .status(201)
+      .cookie('accessToken', newAccessToken, options)
+      .cookie('refreshToken', newRefreshToken, options)
+      .json({
+        success: true,
+        message: `Welcome back ${user.name}!`,
+        role,
+      });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: error.message,
+    });
+  }
+};
