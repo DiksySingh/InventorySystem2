@@ -247,6 +247,66 @@ const importRawMaterialsByExcel = async (req, res) => {
     }
 };
 
+const updateRawMaterialStockByExcel = async (req, res) => {
+    try {
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ success: false, message: "Excel file is required." });
+      }
+  
+      // Parse Excel buffer
+      const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+  
+      let successfulUpdates = 0;
+      const failedUpdates = [];
+  
+      // Loop over rows
+      for (const row of sheet) {
+        const name = row.name || row.Name;
+        const quantity = parseFloat(row.quantity || row.Quantity);
+  
+        if (!name || isNaN(quantity)) {
+          failedUpdates.push(row);
+          continue;
+        }
+  
+        const updated = await prisma.rawMaterial.updateMany({
+          where: { name },
+          data: {
+            stock: quantity,
+          },
+        });
+  
+        if (updated.count === 0) {
+          failedUpdates.push(row);
+        } else {
+          successfulUpdates += updated.count;
+        }
+      }
+  
+      // Log failed ones
+      if (failedUpdates.length > 0) {
+        console.log("Failed to update these rows (name not found):");
+        console.table(failedUpdates);
+      }
+  
+      return res.status(200).json({
+        success: true,
+        message: "Stock update from Excel completed.",
+        updatedCount: successfulUpdates,
+        failedCount: failedUpdates.length,
+      });
+    } catch (error) {
+      console.error("Error during Excel processing:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        error: error.message,
+      });
+    }
+  };
+
 module.exports = {
     addRole,
     showRole, 
@@ -254,5 +314,6 @@ module.exports = {
     addItemRawMaterialFromExcel,
     updateRawMaterialsUnitByExcel,
     importRawMaterialsByExcel,
+    updateRawMaterialStockByExcel,
     upload 
 };

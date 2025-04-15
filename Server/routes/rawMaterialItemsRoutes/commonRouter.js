@@ -8,5 +8,6 @@ router.delete("/deleteRole", commonController.deleteRole);
 router.post('/addItemRawMaterialFromExcel', commonController.upload.single('file'), commonController.addItemRawMaterialFromExcel);
 router.post("/updateRawMaterialsUnitByExcel", commonController.upload.single('file'), commonController.updateRawMaterialsUnitByExcel);
 router.post("/importRawMaterialsByExcel", commonController.upload.single('file'), commonController.importRawMaterialsByExcel);
+router.post("/updateRawMaterialStockByExcel", commonController.upload.single('file'), commonController.updateRawMaterialStockByExcel);
 
 module.exports = router;

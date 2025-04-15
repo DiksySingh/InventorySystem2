@@ -6,5 +6,6 @@ const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/to
 router.post("/signup", authController.addUser);
 router.post("/login", authController.login);
 router.post("/logout", tokenVerification(['Admin']), authController.logout);
+router.post("/handleRefreshToken", authController.handleRefreshToken);
 
 module.exports = router;
