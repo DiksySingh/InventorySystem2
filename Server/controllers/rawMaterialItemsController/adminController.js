@@ -1529,52 +1529,57 @@ const produceNewItem = async (req, res) => {
 
 const getItemsProducibleCount = async (req, res) => {
     try {
-      const items = await prisma.item.findMany({
-        include: {
-          rawMaterials: {
+        const items = await prisma.item.findMany({
             include: {
-              rawMaterial: true,
+                rawMaterials: {
+                    include: {
+                        rawMaterial: true,
+                    },
+                },
             },
-          },
-        },
-      });
-  
-      const results = items.map((item) => {
-        const itemRawMaterials = item.rawMaterials;
-  
-        if (itemRawMaterials.length === 0) {
-          return {
-            itemId: item.id,
-            itemName: item.name,
-            maxProducibleUnits: 0,
-          };
-        }
-  
-        const producibleUnits = itemRawMaterials.map((irm) => {
-          const requiredQty = irm.quantity ?? 0;
-          const availableStock = irm.rawMaterial?.stock ?? 0;
-  
-          if (requiredQty === 0) return Infinity;
-          return availableStock / requiredQty;
         });
-  
-        const maxUnits = Math.floor(Math.min(...producibleUnits));
-  
-        return {
-          itemId: item.id,
-          itemName: item.name,
-          maxProducibleUnits: maxUnits,
-        };
-      });
-  
-      return res.status(200).json({success: true, message: "Data Fetched Successfully", results});
+
+        const results = items.map((item) => {
+            const itemRawMaterials = item.rawMaterials;
+
+            if (itemRawMaterials.length === 0) {
+                return {
+                    itemId: item.id,
+                    itemName: item.name,
+                    maxProducibleUnits: 0,
+                };
+            }
+
+            const producibleUnits = itemRawMaterials.map((irm) => {
+                const requiredQty = irm.quantity ?? 0;
+                const availableStock = irm.rawMaterial?.stock ?? 0;
+
+                if (requiredQty === 0) return Infinity;
+                return availableStock / requiredQty;
+            });
+
+            const minProducible = Math.floor(Math.min(...producibleUnits));
+
+            return {
+                itemId: item.id,
+                itemName: item.name,
+                maxProducibleUnits: minProducible > 0 ? minProducible : 0
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            results
+        });
     } catch (error) {
-      return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
     }
 };
-  
-
-
 
 module.exports = {
     showEmployees,
