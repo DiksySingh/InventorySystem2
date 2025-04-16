@@ -28,6 +28,8 @@ router.get("/showUnit", tokenVerification(['Admin']), adminController.showUnit);
 router.post("/attachItemToRawMaterial", tokenVerification(['Admin']), adminController.attachItemToRawMaterial);
 router.put("/updateItemRawMaterial", tokenVerification(['Admin']), adminController.updateItemRawMaterial);
 router.delete("/deleteItemRawMaterial", tokenVerification(['Admin']), adminController.deleteItemRawMaterial);
+router.post("/produceNewItem", adminController.produceNewItem);
+router.get("/getItemsProducibleCount", adminController.getItemsProducibleCount);
 
 router.get("/generateServiceRecordPDF", generateServiceRecordPDF);
 

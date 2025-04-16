@@ -125,10 +125,9 @@ model ManufacturingUsage {
 model ProductionLog {
   id                String   @id @default(uuid())
   itemId            String
-  itemName          String   // NEW FIELD
+  subItem           String   // NEW FIELD
   quantityProduced  Int
   manufacturingDate DateTime @default(now())
-  rawMaterials      Json
   userId            String
   item              Item?     @relation(fields: [itemId], references: [id])
   user              User?     @relation(fields: [userId], references: [id])
