@@ -1508,17 +1508,16 @@ const produceNewItem = async (req, res) => {
             ...manufacturingUsages,
             prisma.productionLog.create({
                 data: {
-                    itemId,
-                    itemName,
-                    quantityProduced,
-                    manufacturingDate: timestamp,
-                    rawMaterials: rawMaterialLog,
-                    userId
+                  item: { connect: { id: itemId } },
+                  subItem,
+                  quantityProduced,
+                  manufacturingDate: timestamp,
+                  user: { connect: { id: userId } }
                 }
             })
         ]);
 
-        return res.status(201).json({ message: `Produced ${itemName}: ${quantityProduced} and updated warehouse stock.` });
+        return res.status(201).json({ message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.` });
     } catch (error) {
         return res.status(500).json({
             success: false,
