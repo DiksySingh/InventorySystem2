@@ -1428,7 +1428,7 @@ const deleteItemRawMaterial = async (req, res) => {
 
 const produceNewItem = async (req, res) => {
     try {
-        const { itemId, subItem, quantityProduced, userId} = req.body;
+        const { itemId, subItem, quantityProduced, userId } = req.body;
 
         const itemRawMaterials = await prisma.itemRawMaterial.findMany({
             where: { itemId },
@@ -1441,8 +1441,24 @@ const produceNewItem = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No raw materials linked to this item.' });
         }
 
+        // 🛑 Step 1: Check stock availability before proceeding
+        const insufficientMaterials = itemRawMaterials.filter(rm => {
+            const requiredQty = (rm.quantity || 0) * quantityProduced;
+            return (rm.rawMaterial?.stock ?? 0) < requiredQty;
+        });
+
+        if (insufficientMaterials.length > 0) {
+            const message = insufficientMaterials.map(rm =>
+                `Insufficient stock for ${rm.rawMaterial?.name ?? 'Unknown Material'} (required: ${(rm.quantity || 0) * quantityProduced}, available: ${rm.rawMaterial?.stock ?? 0})`
+            );
+            return res.status(400).json({
+                success: false,
+                message: "Not enough raw material to produce item.",
+                details: message
+            });
+        }
+
         const timestamp = new Date();
-        const rawMaterialLog = [];
         const stockUpdates = [];
         const manufacturingUsages = [];
 
@@ -1469,13 +1485,9 @@ const produceNewItem = async (req, res) => {
                     }
                 })
             );
-
-            rawMaterialLog.push({
-                rawMaterialId: rm.rawMaterialId,
-                quantityUsed: totalUsed
-            });
         }
-        const  warehouseId = "67446a8b27dae6f7f4d985dd";
+
+        const warehouseId = "67446a8b27dae6f7f4d985dd";
         const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseId });
 
         if (!warehouseItemsData) {
@@ -1485,7 +1497,6 @@ const produceNewItem = async (req, res) => {
             });
         }
 
-        // Check if itemName exists in the warehouse items
         const itemIndex = warehouseItemsData.items.findIndex((item) => item.itemName === subItem);
 
         if (itemIndex === -1) {
@@ -1495,10 +1506,7 @@ const produceNewItem = async (req, res) => {
             });
         }
 
-        // Get the item based on the found index
         const itemToUpdate = warehouseItemsData.items[itemIndex];
-
-        // Parse the quantity to be deducted
         const quantityToUpdate = parseInt(quantityProduced);
         itemToUpdate.quantity += quantityToUpdate;
         await warehouseItemsData.save();
@@ -1508,16 +1516,19 @@ const produceNewItem = async (req, res) => {
             ...manufacturingUsages,
             prisma.productionLog.create({
                 data: {
-                  item: { connect: { id: itemId } },
-                  subItem,
-                  quantityProduced,
-                  manufacturingDate: timestamp,
-                  user: { connect: { id: userId } }
+                    item: { connect: { id: itemId } },
+                    subItem,
+                    quantityProduced,
+                    manufacturingDate: timestamp,
+                    user: { connect: { id: userId } }
                 }
             })
         ]);
 
-        return res.status(201).json({ message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.` });
+        return res.status(201).json({
+            success: true,
+            message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.`
+        });
     } catch (error) {
         return res.status(500).json({
             success: false,
