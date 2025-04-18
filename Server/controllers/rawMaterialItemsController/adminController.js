@@ -1688,8 +1688,64 @@ const produceNewItem = async (req, res) => {
     }
 };
 
+// const getItemsProducibleCount = async (req, res) => {
+//     try {
+//         const items = await prisma.item.findMany({
+//             include: {
+//                 rawMaterials: {
+//                     include: {
+//                         rawMaterial: true,
+//                     },
+//                 },
+//             },
+//         });
+
+//         const results = items.map((item) => {
+//             const itemRawMaterials = item.rawMaterials;
+
+//             if (itemRawMaterials.length === 0) {
+//                 return {
+//                     itemId: item.id,
+//                     itemName: item.name,
+//                     maxProducibleUnits: 0,
+//                 };
+//             }
+
+//             const producibleUnits = itemRawMaterials.map((irm) => {
+//                 const requiredQty = irm.quantity ?? 0;
+//                 const availableStock = irm.rawMaterial?.stock ?? 0;
+
+//                 if (requiredQty === 0) return Infinity;
+//                 return availableStock / requiredQty;
+//             });
+
+//             const minProducible = Math.floor(Math.min(...producibleUnits));
+
+//             return {
+//                 itemId: item.id,
+//                 itemName: item.name,
+//                 maxProducibleUnits: minProducible > 0 ? minProducible : 0
+//             };
+//         });
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Data Fetched Successfully",
+//             results
+//         });
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal server error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const getItemsProducibleCount = async (req, res) => {
     try {
+        const { name } = req.query;
+
         const items = await prisma.item.findMany({
             include: {
                 rawMaterials: {
@@ -1700,7 +1756,14 @@ const getItemsProducibleCount = async (req, res) => {
             },
         });
 
-        const results = items.map((item) => {
+        // Filter manually if name query param is passed
+        const filteredItems = name
+            ? items.filter(item =>
+                item.name.toLowerCase().includes(name.toLowerCase())
+            )
+            : items;
+
+        const results = filteredItems.map((item) => {
             const itemRawMaterials = item.rawMaterials;
 
             if (itemRawMaterials.length === 0) {
@@ -1724,20 +1787,21 @@ const getItemsProducibleCount = async (req, res) => {
             return {
                 itemId: item.id,
                 itemName: item.name,
-                maxProducibleUnits: minProducible > 0 ? minProducible : 0
+                maxProducibleUnits: minProducible > 0 ? minProducible : 0,
             };
         });
 
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
-            results
+            results,
         });
+
     } catch (error) {
         return res.status(500).json({
             success: false,
             message: "Internal server error",
-            error: error.message
+            error: error.message,
         });
     }
 };
