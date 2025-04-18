@@ -1806,6 +1806,72 @@ const getItemsProducibleCount = async (req, res) => {
     }
 };
 
+const getInsufficientRawMaterials = async (req, res) => {
+    try {
+        const { itemId } = req.query; // or use req.params depending on your route
+
+        if (!itemId) {
+            return res.status(400).json({
+                success: false,
+                message: "Item ID is required",
+            });
+        }
+
+        const item = await prisma.item.findUnique({
+            where: {
+                id: itemId,
+            },
+            include: {
+                rawMaterials: {
+                    include: {
+                        rawMaterial: true,
+                    },
+                },
+            },
+        });
+
+        if (!item) {
+            return res.status(404).json({
+                success: false,
+                message: "Item not found",
+            });
+        }
+
+        const insufficientMaterials = item.rawMaterials
+            .filter((irm) => {
+                const requiredQty = irm.quantity ?? 0;
+                const availableStock = irm.rawMaterial?.stock ?? 0;
+
+                // If requiredQty is zero, skip it
+                if (requiredQty === 0) return false;
+
+                return availableStock < requiredQty;
+            })
+            .map((irm) => ({
+                rawMaterialId: irm.rawMaterial?.id,
+                rawMaterialName: irm.rawMaterial?.name,
+                availableStock: irm.rawMaterial?.stock ?? 0,
+                requiredQuantity: irm.quantity ?? 0,
+            }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Insufficient raw materials fetched successfully",
+            item: {
+                itemId: item.id,
+                itemName: item.name,
+            },
+            insufficientMaterials,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     showEmployees,
     deactivateEmployee,
@@ -1832,5 +1898,6 @@ module.exports = {
     updateItemRawMaterial,
     deleteItemRawMaterial,
     produceNewItem,
-    getItemsProducibleCount
+    getItemsProducibleCount,
+    getInsufficientRawMaterials
 };
