@@ -766,7 +766,7 @@ module.exports.incomingItemsData = async (req, res) => {
       approvedBy,
       pickupDate
     } = req.body;
-
+    console.log(req.body);
     if (
       !farmerContact ||
       !farmerComplaintId ||
@@ -794,7 +794,7 @@ module.exports.incomingItemsData = async (req, res) => {
       items: { $size: items.length, $all: items.map(item => ({ itemName: item.itemName, quantity: item.quantity }))},
       incoming: true
     });
-    
+    console.log(existingPickupData);
     if (existingPickupData) {
       return res.status(400).json({
         success: false,
@@ -811,6 +811,7 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Warehouse Doesn't Exist",
       });
     }
+    console.log(warehouseData);
     const warehouseId = warehouseData._id;
 
     const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
@@ -820,7 +821,7 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Warehouse Items Data Not Found",
       });
     }
-
+    console.log(warehouseItemRecord);
 
     for (let item of items) {
       const itemName = item.itemName;
@@ -911,7 +912,7 @@ module.exports.incomingItemsData = async (req, res) => {
       let existingIncomingRecord = await IncomingItemDetails.findOne({
         servicePerson: id,
       });
-
+      console.log(existingIncomingRecord);
       items.forEach((incomingItem) => {
         const existingItemIndex = existingIncomingRecord?.items.findIndex(
           (item) => item.itemName === incomingItem.itemName
@@ -968,6 +969,7 @@ module.exports.incomingItemsData = async (req, res) => {
       referenceType: refType,
       itemSendBy: req.user._id
     });
+    console.log(returnItems);
     await returnItems.save();
 
     res.status(200).json({
@@ -976,6 +978,7 @@ module.exports.incomingItemsData = async (req, res) => {
       returnItems,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
