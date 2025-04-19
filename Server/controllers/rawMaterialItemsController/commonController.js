@@ -368,6 +368,7 @@ module.exports = {
     showRole, 
     deleteRole,
     addItemRawMaterialFromExcel,
+    deleteItemRawMaterialFromExcel,
     updateRawMaterialsUnitByExcel,
     importRawMaterialsByExcel,
     updateRawMaterialStockByExcel,
