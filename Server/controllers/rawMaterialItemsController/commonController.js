@@ -149,6 +149,62 @@ const addItemRawMaterialFromExcel = async (req, res) => {
     }
 };
 
+const deleteItemRawMaterialFromExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "Please upload an Excel file.",
+            });
+        }
+
+        // Read Excel file from buffer
+        const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        let deletedCount = 0;
+        let skippedRows = [];
+
+        for (const row of sheetData) {
+            const { itemId, rawMaterialId } = row;
+
+            if (!itemId || !rawMaterialId) {
+                skippedRows.push(row);
+                continue;
+            }
+
+            try {
+                await prisma.itemRawMaterial.delete({
+                    where: {
+                        itemId_rawMaterialId: {
+                            itemId,
+                            rawMaterialId,
+                        },
+                    },
+                });
+                deletedCount++;
+            } catch (err) {
+                // If it doesn't exist or fails, log or skip
+                skippedRows.push(row);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `${deletedCount} entries deleted successfully.`,
+            skipped: skippedRows.length ? skippedRows : undefined,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
+
 const updateRawMaterialsUnitByExcel = async (req, res) => {
     try {
         if (!req.file) {
