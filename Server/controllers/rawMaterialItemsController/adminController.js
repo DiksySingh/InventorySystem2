@@ -489,8 +489,34 @@ const addRawMaterial = async (req, res) => {
     }
 }
 
+// const showRawMaterials = async (req, res) => {
+//     try {
+//         const allRawMaterials = await prisma.rawMaterial.findMany({
+//             select: {
+//                 id: true,
+//                 name: true,
+//                 stock: true
+//             }
+//         });
+
+//         return res.status(201).json({
+//             success: true,
+//             message: "Raw-Materials fetched successfully",
+//             data: allRawMaterials
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         })
+//     }
+// }
+
 const showRawMaterials = async (req, res) => {
     try {
+        // Get all raw materials
         const allRawMaterials = await prisma.rawMaterial.findMany({
             select: {
                 id: true,
@@ -499,10 +525,30 @@ const showRawMaterials = async (req, res) => {
             }
         });
 
-        return res.status(201).json({
+        // For each raw material, find the max quantity used in any item
+        const enrichedRawMaterials = await Promise.all(
+            allRawMaterials.map(async (rm) => {
+                const maxUsed = await prisma.itemRawMaterial.aggregate({
+                    where: { rawMaterialId: rm.id },
+                    _max: {
+                        quantity: true
+                    }
+                });
+
+                const maxQuantity = maxUsed._max.quantity || 0;
+                const isLow = maxQuantity === 0 ? false : rm.stock < maxQuantity * 10;
+
+                return {
+                    ...rm,
+                    stockIsLow: isLow
+                };
+            })
+        );
+
+        return res.status(200).json({
             success: true,
             message: "Raw-Materials fetched successfully",
-            data: allRawMaterials
+            data: enrichedRawMaterials
         });
 
     } catch (error) {
@@ -510,9 +556,10 @@ const showRawMaterials = async (req, res) => {
             success: false,
             message: "Internal Server Error",
             error: error.message
-        })
+        });
     }
-}
+};
+
 
 const updateRawMaterialStock = async (req, res) => {
     const { rawMaterialId, userId, warehouseId, quantity, type } = req.body;
