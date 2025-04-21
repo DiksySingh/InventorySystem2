@@ -5,6 +5,7 @@ const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsS
 module.exports.sendingDefectiveItems = async (req, res) => {
     try {
         const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate } = req.body;
+        console.log(req.body);
 
         if (!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate) {
             return res.status(400).json({
@@ -19,11 +20,14 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                 message: "Items must be a non-empty array",
             });
         }
+        console.log("hi");
 
         const warehouseData = await Warehouse.findOne({ warehouseName: fromWarehouse });
         const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id });
         const toWarehouseData = await Warehouse.findOne({ warehouseName: toWarehouse });
         const toWarehouseItemsData = await WarehouseItems.findOne({ warehouse: toWarehouseData._id });
+
+        console.log("Hi2");
 
         if (!toWarehouseItemsData) {
             return res.status(404).json({
@@ -31,6 +35,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                 message: `To: ${toWarehouseData.warehouseName} Items Data Not Found`
             });
         }
+        console.log("Hi3");
 
         for (let item of items) {
             let itemName = item.itemName;
@@ -43,7 +48,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                     message: `To: ${toWarehouseData.warehouseName} Item Doesn't Exist`
                 });
             }
-
+            console.log("Hi4");
             const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
 
             if (isDefective) {
@@ -71,6 +76,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
 
         const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate });
         await createDefectiveOrder.save();
+        console.log("Hi5");
 
         return res.status(200).json({
             success: true,
@@ -78,6 +84,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
             orderData: createDefectiveOrder
         });
     } catch (error) {
+        console.log(error);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
