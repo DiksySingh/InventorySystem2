@@ -13,16 +13,32 @@ const incomingItemSchema = new Schema(
     },
     itemName: {
         type: String,
-        required: true
+        //required: true
     },
     quantity: {
         type: Number,
-        required: true
+        //required: true
     },
-    defectiveItem: {
-        type:Number,
-        default: 0,
-    },
+    items: [
+      {
+          itemName: {
+              type: String,
+              required: true
+          },
+          quantity: {
+              type: Number,
+              required: true
+          },
+          defective: {
+            type: Number,
+            default: 0
+          }
+      }
+    ],
+    // defectiveItem: {
+    //     type:Number,
+    //     default: 0,
+    // },
     arrivedDate: {
       type: Date,
       default: Date.now(),

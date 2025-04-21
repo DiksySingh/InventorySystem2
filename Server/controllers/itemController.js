@@ -33,63 +33,73 @@ module.exports.incomingItems = async (req, res) => {
     const {
       warehouse,
       itemComingFrom,
-      itemName,
-      quantity,
-      defectiveItem,
+      //itemName,
+      //quantity,
+      //defectiveItem,
+      items,
       arrivedDate,
     } = req.body;
-    if (!warehouse || !itemComingFrom || !itemName || !quantity) {
+    if (!warehouse || !itemComingFrom || !items) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
       });
     }
 
-    const foundItem = await Item.findOne({ itemName });
-    if (!foundItem) {
-      return res.status(404).json({
-        success: false,
-        message: `Item ${itemName} not found`,
-      });
-    }
-    
-    const warehouseData = await Warehouse.findOne({warehouseName: warehouse});
-    if(!warehouseData){
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse Not Found"
-      });
-    }
+    // const foundItem = await Item.findOne({ itemName });
+    // if (!foundItem) {
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: `Item ${itemName} not found`,
+    //   });
+    // }
 
-    const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
-    if(!warehouseItemsData){
+    const warehouseItemsData = await WarehouseItems.findOne({ warehouseName: req.user.warehouse });
+    if (!warehouseItemsData) {
       return res.status(404).json({
         success: false,
         message: "Warehouse Items Data Not Found"
       });
     }
-    
+
+    // const warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseData._id});
+    // if(!warehouseItemsData){
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: "Warehouse Items Data Not Found"
+    //   });
+    // }
+
     //const nondefectItem = quantity - defectiveItem;
 
-    const warehouseItem = warehouseItemsData.items.find(item => item.itemName === itemName)
-    warehouseItem.quantity = parseInt(warehouseItem.quantity) + parseInt(quantity);
-    if(defectiveItem !== 0){
-      warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(defectiveItem);
+    for (let item of items) {
+      const existingItem = warehouseItemsData.items.find(i => i.itemName === item.itemName);
+      if (!existingItem) {
+        return res.status(404).json({
+          success: false,
+          message: "Item Not Found In Warehouse"
+        });
+      }
+      existingItem.quantity = parseInt(existingItem.quantity) + parseInt(item.quantity);
+      if(item.defective) {
+        existingItem.defective = parseInt(existingItem.defective) + parseInt(item.defective);
+      }
     }
+    
     await warehouseItemsData.save();
 
-    foundItem.stock = parseInt(foundItem.stock) + parseInt(quantity);
-    foundItem.defective = parseInt(foundItem.defective) + parseInt(defectiveItem);
-    foundItem.updatedAt = Date.now();
-    
-    await foundItem.save();
+    // foundItem.stock = parseInt(foundItem.stock) + parseInt(quantity);
+    // foundItem.defective = parseInt(foundItem.defective) + parseInt(defectiveItem);
+    // foundItem.updatedAt = Date.now();
+
+    //await foundItem.save();
 
     const incomingItems = new IncomingItem({
       warehouse,
       itemComingFrom,
-      itemName,
-      quantity,
-      defectiveItem,
+      items,
+      //quantity,
+      //defectiveItem,
       arrivedDate,
     });
 
@@ -109,38 +119,38 @@ module.exports.incomingItems = async (req, res) => {
   }
 };
 
-module.exports.warehouseIncomingItemDetails = async(req, res) => {
-  try{
+module.exports.warehouseIncomingItemDetails = async (req, res) => {
+  try {
     const warehouseId = req.user.warehouse;
-    if(!warehouseId){
+    if (!warehouseId) {
       return res.status(400).json({
         success: false,
         message: "warehouseId not found"
       });
     }
 
-    const warehouseData = await Warehouse.findById({_id: warehouseId});
-    if(!warehouseData){
+    const warehouseData = await Warehouse.findById({ _id: warehouseId });
+    if (!warehouseData) {
       return res.status(404).json({
         success: false,
         message: "Warehouse Not Found"
       });
     }
-    
-    const incomingItemsData = await IncomingItem.find({warehouse: warehouseData.warehouseName});
-    if(!incomingItemsData){
+
+    const incomingItemsData = await IncomingItem.find({ warehouse: warehouseData.warehouseName });
+    if (!incomingItemsData) {
       return res.status(404).json({
         success: false,
         message: "Incoming Items (Upper) Data Not Found"
       });
     }
-    
+
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
       incomingItemsData
     });
-  }catch(error){
+  } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -150,37 +160,37 @@ module.exports.warehouseIncomingItemDetails = async(req, res) => {
 };
 
 //****************************** Admin Access ******************************// 
-module.exports.allIncomingItemDetails = async(req, res) => {
-    try{
-        const itemDetails = await IncomingItem.find();
-        if(!itemDetails){
-            return res.status(404).json({
-                success: false,
-                message: "Data Not Found",
-            });
-        }
-
-        const itemDetailsWithISTDate = itemDetails.map((item) => {
-          return {
-            ...item.toObject(), 
-            arrivedDate: moment(item.arrivedDate)
-              .tz("Asia/Kolkata")
-              .format("YYYY-MM-DD HH:mm:ss"), 
-          };
-        });
-
-        res.status(200).json({
-            success: true,
-            message: "Data Fetched Successfully",
-            itemDetails: itemDetailsWithISTDate
-        });
-    }catch(error){
-        res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message
-        });
+module.exports.allIncomingItemDetails = async (req, res) => {
+  try {
+    const itemDetails = await IncomingItem.find();
+    if (!itemDetails) {
+      return res.status(404).json({
+        success: false,
+        message: "Data Not Found",
+      });
     }
+
+    const itemDetailsWithISTDate = itemDetails.map((item) => {
+      return {
+        ...item.toObject(),
+        arrivedDate: moment(item.arrivedDate)
+          .tz("Asia/Kolkata")
+          .format("YYYY-MM-DD HH:mm:ss"),
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      itemDetails: itemDetailsWithISTDate
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
 };
 
 //Udpate Item Name - Admin Access
@@ -195,7 +205,7 @@ module.exports.updateItemName = async (req, res) => {
       });
     }
 
-    const itemData = await Item.findOne({_id: itemID});
+    const itemData = await Item.findOne({ _id: itemID });
     if (!itemData) {
       return res.status(404).json({
         success: false,
@@ -231,8 +241,8 @@ module.exports.updateItemName = async (req, res) => {
 //Admin Access
 module.exports.showItemsData = async (req, res) => {
   try {
-    const {option}  = req.query;
-    if(!option){
+    const { option } = req.query;
+    if (!option) {
       return res.status(400).json({
         success: false,
         message: "Option not provided"
@@ -247,19 +257,19 @@ module.exports.showItemsData = async (req, res) => {
         data: allItems,
       });
     } else {
-      const warehouseData = await Warehouse.findOne({warehouseName: option});
-      if(!warehouseData){
+      const warehouseData = await Warehouse.findOne({ warehouseName: option });
+      if (!warehouseData) {
         return res.status(404).json({
           success: false,
           message: "Warehouse Data Not Found"
         });
       }
-      const warehouseItems = await WarehouseItems.findOne({ warehouse: warehouseData._id})
+      const warehouseItems = await WarehouseItems.findOne({ warehouse: warehouseData._id })
 
       return res.status(200).json({
         success: true,
         message: `Items for warehouse ${option} fetched successfully`,
-        data: warehouseItems ? warehouseItems.items : [], 
+        data: warehouseItems ? warehouseItems.items : [],
       });
     }
   } catch (error) {

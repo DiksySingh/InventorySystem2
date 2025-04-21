@@ -19,6 +19,7 @@ const IncomingItemsAccount = require("../models/systemInventoryModels/incomingNe
 const NewSystemInstallation = require("../models/systemInventoryModels/newSystemInstallationSchema");
 const StockUpdateActivity = require("../models/systemInventoryModels/stockUpdateActivity");
 const StockHistory = require("../models/serviceInventoryModels/stockHistorySchema");
+const OutgoingItems = require("../models/serviceInventoryModels/outgoingItems");
 
 //****************** Admin Access ******************//
 
@@ -2276,3 +2277,69 @@ module.exports.deductFromDefectiveOfItems = async (req, res) => {
     }
   };
   
+
+module.exports.addOutgoingItemsData = async (req, res) => {
+    try {
+        const {fromWarehouse, toServiceCenter, items, defective} = req.body;
+        if(!fromWarehouse || !toServiceCenter || !items) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+        }
+        
+        if(!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "items should be a non-empty array"
+            });
+        }
+        
+        const warehouseItemsData = await WarehouseItems.findOne({warehouse: req.user.warehouse});
+        if(!warehouseItemsData) {
+            return res.status(404).json({
+                success: false,
+                message: "Warehouse Items Data Not Found"
+            });
+        }
+        for (let item of items) {
+            const existingItem = warehouseItemsData.items.find(i => i.itemName === item.itemName);
+            if(!existingItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Item Not Found In Warehouse"
+                });
+            }
+            if(existingItem.defective === 0 || existingItem.defective < item.quantity) {
+                return res.status(403).json({
+                    success: false,
+                    message: `Warehouse item defective count: ${existingItem.defective}, is less than sending defective count: ${item.quantity}`
+                });
+            }
+
+            existingItem.defective = parseInt(existingItem.defective) - parseInt(item.quantity);
+        }
+
+        const savedWarehouseItemsData = await warehouseItemsData.save();
+        const newOutgoingItemsData = new OutgoingItems({
+            fromWarehouse,
+            toServiceCenter,
+            items,
+            defective
+        });
+
+        if(savedWarehouseItemsData && newOutgoingItemsData) {
+            return res.status(200).json({
+                success: true,
+                message: "Data logged and warehouse items data updated successfully",
+                data: newOutgoingItemsData
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
