@@ -73,11 +73,12 @@ module.exports.sendingDefectiveItems = async (req, res) => {
         }
 
         await warehouseItemsData.save();
+        console.log("Hi5")
 
         const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate });
         console.log(createDefectiveOrder);
         await createDefectiveOrder.save();
-        console.log("Hi5");
+        console.log("Hi6");
 
         return res.status(200).json({
             success: true,
@@ -85,7 +86,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
             orderData: createDefectiveOrder
         });
     } catch (error) {
-        console.log(error);
+        console.log("WTOW Error ", error);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
