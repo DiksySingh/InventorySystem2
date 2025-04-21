@@ -75,6 +75,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
         await warehouseItemsData.save();
 
         const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate });
+        console.log(createDefectiveOrder);
         await createDefectiveOrder.save();
         console.log("Hi5");
 
