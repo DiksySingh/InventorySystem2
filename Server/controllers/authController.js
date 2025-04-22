@@ -352,10 +352,10 @@ module.exports.Login = async (req, res) => {
       });
     }
 
-    let user = await Admin.findOne({ email, role }) ||
-      await WarehousePerson.findOne({ email, role }) ||
-      await ServicePerson.findOne({ email, role }) ||
-      await SurveyPerson.findOne({ email, role });
+    let user = await Admin.findOne({ email: email.trim(), role }) ||
+      await WarehousePerson.findOne({ email: email.trim(), role }) ||
+      await ServicePerson.findOne({ email: email.trim(), role }) ||
+      await SurveyPerson.findOne({ email: email.trim(), role });
 
     if (!user) {
       return res.status(401).json({
