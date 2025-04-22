@@ -55,7 +55,7 @@ module.exports.incomingItems = async (req, res) => {
     // }
     console.log(req.user.warehouse);
 
-    const warehouseItemsData = await WarehouseItems.findOne({ warehouseName: req.user.warehouse });
+    const warehouseItemsData = await WarehouseItems.findOne({ warehouse: req.user.warehouse });
     if (!warehouseItemsData) {
       return res.status(404).json({
         success: false,
