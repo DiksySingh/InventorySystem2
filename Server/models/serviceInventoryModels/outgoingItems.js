@@ -22,10 +22,6 @@ const outgoingItemsSchema = new Schema({
             }
         }
     ],
-    defective: {
-        type: Number,
-        default: 0
-    },
     sendingDate: {
         type: Date,
         default: Date.now

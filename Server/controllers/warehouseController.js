@@ -2280,7 +2280,7 @@ module.exports.deductFromDefectiveOfItems = async (req, res) => {
 
 module.exports.addOutgoingItemsData = async (req, res) => {
     try {
-        const {fromWarehouse, toServiceCenter, items, defective} = req.body;
+        const {fromWarehouse, toServiceCenter, items} = req.body;
         if(!fromWarehouse || !toServiceCenter || !items) {
             return res.status(400).json({
                 success: false,
