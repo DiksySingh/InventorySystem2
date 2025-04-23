@@ -2281,6 +2281,7 @@ module.exports.deductFromDefectiveOfItems = async (req, res) => {
 module.exports.addOutgoingItemsData = async (req, res) => {
     try {
         const {fromWarehouse, toServiceCenter, items} = req.body;
+        console.log(req.body);
         if(!fromWarehouse || !toServiceCenter || !items) {
             return res.status(400).json({
                 success: false,
@@ -2324,8 +2325,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         const newOutgoingItemsData = new OutgoingItems({
             fromWarehouse,
             toServiceCenter,
-            items,
-            defective
+            items
         });
 
         if(savedWarehouseItemsData && newOutgoingItemsData) {
