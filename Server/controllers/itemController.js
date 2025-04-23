@@ -138,7 +138,7 @@ module.exports.warehouseIncomingItemDetails = async (req, res) => {
       });
     }
 
-    const incomingItemsData = await IncomingItem.find({ warehouse: warehouseData.warehouseName });
+    const incomingItemsData = await IncomingItem.find({ warehouse: warehouseData.warehouseName }).sort({ arrivedDate: -1 });
     if (!incomingItemsData) {
       return res.status(404).json({
         success: false,
