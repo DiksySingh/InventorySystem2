@@ -2346,4 +2346,52 @@ module.exports.addOutgoingItemsData = async (req, res) => {
             error: error.message
         });
     }
+};
+
+module.exports.showOutgoingItemsData = async (req, res) => {
+    try {
+        const warehouseId = req.user.warehouse;
+        if(!warehouseId) {
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseId Not Found"
+            });
+        }
+        const warehouseData = await Warehouse.findById({_id: warehouseId});
+        if(!warehouseData) {
+            return res.status(404).json({
+                success: false,
+                message: "Warehouse Data Not Found"
+            });
+        }
+        const outgoingItemsData = await OutgoingItems.find({fromWarehouse: warehouseData.warehouseName});
+        if(!outgoingItemsData) {
+            return res.status(404).json({
+                success: false,
+                message: "Outgoing Items Data Not Found"
+            });
+        }
+
+        const cleanedData = outgoingItemsData.map((doc) => {
+            const docObj = doc.toObject();
+            if (Array.isArray(docObj.items)) {
+                docObj.items = docObj.items.map(item => {
+                    const { _id, ...rest } = item;
+                    return rest;
+                });
+            }
+            return docObj;
+        });
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: cleanedData || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
 }

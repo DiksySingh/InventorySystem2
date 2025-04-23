@@ -28,7 +28,8 @@ const {
   acceptingWToWIncomingItems,
   incomingWToWSystemItemsHistory,
   outgoingWToWSystemItemsHistory,
-  addOutgoingItemsData
+  addOutgoingItemsData,
+  showOutgoingItemsData,
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData, inDefectiveItemsOrderHistory, outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/installationDataController");
@@ -46,6 +47,7 @@ router.get("/view-items", userVerification(['warehouseAdmin']), viewWarehouseIte
 router.post("/outgoing-items", userVerification(['warehouseAdmin']), outgoingItemsData);
 router.post("/add-incoming-item", userVerification(["warehouseAdmin"]), incomingItems);
 router.post("/add-outgoing-item", userVerification(['warehouseAdmin']), addOutgoingItemsData);
+router.get("/outgoing-items-data", userVerification(['warehouseAdmin']), showOutgoingItemsData);
 router.get("/incoming-items-data", userVerification(['warehouseAdmin']), warehouseIncomingItemDetails);
 router.get("/warehouse-in-out-orders",userVerification(["warehouseAdmin"]), warehouseOrderDetails);
 // router.get("/approved-order-history", userVerification(['warehouseAdmin']), viewOrdersApprovedHistory);
