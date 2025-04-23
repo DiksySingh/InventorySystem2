@@ -2330,8 +2330,9 @@ module.exports.addOutgoingItemsData = async (req, res) => {
             toServiceCenter,
             items
         });
-        console.log(newOutgoingItemsData);
-        if(savedWarehouseItemsData && newOutgoingItemsData) {
+        const savedOutgoingItemsData = await newOutgoingItemsData.save();
+        console.log(savedOutgoingItemsData);
+        if(savedWarehouseItemsData && savedOutgoingItemsData) {
             return res.status(200).json({
                 success: true,
                 message: "Data logged and warehouse items data updated successfully",
