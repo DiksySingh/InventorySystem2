@@ -1,4 +1,5 @@
 const axios = require("axios");
+const mongoose = require("mongoose");
 const imageHandlerWithPath = require("../middlewares/imageHandlerWithPath");
 const Item = require("../models/serviceInventoryModels/itemSchema");
 const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
@@ -2386,6 +2387,53 @@ module.exports.showOutgoingItemsData = async (req, res) => {
             success: true,
             message: "Data Fetched Successfully",
             data: cleanedData || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
+module.exports.showWarehouseItemsData = async (req, res) => {
+    try {
+      const warehouseId = "67446a8b27dae6f7f4d985dd";
+        if(!warehouseId) {
+            return res.status(400).json({
+                success: false,
+                message: "WarehouseId Not Found"
+            });
+        }
+        //const warehouseItemsData = await WarehouseItems.find({warehouse: warehouseId});
+        const warehouseItemsData = await WarehouseItems.aggregate([
+            {
+              $match: { warehouse: new mongoose.Types.ObjectId(warehouseId) }
+            },
+            {
+              $project: {
+                _id: 0,
+                items: {
+                  $map: {
+                    input: "$items",
+                    as: "item",
+                    in: { itemName: "$$item.itemName" }
+                  }
+                }
+              }
+            }
+          ]);
+        if(!warehouseItemsData) {
+            return res.status(404).json({
+                success: false,
+                message: "Warehouse Items Data Not Found"
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: warehouseItemsData || []
         });
     } catch (error) {
         return res.status(500).json({
