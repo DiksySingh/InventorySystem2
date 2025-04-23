@@ -2364,7 +2364,7 @@ module.exports.showOutgoingItemsData = async (req, res) => {
                 message: "Warehouse Data Not Found"
             });
         }
-        const outgoingItemsData = await OutgoingItems.find({fromWarehouse: warehouseData.warehouseName});
+        const outgoingItemsData = await OutgoingItems.find({fromWarehouse: warehouseData.warehouseName}).sort({sendingDate: -1});
         if(!outgoingItemsData) {
             return res.status(404).json({
                 success: false,
