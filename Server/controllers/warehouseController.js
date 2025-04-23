@@ -2297,6 +2297,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         }
         
         const warehouseItemsData = await WarehouseItems.findOne({warehouse: req.user.warehouse});
+        console.log(warehouseItemsData);
         if(!warehouseItemsData) {
             return res.status(404).json({
                 success: false,
@@ -2305,6 +2306,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         }
         for (let item of items) {
             const existingItem = warehouseItemsData.items.find(i => i.itemName === item.itemName);
+            console.log(existingItem);
             if(!existingItem) {
                 return res.status(404).json({
                     success: false,
@@ -2322,12 +2324,13 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         }
 
         const savedWarehouseItemsData = await warehouseItemsData.save();
+        console.log(savedWarehouseItemsData);
         const newOutgoingItemsData = new OutgoingItems({
             fromWarehouse,
             toServiceCenter,
             items
         });
-
+        console.log(newOutgoingItemsData);
         if(savedWarehouseItemsData && newOutgoingItemsData) {
             return res.status(200).json({
                 success: true,
