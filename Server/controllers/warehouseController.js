@@ -900,7 +900,7 @@ module.exports.getWarehouse = async (req, res) => {
         if (!warehouseId) {
             return res.status(400).json({
                 success: false,
-                message: "WarebouseId not found"
+                message: "WarehouseId not found"
             });
         }
 
