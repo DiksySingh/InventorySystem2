@@ -62,8 +62,6 @@ module.exports.tokenVerification = (allowedRoles) => {
             message: "User is blocked or inactive",
           });
         }
-
-        // Extract role name
         const userRole = user.role.name;
 
         // Check if user role is allowed
