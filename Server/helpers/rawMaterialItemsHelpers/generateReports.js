@@ -4,6 +4,133 @@ const fs = require("fs");
 const path = require("path");
 const moment = require("moment");
 
+const generateRawMaterialStockPDF = async (req, res) => {
+  try {
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    // Generate HTML content
+    const htmlContent = `
+      <html>
+        <head>
+          <style>
+              @page {
+                margin: 0.5in 0.5in;
+              }
+              body {
+                font-family: Arial, sans-serif;
+                padding: 10px;
+                display: flex;
+                justify-content: center;
+              }
+              table {
+                width: 98%;
+                border-collapse: collapse;
+                margin: auto;
+              }
+              th, td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                vertical-align: top;
+              }
+              th {
+                background-color: #f4f4f4;
+                text-align: center;
+              }
+              td {
+                text-align: center;
+              }
+              td.left-align {
+                text-align: left;
+              }
+              h2 {
+                text-align: center;
+                margin-top: 0;
+                margin-bottom: 15px;
+              }
+              .generated-at {
+                text-align: center;
+                font-weight: bold;
+                font-size: 15px;
+                margin-top: 20px;
+              }
+            </style>
+        </head>
+        <body>
+          <div style="width: 100%;">
+            <h2>Raw Material Stock Report</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Stock</th>
+                  <th>Unit</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rawMaterials.map(material => `
+                  <tr>
+                    <td>${material.name || "-"}</td>
+                    <td>${material.stock ?? "-"}</td>
+                    <td>${material.unit || "-"}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+            <p class="generated-at">
+              Generated at: ${moment().format("DD-MM-YYYY")}
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: '1in',
+        bottom: '1in',
+        left: '0.5in',
+        right: '0.5in'
+      }
+    });
+    await browser.close();
+
+    const uploadDir = path.join(__dirname, "../../uploads/rawMaterial");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const fileName = `RawMaterialStockReport_${moment().format("YYYY-MM-DD")}.pdf`;
+    const filePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    return res.status(200).json({
+      success: true,
+      message: "PDF generated and saved successfully",
+    });
+
+  } catch (error) {
+    console.error("Raw Material PDF generation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Raw Material PDF generation failed",
+      error: error.message,
+    });
+  }
+};
+
 const generateServiceRecordPDF = async (req, res) => {
   try {
     const serviceRecords = await prisma.serviceRecord.findMany({
@@ -103,29 +230,29 @@ const generateServiceRecordPDF = async (req, res) => {
               </thead>
               <tbody>
                 ${serviceRecords.map(record => {
-                  const repairedParts = (() => {
-                    if (!record.repairedParts) return [];
-                    if (Array.isArray(record.repairedParts)) return record.repairedParts;
-                    try {
-                      return JSON.parse(record.repairedParts);
-                    } catch (e) {
-                      return [];
-                    }
-                  })();
+      const repairedParts = (() => {
+        if (!record.repairedParts) return [];
+        if (Array.isArray(record.repairedParts)) return record.repairedParts;
+        try {
+          return JSON.parse(record.repairedParts);
+        } catch (e) {
+          return [];
+        }
+      })();
 
-                  const repairedPartsHtml = repairedParts.length > 0
-                    ? `<ul style="padding-left: 18px; margin: 0;">` +
-                      repairedParts.map(part => {
-                        const material = rawMaterialMap[part.rawMaterialId];
-                        const name = material?.name || "Unknown";
-                        const qty = part.quantity ?? "-";
-                        const unit = material?.unit ? ` ${material.unit}` : "";
-                        return `<li>${name} (Qty: ${qty}${unit})</li>`;
-                      }).join("") +
-                      `</ul>`
-                    : "-";
+      const repairedPartsHtml = repairedParts.length > 0
+        ? `<ul style="padding-left: 18px; margin: 0;">` +
+        repairedParts.map(part => {
+          const material = rawMaterialMap[part.rawMaterialId];
+          const name = material?.name || "Unknown";
+          const qty = part.quantity ?? "-";
+          const unit = material?.unit ? ` ${material.unit}` : "";
+          return `<li>${name} (Qty: ${qty}${unit})</li>`;
+        }).join("") +
+        `</ul>`
+        : "-";
 
-                  return `
+      return `
                     <tr>
                       <td>${record.item || "-"}</td>
                       <td>${record.subItem || "-"}</td>
@@ -140,7 +267,7 @@ const generateServiceRecordPDF = async (req, res) => {
                       <td>${moment(record.servicedAt).format("DD-MM-YYYY")}</td>
                     </tr>
                   `;
-                }).join("")}
+    }).join("")}
               </tbody>
             </table>
           </div>
@@ -182,4 +309,4 @@ const generateServiceRecordPDF = async (req, res) => {
   }
 };
 
-module.exports = { generateServiceRecordPDF };
+module.exports = { generateRawMaterialStockPDF, generateServiceRecordPDF };

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../../controllers/rawMaterialItemsController/adminController");
-const {generateServiceRecordPDF} = require("../../helpers/rawMaterialItemsHelpers/generateReports");
+const {generateRawMaterialStockPDF, generateServiceRecordPDF} = require("../../helpers/rawMaterialItemsHelpers/generateReports");
 const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 
 router.get("/showEmployees", tokenVerification(['Admin']), adminController.showEmployees);
@@ -33,5 +33,6 @@ router.get("/getItemsProducibleCount", adminController.getItemsProducibleCount);
 router.get("/getInsufficientRawMaterials", adminController.getInsufficientRawMaterials);
 
 router.get("/generateServiceRecordPDF", generateServiceRecordPDF);
+router.get("/generateRawMaterialStockPDF", generateRawMaterialStockPDF);
 
 module.exports = router;
