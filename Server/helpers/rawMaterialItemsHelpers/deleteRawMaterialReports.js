@@ -13,7 +13,7 @@ const deleteRawMaterialReport = async(req, res) =>{
         const notFoundFiles = [];
 
         fileNames.forEach((fileName) => {
-            const filePath = path.join(__dirname, "../uploads/rawMaterial", fileName);
+            const filePath = path.join(__dirname, "../../uploads/rawMaterial", fileName);
     
             if (fs.existsSync(filePath)) {
                 try {
