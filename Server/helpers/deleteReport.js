@@ -10,7 +10,7 @@ const deleteReport = async(req, res) =>{
             `IncomingItemsReport_${date}.pdf`,
             `ServicePersonItemsReport_${date}.pdf`,
             `RepairRejectReport_${date}.pdf`,
-            `WarehouseStockReport_${date}.pdf` 
+            `WarehouseStockReport_${date}.pdf`,
             `DailyInDefectiveItems_${date}.pdf`
         ];
         const deletedFiles = [];
