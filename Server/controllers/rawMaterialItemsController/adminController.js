@@ -1705,7 +1705,7 @@ const produceNewItem = async (req, res) => {
 
         const itemToUpdate = warehouseItemsData.items[itemIndex];
         const quantityToUpdate = parseInt(quantityProduced);
-        itemToUpdate.quantity += quantityToUpdate;
+        itemToUpdate.newStock += quantityToUpdate;
         await warehouseItemsData.save();
 
         await prisma.$transaction([
