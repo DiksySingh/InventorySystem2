@@ -274,7 +274,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       if (incoming === false) {
         // Check if there is enough stock
         if(isNewStock === false) {
-        if (warehouseItem.quantity < quantityToAdjust) {
+        if (warehouseItem.quantity < quantityToAdjust || warehouseItem.quantity === 0) {
           console.log(`Not enough stock for item ${itemName}`)
           return res.status(400).json({
             success: false,
@@ -289,6 +289,13 @@ module.exports.outgoingItemsData = async (req, res) => {
         warehouseItem.quantity = parseInt(warehouseItem.quantity) - parseInt(quantityToAdjust);
       }else if(isNewStock === true) {
         // Decrease the stock in WarehouseItems schema
+        if (warehouseItem.newStock < quantityToAdjust || warehouseItem.newStock === 0) {
+          console.log(`Not enough stock for item ${itemName}`)
+          return res.status(400).json({
+            success: false,
+            message: `Not enough stock for item ${itemName}`,
+          });
+        }
         warehouseItem.newStock = parseInt(warehouseItem.newStock) - parseInt(quantityToAdjust);
       }
     }
