@@ -179,6 +179,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       status,
       incoming,
       approvedBy,
+      isNewStock,
       pickupDate,
     } = req.body;
     console.log(req.body);
@@ -270,9 +271,9 @@ module.exports.outgoingItemsData = async (req, res) => {
           message: `Item ${itemName} not found in warehouse`,
         });
       }
-
       if (incoming === false) {
         // Check if there is enough stock
+        if(isNewStock === false) {
         if (warehouseItem.quantity < quantityToAdjust) {
           console.log(`Not enough stock for item ${itemName}`)
           return res.status(400).json({
@@ -286,7 +287,11 @@ module.exports.outgoingItemsData = async (req, res) => {
 
         // Decrease the stock in WarehouseItems schema
         warehouseItem.quantity = parseInt(warehouseItem.quantity) - parseInt(quantityToAdjust);
+      }else if(isNewStock === true) {
+        // Decrease the stock in WarehouseItems schema
+        warehouseItem.newStock = parseInt(warehouseItem.newStock) - parseInt(quantityToAdjust);
       }
+    }
       // Save the updated item record
       outgoingItemsData.push({ itemName, quantity: quantityToAdjust });
       //await itemRecord.save();
@@ -353,6 +358,7 @@ module.exports.outgoingItemsData = async (req, res) => {
       itemResend: true,
       incoming,
       approvedBy,
+      isNewStock,
       pickupDate,
       referenceType: refType,
       itemSendBy: req.user._id

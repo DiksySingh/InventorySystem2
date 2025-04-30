@@ -14,6 +14,10 @@ const warehouseItemsSchema = new Schema({
           quantity: {
             type: Number,
           },
+          newStock: {
+            type: Number,
+            default: 0,
+          },
           defective:{
             type: Number,
             default: 0

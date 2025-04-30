@@ -43,6 +43,10 @@ const warehouseToWarehouseSchema = new Schema({
     incoming: {
         type: Boolean
     },
+    isNewStock: {
+        type: Boolean,
+        default: false
+    },
     pickupDate: {
         type: Date,
     },

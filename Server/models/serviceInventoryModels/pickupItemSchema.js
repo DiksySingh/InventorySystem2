@@ -85,6 +85,10 @@ const pickupItemSchema = new Schema(
       type: Boolean,
       default: false
     },
+    isNewStock: {
+      type: Boolean,
+      default: false
+    },
     pickupDate: {
       type: Date,
       required: true,

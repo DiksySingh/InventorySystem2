@@ -4,7 +4,7 @@ const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsS
 
 module.exports.sendingDefectiveItems = async (req, res) => {
     try {
-        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate } = req.body;
+        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate } = req.body;
         console.log(req.body);
 
         if (!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate) {
@@ -60,7 +60,16 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                     });
                 }
                 warehouseItems.defective = Math.max(0, parseInt(warehouseItems.defective) - parseInt(quantity));
-            } else {
+            } else if (isNewStock) {
+                // Ensure regular quantity doesn't go negative
+                if (warehouseItems.newStock < quantity) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Insufficient new stock for item: ${itemName} in ${fromWarehouse}`,
+                    });
+                }
+                warehouseItems.newStock = Math.max(0, parseInt(warehouseItems.newStock) - parseInt(quantity));
+            } else if (isNewStock === false) {
                 // Ensure regular quantity doesn't go negative
                 if (warehouseItems.quantity < quantity) {
                     return res.status(400).json({
@@ -75,7 +84,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
         await warehouseItemsData.save();
         console.log("Hi5")
 
-        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, pickupDate });
+        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate });
         console.log(createDefectiveOrder);
         await createDefectiveOrder.save();
         console.log("Hi6");
@@ -228,7 +237,16 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
                 warehouseItems.defective = parseInt(warehouseItems.defective) + parseInt(quantity);
             }
-        }else if(status === true && defectiveOrderData.isDefective === false){
+        }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === true){
+            for (let item of defectiveOrderData.items){
+                let itemName = item.itemName;
+                let quantity = item.quantity;
+
+                // const itemData = await Item.find({itemName});
+                let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                warehouseItems.newStock = parseInt(warehouseItems.newStock) + parseInt(quantity);
+            }
+        }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === false){
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
