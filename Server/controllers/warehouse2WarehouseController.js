@@ -246,6 +246,9 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
 
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                if (warehouseItems.newStock === undefined) {
+                    warehouseItems.newStock = 0; // initialize if not present
+                }
                 console.log("Before New Stock", warehouseItems.newStock);
                 warehouseItems.newStock = parseInt(warehouseItems.newStock || 0) + parseInt(quantity);
                 console.log("After New Stock", warehouseItems.newStock);
