@@ -51,7 +51,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
             console.log("Hi4");
             const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
 
-            if (isDefective) {
+            if (isDefective === true) {
                 // Ensure defective count doesn't go negative
                 if (warehouseItems.defective < quantity) {
                     return res.status(400).json({
@@ -60,7 +60,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                     });
                 }
                 warehouseItems.defective = Math.max(0, parseInt(warehouseItems.defective) - parseInt(quantity));
-            } else if (isNewStock) {
+            } else if (isNewStock === true  && isDefective === false) {
                 // Ensure regular quantity doesn't go negative
                 if (warehouseItems.newStock < quantity) {
                     return res.status(400).json({
@@ -69,7 +69,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                     });
                 }
                 warehouseItems.newStock = Math.max(0, parseInt(warehouseItems.newStock) - parseInt(quantity));
-            } else if (isNewStock === false) {
+            } else if (isNewStock === false && isDefective === false) {
                 // Ensure regular quantity doesn't go negative
                 if (warehouseItems.quantity < quantity) {
                     return res.status(400).json({
