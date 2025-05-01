@@ -354,11 +354,11 @@ module.exports.Login = async (req, res) => {
         message: "All fields are required",
       });
     }
-
-    let user = await Admin.findOne({ email: email.trim(), role }) ||
-      await WarehousePerson.findOne({ email: email.trim(), role }) ||
-      await ServicePerson.findOne({ email: email.trim(), role }) ||
-      await SurveyPerson.findOne({ email: email.trim(), role });
+    const normalizedEmail = email.toLowerCase().trim()
+    let user = await Admin.findOne({ email: normalizedEmail, role }) ||
+      await WarehousePerson.findOne({ email: normalizedEmail, role }) ||
+      await ServicePerson.findOne({ email: normalizedEmail, role }) ||
+      await SurveyPerson.findOne({ email: normalizedEmail, role });
 
     if (!user) {
       return res.status(401).json({
