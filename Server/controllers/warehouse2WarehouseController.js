@@ -216,9 +216,11 @@ module.exports.outgoingDefectiveOrderData = async(req, res) => {
 module.exports.updateDefectiveOrderStatus = async(req, res) => {
     try{
         const {defectiveOrderId, status, arrivedDate} = req.body;
+        console.log(req.body);
         const warehousePersonName = req.user.name;
 
         const defectiveOrderData = await WToW.findById(defectiveOrderId);
+        console.log(defectiveOrderData);
         //const fromWarehouseName = defectiveOrderData.fromWarehouse;
         const toWarehouseName = defectiveOrderData.toWarehouse;
 
@@ -229,6 +231,7 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
         const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
 
         if(status === true && defectiveOrderData.isDefective === true){
+            console.log("Hi");
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
@@ -240,6 +243,7 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
                 console.log("After Defective", warehouseItems.defective);
             }
         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === true){
+            console.log("Hi2");
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
@@ -254,6 +258,7 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
                 console.log("After New Stock", warehouseItems.newStock);
             }
         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === false){
+            console.log("Hi3");
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
