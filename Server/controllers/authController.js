@@ -44,9 +44,11 @@ module.exports.adminSignup = async (req, res) => {
         message: "Employee Already Exists In Database",
       });
     }
+
+    const normalizedEmail = email.toLowerCase().trim();
     
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new Admin({ email, password: hashedPassword, createdAt, role });
+    const newUser = new Admin({ email: normalizedEmail, password: hashedPassword, createdAt, role });
     await newUser.save();
     res.status(201).json({
       success: true,
@@ -94,10 +96,11 @@ module.exports.warehousePersonSignup = async (req, res) => {
         message: "Warehouse Not Found"
       });
     }
+    const normalizedEmail = email.toLowerCase().trim();
     const hashedPassword = await bcrypt.hash(password, 10);
     const newWarehousePerson = new WarehousePerson({
       name,
-      email,
+      email: normalizedEmail,
       warehouse: existingWarehouse._id,
       contact,
       password: hashedPassword,
@@ -161,10 +164,10 @@ module.exports.servicePersonSignup = async (req, res) => {
     if (block) {
       blockArray = block.split(",").map((b) => b.trim());
     }
-
+    const normalizedEmail = email.toLowerCase().trim();
     const newServicePerson = new ServicePerson({
       name,
-      email,
+      email: normalizedEmail,
       contact,
       password: hashedPassword,
       longitude: longitude || null,
@@ -235,10 +238,10 @@ module.exports.surveyPersonSignup = async (req, res) => {
     if (block) {
       blockArray = block.split(",").map((b) => b.trim());
     }
-
+    const normalizedEmail = email.toLowerCase().trim();
     const newSurveyPerson = new SurveyPerson({
       name,
-      email,
+      email: normalizedEmail,
       contact,
       password: hashedPassword,
       longitude: longitude || null,
