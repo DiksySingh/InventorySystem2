@@ -250,12 +250,20 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
 
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
-                if (warehouseItems.newStock === undefined) {
-                    warehouseItems.newStock = 0; // initialize if not present
+                if (!warehouseItems) {
+                    console.warn(`Item '${itemName}' not found in toWarehouseItemsData`);
+                    continue;
                 }
+        
+                if (typeof warehouseItems.newStock !== "number") {
+                    warehouseItems.newStock = 0;
+                }
+        
                 console.log("Before New Stock", warehouseItems.newStock);
-                warehouseItems.newStock = parseInt(warehouseItems.newStock || 0) + parseInt(quantity);
+                warehouseItems.newStock = parseInt(warehouseItems.newStock) + parseInt(quantity);
                 console.log("After New Stock", warehouseItems.newStock);
+        
+            toWarehouseItemsData.markModified("items");
             }
         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === false){
             console.log("Hi3");
