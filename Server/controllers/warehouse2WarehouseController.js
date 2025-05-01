@@ -235,7 +235,9 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
 
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                console.log("Before Defective", warehouseItems.defective);
                 warehouseItems.defective = parseInt(warehouseItems.defective) + parseInt(quantity);
+                console.log("After Defective", warehouseItems.defective);
             }
         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === true){
             for (let item of defectiveOrderData.items){
@@ -244,7 +246,9 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
 
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
-                warehouseItems.newStock = parseInt(warehouseItems.newStock) + parseInt(quantity);
+                console.log("Before New Stock", warehouseItems.newStock);
+                warehouseItems.newStock = parseInt(warehouseItems.newStock || 0) + parseInt(quantity);
+                console.log("After New Stock", warehouseItems.newStock);
             }
         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === false){
             for (let item of defectiveOrderData.items){
@@ -253,7 +257,9 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
 
                 // const itemData = await Item.find({itemName});
                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                console.log("Before Quantity", warehouseItems.quantity);
                 warehouseItems.quantity = parseInt(warehouseItems.quantity) + parseInt(quantity);
+                console.log("After Quantity", warehouseItems.quantity);
             }
         }
         defectiveOrderData.status = status;
