@@ -355,10 +355,10 @@ module.exports.Login = async (req, res) => {
       });
     }
     //const normalizedEmail = email.toLowerCase().trim()
-    let user = await Admin.findOne({ email: email, role }) ||
-      await WarehousePerson.findOne({ email: email, role }) ||
-      await ServicePerson.findOne({ email: email, role }) ||
-      await SurveyPerson.findOne({ email: email, role });
+    let user = await Admin.findOne({ email: email.trim(), role }) ||
+      await WarehousePerson.findOne({ email: email.trim(), role }) ||
+      await ServicePerson.findOne({ email: email.trim(), role }) ||
+      await SurveyPerson.findOne({ email: email.trim(), role });
 
     if (!user) {
       return res.status(401).json({
