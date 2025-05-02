@@ -20,14 +20,12 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                 message: "Items must be a non-empty array",
             });
         }
-        console.log("hi");
 
         const warehouseData = await Warehouse.findOne({ warehouseName: fromWarehouse });
         const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseData._id });
         const toWarehouseData = await Warehouse.findOne({ warehouseName: toWarehouse });
         const toWarehouseItemsData = await WarehouseItems.findOne({ warehouse: toWarehouseData._id });
 
-        console.log("Hi2");
 
         if (!toWarehouseItemsData) {
             return res.status(404).json({
@@ -35,7 +33,6 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                 message: `To: ${toWarehouseData.warehouseName} Items Data Not Found`
             });
         }
-        console.log("Hi3");
 
         for (let item of items) {
             let itemName = item.itemName;
@@ -48,7 +45,6 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                     message: `To: ${toWarehouseData.warehouseName} Item Doesn't Exist`
                 });
             }
-            console.log("Hi4");
             const warehouseItems = warehouseItemsData.items.find(i => itemName === i.itemName);
 
             if (isDefective === true) {
@@ -82,12 +78,10 @@ module.exports.sendingDefectiveItems = async (req, res) => {
         }
 
         await warehouseItemsData.save();
-        console.log("Hi5")
 
         const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate });
         console.log(createDefectiveOrder);
         await createDefectiveOrder.save();
-        console.log("Hi6");
 
         return res.status(200).json({
             success: true,
@@ -216,11 +210,10 @@ module.exports.outgoingDefectiveOrderData = async(req, res) => {
 module.exports.updateDefectiveOrderStatus = async(req, res) => {
     try{
         const {defectiveOrderId, status, arrivedDate} = req.body;
-        console.log(req.body);
         const warehousePersonName = req.user.name;
 
         const defectiveOrderData = await WToW.findById(defectiveOrderId);
-        console.log(defectiveOrderData);
+        
         //const fromWarehouseName = defectiveOrderData.fromWarehouse;
         const toWarehouseName = defectiveOrderData.toWarehouse;
 
@@ -230,8 +223,7 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
         //const fromWarehouseItemsData = await WarehouseItems.findOne({warehouse: fromWarehouseData._id});
         const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
 
-        if(status === true && defectiveOrderData.isDefective === true){
-            console.log("Hi");
+        if(status === true && defectiveOrderData.isDefective){
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
@@ -243,7 +235,6 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
                 console.log("After Defective", warehouseItems.defective);
             }
         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === true){
-            console.log("Hi2");
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;
@@ -266,7 +257,6 @@ module.exports.updateDefectiveOrderStatus = async(req, res) => {
             toWarehouseItemsData.markModified("items");
             }
         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === false){
-            console.log("Hi3");
             for (let item of defectiveOrderData.items){
                 let itemName = item.itemName;
                 let quantity = item.quantity;

@@ -7,8 +7,8 @@ module.exports.getServicePersonContacts = async (req, res) => {
     try {
         // Fetch all contacts from WarehousePerson, ServicePerson, and SurveyPerson
         //const warehouseContacts = await WarehousePerson.find({}, "contact");
-        const serviceContacts = await ServicePerson.find({}, "contact");
-        const surveyContacts = await SurveyPerson.find({}, "contact");
+        const serviceContacts = await ServicePerson.find({isActive: true}, "contact");
+        const surveyContacts = await SurveyPerson.find({isActive: true}, "contact");
 
         // Combine all contacts into a single array
         let allContacts = [...serviceContacts, ...surveyContacts];
@@ -36,7 +36,7 @@ module.exports.getServicePersonContacts = async (req, res) => {
 module.exports.getWarehousePersonContacts = async (req, res) => {
     try {
         // Fetch all contacts from WarehousePerson
-        const warehouseContacts = await WarehousePerson.find({}, "contact");
+        const warehouseContacts = await WarehousePerson.find({isActive: true}, "contact");
 
         // Combine all contacts into a single array
         let allContacts = [...warehouseContacts];
@@ -76,13 +76,13 @@ module.exports.getServicePersonData = async (req, res) => {
         // Fetch data from both models and filter required fields
         const results = await Promise.all(empId.map(async (id) => {
             const servicePerson = await ServicePerson.findOne(
-                { _id: id },
+                { _id: id, isActive: true },
                 { name: 1, email: 1, contact: 1, state: 1, district: 1, block: 1, latitude: 1, longitude: 1, _id: 1 }
             );
             if (servicePerson) return servicePerson;
 
             const surveyPerson = await SurveyPerson.findOne(
-                { _id: id },
+                { _id: id, isActive: true },
                 { name: 1, email: 1, contact: 1, state: 1, district: 1, block: 1, latitude: 1, longitude: 1, _id: 1 }
             );
             if (surveyPerson) return surveyPerson;
