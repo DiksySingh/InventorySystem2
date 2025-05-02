@@ -22,7 +22,11 @@ const warehouseToWarehouseSchema = new Schema({
             quantity: {
                 type: Number,
                 required: true
-            }
+            },
+            serialNumber: {
+                type: [String],
+                required: true
+            },
         }
     ],
     driverName: {
