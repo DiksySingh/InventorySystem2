@@ -536,7 +536,7 @@ const showRawMaterials = async (req, res) => {
                 });
 
                 const maxQuantity = maxUsed._max.quantity || 0;
-                const isLow = maxQuantity === 0 ? false : rm.stock < maxQuantity * 10;
+                const isLow = maxQuantity === 0 ? false : rm.stock < maxQuantity * 50;
 
                 return {
                     ...rm,
@@ -544,6 +544,11 @@ const showRawMaterials = async (req, res) => {
                 };
             })
         );
+
+        enrichedRawMaterials.sort((a, b) => {
+            if (a.stockIsLow === b.stockIsLow) return 0;
+            return a.stockIsLow ? -1 : 1;
+        });
 
         return res.status(200).json({
             success: true,
