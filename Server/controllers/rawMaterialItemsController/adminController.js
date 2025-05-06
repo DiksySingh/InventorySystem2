@@ -514,9 +514,59 @@ const addRawMaterial = async (req, res) => {
 //     }
 // }
 
+// const showRawMaterials = async (req, res) => {
+//     try {
+//         // Get all raw materials
+//         const allRawMaterials = await prisma.rawMaterial.findMany({
+//             select: {
+//                 id: true,
+//                 name: true,
+//                 stock: true
+//             }
+//         });
+
+//         // For each raw material, find the max quantity used in any item
+//         const enrichedRawMaterials = await Promise.all(
+//             allRawMaterials.map(async (rm) => {
+//                 const maxUsed = await prisma.itemRawMaterial.aggregate({
+//                     where: { rawMaterialId: rm.id },
+//                     _max: {
+//                         quantity: true
+//                     }
+//                 });
+
+//                 const maxQuantity = maxUsed._max.quantity || 0;
+//                 const isLow = maxQuantity === 0 ? false : rm.stock < maxQuantity * 50;
+
+//                 return {
+//                     ...rm,
+//                     stockIsLow: isLow
+//                 };
+//             })
+//         );
+
+//         enrichedRawMaterials.sort((a, b) => {
+//             if (a.stockIsLow === b.stockIsLow) return 0;
+//             return a.stockIsLow ? -1 : 1;
+//         });
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Raw-Materials fetched successfully",
+//             data: enrichedRawMaterials
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const showRawMaterials = async (req, res) => {
     try {
-        // Get all raw materials
         const allRawMaterials = await prisma.rawMaterial.findMany({
             select: {
                 id: true,
@@ -525,14 +575,11 @@ const showRawMaterials = async (req, res) => {
             }
         });
 
-        // For each raw material, find the max quantity used in any item
         const enrichedRawMaterials = await Promise.all(
             allRawMaterials.map(async (rm) => {
                 const maxUsed = await prisma.itemRawMaterial.aggregate({
                     where: { rawMaterialId: rm.id },
-                    _max: {
-                        quantity: true
-                    }
+                    _max: { quantity: true }
                 });
 
                 const maxQuantity = maxUsed._max.quantity || 0;
@@ -546,8 +593,12 @@ const showRawMaterials = async (req, res) => {
         );
 
         enrichedRawMaterials.sort((a, b) => {
-            if (a.stockIsLow === b.stockIsLow) return 0;
-            return a.stockIsLow ? -1 : 1;
+            if (a.stockIsLow && b.stockIsLow) {
+                return a.stock - b.stock;
+            }
+            if (a.stockIsLow) return -1;
+            if (b.stockIsLow) return 1;
+            return 0;
         });
 
         return res.status(200).json({
