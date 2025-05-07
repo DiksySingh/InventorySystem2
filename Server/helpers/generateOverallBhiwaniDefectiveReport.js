@@ -171,30 +171,32 @@ const generateHTML = (data, totals) => {
 
     const subTables = data.map((item) => {
         if (!item.subItems || item.subItems.length === 0) return '';
-        
+    
         const subRows = item.subItems.map(sub => `
             <tr>
                 <td>${sub.name}</td>
                 <td>${sub.defective}</td>
             </tr>
         `).join("");
-
+    
         return `
-            <h4 style="text-align:center;">${item.itemName} - Defective Category Breakdown</h4>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sub Item</th>
-                        <th>Defective Quantity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${subRows}
-                </tbody>
-            </table>
+            <div class="page-break-container">
+            <div class="spacer"></div>
+                <h4 style="text-align:center;">${item.itemName} - Defective Category Breakdown</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sub Item</th>
+                            <th>Defective Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${subRows}
+                    </tbody>
+                </table>
+            </div>
         `;
     }).join("");
-
     return `
     <html>
     <head>
@@ -205,10 +207,19 @@ const generateHTML = (data, totals) => {
             th, td { border: 1px solid black; padding: 6px; text-align: left; }
             th { background-color: rgb(240, 161, 161); }
             .footer { text-align: center; margin-top: 15px; font-weight: bold; }
+            .spacer {
+                height: 15px; /* Add vertical space at the top of the new page */
+            }
+            .page-break-container {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                display: block;
+            }
         </style>
     </head>
     <body>
         <h3>Bhiwani Overall Report (Motor, Pump, Controller)</h3>
+        <div class="page-break-container">
         <table>
             <thead>
                 <tr>
@@ -230,6 +241,7 @@ const generateHTML = (data, totals) => {
                 </tr>
             </tbody>
         </table>
+        </div>
         ${subTables}
         <div class="footer">Generated on ${moment().format("DD-MM-YYYY")}</div>
     </body>
@@ -297,9 +309,9 @@ module.exports.generateBhiwaniOverallReport = async (req, res) => {
             totalRejected += rejectedTotal;
 
             const subItems = {
-                "Motor": ["MOTOR 3HP", "MOTOR 5HP", "MOTOR 7.5HP", "MOTOR 10HP", "MOTOR DC"],
-                "Pump": ["PUMP 3HP", "PUMP 5HP", "PUMP 7.5HP", "PUMP 10HP"],
-                "Controller": ["CONTROLLER 3HP", "CONTROLLER 5HP", "CONTROLLER 7.5HP", "CONTROLLER 10HP"]
+                "Motor": ["MOTOR 3HP AC", "MOTOR 5HP AC", "MOTOR 7.5HP AC", "MOTOR 10HP AC", "MOTOR AC", "MOTOR 3HP DC", "MOTOR 5HP DC", "MOTOR 7.5HP DC", "MOTOR 10HP DC", "MOTOR DC"],
+                "Pump": ["PUMP 3HP AC", "PUMP 5HP AC", "PUMP 7.5HP AC", "PUMP 10HP AC", "PUMP 3HP DC", "PUMP 5HP DC", "PUMP 7.5HP DC", "PUMP 10HP DC"],
+                "Controller": ["CONTROLLER 3HP AC", "CONTROLLER 5HP AC", "CONTROLLER 7.5HP AC", "CONTROLLER 10HP AC", "CONTROLLER 3HP DC", "CONTROLLER 5HP DC", "CONTROLLER 7.5HP DC", "CONTROLLER 10HP DC", "CONTROLLER RMU"]
             };
             
             const warehouseId = "67446a8b27dae6f7f4d985dd";
