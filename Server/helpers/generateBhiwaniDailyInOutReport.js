@@ -76,7 +76,7 @@ module.exports.generateBhiwaniDailyInOutReport = async (req, res) => {
         const utcEnd = endTime.utc().toDate();
 
         const defectivePickupIncoming = await PickupItem.aggregate([
-            { $match: { warehouse: "Bhiwani", incoming: true, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
+            { $match: { warehouse: "Bhiwani", incoming: true, status: true, arrivedDate: { $gte: utcStart, $lt: utcEnd } } },
             { $unwind: "$items" },
             { $group: { _id: "$items.itemName", quantity: { $sum: "$items.quantity" } } }
         ]);
@@ -88,7 +88,7 @@ module.exports.generateBhiwaniDailyInOutReport = async (req, res) => {
         ]);
 
         const defectiveWToWIncoming = await WToW.aggregate([
-            { $match: { toWarehouse: "Bhiwani", isDefective: true, pickupDate: { $gte: utcStart, $lt: utcEnd } } },
+            { $match: { toWarehouse: "Bhiwani", isDefective: true, status: true, arrivedDate: { $gte: utcStart, $lt: utcEnd } } },
             { $unwind: "$items" },
             { $group: { _id: "$items.itemName", quantity: { $sum: "$items.quantity" } } }
         ]);
