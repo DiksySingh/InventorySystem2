@@ -8,6 +8,7 @@ const deleteRawMaterialReport = async(req, res) =>{
         const fileNames = [
             `ServiceRecord_${date}.pdf`,
             `RawMaterialStockReport_${date}.pdf`,
+            `DailyServiceRecord_${date}.pdf`,
         ];
         const deletedFiles = [];
         const notFoundFiles = [];
