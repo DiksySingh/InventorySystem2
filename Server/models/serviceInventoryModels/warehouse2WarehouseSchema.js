@@ -60,6 +60,11 @@ const warehouseToWarehouseSchema = new Schema({
     arrivedDate: {
         type: Date
     },
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: "WarehousePerson",
+        required: true
+    }
 },{collection: "inWToWData"});
 
 const WToW = mongoose.model("WToW", warehouseToWarehouseSchema);

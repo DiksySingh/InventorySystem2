@@ -4,7 +4,7 @@ const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsS
 
 module.exports.sendingDefectiveItems = async (req, res) => {
     try {
-        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate } = req.body;
+        const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate} = req.body;
         console.log(req.body);
 
         if (!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate) {
@@ -79,7 +79,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
 
         await warehouseItemsData.save();
 
-        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate });
+        const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate, createdBy: req.user._id });
         console.log(createDefectiveOrder);
         await createDefectiveOrder.save();
 
