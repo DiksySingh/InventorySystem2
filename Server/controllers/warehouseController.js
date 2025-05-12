@@ -442,6 +442,7 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
                     message: "Item Doesn't Exists In Warehouse"
                 });
             } else {
+                existingItem.newStock = parseInt(existingItem.newStock) + parseInt(newItem.quantity);
                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(newItem.quantity);
                 existingItem.defective = parseInt(existingItem.defective) + parseInt(defective);
 
@@ -449,6 +450,7 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
                     empId,
                     warehouseId,
                     itemName: existingItem.itemName,
+                    newStock: existingItem.newStock,
                     quantity: newItem.quantity,
                     defective: defective
                 });

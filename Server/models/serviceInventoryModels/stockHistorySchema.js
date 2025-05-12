@@ -16,6 +16,10 @@ const stockHistorySchema = new Schema ({
         type: String,
         required: true
     },
+    newStock: {
+        type: Number,
+        required: true
+    },
     quantity: {
         type: Number
     },
