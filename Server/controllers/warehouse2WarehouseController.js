@@ -55,7 +55,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                         message: `Insufficient defective stock for item: ${itemName} in ${fromWarehouse}`,
                     });
                 }
-                warehouseItems.defective = Math.max(0, parseInt(warehouseItems.defective) - parseInt(quantity));
+                warehouseItems.defective = parseInt(warehouseItems.defective) - parseInt(quantity);
             } else if (isNewStock === true  && isDefective === false) {
                 // Ensure regular quantity doesn't go negative
                 if (warehouseItems.newStock < quantity) {
@@ -64,7 +64,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                         message: `Insufficient new stock for item: ${itemName} in ${fromWarehouse}`,
                     });
                 }
-                warehouseItems.newStock = Math.max(0, parseInt(warehouseItems.newStock) - parseInt(quantity));
+                warehouseItems.newStock = parseInt(warehouseItems.newStock) - parseInt(quantity);
             } else if (isNewStock === false && isDefective === false) {
                 // Ensure regular quantity doesn't go negative
                 if (warehouseItems.quantity < quantity) {
@@ -73,7 +73,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
                         message: `Insufficient stock for item: ${itemName} in ${fromWarehouse}`,
                     });
                 }
-                warehouseItems.quantity = Math.max(0, parseInt(warehouseItems.quantity) - parseInt(quantity));
+                warehouseItems.quantity = parseInt(warehouseItems.quantity) - parseInt(quantity);
             }
         }
 
