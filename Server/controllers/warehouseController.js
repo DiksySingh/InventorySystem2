@@ -913,6 +913,7 @@ module.exports.getWarehouse = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Warehouse Fetched Successfully",
+            warehouseId,
             warehouseName
         });
     } catch (error) {

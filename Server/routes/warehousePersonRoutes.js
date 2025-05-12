@@ -87,7 +87,7 @@ router.post("/add-new-installation", userVerification(['warehouseAdmin']), addNe
 router.get("/new-installation-data", userVerification(['warehouseAdmin']), showInstallationDataToWarehouse);
 router.post("/incoming-inventory-items", userVerification(['warehouseAdmin']), itemComingToWarehouse);
 router.get("/incoming-items-history", userVerification(['warehouseAdmin']), showIncomingItemToWarehouse);
-router.post("/warehouse2W-transaction", userVerification(['warehouseAdmin']), warehouse2WarehouseTransaction);
+router.post("/wtow-transaction", userVerification(['warehouseAdmin']), warehouse2WarehouseTransaction);
 router.get("/show-incoming-item", userVerification(['warehouseAdmin']), showIncomingWToWItems);
 router.get("/show-outgoing-item", userVerification(['warehouseAdmin']), showOutgoingWToWItems);
 router.put("/approve-incoming-item", userVerification(['warehouseAdmin']),acceptingWToWIncomingItems);
