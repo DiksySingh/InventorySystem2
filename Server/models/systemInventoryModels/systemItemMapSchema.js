@@ -1,28 +1,31 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const installationInventorySchema = new Schema({
-    warehouseId: {
+const systemItemMapSchema = new Schema({
+    systemId: {
         type: Schema.Types.ObjectId,
-        ref: "Warehouse",
-        required: true,
+        ref: "System",
+        required: true
     },
     systemItemId: {
         type: Schema.Types.ObjectId,
         ref: "SystemItem",
         required: true
     },
-    quantity: {
+    // subItemName: {
+    //     type: String,
+    //     required: true
+    // },
+    quantity: {  
         type: Number,
-        required: true,
-        default: 0,
+        required: true
     },
     createdAt: {
         type: Date,
         default: Date.now,
     },
     updatedAt: {
-        type: Date,
+        type: Date
     },
     createdBy: {
         type: Schema.Types.ObjectId,
@@ -31,9 +34,10 @@ const installationInventorySchema = new Schema({
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
-        ref: "WarehousePerson"
+        ref: "Admin"
     }
-}, {collection: "inInstallationInventories"});
+}, {collection: "inSystemItemMap"});
 
-const InstallationInventory = mongoose.model("InstallationInventory", installationInventorySchema);
-module.exports = InstallationInventory;
+const SystemItemMap = mongoose.model("SystemItemMap", systemItemMapSchema);
+module.exports = SystemItemMap;
+

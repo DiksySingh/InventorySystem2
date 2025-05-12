@@ -12,9 +12,9 @@ const stockUpdateActivitySchema = new Schema({
         ref: "Warehouse",
         required: true
     },
-    subItemId: {
+    systemItemId: {
         type: Schema.Types.ObjectId,
-        ref: "SubItem",
+        ref: "SystemItem",
         required: true
     },
     quantity: {

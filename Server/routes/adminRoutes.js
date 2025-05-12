@@ -3,12 +3,16 @@ const { allOrderDetails, servicePersonIncomingItemsData, servicePersonIncomingIt
 const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
 const { 
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
-  deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSubItem, showSystemItems, showWarehouseItemsData
+  deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSystemSubItem, showSystemItems, 
+  showWarehouseItemsData, uploadSystemItemsFromExcel, uploadSystemSubItemsFromExcel, attachItemComponentMapByExcel
 } = require("../controllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
 const {getInstallationsData} = require("../controllers/installationDataController");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 //Admin Accessible Route
 router.post("/warehouse-person-signup", userVerification(['admin']), warehousePersonSignup);
@@ -37,7 +41,11 @@ router.get("/all-installations-data",userVerification(['admin']), getInstallatio
 
 router.post("/add-system", userVerification(['admin']), addSystem);
 router.post("/add-system-item", userVerification(['admin']), addSystemItem);
-router.post("/add-subItem", userVerification(['admin']), addSubItem);
+router.post("/add-subItem", userVerification(['admin']), addSystemSubItem);
 router.get("/show-system-item", userVerification(['admin']), showSystemItems);
+
+router.post("/system-item-excel", userVerification(['admin']), upload.single("file"), uploadSystemItemsFromExcel);
+router.post("/add-subItems-by-excel", userVerification(['admin']), upload.single("file"), uploadSystemSubItemsFromExcel);
+router.post("/add-item-component-by-excel", userVerification(['admin']), upload.single("file"), attachItemComponentMapByExcel);
 
 module.exports = router;

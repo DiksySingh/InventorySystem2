@@ -27,9 +27,9 @@ const installationAssignEmpSchema = new Schema({
     },
     itemsList: [
         {
-            subItemId: {
+            systemItemId: {
                 type: Schema.Types.ObjectId,
-                ref: "SubItem",
+                ref: "SystemItem",
             },
             quantity: {
                 type: Number,

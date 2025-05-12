@@ -2,11 +2,11 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const systemItemSchema = new Schema({
-    systemId: {
-        type: Schema.Types.ObjectId,
-        ref: "System",
-        required: true
-    },
+    // systemId: {
+    //     type: Schema.Types.ObjectId,
+    //     ref: "System",
+    //     required: true
+    // },
     itemName: {
         type: String,
         required: true
@@ -33,6 +33,6 @@ const systemItemSchema = new Schema({
     }
 }, {collection: "inSystemItems"});
 
-const SystemItem = mongoose.model("SystemModel", systemItemSchema);
+const SystemItem = mongoose.model("SystemItem", systemItemSchema);
 module.exports = SystemItem;
 

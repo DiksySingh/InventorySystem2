@@ -19,9 +19,9 @@ const incomingInstallationItemsAccount = new Schema({
     },
     itemsList: [
         {
-            subItemId: {
+            systemItemId: {
                 type: Schema.Types.ObjectId,
-                ref: "SubItem",
+                ref: "SystemItem",
                 required: true,
             },
             quantity: {

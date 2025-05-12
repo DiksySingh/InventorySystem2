@@ -1,22 +1,23 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const subItemSchema = new Schema({
+const itemComponentMapSchema = new Schema({
     systemId: {
         type: Schema.Types.ObjectId,
         ref: "System",
         required: true
     },
-    itemId: {
+    systemItemId: {
         type: Schema.Types.ObjectId,
         ref: "SystemItem",
-        required: true
+        required: true  
     },
-    subItemName: {
-        type: String,
-        required: true
+    subItemId: {
+        type: Schema.Types.ObjectId,
+        ref: "SystemItem",
+        required: true  
     },
-    quantity: {  
+    quantity: {
         type: Number,
         required: true
     },
@@ -25,7 +26,7 @@ const subItemSchema = new Schema({
         default: Date.now,
     },
     updatedAt: {
-        type: Date
+        type: Date,
     },
     createdBy: {
         type: Schema.Types.ObjectId,
@@ -36,8 +37,7 @@ const subItemSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: "Admin"
     }
-}, {collection: "inSubItems"});
+}, {collection: "inItemComponentMap"});
 
-const SubItem = mongoose.model("SubItem", subItemSchema);
-module.exports = SubItem;
-
+const ItemComponentMap = mongoose.model("ItemComponentMap", itemComponentMapSchema);
+module.exports = ItemComponentMap;

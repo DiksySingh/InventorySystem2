@@ -8,7 +8,7 @@ const {generateWarehouseTransactionPDF} = require("../helpers/generateWarehouseT
 const {generateServicePersonTransactionPDF} = require("../helpers/generateServiceTransactionPDF");
 const {generateWarehouseStockReportPDF} = require("../helpers/generateWarehouseStockReport");
 const {generateItemRepairRejectPDF} = require("../helpers/generateItemRepairRejectPDF");
-const {deleteReport} = require("../helpers/deleteReport");
+const {deleteAllReports} = require("../helpers/deleteReport");
 const {downloadActiveServicePersonsExcel} = require("../helpers/generateServicePersonData");
 const {generateDailyInDefectiveItems} = require("../helpers/generateSPDefectiveItemsToW");
 const {exportToExcel} = require("../helpers/generateMHReport");
@@ -26,6 +26,97 @@ const upload = multer({ storage });
 router.put("/upload-excel", upload.single('file'), updateLatitudeLongitude);
 router.put("/uploadState", upload.single('file'), addServicePersonState);
 router.put("/update-status", upload.single('file'), uploadExcelAndUpdatePickupItems)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 router.put("/add-isActive-field", addIsActiveField);
 router.get("/generate-pdf", generateJoiningFormPDF);
 router.post("/overall-report-pdf", generateOverallReportPDF);
@@ -40,7 +131,7 @@ router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF)
 router.get("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
 router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
-router.get("/delete-reports", deleteReport); //PDF Delete from Server
+router.get("/delete-reports", deleteAllReports); //PDF Delete from Server
 router.get("/service-person-data", downloadActiveServicePersonsExcel);
 router.get("/get-mh-report", exportToExcel);
 router.post("/update-item-defective", deductFromDefectiveOfItems);

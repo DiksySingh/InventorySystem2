@@ -14,7 +14,7 @@ const {
   viewOrdersApprovedHistory,
   addSystem,
   showSystems,
-  showSystemSubItems,
+  showSystemItemMapData,
   showSystemItems,
   showInstallationInventoryItems,
   updateItemQuantity,
@@ -22,7 +22,7 @@ const {
   showInstallationDataToWarehouse,
   itemComingToWarehouse,
   showIncomingItemToWarehouse,
-  incomingWToWItem,
+  warehouse2WarehouseTransaction,
   showIncomingWToWItems,
   showOutgoingWToWItems,
   acceptingWToWIncomingItems,
@@ -30,11 +30,19 @@ const {
   outgoingWToWSystemItemsHistory,
   addOutgoingItemsData,
   showOutgoingItemsData,
+  uploadSystemSubItemsFromExcel,
+  updateSystemId,
+  showItemComponents,
+  getSystemItemsWithSubItems
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData, inDefectiveItemsOrderHistory, outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/installationDataController");
 const router = require("express").Router();
 const { userVerification } = require("../middlewares/authMiddlewares");
+
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 //Warehouse Access Routes
 router.get("/all-items", userVerification(['warehouseAdmin', 'serviceperson']), showItems);
@@ -68,7 +76,10 @@ router.get("/warehouse-installation-data", userVerification(['warehouseAdmin']),
 // router.post("/add-system", userVerification(['warehouseAdmin']), addSystem);
 // router.post("/add-system-item", userVerification(['warehouseAdmin']), addSystemItem);
 router.get("/show-systems", userVerification(['warehouseAdmin', 'admin']), showSystems);
-router.get("/show-subItems", userVerification(['warehouseAdmin', 'admin']), showSystemSubItems);
+router.get("/show-system-items", userVerification(['warehouseAdmin', 'admin']), showSystemItems);
+router.get("/show-system-item-map", userVerification(['warehouseAdmin', 'admin']), showSystemItemMapData);
+router.get("/show-item-component", userVerification(['warehouseAdmin', 'admin']), showItemComponents);
+router.get("/show-items-subItems", userVerification(['warehouseAdmin', 'admin']), getSystemItemsWithSubItems);
 router.get("/show-inventory-items", userVerification(['warehouseAdmin']), showInstallationInventoryItems);
 router.put("/update-subItem-quantity", userVerification(['warehouseAdmin']), updateItemQuantity);
 router.post("/add-new-installation", userVerification(['warehouseAdmin']), addNewInstallationData);
@@ -76,10 +87,12 @@ router.post("/add-new-installation", userVerification(['warehouseAdmin']), addNe
 router.get("/new-installation-data", userVerification(['warehouseAdmin']), showInstallationDataToWarehouse);
 router.post("/incoming-inventory-items", userVerification(['warehouseAdmin']), itemComingToWarehouse);
 router.get("/incoming-items-history", userVerification(['warehouseAdmin']), showIncomingItemToWarehouse);
-router.post("/incoming-new-stock", userVerification(['warehouseAdmin']), incomingWToWItem);
+router.post("/warehouse2W-transaction", userVerification(['warehouseAdmin']), warehouse2WarehouseTransaction);
 router.get("/show-incoming-item", userVerification(['warehouseAdmin']), showIncomingWToWItems);
 router.get("/show-outgoing-item", userVerification(['warehouseAdmin']), showOutgoingWToWItems);
 router.put("/approve-incoming-item", userVerification(['warehouseAdmin']),acceptingWToWIncomingItems);
 router.get("/approved-incoming-item", userVerification(['warehouseAdmin']), incomingWToWSystemItemsHistory);
 router.get("/approved-outgoing-item", userVerification(['warehouseAdmin']), outgoingWToWSystemItemsHistory);
+
+router.put("/update-systemId", updateSystemId);
 module.exports = router;

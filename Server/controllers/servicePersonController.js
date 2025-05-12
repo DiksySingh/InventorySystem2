@@ -134,11 +134,11 @@ const showNewInstallationDataToInstaller = async (req, res) => {
                 }
             })
             .populate({
-                path: "itemsList.subItemId", // Populate subItem details
-                model: "SubItem",
+                path: "itemsList.systemItemId", // Populate subItem details
+                model: "SystemItem",
                 select: ({
                     "_id": 1,
-                    "subItemName": 1,
+                    "itemName": 1,
                 })
             }).sort({ createdAt: -1 });
         const activitiesWithFarmerDetails = await Promise.all(
@@ -180,10 +180,10 @@ const updateStatusOfIncomingItems = async (req, res) => {
             });
         }
 
-        const farmerActivityData = await FarmerItemsActivity.findOne({_id: installationId, farmerId })
+        const farmerActivityData = await FarmerItemsActivity.findOne({_id: installationId, farmerId }) 
         .populate({
-            path: "itemsList.subItemId", // Populate subItemId inside itemsList array
-            select: "subItemName", // Select only the subItemName field
+            path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
+            select: "itemName", // Select only the subItemName field
         });
         if (!FarmerItemsActivity) {
             return res.status(400).json({
@@ -194,8 +194,8 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         let empAccount = await EmpInstallationAccount.findOne({ empId })
             .populate({
-                path: "itemsList.subItemId", // Populate subItemId inside itemsList array
-                select: "subItemName", // Select only the subItemName field
+                path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
+                select: "itemName", // Select only the subItemName field
             });
 
         let refType;

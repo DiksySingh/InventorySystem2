@@ -14,9 +14,9 @@ const systemItemsWToWSchema = new Schema({
     },
     itemsList: [
         {
-            subItemId: {
+            systemItemId: {
                 type: Schema.Types.ObjectId,
-                ref: "SubItem",
+                ref: "SystemItem",
                 required: true
             },
             quantity: {
@@ -32,6 +32,10 @@ const systemItemsWToWSchema = new Schema({
     },
     driverContact: {
         type: Number,
+        required: true
+    },
+    serialNumber: {
+        type: String,
         required: true
     },
     remarks: {
