@@ -355,8 +355,8 @@ module.exports.Login = async (req, res) => {
       });
     }
     const normalizedEmail = email.toLowerCase().trim()
-    let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }) ||
-      await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }) ||
+    let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role })||
+      await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }).populate('warehouse') ||
       await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }) ||
       await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role });
 
@@ -417,6 +417,7 @@ module.exports.Login = async (req, res) => {
         message: `Logged in successfully`,
         id: user._id,
         email: user.email,
+        warehouse: user.warehouse ? user.warehouse.warehouseName : null,
         contact: user.contact,
         block: user.block || [],
         latitude: user.latitude || null,
