@@ -450,7 +450,7 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
                     empId,
                     warehouseId,
                     itemName: existingItem.itemName,
-                    newStock: existingItem.newStock,
+                    newStock: newItem.newStock,
                     quantity: newItem.quantity,
                     defective: defective
                 });
