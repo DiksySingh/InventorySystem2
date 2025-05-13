@@ -198,7 +198,7 @@ module.exports.showStockUpdateHistory = async (req, res) => {
         const allStockUpdateHistory = await StockHistory.find()
             .populate("empId", "name")
             .populate("warehouseId", "warehouseName")
-            .select("-_id -__v -createdAt")
+            .select("-_id -__v")
             .sort({ createdAt: -1 });
 
         if (!allStockUpdateHistory) {
