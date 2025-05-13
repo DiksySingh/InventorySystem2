@@ -171,6 +171,7 @@ module.exports.generateAllWarehouseStockReportPDF = async (req, res) => {
       const filteredItems = warehouse.items.filter(item => item.itemName !== "Laptop");
       // by shiv 
       // Calculate totals
+      const totalNewStock = filteredItems.reduce((sum, item) => sum + item.newStock, 0);
       const totalQuantity = filteredItems.reduce((sum, item) => sum + item.quantity, 0);
       const totalDefective = filteredItems.reduce((sum, item) => sum + item.defective, 0);
       // end by shiv
@@ -182,7 +183,8 @@ module.exports.generateAllWarehouseStockReportPDF = async (req, res) => {
           <thead>
             <tr>
               <th>Item Name</th>
-              <th>Quantity</th>
+              <th>New Stock</th>
+              <th>Repaired Quantity</th>
               <th>Defective</th>
             </tr>
           </thead>
@@ -190,12 +192,14 @@ module.exports.generateAllWarehouseStockReportPDF = async (req, res) => {
             ${filteredItems.map(item => `
               <tr>
                 <td>${item.itemName}</td>
+                <td>${item.newStock || 0}</td>
                 <td>${item.quantity}</td>
                 <td>${item.defective}</td>
               </tr>
             `).join("")}
              <tr>
               <td><strong>Total</strong></td>
+              <td><strong>${totalNewStock}</strong></td>
               <td><strong>${totalQuantity}</strong></td>
               <td><strong>${totalDefective}</strong></td>
             </tr>
