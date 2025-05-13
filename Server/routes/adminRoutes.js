@@ -4,7 +4,7 @@ const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = req
 const { 
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
   deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSystemSubItem, showSystemItems, 
-  showWarehouseItemsData, uploadSystemItemsFromExcel, uploadSystemSubItemsFromExcel, attachItemComponentMapByExcel
+  showWarehouseItemsData, uploadSystemItemsFromExcel, uploadSystemSubItemsFromExcel, attachItemComponentMapByExcel, showStockUpdateHistory
 } = require("../controllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
 const {getInstallationsData} = require("../controllers/installationDataController");
@@ -21,6 +21,7 @@ router.put("/update-service-person", userVerification(['admin']), updateServiceP
 router.post("/add-warehouse",userVerification(['admin']), addWarehouse);
 router.get("/all-warehouses", userVerification(['admin']), showWarehouses);
 router.post("/add-item", userVerification(['admin']), addWarehouseItems);
+router.get("/stock-update-history", userVerification(['admin']), showStockUpdateHistory);
 router.get("/all-items", userVerification(['admin']), showWarehouseItemsData);
 router.get("/dashboard",userVerification(['admin']), showItemsData);
 router.get("/all-warehouse-persons",userVerification(['admin']), viewWarehousePersons);

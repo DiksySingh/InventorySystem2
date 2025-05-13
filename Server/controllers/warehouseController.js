@@ -193,6 +193,35 @@ module.exports.deactivateServicePerson = async (req, res) => {
     }
 };
 
+module.exports.showStockUpdateHistory = async (req, res) => {
+    try {
+        const allStockUpdateHistory = await StockHistory.find()
+            .populate("empId", "name")
+            .populate("warehouseId", "warehouseName")
+            .select("-_id -__v -createdAt")
+            .sort({ createdAt: -1 });
+
+        if (!allStockUpdateHistory) {
+            return res.status(404).json({
+                success: false,
+                message: "Stock Update History Not Found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: allStockUpdateHistory
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
+
 module.exports.allRepairRejectItemsData = async (req, res) => {
     try {
         const allRepairRejectData = await RepairNRejectItems.find({}).sort({ createdAt: -1 });

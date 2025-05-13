@@ -17,6 +17,7 @@ const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportP
 const {generateBhiwaniDailyReport} = require("../helpers/generateBhiwaniDailyReport");
 const {generateBhiwaniDailyInOutReport} = require("../helpers/generateBhiwaniDailyInOutReport");
 const {generateBhiwaniOverallReport} = require("../helpers/generateOverallBhiwaniDefectiveReport");
+const {generateWarehouseExcel} = require("../helpers/generateItemsList");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
 const router = require("express").Router();
 const multer = require("multer");
@@ -25,98 +26,7 @@ const upload = multer({ storage });
 
 router.put("/upload-excel", upload.single('file'), updateLatitudeLongitude);
 router.put("/uploadState", upload.single('file'), addServicePersonState);
-router.put("/update-status", upload.single('file'), uploadExcelAndUpdatePickupItems)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+router.put("/update-status", upload.single('file'), uploadExcelAndUpdatePickupItems);
 router.put("/add-isActive-field", addIsActiveField);
 router.get("/generate-pdf", generateJoiningFormPDF);
 router.post("/overall-report-pdf", generateOverallReportPDF);
@@ -139,4 +49,5 @@ router.get("/export-monthly-bhiwani-report", generateBhiwaniInDefectiveItems);
 router.get("/export-daily-bhiwani-report", generateBhiwaniDailyReport);
 router.get("/export-daily-bhiwani-inout-report", generateBhiwaniDailyInOutReport);
 router.get("/export-overall-bhiwani-defective-report", generateBhiwaniOverallReport);
+router.get("/export-bhiwani-items-report", generateWarehouseExcel);
 module.exports = router;
