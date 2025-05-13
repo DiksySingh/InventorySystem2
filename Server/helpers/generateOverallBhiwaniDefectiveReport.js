@@ -301,7 +301,7 @@ module.exports.generateBhiwaniOverallReport = async (req, res) => {
 
             const defectiveTotal = (defectiveCount[0]?.total || 0) + (defectiveIncomingCount[0]?.total || 0);
             const outgoingTotal = (outgoingCount[0]?.total || 0) + (repairedOutgoingCount[0]?.total || 0);
-            const repairedTotal = repairRejectData[0]?.repaired || 0;
+            //const repairedTotal = repairRejectData[0]?.repaired || 0;
             const rejectedTotal = repairRejectData[0]?.rejected || 0;
 
             totalIncoming += defectiveTotal;

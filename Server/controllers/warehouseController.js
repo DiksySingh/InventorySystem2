@@ -402,7 +402,8 @@ module.exports.addWarehouseItems = async (req, res) => {
                     // Add the item with quantity set to zero
                     warehouseItemsRecord.items.push({
                         itemName: newItem.itemName,
-                        quantity: newItem.quantity // Will always be zero at this point
+                        quantity: newItem.quantity,
+                        newStock: 0 // Will always be zero at this point
                     });
                 }
                 // If the item already exists, leave the quantity unchanged
@@ -449,19 +450,6 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
 
         for (const newItem of items) {
             let itemName = newItem.itemName.trim();
-            // let itemRecord = await Item.findOne({ itemName: itemName });
-
-            // if (!itemRecord) {
-            //     return res.status(400).json({
-            //         success: false,
-            //         message: "Item Doesn't Exists"
-            //     });
-            // } else {
-            //     itemRecord.stock = parseInt(itemRecord.stock) + parseInt(newItem.quantity);
-            //     itemRecord.defective = parseInt(itemRecord.defective) + parseInt(defective);
-            //     itemRecord.updatedAt = Date.now();
-            //     await itemRecord.save();
-            // }
 
             const existingItem = warehouseItemsRecord.items.find(item => item.itemName.toLowerCase().trim() === itemName.toLowerCase().trim());
 
@@ -2492,7 +2480,9 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         const newOutgoingItemsData = new OutgoingItems({
             fromWarehouse,
             toServiceCenter,
-            items
+            items,
+            createdBy: req.user._id,
+            createdAt: new Date(),
         });
         const savedOutgoingItemsData = await newOutgoingItemsData.save();
         console.log(savedOutgoingItemsData);

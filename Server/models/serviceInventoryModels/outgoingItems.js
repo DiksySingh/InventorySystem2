@@ -25,7 +25,16 @@ const outgoingItemsSchema = new Schema({
     sendingDate: {
         type: Date,
         default: Date.now
-    }
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        required: true,
+        ref: "WarehousePerson"
+    },
 }, {collection: "inOutgoingItems"});
 
 const OutgoingItems = mongoose.model("OutgoingItems", outgoingItemsSchema);

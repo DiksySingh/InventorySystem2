@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { create } = require("./warehouse2WarehouseSchema");
 const Schema = mongoose.Schema;
 
 const incomingItemSchema = new Schema(
@@ -42,6 +43,15 @@ const incomingItemSchema = new Schema(
     arrivedDate: {
       type: Date,
       default: Date.now(),
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: "WarehousePerson",
     },
   },
   { collection: "inIncomingItems" }

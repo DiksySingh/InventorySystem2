@@ -102,6 +102,8 @@ module.exports.incomingItems = async (req, res) => {
       //quantity,
       //defectiveItem,
       arrivedDate,
+      createdAt: Date.now(),
+      createdBy: req.user._id,
     });
 
     await incomingItems.save();
