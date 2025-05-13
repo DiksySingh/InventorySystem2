@@ -6,7 +6,7 @@ const mongoose = require("mongoose"); // by shiv
 module.exports.generateWarehouseStockReportPDF = async (req, res) => {
     try {
         // 🔹 Fetch all warehouses and their stock data
-        const warehouseObjectId = new mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd"); // by shiv
+        const warehouseObjectId = new mongoose.Types.ObjectId("67446ab527dae6f7f4d985f1"); // by shiv
         const warehouses = await WarehouseItems.find({warehouse : warehouseObjectId})
             .populate({
                 path: "warehouse",

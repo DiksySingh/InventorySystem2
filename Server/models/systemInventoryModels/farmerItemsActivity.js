@@ -11,8 +11,8 @@ const farmerItemsActivitySchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: "Warehouse"
     },
-    farmerId: {
-        type: Schema.Types.ObjectId,
+    farmerSaralId: {
+        type: String,
         required: true
     },
     empId: {

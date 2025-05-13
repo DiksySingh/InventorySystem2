@@ -16,8 +16,8 @@ const installationAssignEmpSchema = new Schema({
         required: true,
         refPath: "referenceType", // Dynamically references the model based on referenceType
     },
-    farmerId: {
-        type: Schema.Types.ObjectId,
+    farmerSaralId: {
+        type: String,
         required: true,
     },
     systemId: {

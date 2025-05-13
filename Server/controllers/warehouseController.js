@@ -814,7 +814,7 @@ module.exports.rejectItemData = async (req, res) => {
         await rejectProductData.save();
 
         return res.status(200).json({
-            sucess: true,
+            success: true,
             message: "Data Inserted Successfully",
             newRepairRejectData: rejectProductData
         });
@@ -1452,7 +1452,7 @@ module.exports.updateItemQuantity = async (req, res) => {
 module.exports.addNewInstallationData = async (req, res) => {
     try {
         const {
-            farmerId,
+            farmerSaralId,
             empId,
             systemId,
             itemsList,
@@ -1466,7 +1466,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         const warehouseId = req.user.warehouse;
 
         if (
-            !farmerId ||
+            !farmerSaralId ||
             !empId ||
             !itemsList ||
             !panelNumbers ||
@@ -1543,7 +1543,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             warehouseId,
             referenceType: refType,
             empId,
-            farmerId,
+            farmerSaralId,
             systemId,
             itemsList: itemsList,
             createdBy: warehousePersonId
@@ -1553,7 +1553,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         const activityData = {
             warehouseId,
             referenceType: refType,
-            farmerId,
+            farmerSaralId,
             empId,
             systemId,
             itemsList,
@@ -1572,22 +1572,20 @@ module.exports.addNewInstallationData = async (req, res) => {
         const savedEmpAccountData = await empAccountData.save();
 
         if (savedFarmerActivity && savedEmpAccountData) {
-            try {
-                const apiUrl = `http://88.222.214.93:8001/warehouse/assignWarehouseUpdate?farmerId=${farmerId}`
-                await axios.put(apiUrl);
-                console.log("API request sent successfully");
-            } catch (error) {
-                console.log("Error sending API request: ", error.message);
-            }
+            // try {
+            //     const apiUrl = `http://88.222.214.93:8001/warehouse/assignWarehouseUpdate?farmerId=${farmerSaralId}`
+            //     await axios.put(apiUrl);
+            //     console.log("API request sent successfully");
+            // } catch (error) {
+            //     console.log("Error sending API request: ", error.message);
+            // }
+            return res.status(200).json({
+                success: true,
+                message: "Data Saved Successfully",
+                farmerActivity,
+                empAccountData,
+            });
         }
-
-        return res.status(200).json({
-            success: true,
-            message: "Data Saved Successfully",
-            farmerActivity,
-            empAccountData,
-        });
-
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1627,7 +1625,7 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
         const activitiesWithFarmerDetails = await Promise.all(
             showData.map(async (data) => {
                 const response = await axios.get(
-                    `http://88.222.214.93:8001/farmer/showSingleFarmer?id=${data.farmerId}`
+                    `http://88.222.214.93:8000/farmer/showFarmerAccordingToSaralId?saralId=${data.farmerSaralId}`
                 );
                 if (response) {
                     return {
@@ -1883,7 +1881,8 @@ module.exports.showIncomingWToWItems = async (req, res) => {
                     "_id": 1,
                     "itemName": 1,
                 })
-            }).sort({ createdAt: -1 });
+            })
+            .select("-createdAt -createdBy -__v").sort({ createdAt: -1 });
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
