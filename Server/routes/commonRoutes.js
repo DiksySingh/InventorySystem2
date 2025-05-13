@@ -6,7 +6,7 @@ const {generateIncomingItemsPDF} = require("../helpers/generateIncomingItemsPDF"
 const {servicePersonRepairedHoldingItemsPDF} = require("../helpers/servicePersonRepairedItemsAccount");
 const {generateWarehouseTransactionPDF} = require("../helpers/generateWarehouseTransactionPDF");
 const {generateServicePersonTransactionPDF} = require("../helpers/generateServiceTransactionPDF");
-const {generateWarehouseStockReportPDF} = require("../helpers/generateWarehouseStockReport");
+const {generateWarehouseStockReportPDF, generateAllWarehouseStockReportPDF} = require("../helpers/generateWarehouseStockReport");
 const {generateItemRepairRejectPDF} = require("../helpers/generateItemRepairRejectPDF");
 const {deleteAllReports} = require("../helpers/deleteReport");
 const {downloadActiveServicePersonsExcel} = require("../helpers/generateServicePersonData");
@@ -39,6 +39,7 @@ router.get("/export-outgoingItems-pdf", servicePersonRepairedHoldingItemsPDF);
 router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
 router.get("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
+router.get("/export-allWarehouseStock-pdf", generateAllWarehouseStockReportPDF); //PDF for all warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
 router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
 router.get("/delete-reports", deleteAllReports); //PDF Delete from Server
