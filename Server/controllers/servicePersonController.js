@@ -144,7 +144,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
                 const response = await axios.get(
-                    `http://88.222.214.93:8001/farmer/showSingleFarmer?id=${activity.farmerId}`
+                    `http://88.222.214.93:8000/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
                 );
                 if (response) {
                     return {
@@ -171,24 +171,37 @@ const showNewInstallationDataToInstaller = async (req, res) => {
 
 const updateStatusOfIncomingItems = async (req, res) => {
     try {
-        const { installationId, farmerId, empId, accepted } = req.body;
+        const { installationId, farmerSaralId, empId, accepted } = req.body;
 
-        if (!farmerId || !empId || !accepted) {
+        if (!farmerSaralId || !empId || !accepted) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
-        const farmerActivityData = await FarmerItemsActivity.findOne({_id: installationId, farmerId }) 
+        const farmerActivityData = await FarmerItemsActivity.findOne({_id: installationId, farmerSaralId }) 
         .populate({
             path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
             select: "itemName", // Select only the subItemName field
         });
-        if (!FarmerItemsActivity) {
+        if (!farmerActivityData) {
             return res.status(400).json({
                 success: false,
                 message: "Farmer Activity Data Not Found"
+            });
+        }
+
+        if(farmerActivityData.accepted) {
+            return res.status(400).json({
+                success: false,
+                message: "Farmer Activity Already Accepted"
+            });
+        }
+        if (farmerActivityData.installationDone) {
+            return res.status(400).json({
+                success: false,
+                message: "Farmer Activity Already Installation Done"
             });
         }
 
@@ -224,14 +237,14 @@ const updateStatusOfIncomingItems = async (req, res) => {
         }
 
         for (const item of farmerActivityData.itemsList) {
-            const { subItemId, quantity } = item;
+            const { systemItemId, quantity } = item;
 
-            const existingItem = empAccount.itemsList.find(i => i.subItemId.subItemName === subItemId.subItemName);
+            const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
 
             if (existingItem) {
                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
             } else {
-                empAccount.itemsList.push({ subItemId: subItemId, quantity });
+                empAccount.itemsList.push({ systemItemId, quantity });
             }
         }
 
@@ -260,7 +273,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
 const newSystemInstallation = async (req, res) => {
     try {
         const {
-            farmerId,
+            farmerSaralId,
             latitude,
             longitude,
             borePhoto,
@@ -274,7 +287,7 @@ const newSystemInstallation = async (req, res) => {
             waterDischargeFarmerPhoto
         } = req.body;
         const empId = req.user._id;
-        if (!farmerId || !latitude || !longitude || !borePhoto || !challanPhoto || !landDocPhoto || !sprinklerPhoto || !boreFarmerPhoto || !finalFoundationFarmerPhoto || !panelFarmerPhoto || !controllerBoxFarmerPhoto || !waterDischargeFarmerPhoto) {
+        if (!farmerSaralId || !latitude || !longitude || !borePhoto || !challanPhoto || !landDocPhoto || !sprinklerPhoto || !boreFarmerPhoto || !finalFoundationFarmerPhoto || !panelFarmerPhoto || !controllerBoxFarmerPhoto || !waterDischargeFarmerPhoto) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required."
@@ -326,7 +339,7 @@ const newSystemInstallation = async (req, res) => {
 
         const newInstallationData = {
             referenceType: refType,
-            farmerId,
+            farmerSaralId,
             latitude,
             longitude,
             borePhoto: borePhotoUrl,
@@ -350,7 +363,7 @@ const newSystemInstallation = async (req, res) => {
             });
         }
 
-        const farmerActivity = await FarmerItemsActivity.findOne({ farmerId });
+        const farmerActivity = await FarmerItemsActivity.findOne({ farmerSaralId });
         if (!farmerActivity) {
             return res.status(400).json({
                 success: false,
@@ -358,15 +371,59 @@ const newSystemInstallation = async (req, res) => {
             });
         }
 
+        const empAccount = await EmpInstallationAccount.findOne({ empId: farmerActivity.empId })
+            .populate({
+                path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
+                select: "itemName", // Select only the subItemName field
+            })
+            .select("-__v -createdAt -updatedAt -referenceType -incoming");
+        if(!empAccount) {
+            return res.status(400).json({
+                success: false,
+                message: "Employee Account Not Found"
+            });
+        }
+        for (const item of farmerActivity.itemsList) {
+            const { systemItemId, quantity } = item;
+
+            const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
+
+            if (!existingItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Item Not Found In Employee Account"
+                });
+            } else {
+                existingItem.quantity = parseInt(existingItem.quantity) - parseInt(quantity);
+            }
+        }
+        empAccount.updatedAt = new Date();
+        empAccount.updatedBy = empId;
+        const updatedEmpAccount = await empAccount.save();
+        if (!updatedEmpAccount) {
+            return res.status(500).json({
+                success: false,
+                message: "Employee Account could not be updated"
+            });
+        }
+
         farmerActivity.installationDone = true;
         farmerActivity.updatedAt = new Date();
         farmerActivity.updatedBy = empId;
-        await farmerActivity.save();
-        return res.status(200).json({
-            success: true,
-            message: "Installation Data & Farmer Activity Saved/Updated Successfully"
-        });
+        const updatedFarmerActivity = await farmerActivity.save();
+        if (!updatedFarmerActivity) {
+            return res.status(500).json({
+                success: false,
+                message: "Farmer Activity could not be updated"
+            });
+        }
 
+        if(updatedEmpAccount && updatedFarmerActivity) {
+            return res.status(200).json({
+                success: true,
+                message: "Installation Data & Farmer Activity Saved/Updated Successfully"
+            });
+        }
     } catch (error) {
         return res.status(500).json({
             success: false,

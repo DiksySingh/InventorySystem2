@@ -63,11 +63,18 @@ const systemItemsWToWSchema = new Schema({
         type: Date,
         default: Date.now,
     },
+    updatedAt: {
+        type: Date,
+    },
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: "WarehousePerson",
         required: true
     },
+    updatedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "WarehousePerson",
+    }
 },{collection: "inSystemInventoryWToW"});
 
 const SystemInventoryWToW = mongoose.model("SystemInventoryWToW", systemItemsWToWSchema);

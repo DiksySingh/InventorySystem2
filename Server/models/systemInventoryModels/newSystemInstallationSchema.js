@@ -57,10 +57,17 @@ const newSystemInstallationSchema = new Schema ({
         type: Date,
         default: Date.now
     },
+    updatedAt: {
+        type: Date,
+    },
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: "referenceType",
         required: true
+    },
+    updatedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "referenceType",
     },
 }, {collection: "inNewSystemInstallations"});
 

@@ -1401,6 +1401,7 @@ module.exports.updateItemQuantity = async (req, res) => {
         }
         const itemData = await InstallationInventory.findOne(filter);
         itemData.quantity = parseInt(itemData.quantity) + parseInt(updatedQuantity);
+        itemData.updatedAt = Date.now();
         itemData.updatedBy = req.user._id;
         let refType;
         if (req.user.role === "admin") {
@@ -1524,6 +1525,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             // Update inventory quantity
             inventoryItem.quantity = parseInt(inventoryItem.quantity) - parseInt(quantity);
             inventoryItem.updatedAt = new Date();
+            inventoryItem.updatedBy = warehousePersonId;
             await inventoryItem.save();
         }
 
@@ -1803,6 +1805,8 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
                 }
 
                 existingItem.quantity = parseInt(existingItem?.quantity) - parseInt(quantity);
+                existingItem.updatedAt = new Date();
+                existingItem.updatedBy = req.user._id;
                 await existingItem.save();
             }
         }
@@ -2006,7 +2010,8 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
                 }
 
                 existingItem.quantity = parseInt(existingItem?.quantity) + parseInt(quantity);
-
+                existingItem.updatedAt = new Date();
+                existingItem.updatedBy = req.user._id;
                 await existingItem.save();
             }
         }
@@ -2014,6 +2019,8 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
         incomingSystemItems.status = status;
         incomingSystemItems.arrivedDate = arrivedDate;
         incomingSystemItems.approvedBy = req.user._id;
+        incomingSystemItems.updatedAt = new Date();
+        incomingSystemItems.updatedBy = req.user._id;
         const approvedData = await incomingSystemItems.save();
         if (approvedData) {
             return res.status(200).json({
