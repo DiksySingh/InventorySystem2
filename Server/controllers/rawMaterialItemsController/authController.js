@@ -64,7 +64,8 @@ const login = async (req, res) => {
         const { email, password, roleId } = req.body;
         const options = {
             httpOnly: true,
-            secure: false,
+            secure: true,
+            sameSite: "None",
         }
         if (!email || !password || !roleId) {
             return res.status(400).json({
