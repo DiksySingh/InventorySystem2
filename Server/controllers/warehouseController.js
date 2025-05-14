@@ -2405,12 +2405,12 @@ module.exports.deductFromDefectiveOfItems = async (req, res) => {
 
         // Update quantities based on the isRepaired flag
         if (isRepaired === "true") {
-            itemToUpdate.defective -= quantityToUpdate;
-            itemToUpdate.quantity += quantityToUpdate;
-            itemToUpdate.repaired += quantityToUpdate;
+            itemToUpdate.defective = parseInt(itemToUpdate.defective) -  parseInt(quantityToUpdate);
+            itemToUpdate.quantity = parseInt(itemToUpdate.quantity) + parseInt(quantityToUpdate);
+            itemToUpdate.repaired = parseInt(itemToUpdate.repaired) + parseInt(quantityToUpdate);
         } else {
-            itemToUpdate.defective -= quantityToUpdate;
-            itemToUpdate.rejected += quantityToUpdate;
+            itemToUpdate.defective = parseInt(itemToUpdate.defective) - parseInt(quantityToUpdate);
+            itemToUpdate.rejected = parseInt(itemToUpdate.rejected) + parseInt(quantityToUpdate);
         }
 
         // Save the updated warehouse items data
