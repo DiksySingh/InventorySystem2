@@ -101,7 +101,7 @@ module.exports.incomingItems = async (req, res) => {
       items,
       //quantity,
       //defectiveItem,
-      arrivedDate,
+      arrivedDate: Date.now(),
       createdAt: Date.now(),
       createdBy: req.user._id,
     });

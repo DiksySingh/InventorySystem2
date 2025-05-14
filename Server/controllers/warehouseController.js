@@ -2481,6 +2481,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
             fromWarehouse,
             toServiceCenter,
             items,
+            sendingDate: Date.now(),
             createdBy: req.user._id,
             createdAt: new Date(),
         });
