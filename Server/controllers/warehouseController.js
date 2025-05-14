@@ -1516,11 +1516,19 @@ module.exports.addNewInstallationData = async (req, res) => {
             );
 
             if (!inventoryItem) {
-                throw new Error(`SubItem "${systemItemData.itemName}" not found in warehouse inventory`);
+                return res.status(404).json({
+                    success: false,
+                    message: `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
+                });
+                //throw new Error(`SubItem "${systemItemData.itemName}" not found in warehouse inventory`);
             }
 
             if (inventoryItem.quantity < quantity) {
-                throw new Error(`Insufficient stock for item "${systemItemData.itemName}"`);
+                return res.status(400).json({
+                    success: false,
+                    message: `Insufficient stock for item "${systemItemData.itemName}"`
+                });
+                //throw new Error(`Insufficient stock for item "${systemItemData.itemName}"`);
             }
 
             // Update inventory quantity
