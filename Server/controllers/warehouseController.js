@@ -1566,11 +1566,26 @@ module.exports.addNewInstallationData = async (req, res) => {
 
         const farmerActivity = new FarmerItemsActivity(activityData);
         const savedFarmerActivity = await farmerActivity.save();
+        if (!savedFarmerActivity) {
+            console.log("Hi");
+            return res.status(400).json({
+                success: false,
+                message: "Failed to save farmer activity"
+            });
+        }
         console.log("savedFarmerActivity", savedFarmerActivity);
+
         const empAccountData = new InstallationAssignEmp(accountData);
         const savedEmpAccountData = await empAccountData.save();
+        if (!savedEmpAccountData) {
+            console.log("Hi2");
+            return res.status(400).json({
+                success: false,
+                message: "Failed to save employee account data"
+            });
+        }
         console.log("savedEmpAccountData", savedEmpAccountData);
-        
+
         if (savedFarmerActivity && savedEmpAccountData) {
             // try {
             //     const apiUrl = `http://88.222.214.93:8001/warehouse/assignWarehouseUpdate?farmerId=${farmerSaralId}`
