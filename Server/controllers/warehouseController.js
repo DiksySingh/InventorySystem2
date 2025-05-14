@@ -1457,6 +1457,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         if (
             !farmerSaralId ||
             !empId ||
+            !systemId ||
             !itemsList ||
             !panelNumbers ||
             !pumpNumber ||
