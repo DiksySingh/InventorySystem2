@@ -1566,10 +1566,11 @@ module.exports.addNewInstallationData = async (req, res) => {
 
         const farmerActivity = new FarmerItemsActivity(activityData);
         const savedFarmerActivity = await farmerActivity.save();
-
+        console.log("savedFarmerActivity", savedFarmerActivity);
         const empAccountData = new InstallationAssignEmp(accountData);
         const savedEmpAccountData = await empAccountData.save();
-
+        console.log("savedEmpAccountData", savedEmpAccountData);
+        
         if (savedFarmerActivity && savedEmpAccountData) {
             // try {
             //     const apiUrl = `http://88.222.214.93:8001/warehouse/assignWarehouseUpdate?farmerId=${farmerSaralId}`
