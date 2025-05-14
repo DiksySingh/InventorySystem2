@@ -7,7 +7,7 @@ const newSystemInstallationSchema = new Schema ({
         required: true,
         enum: ["ServicePerson", "SurveyPerson"], // List of allowed models
     },
-    farmerId: {
+    farmerSaralId: {
         type: Schema.Types.ObjectId,
         required: true
     },

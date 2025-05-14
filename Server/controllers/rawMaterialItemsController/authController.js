@@ -122,6 +122,8 @@ const login = async (req, res) => {
                     id: user.id,
                     name: user.name,
                     email: user.email,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
                 }
             });
     } catch (error) {
