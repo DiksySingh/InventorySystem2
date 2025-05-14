@@ -2123,9 +2123,14 @@ module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
 //Service Team Access 
 module.exports.allServiceSurveyPersons = async (req, res) => {
     try {
+        const {state} = req.query;
+        const filter = {isActive: true};
+        if (state) {
+            filter.state = state;
+        }
         const [servicePersons, surveyPersons] = await Promise.all([
-            ServicePerson.find({ isActive: true }).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 }),
-            SurveyPerson.find({ isActive: true }).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 })
+            ServicePerson.find(filter).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 }),
+            SurveyPerson.find(filter).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 })
         ]);
 
         const allPersons = [
