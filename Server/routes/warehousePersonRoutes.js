@@ -33,7 +33,8 @@ const {
   uploadSystemSubItemsFromExcel,
   updateSystemId,
   showItemComponents,
-  getSystemItemsWithSubItems
+  getSystemItemsWithSubItems,
+  allServiceSurveyPersons
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData, inDefectiveItemsOrderHistory, outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/installationDataController");
@@ -82,6 +83,7 @@ router.get("/show-item-component", userVerification(['warehouseAdmin', 'admin'])
 router.get("/show-items-subItems", userVerification(['warehouseAdmin', 'admin']), getSystemItemsWithSubItems);
 router.get("/show-inventory-items", userVerification(['warehouseAdmin']), showInstallationInventoryItems);
 router.put("/update-subItem-quantity", userVerification(['warehouseAdmin']), updateItemQuantity);
+router.get("/service-survey-persons", userVerification(['warehouseAdmin']), allServiceSurveyPersons);
 router.post("/add-new-installation", userVerification(['warehouseAdmin']), addNewInstallationData);
 // router.get("/all-service-survey-person", userVerification(['warehouseAdmin']), allServiceSurveyPerson);
 router.get("/new-installation-data", userVerification(['warehouseAdmin']), showInstallationDataToWarehouse);
