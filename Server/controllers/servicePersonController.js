@@ -433,11 +433,52 @@ const newSystemInstallation = async (req, res) => {
     }
 };
 
+const empDashboard = async (req, res) => {
+    try {
+        const empId = req.user._id;
+        const empData = await EmpInstallationAccount.findOne({ empId })
+            .populate({
+                path: "empId",
+                select: {
+                    "name": 1,
+                }
+            })
+            .populate({
+                path: "itemsList.systemItemId", // Populate systemItem details
+                model: "SystemItem",
+                select: ({
+                    "_id": 1,
+                    "itemName": 1,
+                })
+            })
+            .select("-__v -createdAt -updatedAt -referenceType -incoming");
+        if (!empData) {
+            return res.status(400).json({
+                success: false,
+                message: "Employee Account Not Found"
+            });
+        }
+        empData.itemsList = empData.itemsList.filter(item => item.quantity > 0);
+        return res.status(200).json({
+            success: true,
+            message: "Employee Account Fetched Successfully",
+            data: empData
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        })
+    }
+}
+
 module.exports = {
     updateLatitudeLongitude,
     addServicePersonState,
     showNewInstallationDataToInstaller,
     updateStatusOfIncomingItems,
-    newSystemInstallation
+    newSystemInstallation,
+    empDashboard
 };
 

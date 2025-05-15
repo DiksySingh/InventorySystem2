@@ -1,7 +1,7 @@
 const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus, showServicePersonRepairedHoldingItems, updateServicePersonHoldingItems} = require("../controllers/pickupItemController");
 const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/warehouseController");
 const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp, getServicePersonInstallationData, checkServicePersonLatLong} = require("../controllers/installationDataController");
-const {showNewInstallationDataToInstaller, updateStatusOfIncomingItems, newSystemInstallation} = require("../controllers/servicePersonController");
+const {empDashboard, showNewInstallationDataToInstaller, updateStatusOfIncomingItems, newSystemInstallation} = require("../controllers/servicePersonController");
 // const {uploadHandler} = require("../middlewares/multerConfig");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
@@ -26,6 +26,7 @@ router.post("/resend-otp", resendOtp);
 
 router.get("/service-installation-data", userVerification(['serviceperson']), getServicePersonInstallationData);
 //System Installation
+router.get("/show-emp-dashboard", userVerification(['serviceperson', 'surveyperson']), empDashboard);
 router.get("/show-new-install-data", userVerification(['serviceperson', 'surveyperson']), showNewInstallationDataToInstaller);
 router.post("/update-incoming-item-status",userVerification(['serviceperson', 'surveyperson']), updateStatusOfIncomingItems);
 router.post("/new-system-installation", userVerification(['serviceperson', 'surveyperson']), newSystemInstallation);
