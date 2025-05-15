@@ -256,6 +256,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         }
 
         empAccount.updatedAt = new Date();
+        empAccount.updatedBy = empId;
         await empAccount.save();
 
         farmerActivityData.accepted = accepted;
