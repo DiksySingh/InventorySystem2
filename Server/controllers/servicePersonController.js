@@ -144,7 +144,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
                 const response = await axios.get(
-                    `http://88.222.214.93:8000/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
+                    `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
                 );
                 if (response) {
                     return {

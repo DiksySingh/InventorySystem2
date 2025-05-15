@@ -1640,7 +1640,7 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
         const activitiesWithFarmerDetails = await Promise.all(
             showData.map(async (data) => {
                 const response = await axios.get(
-                    `http://88.222.214.93:8000/farmer/showFarmerAccordingToSaralId?saralId=${data.farmerSaralId}`
+                    `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${data.farmerSaralId}`
                 );
                 if (response) {
                     return {
