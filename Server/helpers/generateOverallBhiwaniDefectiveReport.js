@@ -156,9 +156,10 @@ const mongoose = require("mongoose");
 const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
 const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
 const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema");
+const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
 const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
 
-const generateHTML = (data, totals) => {
+const generateHTML = (warehouseName, data, totals) => {
     const itemRows = data.map((item) => `
         <tr>
             <td>${item.itemName}</td>
@@ -218,7 +219,7 @@ const generateHTML = (data, totals) => {
         </style>
     </head>
     <body>
-        <h3>Bhiwani Overall Report (Motor, Pump, Controller)</h3>
+        <h3>${warehouseName} Overall Report (Motor, Pump, Controller)</h3>
         <div class="page-break-container">
         <table>
             <thead>
@@ -248,8 +249,9 @@ const generateHTML = (data, totals) => {
     </html>`;
 };
 
-module.exports.generateBhiwaniOverallReport = async (req, res) => {
+module.exports.getSpecificWarehouseOverallReport = async (req, res) => {
     try {
+        const warehouseName = req.query.warehouseName;
         const itemNames = ["Motor", "Pump", "Controller"];
         const reportData = [];
 
@@ -257,40 +259,45 @@ module.exports.generateBhiwaniOverallReport = async (req, res) => {
 
         for (const itemName of itemNames) {
             const defectiveCount = await PickupItem.aggregate([
-                { $match: { incoming: true, warehouse: "Bhiwani", } },
+                { $match: { incoming: true, warehouse: warehouseName, } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
 
             const defectiveIncomingCount = await WToW.aggregate([
-                { $match: { toWarehouse: "Bhiwani", isDefective: true, } },
+                { $match: { toWarehouse: warehouseName, isDefective: true, } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
 
             const outgoingCount = await PickupItem.aggregate([
-                { $match: { incoming: false, warehouse: "Bhiwani", } },
+                { $match: { incoming: false, warehouse: warehouseName, } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
 
             const repairedOutgoingCount = await WToW.aggregate([
-                { $match: { fromWarehouse: "Bhiwani", isDefective: false, } },
+                { $match: { fromWarehouse: warehouseName, isDefective: false, } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.quantity" } } }
             ]);
 
             const repairRejectData = await RepairNRejectItems.aggregate([
-                { $match: { warehouseName: "Bhiwani", itemName: { $regex: itemName, $options: "i" } } },
+                { $match: { warehouseName: warehouseName, itemName: { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, repaired: { $sum: "$repaired" }, rejected: { $sum: "$rejected" } } }
             ]);
 
+            const warehouseData = await Warehouse.findOne({warehouseName: warehouseName});
+            if(!warehouseData) {
+                return res.status(404).json({ success: false, message: "Warehouse not found" });
+            }
+
             const defectiveData = await WarehouseItems.aggregate([
-                { $match: { warehouse: new mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd") } },
+                { $match: { warehouse: warehouseData._id } },
                 { $unwind: "$items" },
                 { $match: { "items.itemName": { $regex: itemName, $options: "i" } } },
                 { $group: { _id: null, total: { $sum: "$items.defective" } } }
@@ -314,14 +321,14 @@ module.exports.generateBhiwaniOverallReport = async (req, res) => {
                 "Controller": ["CONTROLLER 3HP AC", "CONTROLLER 5HP AC", "CONTROLLER 7.5HP AC", "CONTROLLER 10HP AC", "CONTROLLER 3HP DC", "CONTROLLER 5HP DC", "CONTROLLER 7.5HP DC", "CONTROLLER 10HP DC", "CONTROLLER RMU"]
             };
             
-            const warehouseId = "67446a8b27dae6f7f4d985dd";
+            //const warehouseId = "67446a8b27dae6f7f4d985dd";
             const selectedSubItems = subItems[itemName] || [];
             
             // Get all matching items once
             const subDefectiveData = await WarehouseItems.aggregate([
                 {
                     $match: {
-                        warehouse: new mongoose.Types.ObjectId(warehouseId)
+                        warehouse: new mongoose.Types.ObjectId(warehouseData._id)
                     }
                 },
                 { $unwind: "$items" },
@@ -374,14 +381,14 @@ module.exports.generateBhiwaniOverallReport = async (req, res) => {
             });
         }
 
-        const htmlContent = generateHTML(reportData, { totalIncoming, totalOutgoing, totalRepaired, totalRejected, totalDefective });
+        const htmlContent = generateHTML(warehouseName, reportData, { totalIncoming, totalOutgoing, totalRepaired, totalRejected, totalDefective });
         const uploadsDir = path.join(__dirname, "../uploads");
         await fs.mkdir(uploadsDir, { recursive: true });
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "load" });
 
-        const fileName = `BhiwaniOverallReport_${moment().format("YYYY-MM-DD")}.pdf`;
+        const fileName = `${warehouseName}OverallReport_${moment().format("YYYY-MM-DD")}.pdf`;
         const filePath = path.join(uploadsDir, fileName);
         await page.pdf({ path: filePath, format: "A4", printBackground: true });
         await browser.close();

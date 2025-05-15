@@ -63,6 +63,13 @@ const farmerItemsActivitySchema = new Schema({
         type: Boolean,
         default: false,
     },
+    sendingDate: {
+        type: Date,
+        default: Date.now,
+    },
+    approvalDate: {
+        type: Date,
+    },
     createdAt : {
         type: Date,
         default: Date.now,

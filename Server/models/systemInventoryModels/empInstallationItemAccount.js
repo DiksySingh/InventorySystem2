@@ -35,6 +35,10 @@ const empInstallationItemAccount = new Schema(
     updatedAt: {
       type: Date,
     },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "referenceType", 
+    },
     updatedBy: {
       type: Schema.Types.ObjectId,
       ref: "referenceType",

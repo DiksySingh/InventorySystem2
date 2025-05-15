@@ -6,7 +6,7 @@ const {generateIncomingItemsPDF} = require("../helpers/generateIncomingItemsPDF"
 const {servicePersonRepairedHoldingItemsPDF} = require("../helpers/servicePersonRepairedItemsAccount");
 const {generateWarehouseTransactionPDF} = require("../helpers/generateWarehouseTransactionPDF");
 const {generateServicePersonTransactionPDF} = require("../helpers/generateServiceTransactionPDF");
-const {generateWarehouseStockReportPDF, generateAllWarehouseStockReportPDF} = require("../helpers/generateWarehouseStockReport");
+const {getSpecificWarehouseStockReportPDF, generateAllWarehouseStockReportPDF} = require("../helpers/generateWarehouseStockReport");
 const {generateItemRepairRejectPDF} = require("../helpers/generateItemRepairRejectPDF");
 const {deleteAllReports} = require("../helpers/deleteReport");
 const {downloadActiveServicePersonsExcel} = require("../helpers/generateServicePersonData");
@@ -16,7 +16,7 @@ const {generateBhiwaniInDefectiveItems} = require("../helpers/generateInDefectiv
 const {generateOverallReportPDF, generateDailyReportPDF, generateDistanceReportPDF} = require("../helpers/generateReportPDF");
 const {generateBhiwaniDailyReport} = require("../helpers/generateBhiwaniDailyReport");
 const {generateBhiwaniDailyInOutReport} = require("../helpers/generateBhiwaniDailyInOutReport");
-const {generateBhiwaniOverallReport} = require("../helpers/generateOverallBhiwaniDefectiveReport");
+const {getSpecificWarehouseOverallReport} = require("../helpers/generateOverallBhiwaniDefectiveReport");
 const {generateWarehouseExcel} = require("../helpers/generateItemsList");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
 const router = require("express").Router();
@@ -38,7 +38,7 @@ router.get("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for ite
 router.get("/export-outgoingItems-pdf", servicePersonRepairedHoldingItemsPDF);
 router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
-router.get("/export-warehouseStock-pdf", generateWarehouseStockReportPDF);  //PDf for warehouse stock
+router.get("/export-warehouseStock-pdf", getSpecificWarehouseStockReportPDF);  //PDf for warehouse stock
 router.get("/export-allWarehouseStock-pdf", generateAllWarehouseStockReportPDF); //PDF for all warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
 router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
@@ -49,6 +49,7 @@ router.post("/update-item-defective", deductFromDefectiveOfItems);
 router.get("/export-monthly-bhiwani-report", generateBhiwaniInDefectiveItems);
 router.get("/export-daily-bhiwani-report", generateBhiwaniDailyReport);
 router.get("/export-daily-bhiwani-inout-report", generateBhiwaniDailyInOutReport);
-router.get("/export-overall-bhiwani-defective-report", generateBhiwaniOverallReport);
+router.get("/export-warehouse-defective-report", getSpecificWarehouseOverallReport);
 router.get("/export-bhiwani-items-report", generateWarehouseExcel);
+//router.get("/overall-hisar-report", generateHisarOverallReport);
 module.exports = router;

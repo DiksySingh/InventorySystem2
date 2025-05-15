@@ -2,12 +2,18 @@ const puppeteer = require("puppeteer");
 const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
 const fs = require("fs");
 const path = require("path");
+const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
 const mongoose = require("mongoose"); // by shiv
-module.exports.generateWarehouseStockReportPDF = async (req, res) => {
+module.exports.getSpecificWarehouseStockReportPDF = async (req, res) => {
   try {
     // 🔹 Fetch all warehouses and their stock data
-    const warehouseObjectId = new mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd"); // by shiv
-    const warehouses = await WarehouseItems.find({warehouse : warehouseObjectId})
+    const warehouseName = req.query.warehouseName; // Get the warehouse name from the query parameter
+    const warehouseData = await Warehouse.findOne({ warehouseName: warehouseName });
+    if (!warehouseData) {
+      return res.status(404).json({success: false, message: "Warehouse not found!" });
+    }
+    //const warehouseObjectId = new mongoose.Types.ObjectId(warehouseData._id); // by shiv //67446ab527dae6f7f4d985f1 -> Hisar
+    const warehouses = await WarehouseItems.find({warehouse : warehouseData._id})
         .populate({
             path: "warehouse",
             select: { warehouseName: 1 },
@@ -59,31 +65,35 @@ module.exports.generateWarehouseStockReportPDF = async (req, res) => {
       const filteredItems = warehouse.items.filter(item => item.itemName !== "Laptop");
       // by shiv 
       // Calculate totals
+      const totalNewStock = filteredItems.reduce((sum, item) => sum + item.newStock, 0);
       const totalQuantity = filteredItems.reduce((sum, item) => sum + item.quantity, 0);
       const totalDefective = filteredItems.reduce((sum, item) => sum + item.defective, 0);
       // end by shiv
 
       htmlContent += `
         ${index > 0 ? '<div style="page-break-before: always;"></div>' : ""}
-        <h2>Warehouse Stock Report - ${warehouse.warehouse.warehouseName}</h2>
+        <h2>Warehouse Stock Report - ${warehouseName}</h2>
         <table>
           <thead>
             <tr>
               <th>Item Name</th>
-              <th>Quantity</th>
+              <th>New Stock</th>
+              <th>Serviced Stock</th>
               <th>Defective</th>
             </tr>
           </thead>
           <tbody>
             ${filteredItems.map(item => `
               <tr>
-                <td>${item.itemName}</td>
+                 <td>${item.itemName}</td>
+                <td>${item.newStock || 0}</td>
                 <td>${item.quantity}</td>
                 <td>${item.defective}</td>
               </tr>
             `).join("")}
              <tr>
               <td><strong>Total</strong></td>
+              <td><strong>${totalNewStock}</strong></td>
               <td><strong>${totalQuantity}</strong></td>
               <td><strong>${totalDefective}</strong></td>
             </tr>
@@ -98,7 +108,7 @@ module.exports.generateWarehouseStockReportPDF = async (req, res) => {
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
 
     const date = new Date().toISOString().split("T")[0];
-    const pdfPath = path.join(uploadsDir, `WarehouseStockReport_${date}.pdf`);
+    const pdfPath = path.join(uploadsDir, `${warehouseName}StockReport_${date}.pdf`);
 
     await page.pdf({
       path: pdfPath,

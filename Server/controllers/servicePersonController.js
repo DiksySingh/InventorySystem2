@@ -134,6 +134,12 @@ const showNewInstallationDataToInstaller = async (req, res) => {
                 }
             })
             .populate({
+                path: "systemId",
+                select: {
+                    "systemName": 1,
+                }
+            })
+            .populate({
                 path: "itemsList.systemItemId", // Populate subItem details
                 model: "SystemItem",
                 select: ({
@@ -232,7 +238,8 @@ const updateStatusOfIncomingItems = async (req, res) => {
                 empId,
                 referenceType: refType,  // Adjust based on logic
                 incoming: false,
-                itemsList: []
+                itemsList: [],
+                createdBy: empId,
             });
         }
 
@@ -252,6 +259,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         await empAccount.save();
 
         farmerActivityData.accepted = accepted;
+        farmerActivityData.approvalDate = new Date();;
         farmerActivityData.updatedAt = new Date();
         farmerActivityData.updatedBy = empId;
         const savedFarmerActivity = await farmerActivityData.save();
@@ -433,6 +441,63 @@ const newSystemInstallation = async (req, res) => {
     }
 };
 
+const showAcceptedInstallationData = async (req, res) => {
+    try {
+        const empId = req.user._id
+        const activities = await FarmerItemsActivity.find({ empId, accepted: true })
+            .populate({
+                path: "warehouseId",
+                select: {
+                    "warehouseName": 1,
+                }
+            })
+            .populate({
+                path: "empId",
+                select: {
+                    "name": 1,
+                }
+            })
+            .populate({
+                path: "systemId",
+                select: {
+                    "systemName": 1,
+                }
+            })
+            .populate({
+                path: "itemsList.systemItemId", // Populate subItem details
+                model: "SystemItem",
+                select: ({
+                    "_id": 1,
+                    "itemName": 1,
+                })
+            }).sort({ approvalDate: -1 });
+            const activitiesWithFarmerDetails = await Promise.all(
+            activities.map(async (activity) => {
+                const response = await axios.get(
+                    `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
+                );
+                if (response) {
+                    return {
+                        ...activity.toObject(),
+                        farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
+                    };
+                }
+            })
+        );
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: activitiesWithFarmerDetails || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 const empDashboard = async (req, res) => {
     try {
         const empId = req.user._id;
@@ -479,6 +544,7 @@ module.exports = {
     showNewInstallationDataToInstaller,
     updateStatusOfIncomingItems,
     newSystemInstallation,
-    empDashboard
+    empDashboard,
+    showAcceptedInstallationData
 };
 
