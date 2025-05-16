@@ -10,7 +10,7 @@ const empInstallationItemAccount = new Schema(
     },
     empId: {
       type: Schema.Types.ObjectId,
-      ref: "referenceType",
+      refPath: "referenceType",
       required: true,
     },
     incoming: {
@@ -37,11 +37,11 @@ const empInstallationItemAccount = new Schema(
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "referenceType", 
+      refPath: "referenceType", 
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "referenceType",
+      refPath: "referenceType",
     },
   },
   { collection: "inEmpInstallationAccounts" }
