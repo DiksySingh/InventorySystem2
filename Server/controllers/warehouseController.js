@@ -1278,13 +1278,13 @@ module.exports.showSystemItemMapData = async (req, res) => {
     try {
         const { systemId } = req.query;
         const systemSubItemData = await SystemItemMap.find({ systemId: systemId })
-        .populate({
-            path: "systemItemId",
-            select: {
-                "_id": 1,
-                "itemName": 1,
-            }
-        }).select("-_id -__v -createdAt -updatedAt -createdBy -updatedBy").lean();
+            .populate({
+                path: "systemItemId",
+                select: {
+                    "_id": 1,
+                    "itemName": 1,
+                }
+            }).select("-_id -__v -createdAt -updatedAt -createdBy -updatedBy").lean();
         if (!systemSubItemData.length) {
             return res.status(404).json({
                 success: false,
@@ -1330,7 +1330,7 @@ module.exports.showItemComponents = async (req, res) => {
         res.status(200).json({
             success: true,
             data: itemComponentData
-          });
+        });
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -1362,8 +1362,6 @@ module.exports.showItemComponents = async (req, res) => {
 //     }
 // };
 
-//****************** Service Person Access *************************//
-
 module.exports.showInstallationInventoryItems = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
@@ -1379,6 +1377,120 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
             success: true,
             message: "Data Fetched Successfully",
             data: inventorySystemItems || []
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.showItemsWithStockStatus = async (req, res) => {
+    try {
+     const warehouseId = req.user.warehouse;
+        const systemId = req.query.systemId;
+        const systemCount = 25;
+
+        if (!systemId) {
+            return res.status(400).json({
+                success: false,
+                message: "systemId is required"
+            });
+        }
+
+        // Step 1: Fetch required items and quantities for the system
+        const [systemItemMaps, subItemMaps] = await Promise.all([
+            SystemItemMap.find({ systemId }).select("systemItemId quantity").lean(),
+            ItemComponentMap.find({ systemId }).select("subItemId quantity").lean()
+        ]);
+
+        const requiredQtyMap = new Map();
+        const itemIdSet = new Set();
+
+        systemItemMaps.forEach(({ systemItemId, quantity }) => {
+            const id = systemItemId.toString();
+            requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity * systemCount);
+            itemIdSet.add(id);
+        });
+
+        subItemMaps.forEach(({ subItemId, quantity }) => {
+            const id = subItemId.toString();
+            requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity * systemCount);
+            itemIdSet.add(id);
+        });
+
+        const itemIds = Array.from(itemIdSet);
+
+        // Step 2: Fetch inventory for these item IDs in the warehouse
+        const inventoryItems = await InstallationInventory.find({
+            warehouseId,
+            systemItemId: { $in: itemIds }
+        })
+            .populate({
+                path: "systemItemId",
+                select: "_id itemName"
+            })
+            .select("systemItemId quantity")
+            .lean();
+
+        const inventoryMap = new Map();
+
+        for (const item of inventoryItems) {
+            const id = item.systemItemId._id.toString();
+            if (!inventoryMap.has(id)) {
+                inventoryMap.set(id, {
+                    systemItemId: {
+                        _id: item.systemItemId._id,
+                        itemName: item.systemItemId.itemName
+                    },
+                    quantity: 0
+                });
+            }
+            inventoryMap.get(id).quantity += item.quantity;
+        }
+
+        // Step 3: Construct final result array
+        const result = [];
+
+        for (const id of itemIds) {
+            const requiredQuantity = requiredQtyMap.get(id) || 0;
+            const inv = inventoryMap.get(id);
+
+            let quantity = 0;
+            let systemItemData = {
+                _id: id,
+                itemName: "Unknown Item"
+            };
+
+            if (inv) {
+                quantity = inv.quantity;
+                systemItemData = inv.systemItemId;
+            }
+
+            let materialShort = 0;
+            if (quantity < requiredQuantity) {
+                materialShort = requiredQuantity - quantity;
+            }
+
+            result.push({
+                systemItemId: systemItemData,
+                quantity,
+                requiredQuantity,
+                stockLow: quantity < requiredQuantity,
+                materialShort
+            });
+        }
+
+        // Step 4: Sort by quantity ascending
+        result.sort((a, b) => a.quantity - b.quantity);
+
+        return res.status(200).json({
+            success: true,
+            message: "Inventory fetched with stock status",
+            data: result
         });
 
     } catch (error) {
@@ -1825,7 +1937,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
                     throw new Error(`SubItem "${systemItemData.itemName}" not found in warehouse inventory`);
                 }
 
-                if(existingItem.quantity < quantity || existingItem.quantity === 0) {
+                if (existingItem.quantity < quantity || existingItem.quantity === 0) {
                     throw new Error(`Insufficient stock for item "${systemItemData.itemName}"`);
                 }
 
@@ -2147,8 +2259,8 @@ module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
 //Service Team Access 
 module.exports.allServiceSurveyPersons = async (req, res) => {
     try {
-        const {state} = req.query;
-        const filter = {isActive: true};
+        const { state } = req.query;
+        const filter = { isActive: true };
         if (state) {
             filter.state = state;
         }
@@ -2442,7 +2554,7 @@ module.exports.deductFromDefectiveOfItems = async (req, res) => {
 
         // Update quantities based on the isRepaired flag
         if (isRepaired === "true") {
-            itemToUpdate.defective = parseInt(itemToUpdate.defective) -  parseInt(quantityToUpdate);
+            itemToUpdate.defective = parseInt(itemToUpdate.defective) - parseInt(quantityToUpdate);
             itemToUpdate.quantity = parseInt(itemToUpdate.quantity) + parseInt(quantityToUpdate);
             itemToUpdate.repaired = parseInt(itemToUpdate.repaired) + parseInt(quantityToUpdate);
         } else {
@@ -2751,57 +2863,57 @@ module.exports.attachItemSubItem = async (req, res) => {
 
 module.exports.uploadSystemItemsFromExcel = async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ success: false, message: "No file uploaded" });
-      }
-  
-      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(sheet);
-  
-      if (!Array.isArray(data) || data.length === 0) {
-        return res.status(400).json({ success: false, message: "Excel file is empty or invalid" });
-      }
-  
-      const adminId = req.user?._id || "67446a4296f7ef394e784136";
-  
-      // Step 1: Add items to SystemItem
-      const itemsToInsert = data.map(row => ({
-        itemName: row.itemName?.trim(),
-        createdBy: adminId,
-      })).filter(item => item.itemName);
-  
-      const insertedItems = await SystemItem.insertMany(itemsToInsert);
-  
-      // Step 2: Fetch all warehouses
-      const warehouses = await Warehouse.find({}, "_id");
-  
-      // Step 3: Prepare and insert InstallationInventory records
-      const inventoryRecords = [];
-  
-      insertedItems.forEach(item => {
-        warehouses.forEach(wh => {
-          inventoryRecords.push({
-            warehouseId: wh._id,
-            systemItemId: item._id,
-            quantity: 0,
-            createdBy: adminId
-          });
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No file uploaded" });
+        }
+
+        const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(sheet);
+
+        if (!Array.isArray(data) || data.length === 0) {
+            return res.status(400).json({ success: false, message: "Excel file is empty or invalid" });
+        }
+
+        const adminId = req.user?._id || "67446a4296f7ef394e784136";
+
+        // Step 1: Add items to SystemItem
+        const itemsToInsert = data.map(row => ({
+            itemName: row.itemName?.trim(),
+            createdBy: adminId,
+        })).filter(item => item.itemName);
+
+        const insertedItems = await SystemItem.insertMany(itemsToInsert);
+
+        // Step 2: Fetch all warehouses
+        const warehouses = await Warehouse.find({}, "_id");
+
+        // Step 3: Prepare and insert InstallationInventory records
+        const inventoryRecords = [];
+
+        insertedItems.forEach(item => {
+            warehouses.forEach(wh => {
+                inventoryRecords.push({
+                    warehouseId: wh._id,
+                    systemItemId: item._id,
+                    quantity: 0,
+                    createdBy: adminId
+                });
+            });
         });
-      });
-  
-      await InstallationInventory.insertMany(inventoryRecords);
-  
-      res.status(201).json({
-        success: true,
-        message: `${insertedItems.length} items added and linked to all warehouses.`,
-        data: insertedItems
-      });
-  
+
+        await InstallationInventory.insertMany(inventoryRecords);
+
+        res.status(201).json({
+            success: true,
+            message: `${insertedItems.length} items added and linked to all warehouses.`,
+            data: insertedItems
+        });
+
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: error.message });
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -2872,13 +2984,13 @@ module.exports.getSystemItemsWithSubItems = async (req, res) => {
                 systemId: systemId,
                 systemItemId: item.systemItemId._id
             })
-            .populate({
-                path: "subItemId",
-                select: ({
-                    "_id": 1,
-                    "itemName": 1,
-                })
-            }).select("-createdAt -createdBy -__v");
+                .populate({
+                    path: "subItemId",
+                    select: ({
+                        "_id": 1,
+                        "itemName": 1,
+                    })
+                }).select("-createdAt -createdBy -__v");
 
             result.push({
                 systemItemId: item.systemItemId,

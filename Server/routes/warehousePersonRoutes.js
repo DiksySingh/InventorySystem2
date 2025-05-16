@@ -17,6 +17,7 @@ const {
   showSystemItemMapData,
   showSystemItems,
   showInstallationInventoryItems,
+  showItemsWithStockStatus,
   updateItemQuantity,
   addNewInstallationData,
   showInstallationDataToWarehouse,
@@ -82,6 +83,7 @@ router.get("/show-system-item-map", userVerification(['warehouseAdmin', 'admin']
 router.get("/show-item-component", userVerification(['warehouseAdmin', 'admin']), showItemComponents);
 router.get("/show-items-subItems", userVerification(['warehouseAdmin', 'admin']), getSystemItemsWithSubItems);
 router.get("/show-inventory-items", userVerification(['warehouseAdmin']), showInstallationInventoryItems);
+router.get("/show-items-stock-status", userVerification(['warehouseAdmin']), showItemsWithStockStatus);
 router.put("/update-subItem-quantity", userVerification(['warehouseAdmin']), updateItemQuantity);
 router.get("/service-survey-persons", userVerification(['warehouseAdmin']), allServiceSurveyPersons);
 router.post("/add-new-installation", userVerification(['warehouseAdmin']), addNewInstallationData);
