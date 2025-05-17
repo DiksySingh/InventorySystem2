@@ -1737,7 +1737,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             controllerNumber,
             rmuNumber,
         } = req.body;
-
+        console.log(req.body);
         const warehousePersonId = req.user._id;
         const warehouseId = req.user.warehouse;
 
