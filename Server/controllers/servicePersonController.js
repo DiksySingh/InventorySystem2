@@ -248,14 +248,15 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         for (const item of farmerActivityData.itemsList) {
             const { systemItemId, quantity } = item;
-
+            console.log(item);
             const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
-
+            console.log(existingItem);
             if (existingItem) {
                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
             } else {
                 empAccount.itemsList.push({ systemItemId, quantity });
             }
+            console.log(empAccount.itemsList);
         }
 
         empAccount.updatedAt = new Date();
