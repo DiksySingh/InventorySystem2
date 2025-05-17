@@ -722,7 +722,7 @@ const showAcceptedInstallationData = async (req, res) => {
                     "_id": 1,
                     "itemName": 1,
                 })
-            }).sort({ approvalDate: -1 });
+            }).sort({ approvalDate: -1, installationDate: false });
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
                 const response = await axios.get(
