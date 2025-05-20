@@ -4,7 +4,8 @@ const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = req
 const { 
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
   deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSystemSubItem, showSystemItems, 
-  showWarehouseItemsData, uploadSystemItemsFromExcel, uploadSystemSubItemsFromExcel, attachItemComponentMapByExcel, showStockUpdateHistory
+  showWarehouseItemsData, uploadSystemItemsFromExcel, uploadSystemSubItemsFromExcel, attachItemComponentMapByExcel, showStockUpdateHistory,
+  updateInstallationInventoryFromExcel
 } = require("../controllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
 const {getInstallationsData} = require("../controllers/installationDataController");
@@ -48,5 +49,6 @@ router.get("/show-system-item", userVerification(['admin']), showSystemItems);
 router.post("/system-item-excel", userVerification(['admin']), upload.single("file"), uploadSystemItemsFromExcel);
 router.post("/add-subItems-by-excel", userVerification(['admin']), upload.single("file"), uploadSystemSubItemsFromExcel);
 router.post("/add-item-component-by-excel", userVerification(['admin']), upload.single("file"), attachItemComponentMapByExcel);
+router.post("/upload-inventory-stock", upload.single("file"), updateInstallationInventoryFromExcel);
 
 module.exports = router;

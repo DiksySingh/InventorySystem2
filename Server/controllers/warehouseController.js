@@ -1390,7 +1390,7 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 
 module.exports.showItemsWithStockStatus = async (req, res) => {
     try {
-     const warehouseId = req.user.warehouse;
+        const warehouseId = req.user.warehouse;
         const systemId = req.query.systemId;
         const systemCount = 25;
 
@@ -3174,6 +3174,101 @@ module.exports.getSystemItemsWithSubItems = async (req, res) => {
 
     } catch (error) {
         return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+module.exports.updateInstallationInventoryFromExcel = async (req, res) => {
+    try {
+        const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        const results = [];
+        const successList = [];
+        const failedList = [];
+
+        let successCount = 0;
+        let failedCount = 0;
+
+        for (const row of worksheet) {
+            const { warehouseId, itemName, quantity } = row;
+
+            if (!warehouseId || !itemName || quantity == null) {
+                failedList.push({
+                    itemName,
+                    warehouseId,
+                    quantity,
+                    reason: "Missing required fields"
+                }); 
+                
+                failedCount++;
+                continue;
+            }
+
+            const escapedName = itemName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const systemItem = await SystemItem.findOne({
+                itemName: new RegExp(`^${escapedName}$`, 'i')
+            });
+
+            if (!systemItem) {
+                failedList.push({
+                    itemName,
+                    warehouseId,
+                    quantity,
+                    reason: "SystemItem not found"
+                });
+                failedCount++;
+                continue;
+            }
+
+            const inventory = await InstallationInventory.findOne({
+                warehouseId,
+                systemItemId: systemItem._id
+            });
+
+            if (!inventory) {
+                failedList.push({
+                    itemName,
+                    warehouseId,
+                    quantity,
+                    reason: "InstallationInventory not found"
+                });
+                failedCount++;
+                continue;
+            }
+
+            inventory.quantity = quantity;
+            inventory.updatedAt = new Date();
+            await inventory.save();
+
+            successList.push({
+                itemName,
+                warehouseId,
+                quantity,
+                status: "Updated successfully"
+            });
+            successCount++;
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Inventory update completed",
+            summary: {
+                totalProcessed: successCount + failedCount,
+                updated: successCount,
+                failed: failedCount
+            },
+            updatedItems: successList,
+            failedItems: failedList
+        });
+
+    } catch (error) {
+        console.error("Error while updating inventory from Excel:", error);
+        res.status(500).json({
             success: false,
             message: "Internal Server Error",
             error: error.message
