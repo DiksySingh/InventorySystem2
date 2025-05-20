@@ -2026,6 +2026,50 @@ const showOverallRepairedOrRejectedData = async (req, res) => {
     }
 };
 
+const showProductionSummary = async (req, res) => {
+    try {
+        const offsetMinutes = 330; // IST offset (5.5 hours)
+
+        const startOfToday = moment().startOf("day").subtract(offsetMinutes, "minutes").toDate();
+        const startOfWeek = moment().startOf("week").subtract(offsetMinutes, "minutes").toDate();
+        const startOfMonth = moment().startOf("month").subtract(offsetMinutes, "minutes").toDate();
+
+        const [total, daily, weekly, monthly] = await Promise.all([
+            prisma.productionLog.aggregate({
+                _sum: { quantityProduced: true }
+            }),
+            prisma.productionLog.aggregate({
+                _sum: { quantityProduced: true },
+                where: { manufacturingDate: { gte: startOfToday } }
+            }),
+            prisma.productionLog.aggregate({
+                _sum: { quantityProduced: true },
+                where: { manufacturingDate: { gte: startOfWeek } }
+            }),
+            prisma.productionLog.aggregate({
+                _sum: { quantityProduced: true },
+                where: { manufacturingDate: { gte: startOfMonth } }
+            }),
+        ]);
+
+        res.status(200).json({
+            success: true,
+            message: "Production Summary Fetched Successfully",
+            total: total._sum.quantityProduced || 0,
+            daily: daily._sum.quantityProduced || 0,
+            weekly: weekly._sum.quantityProduced || 0,
+            monthly: monthly._sum.quantityProduced || 0,
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     showEmployees,
     deactivateEmployee,
@@ -2054,5 +2098,6 @@ module.exports = {
     produceNewItem,
     getItemsProducibleCount,
     getInsufficientRawMaterials,
-    showOverallRepairedOrRejectedData
+    showOverallRepairedOrRejectedData,
+    showProductionSummary
 };

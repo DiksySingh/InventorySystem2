@@ -33,6 +33,7 @@ router.post("/produceNewItem", adminController.produceNewItem);
 router.get("/getItemsProducibleCount", adminController.getItemsProducibleCount);
 router.get("/getInsufficientRawMaterials", adminController.getInsufficientRawMaterials);
 router.get("/showOverallServiceData", tokenVerification(['Admin']), adminController.showOverallRepairedOrRejectedData);
+router.get("/showProductionSummary", tokenVerification(['Admin']), adminController.showProductionSummary);
 
 router.get("/generateServiceRecordPDF", generateServiceRecordPDF);
 router.get("/generateRawMaterialStockPDF", generateRawMaterialStockPDF);
