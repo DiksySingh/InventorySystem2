@@ -1979,7 +1979,7 @@ const getInsufficientRawMaterials = async (req, res) => {
 const showOverallRepairedOrRejectedData = async (req, res) => {
     try {
         // Subtract 5.5 hours to convert IST time to match UTC in DB
-        const isRepaired = req.query;
+        const isRepaired = req.query.isRepaired === "1";
         const offsetMinutes = 330;
 
         const startOfToday = moment().startOf("day").subtract(offsetMinutes, "minutes").toDate();
