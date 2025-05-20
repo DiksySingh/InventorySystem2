@@ -1976,9 +1976,10 @@ const getInsufficientRawMaterials = async (req, res) => {
     }
 };
 
-const showOverallRepairedData = async (req, res) => {
+const showOverallRepairedOrRejectedData = async (req, res) => {
     try {
         // Subtract 5.5 hours to convert IST time to match UTC in DB
+        const isRepaired = req.query;
         const offsetMinutes = 330;
 
         const startOfToday = moment().startOf("day").subtract(offsetMinutes, "minutes").toDate();
@@ -1988,7 +1989,7 @@ const showOverallRepairedData = async (req, res) => {
         const startOfMonth = moment().startOf("month").subtract(offsetMinutes, "minutes").toDate();
         console.log(startOfMonth);
 
-        const baseWhere = { isRepaired: true };
+        const baseWhere = { isRepaired: isRepaired };
 
         const [total, daily, weekly, monthly] = await Promise.all([
             prisma.serviceRecord.count({ where: baseWhere }),
@@ -2053,5 +2054,5 @@ module.exports = {
     produceNewItem,
     getItemsProducibleCount,
     getInsufficientRawMaterials,
-    showOverallRepairedData
+    showOverallRepairedOrRejectedData
 };
