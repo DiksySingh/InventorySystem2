@@ -1989,7 +1989,7 @@ const showOverallRepairedOrRejectedData = async (req, res) => {
         const startOfMonth = moment().startOf("month").subtract(offsetMinutes, "minutes").toDate();
         console.log(startOfMonth);
 
-        const baseWhere = { isRepaired: isRepaired };
+        const baseWhere = { isRepaired };
 
         const [total, daily, weekly, monthly] = await Promise.all([
             prisma.serviceRecord.count({ where: baseWhere }),
