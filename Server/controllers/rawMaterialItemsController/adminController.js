@@ -1,6 +1,7 @@
 const prisma = require("../../config/prismaClient");
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const axios = require("axios");
+const moment = require("moment");
 
 const getDefectiveItemsForWarehouse = async (req, res) => {
     try {
@@ -1975,6 +1976,55 @@ const getInsufficientRawMaterials = async (req, res) => {
     }
 };
 
+const showOverallRepairedData = async (req, res) => {
+    try {
+        // Subtract 5.5 hours to convert IST time to match UTC in DB
+        const offsetMinutes = 330;
+
+        const startOfToday = moment().startOf("day").subtract(offsetMinutes, "minutes").toDate();
+        console.log(startOfToday);
+        const startOfWeek = moment().startOf("week").subtract(offsetMinutes, "minutes").toDate();
+        console.log(startOfWeek);
+        const startOfMonth = moment().startOf("month").subtract(offsetMinutes, "minutes").toDate();
+        console.log(startOfMonth);
+
+        const baseWhere = { isRepaired: true };
+
+        const [total, daily, weekly, monthly] = await Promise.all([
+            prisma.serviceRecord.count({ where: baseWhere }),
+            prisma.serviceRecord.count({
+                where: {
+                    ...baseWhere,
+                    servicedAt: { gte: startOfToday },
+                },
+            }),
+            prisma.serviceRecord.count({
+                where: {
+                    ...baseWhere,
+                    servicedAt: { gte: startOfWeek },
+                },
+            }),
+            prisma.serviceRecord.count({
+                where: {
+                    ...baseWhere,
+                    servicedAt: { gte: startOfMonth },
+                },
+            }),
+        ]);
+
+        res.status(201).json({
+            success: true,
+            message: "Daily, Weekly, Monthly, Totally Repaired Data Fetched Successfully",
+            totalRepaired: total,
+            dailyRepaired: daily,
+            weeklyRepaired: weekly,
+            monthlyRepaired: monthly,
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+    }
+};
+
 module.exports = {
     showEmployees,
     deactivateEmployee,
@@ -2002,5 +2052,6 @@ module.exports = {
     deleteItemRawMaterial,
     produceNewItem,
     getItemsProducibleCount,
-    getInsufficientRawMaterials
+    getInsufficientRawMaterials,
+    showOverallRepairedData
 };

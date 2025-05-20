@@ -32,6 +32,7 @@ router.delete("/deleteItemRawMaterial", tokenVerification(['Admin']), adminContr
 router.post("/produceNewItem", adminController.produceNewItem);
 router.get("/getItemsProducibleCount", adminController.getItemsProducibleCount);
 router.get("/getInsufficientRawMaterials", adminController.getInsufficientRawMaterials);
+router.get("/showOverallRepairedData", tokenVerification(['Admin']), adminController.showOverallRepairedData);
 
 router.get("/generateServiceRecordPDF", generateServiceRecordPDF);
 router.get("/generateRawMaterialStockPDF", generateRawMaterialStockPDF);
