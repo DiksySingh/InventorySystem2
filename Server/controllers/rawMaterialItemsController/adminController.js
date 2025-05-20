@@ -2015,11 +2015,11 @@ const showOverallRepairedOrRejectedData = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: "Daily, Weekly, Monthly, Totally Repaired Data Fetched Successfully",
-            totalRepaired: total,
-            dailyRepaired: daily,
-            weeklyRepaired: weekly,
-            monthlyRepaired: monthly,
+            message: `Daily, Weekly, Monthly, Totally ${isRepaired ? "Repaired": "Rejected"} Data Fetched Successfully`,
+            total: total,
+            daily: daily,
+            weekly: weekly,
+            monthly: monthly,
         });
     } catch (error) {
         res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
