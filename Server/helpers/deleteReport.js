@@ -15,7 +15,9 @@ const deleteAllReports = async (req, res) => {
                     `RepairRejectReport_${date}.pdf`,
                     `BhiwaniDailyReport_${date}.pdf`,
                     `BhiwaniDailyItemsInOutReport_${date}.pdf`,
-                    `BhiwaniOverallReport_${date}.pdf`,
+                    `Bhiwani_OverallReport_${date}.pdf`,
+                    `Hisar_OverallReport_${date}.pdf`,
+                    `Jalna Warehouse_OverallReport_${date}.pdf`,
                 ],
             },
             {
