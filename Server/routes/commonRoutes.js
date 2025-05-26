@@ -19,6 +19,8 @@ const {generateBhiwaniDailyInOutReport} = require("../helpers/generateBhiwaniDai
 const {getSpecificWarehouseOverallReport} = require("../helpers/generateOverallBhiwaniDefectiveReport");
 const {generateWarehouseExcel} = require("../helpers/generateItemsList");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/pickupItemController");
+const {generateWToWExcel} = require("../helpers/excelReports/warehouse2WarehouseReport");
+const {generateWarehouse2FarmerExcel} = require("../helpers/excelReports/warehouse2FarmerReport");
 const router = require("express").Router();
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -51,5 +53,7 @@ router.get("/export-daily-bhiwani-report", generateBhiwaniDailyReport);
 router.get("/export-daily-bhiwani-inout-report", generateBhiwaniDailyInOutReport);
 router.get("/export-warehouse-defective-report", getSpecificWarehouseOverallReport);
 router.get("/export-bhiwani-items-report", generateWarehouseExcel);
+router.get("/export-w2w-report", generateWToWExcel);
+router.get("/export-w2f-report", generateWarehouse2FarmerExcel);
 //router.get("/overall-hisar-report", generateHisarOverallReport);
 module.exports = router;
