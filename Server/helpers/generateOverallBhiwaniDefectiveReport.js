@@ -388,7 +388,7 @@ module.exports.getSpecificWarehouseOverallReport = async (req, res) => {
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "load" });
 
-        const fileName = `${warehouseName}OverallReport_${moment().format("YYYY-MM-DD")}.pdf`;
+        const fileName = `${warehouseName}_OverallReport_${moment().format("YYYY-MM-DD")}.pdf`;
         const filePath = path.join(uploadsDir, fileName);
         await page.pdf({ path: filePath, format: "A4", printBackground: true });
         await browser.close();

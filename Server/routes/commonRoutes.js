@@ -40,7 +40,7 @@ router.get("/export-incomingItems-pdf", generateIncomingItemsPDF); //PDF for ite
 router.get("/export-outgoingItems-pdf", servicePersonRepairedHoldingItemsPDF);
 router.get("/export-warehouseOutgoing-pdf", generateWarehouseTransactionPDF);  //PDF for outgoing items from warehouse
 router.get("/export-warehouseIncoming-pdf", generateServicePersonTransactionPDF); //PDF for incoming items to warehouse
-router.get("/export-warehouseStock-pdf", getSpecificWarehouseStockReportPDF);  //PDf for warehouse stock
+router.get("/export-warehouseStock-pdf", getSpecificWarehouseStockReportPDF);  //PDf for specific warehouse stock
 router.get("/export-allWarehouseStock-pdf", generateAllWarehouseStockReportPDF); //PDF for all warehouse stock
 router.get("/export-itemRepairReject-pdf", generateItemRepairRejectPDF); //PDF for Item Repair & Reject 
 router.get("/export-dailyDefectiveItems-pdf", generateDailyInDefectiveItems);
@@ -51,7 +51,7 @@ router.post("/update-item-defective", deductFromDefectiveOfItems);
 router.get("/export-monthly-bhiwani-report", generateBhiwaniInDefectiveItems);
 router.get("/export-daily-bhiwani-report", generateBhiwaniDailyReport);
 router.get("/export-daily-bhiwani-inout-report", generateBhiwaniDailyInOutReport);
-router.get("/export-warehouse-defective-report", getSpecificWarehouseOverallReport);
+router.get("/export-warehouse-defective-report", getSpecificWarehouseOverallReport); //PDF for specific warehouse overall defective report
 router.get("/export-bhiwani-items-report", generateWarehouseExcel);
 router.get("/export-w2w-report", generateWToWExcel);
 router.get("/export-w2f-report", generateWarehouse2FarmerExcel);
