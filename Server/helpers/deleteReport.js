@@ -21,7 +21,7 @@ const deleteAllReports = async (req, res) => {
                 ],
             },
             {
-                folderPath: path.join(__dirname, "../../uploads/rawMaterial"),
+                folderPath: path.join(__dirname, "../uploads/rawMaterial"),
                 files: [
                     `ServiceRecord_${date}.pdf`,
                     `RawMaterialStockReport_${date}.pdf`,
