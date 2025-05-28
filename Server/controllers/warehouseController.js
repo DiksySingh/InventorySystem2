@@ -2171,7 +2171,7 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                     "itemName": 1,
                 })
             }).sort({ createdAt: -1 });
-        console.log("showData", showData);
+        
         const activitiesWithFarmerDetails = await Promise.all(
             showData.map(async (data) => {
                 try {
@@ -2192,8 +2192,6 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                 }
             })
         );
-
-        console.log("activitiesWithFarmerDetails", activitiesWithFarmerDetails);
 
         return res.status(200).json({
             success: true,
