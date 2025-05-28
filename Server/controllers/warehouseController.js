@@ -430,7 +430,6 @@ module.exports.addWarehouseItemsStock = async (req, res) => {
         const warehouseId = req.user.warehouse;
         const empId = req.user._id;
         const { items, defective } = req.body;
-        console.log(req.body);
 
         if (!warehouseId) {
             return res.status(400).json({
@@ -570,7 +569,7 @@ module.exports.repairItemData = async (req, res) => {
             });
         }
         const { itemName, serialNumber, repaired, repairedBy, remark, createdAt, changeMaterial } = req.body;
-        console.log(req.body)
+
         if (!itemName || !repaired || !serialNumber || !remark || !repairedBy || !createdAt || !changeMaterial) {
             return res.status(400).json({
                 success: false,
@@ -698,7 +697,7 @@ module.exports.rejectItemData = async (req, res) => {
                 message: "WarehouseID not found"
             });
         }
-        console.log("rejectItemData", res.body)
+
         const { itemName, serialNumber, rejected, remark, createdAt } = req.body;
         if (!itemName || !serialNumber || !remark || !rejected || !createdAt) {
             return res.status(400).json({
@@ -808,7 +807,7 @@ module.exports.rejectItemData = async (req, res) => {
         });
 
     } catch (error) {
-        console.log("RejectItemData", error)
+
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -1506,7 +1505,7 @@ module.exports.updateItemQuantity = async (req, res) => {
     try {
         const warehouseId = req.user.warehouse;
         const { systemItemId, updatedQuantity } = req.body;
-        console.log(req.body);
+
         const filter = {
             warehouseId: warehouseId,
             systemItemId: systemItemId,
@@ -1722,6 +1721,168 @@ module.exports.updateItemQuantity = async (req, res) => {
 //     }
 // };
 
+// module.exports.addNewInstallationData = async (req, res) => {
+//     const session = await mongoose.startSession();
+//     session.startTransaction();
+
+//     try {
+//         const {
+//             farmerSaralId,
+//             empId,
+//             systemId,
+//             itemsList,
+//             panelNumbers,
+//             pumpNumber,
+//             controllerNumber,
+//             rmuNumber,
+//         } = req.body;
+//         console.log(req.body);
+//         const warehousePersonId = req.user._id;
+//         const warehouseId = req.user.warehouse;
+
+//         if (
+//             !farmerSaralId || !empId || !systemId || !itemsList || !panelNumbers ||
+//             !pumpNumber || !controllerNumber || !rmuNumber
+//         ) {
+//             await session.abortTransaction();
+//             session.endSession();
+//             return res.status(400).json({ success: false, message: "All fields are required" });
+//         }
+
+//         if (!Array.isArray(itemsList) || itemsList.length === 0) {
+//             await session.abortTransaction();
+//             session.endSession();
+//             return res.status(400).json({ success: false, message: "itemsList should be a non-empty array" });
+//         }
+
+//         let refType;
+//         let empData = await ServicePerson.findOne({ _id: empId }).session(session);
+//         if (empData) {
+//             refType = "ServicePerson";
+//         } else {
+//             empData = await SurveyPerson.findOne({ _id: empId }).session(session);
+//             if (!empData) {
+//                 await session.abortTransaction();
+//                 session.endSession();
+//                 return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
+//             }
+//             refType = "SurveyPerson";
+//         }
+
+//         for (const item of itemsList) {
+//             const { systemItemId, quantity } = item;
+
+//             const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
+//             if (!systemItemData) {
+//                 await session.abortTransaction();
+//                 session.endSession();
+//                 return res.status(400).json({ success: false, message: "SystemItem Not Found" });
+//             }
+
+//             const inventoryItems = await InstallationInventory.find({ warehouseId })
+//                 .populate({
+//                     path: "systemItemId",
+//                     select: { itemName: 1 },
+//                 })
+//                 .session(session);
+
+//             const inventoryItem = inventoryItems.find(
+//                 (inv) => inv.systemItemId.itemName.toLowerCase() === systemItemData.itemName.toLowerCase()
+//             );
+
+//             if (!inventoryItem) {
+//                 await session.abortTransaction();
+//                 session.endSession();
+//                 return res.status(404).json({
+//                     success: false,
+//                     message: `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
+//                 });
+//             }
+
+//             if (inventoryItem.quantity < quantity) {
+//                 await session.abortTransaction();
+//                 session.endSession();
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: `Insufficient stock for item "${systemItemData.itemName}"`
+//                 });
+//             }
+
+//             // Update inventory quantity
+//             inventoryItem.quantity = parseInt(inventoryItem.quantity) - parseInt(quantity);
+//             inventoryItem.updatedAt = new Date();
+//             inventoryItem.updatedBy = warehousePersonId;
+//             await inventoryItem.save({ session });
+//         }
+
+//         const accountData = {
+//             warehouseId,
+//             referenceType: refType,
+//             empId,
+//             farmerSaralId,
+//             systemId,
+//             itemsList,
+//             createdBy: warehousePersonId
+//         };
+
+//         const activityData = {
+//             warehouseId,
+//             referenceType: refType,
+//             farmerSaralId,
+//             empId,
+//             systemId,
+//             itemsList,
+//             panelNumbers,
+//             pumpNumber,
+//             controllerNumber,
+//             rmuNumber,
+//             createdBy: warehousePersonId
+//         };
+
+//         const farmerActivity = new FarmerItemsActivity(activityData);
+//         const savedFarmerActivity = await farmerActivity.save({ session });
+//         if (!savedFarmerActivity) {
+//             await session.abortTransaction();
+//             session.endSession();
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Failed to save farmer activity"
+//             });
+//         }
+
+//         const empAccountData = new InstallationAssignEmp(accountData);
+//         const savedEmpAccountData = await empAccountData.save({ session });
+//         if (!savedEmpAccountData) {
+//             await session.abortTransaction();
+//             session.endSession();
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Failed to save employee account data"
+//             });
+//         }
+
+//         // COMMIT transaction
+//         await session.commitTransaction();
+//         session.endSession();
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Data Saved Successfully",
+//             farmerActivity,
+//             empAccountData,
+//         });
+
+//     } catch (error) {
+//         await session.abortTransaction();
+//         session.endSession();
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 module.exports.addNewInstallationData = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -1736,13 +1897,24 @@ module.exports.addNewInstallationData = async (req, res) => {
             pumpNumber,
             controllerNumber,
             rmuNumber,
+            extraItemsList,
         } = req.body;
-        console.log(req.body);
+
+        // const existingFarmer = await axios.get(`http://88.222.214.93:8000/farmer/showFarmerAccordingToSaralId?saralId=${farmerSaralId}`);
+        // if(existingFarmer.data.data.length === 0) {
+        //     await session.abortTransaction();
+        //     session.endSession();
+        //     return res.status(404).json({
+        //         success: false,
+        //         message: "Farmer Not Found"
+        //     });
+        // }
+
         const warehousePersonId = req.user._id;
         const warehouseId = req.user.warehouse;
 
         if (
-            !farmerSaralId || !empId || !systemId || !itemsList || !panelNumbers ||
+            !farmerSaralId || !empId || !systemId || !panelNumbers ||
             !pumpNumber || !controllerNumber || !rmuNumber
         ) {
             await session.abortTransaction();
@@ -1750,12 +1922,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
 
-        if (!Array.isArray(itemsList) || itemsList.length === 0) {
-            await session.abortTransaction();
-            session.endSession();
-            return res.status(400).json({ success: false, message: "itemsList should be a non-empty array" });
-        }
-
+        // Determine employee type
         let refType;
         let empData = await ServicePerson.findOne({ _id: empId }).session(session);
         if (empData) {
@@ -1770,7 +1937,48 @@ module.exports.addNewInstallationData = async (req, res) => {
             refType = "SurveyPerson";
         }
 
+        // Build itemsList from SystemItemMap and ItemComponentMap
+        const systemItemsMapped = await SystemItemMap.find({ systemId }).session(session);
+        let allItems = [];
+
+        for (const itemMap of systemItemsMapped) {
+            const mainItemId = itemMap.systemItemId;
+            const mainQuantity = itemMap.quantity;
+
+            allItems.push({ systemItemId: mainItemId.toString(), quantity: mainQuantity });
+        }
+
         for (const item of itemsList) {
+            const subItemMaps = await ItemComponentMap.find({
+                systemId,
+                systemItemId: item.systemItemId
+            }).session(session);
+
+            for (const subMap of subItemMaps) {
+                allItems.push({
+                    systemItemId: subMap.subItemId.toString(),
+                    quantity: subMap.quantity
+                });
+            }
+        }
+
+        const itemsMap = new Map();
+        for (const item of allItems) {
+            if (itemsMap.has(item.systemItemId)) {
+                itemsMap.set(item.systemItemId, itemsMap.get(item.systemItemId) + item.quantity);
+            } else {
+                itemsMap.set(item.systemItemId, item.quantity);
+            }
+        }
+
+        const finalItemsList = Array.from(itemsMap.entries()).map(([systemItemId, quantity]) => ({
+            systemItemId,
+            quantity
+        }));
+        console.log("Final Items List:", finalItemsList);
+
+        // Inventory check and update
+        for (const item of finalItemsList) {
             const { systemItemId, quantity } = item;
 
             const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
@@ -1788,7 +1996,7 @@ module.exports.addNewInstallationData = async (req, res) => {
                 .session(session);
 
             const inventoryItem = inventoryItems.find(
-                (inv) => inv.systemItemId.itemName.toLowerCase() === systemItemData.itemName.toLowerCase()
+                (inv) => inv.systemItemId._id.toString() === systemItemId
             );
 
             if (!inventoryItem) {
@@ -1796,7 +2004,7 @@ module.exports.addNewInstallationData = async (req, res) => {
                 session.endSession();
                 return res.status(404).json({
                     success: false,
-                    message: `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
+                    message: `Item "${systemItemData.itemName}" not found in warehouse inventory`
                 });
             }
 
@@ -1810,19 +2018,70 @@ module.exports.addNewInstallationData = async (req, res) => {
             }
 
             // Update inventory quantity
-            inventoryItem.quantity = parseInt(inventoryItem.quantity) - parseInt(quantity);
+            inventoryItem.quantity = inventoryItem.quantity - quantity;
             inventoryItem.updatedAt = new Date();
             inventoryItem.updatedBy = warehousePersonId;
             await inventoryItem.save({ session });
         }
 
+        if (extraItemsList && Array.isArray(extraItemsList) && extraItemsList.length > 0) {
+            for (const item of finalItemsList) {
+                const { systemItemId, quantity } = item;
+
+                const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
+                if (!systemItemData) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).json({ success: false, message: "SystemItem Not Found" });
+                }
+
+                const inventoryItems = await InstallationInventory.find({ warehouseId })
+                    .populate({
+                        path: "systemItemId",
+                        select: { itemName: 1 },
+                    })
+                    .session(session);
+
+                const inventoryItem = inventoryItems.find(
+                    (inv) => inv.systemItemId._id.toString() === systemItemId
+                );
+
+                if (!inventoryItem) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(404).json({
+                        success: false,
+                        message: `Item "${systemItemData.itemName}" not found in warehouse inventory`
+                    });
+                }
+
+                if (inventoryItem.quantity < quantity) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).json({
+                        success: false,
+                        message: `Insufficient stock for item "${systemItemData.itemName}"`
+                    });
+                }
+
+                // Update inventory quantity
+                inventoryItem.quantity = inventoryItem.quantity - quantity;
+                inventoryItem.updatedAt = new Date();
+                inventoryItem.updatedBy = warehousePersonId;
+                await inventoryItem.save({ session });
+            }
+        }
+
+
+        // Save activity and assignment
         const accountData = {
             warehouseId,
             referenceType: refType,
             empId,
             farmerSaralId,
             systemId,
-            itemsList,
+            itemsList: finalItemsList,
+            extraItemsList: extraItemsList || [],
             createdBy: warehousePersonId
         };
 
@@ -1832,7 +2091,8 @@ module.exports.addNewInstallationData = async (req, res) => {
             farmerSaralId,
             empId,
             systemId,
-            itemsList,
+            itemsList: finalItemsList,
+            extraItemsList: extraItemsList || [],
             panelNumbers,
             pumpNumber,
             controllerNumber,
@@ -1882,7 +2142,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             error: error.message
         });
     }
-};
+}
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
     try {
@@ -1911,19 +2171,29 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                     "itemName": 1,
                 })
             }).sort({ createdAt: -1 });
+        console.log("showData", showData);
         const activitiesWithFarmerDetails = await Promise.all(
             showData.map(async (data) => {
-                const response = await axios.get(
-                    `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${data.farmerSaralId}`
-                );
-                if (response) {
+                try {
+                    const response = await axios.get(
+                        `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${data.farmerSaralId}`
+                    );
+
                     return {
                         ...data.toObject(),
-                        farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
+                        farmerDetails: response?.data?.data || null,
+                    };
+                } catch (err) {
+                    console.error("Failed to fetch farmer details for SaralId:", data.farmerSaralId, err.message);
+                    return {
+                        ...data.toObject(),
+                        farmerDetails: null,
                     };
                 }
             })
         );
+
+        console.log("activitiesWithFarmerDetails", activitiesWithFarmerDetails);
 
         return res.status(200).json({
             success: true,
@@ -2363,7 +2633,7 @@ module.exports.incomingWToWSystemItemsHistory = async (req, res) => {
                     "itemName": 1,
                 })
             }).sort({ arrivedDate: -1 });
-        console.log(approvedData);
+
         return res.status(200).json({
             success: true,
             message: "Approved Data Fetched Successfully",
@@ -2744,7 +3014,7 @@ module.exports.deductFromDefectiveOfItems = async (req, res) => {
 module.exports.addOutgoingItemsData = async (req, res) => {
     try {
         const { fromWarehouse, toServiceCenter, items } = req.body;
-        console.log(req.body);
+
         if (!fromWarehouse || !toServiceCenter || !items) {
             return res.status(400).json({
                 success: false,
@@ -2760,7 +3030,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         }
 
         const warehouseItemsData = await WarehouseItems.findOne({ warehouse: req.user.warehouse });
-        console.log(warehouseItemsData);
+
         if (!warehouseItemsData) {
             return res.status(404).json({
                 success: false,
@@ -2769,7 +3039,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         }
         for (let item of items) {
             const existingItem = warehouseItemsData.items.find(i => i.itemName === item.itemName);
-            console.log(existingItem);
+
             if (!existingItem) {
                 return res.status(404).json({
                     success: false,
@@ -2787,7 +3057,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
         }
 
         const savedWarehouseItemsData = await warehouseItemsData.save();
-        console.log(savedWarehouseItemsData);
+
         const newOutgoingItemsData = new OutgoingItems({
             fromWarehouse,
             toServiceCenter,
@@ -2797,7 +3067,7 @@ module.exports.addOutgoingItemsData = async (req, res) => {
             createdAt: new Date(),
         });
         const savedOutgoingItemsData = await newOutgoingItemsData.save();
-        console.log(savedOutgoingItemsData);
+
         if (savedWarehouseItemsData && savedOutgoingItemsData) {
             return res.status(200).json({
                 success: true,
@@ -2924,14 +3194,13 @@ module.exports.uploadSystemSubItemsFromExcel = async (req, res) => {
         const data = XLSX.utils.sheet_to_json(sheet);
 
         const createdBy = req.user._id; // assuming JWT-based auth adds this
-        console.log(createdBy);
+
         const systemItemMap = data.map((row) => ({
             systemId: row.systemId,
             systemItemId: row.systemItemId,
             quantity: row.quantity,
             createdBy,
         }));
-        console.log(systemItemMap);
 
         await SystemItemMap.insertMany(systemItemMap);
 
@@ -3181,6 +3450,53 @@ module.exports.getSystemItemsWithSubItems = async (req, res) => {
     }
 };
 
+module.exports.getSystemItemsFromItemComponentMap = async (req, res) => {
+    const { systemId } = req.query;
+
+    try {
+        const items = await ItemComponentMap.find({ systemId })
+            .populate({
+                path: "systemItemId",
+                select: "_id itemName"
+            });
+
+        if (!items || items.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No system items found for the system"
+            });
+        }
+
+        // Filter unique systemItemId
+        const uniqueItemsMap = new Map();
+        items.forEach(item => {
+            const id = item.systemItemId?._id?.toString();
+            if (id && !uniqueItemsMap.has(id)) {
+                uniqueItemsMap.set(id, {
+                    _id: item.systemItemId._id,
+                    itemName: item.systemItemId.itemName
+                });
+            }
+        });
+
+        const uniqueItems = Array.from(uniqueItemsMap.values());
+
+        res.status(200).json({
+            success: true,
+            message: "Unique system items fetched successfully",
+            data: uniqueItems
+        });
+
+    } catch (error) {
+        console.error("Error fetching items by systemId:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 module.exports.updateInstallationInventoryFromExcel = async (req, res) => {
     try {
         const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
@@ -3203,8 +3519,8 @@ module.exports.updateInstallationInventoryFromExcel = async (req, res) => {
                     warehouseId,
                     quantity,
                     reason: "Missing required fields"
-                }); 
-                
+                });
+
                 failedCount++;
                 continue;
             }
