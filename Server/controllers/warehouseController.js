@@ -1895,6 +1895,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             itemsList,
             panelNumbers,
             pumpNumber,
+            motorNumber,
             controllerNumber,
             rmuNumber,
             extraItemsList,
@@ -1915,7 +1916,7 @@ module.exports.addNewInstallationData = async (req, res) => {
 
         if (
             !farmerSaralId || !empId || !systemId || !panelNumbers ||
-            !pumpNumber || !controllerNumber || !rmuNumber
+            !pumpNumber || !motorNumber || !controllerNumber || !rmuNumber
         ) {
             await session.abortTransaction();
             session.endSession();
@@ -2095,6 +2096,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             extraItemsList: extraItemsList || [],
             panelNumbers,
             pumpNumber,
+            motorNumber,
             controllerNumber,
             rmuNumber,
             createdBy: warehousePersonId
