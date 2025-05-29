@@ -51,6 +51,13 @@ module.exports.userVerification = (allowedRoles) => {
             });
           }
 
+          if(user.isActive === false){
+            return res.status(403).json({
+              status: false,
+              message: "User is not active"
+            });
+          }
+
           if (Array.isArray(allowedRoles) && allowedRoles.includes(data.role)) {
             // console.log(user);
             req.user = user;
