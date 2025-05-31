@@ -63,7 +63,6 @@ const warehouseToWarehouseSchema = new Schema({
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: "WarehousePerson",
-        required: true
     }
 },{collection: "inWToWData"});
 
