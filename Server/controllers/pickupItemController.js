@@ -182,7 +182,6 @@ module.exports.outgoingItemsData = async (req, res) => {
       isNewStock,
       pickupDate,
     } = req.body;
-    console.log(req.body);
     let contact = Number(farmerContact);
     //const warehousePersonName = req.user.name;
     if (
@@ -195,7 +194,6 @@ module.exports.outgoingItemsData = async (req, res) => {
       !serialNumber ||
       !pickupDate
     ) {
-      console.log("All fields are required")
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -203,7 +201,6 @@ module.exports.outgoingItemsData = async (req, res) => {
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      console.log("Items must be a non-empty array")
       return res.status(400).json({
         success: false,
         message: "Items must be a non-empty array",
@@ -275,7 +272,6 @@ module.exports.outgoingItemsData = async (req, res) => {
         // Check if there is enough stock
         if (isNewStock === false) {
           if (warehouseItem.quantity < quantityToAdjust || warehouseItem.quantity === 0) {
-            console.log(`Not enough stock for item ${itemName}`)
             return res.status(400).json({
               success: false,
               message: `Not enough stock for item ${itemName}`,
@@ -290,7 +286,6 @@ module.exports.outgoingItemsData = async (req, res) => {
         } else if (isNewStock === true) {
           // Decrease the stock in WarehouseItems schema
           if (warehouseItem.newStock < quantityToAdjust || warehouseItem.newStock === 0) {
-            console.log(`Not enough stock for item ${itemName}`)
             return res.status(400).json({
               success: false,
               message: `Not enough stock for item ${itemName}`,
@@ -454,6 +449,13 @@ module.exports.updateOrderStatus = async (req, res) => {
         });
       }
 
+      if (pickupItem.status === true) {
+        return res.status(400).json({
+          success: false,
+          message: "PickupItem already processed",
+        });
+      }
+
       const warehouseData = await Warehouse.findOne({ warehouseName: pickupItem.warehouse });
       if (!warehouseData) {
         return res.status(404).json({
@@ -484,19 +486,14 @@ module.exports.updateOrderStatus = async (req, res) => {
 
       for (let item of items) {
         const itemName = item.itemName;
-        const quantityToAdjust = item.quantity;
+        const quantityToAdjust = parseInt(item.quantity);
+        if (isNaN(quantityToAdjust) || quantityToAdjust < 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid quantity for item ${item.itemName}`,
+          });
+        }
 
-        // const itemRecord = await Item.findOne({ itemName });
-        // const itemRecord = await Item.findOne({ itemName: { $regex: new RegExp(`^${itemName}$`, "i") } });
-
-        // if (!itemRecord) {
-        //   return res.status(404).json({
-        //     success: false,
-        //     message: `Item ${itemName} not found in inventory`,
-        //   });
-        // }
-
-        // const warehouseItem = warehouseItemRecord.items.find(wItem => new RegExp(`^${itemName}$`, "i").test(wItem.itemName));
         const warehouseItem = warehouseItemRecord.items.find(wItem => wItem.itemName.toLowerCase() === itemName.toLowerCase());
         if (!warehouseItem) {
           return res.status(404).json({
@@ -506,10 +503,8 @@ module.exports.updateOrderStatus = async (req, res) => {
         }
 
         if (incoming === true) {
-          // itemRecord.defective = parseInt(itemRecord.defective) + parseInt(quantityToAdjust); //Adding incoming items from SP to Items Defect Field
-          warehouseItem.defective = parseInt(warehouseItem.defective) + parseInt(quantityToAdjust); //Adding incoming items from SP to WarehouseItems Defect Field
+          warehouseItem.defective = parseInt(warehouseItem.defective) + quantityToAdjust;
         }
-        //await itemRecord.save();
 
       }
       await warehouseItemRecord.save();
@@ -572,19 +567,13 @@ module.exports.updateOrderStatus = async (req, res) => {
           message: "PickupItem not found",
         });
       }
-      // const warehouseData = await Warehouse.findOne({ warehouseName: pickupItem.warehouse });
-      // if (!warehouseData) {
-      //   return res.status(404).json({
-      //     success: false,
-      //     message: "Warehouse Doesn't Exist",
-      //   });
-      // }
-      // if (String(warehouseData._id) !== String(req.user.warehouse)) {
-      //   return res.status(403).json({
-      //     success: false,
-      //     message: "User does not have permission to access this warehouse",
-      //   });
-      // }
+
+      if (pickupItem.status === true) {
+        return res.status(400).json({
+          success: false,
+          message: "PickupItem already processed",
+        });
+      }
 
       pickupItem.status = true;
       pickupItem.approvedBy = approvedBy;
@@ -593,65 +582,15 @@ module.exports.updateOrderStatus = async (req, res) => {
       const itemsToUpdate = pickupItem.items;
       const servicePersonId = pickupItem.servicePerson;
 
-      // const outgoingOrderDetails = await OutgoingItemDetails.findOne({
-      //   servicePerson: servicePersonId,
-      // });
-
-      // if (!outgoingOrderDetails) {
-      //   return res.status(400).json({
-      //     success: false,
-      //     message: "OutgoingItemDetails not found for the service person",
-      //   });
-      // }
-
       for (let item of itemsToUpdate) {
         let itemName = item.itemName;
         let quantity = item.quantity;
         outgoingItemsData.push({ itemName, quantity });
-        // const matchingItem = outgoingOrderDetails.items.find(
-        //   (i) => i.itemName === item.itemName
-        // );
-
-        // if (!matchingItem) {
-        //   return res.status(404).json({
-        //     success: false,
-        //     message: `Item ${item.itemName} not found in OutgoingItemDetails`,
-        //   });
-        // }
-
-        // if (matchingItem.quantity < item.quantity) {
-        //   return res.status(400).json({
-        //     success: false,
-        //     message: `Not enough quantity for ${item.itemName}`,
-        //   });
-        // }
-
-        // if (matchingItem.quantity === item.quantity) {
-        //   matchingItem.quantity = 0;
-        // } else {
-        //   matchingItem.quantity += item.quantity;
-        // }
       }
 
-      // await outgoingOrderDetails.save();
       let existingOutgoingRecord = await OutgoingItemDetails.findOne({
         servicePerson: servicePersonId,
       });
-
-      // if (existingOutgoingRecord) {
-      //   // Update existing quantities or add new items
-      //   outgoingItemsData.forEach((outgoingItem) => {
-      //     const existingItemIndex = existingOutgoingRecord.items.findIndex(
-      //       (item) => new RegExp(`^${outgoingItem.itemName}$`, "i").test(item.itemName)
-      //     );
-
-      //     if (existingItemIndex > -1) {
-      //       existingOutgoingRecord.items[existingItemIndex].quantity +=
-      //         outgoingItem.quantity;
-      //     } else {
-      //       existingOutgoingRecord.items.push(outgoingItem);
-      //     }
-      //   });
 
       if (existingOutgoingRecord) {
         // Update existing quantities or add new items
@@ -666,32 +605,32 @@ module.exports.updateOrderStatus = async (req, res) => {
             existingOutgoingRecord.items.push(outgoingItem);
           }
         });
-      await existingOutgoingRecord.save();
-    } else {
-      // No existing record, so create a new one
-      existingOutgoingRecord = new OutgoingItemDetails({
-        servicePerson: servicePersonId,
-        items: outgoingItemsData,
+        await existingOutgoingRecord.save();
+      } else {
+        // No existing record, so create a new one
+        existingOutgoingRecord = new OutgoingItemDetails({
+          servicePerson: servicePersonId,
+          items: outgoingItemsData,
+        });
+        await existingOutgoingRecord.save();
+      }
+
+      await pickupItem.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Status updated and quantities adjusted successfully",
+        pickupItem,
+        outgoingDetails: existingOutgoingRecord,
       });
-      await existingOutgoingRecord.save();
     }
-
-    await pickupItem.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Status updated and quantities adjusted successfully",
-      pickupItem,
-      outgoingDetails: existingOutgoingRecord,
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
-  } catch (error) {
-  return res.status(500).json({
-    success: false,
-    message: "Internal Server Error",
-    error: error.message,
-  });
-}
 };
 
 //******************* ServicePerson Access ****************************//
@@ -793,7 +732,6 @@ module.exports.incomingItemsData = async (req, res) => {
       approvedBy,
       pickupDate
     } = req.body;
-    console.log(req.body);
     if (
       !farmerContact ||
       !farmerComplaintId ||
@@ -821,7 +759,7 @@ module.exports.incomingItemsData = async (req, res) => {
       items: { $size: items.length, $all: items.map(item => ({ itemName: item.itemName, quantity: item.quantity })) },
       incoming: true
     });
-    console.log(existingPickupData);
+
     if (existingPickupData) {
       return res.status(400).json({
         success: false,
@@ -838,7 +776,7 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Warehouse Doesn't Exist",
       });
     }
-    console.log(warehouseData);
+
     const warehouseId = warehouseData._id;
 
     const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
@@ -848,7 +786,6 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Warehouse Items Data Not Found",
       });
     }
-    console.log(warehouseItemRecord);
 
     for (let item of items) {
       const itemName = item.itemName;
@@ -939,7 +876,7 @@ module.exports.incomingItemsData = async (req, res) => {
       let existingIncomingRecord = await IncomingItemDetails.findOne({
         servicePerson: id,
       });
-      console.log(existingIncomingRecord);
+
       items.forEach((incomingItem) => {
         const existingItemIndex = existingIncomingRecord?.items.findIndex(
           (item) => item.itemName === incomingItem.itemName
@@ -996,7 +933,7 @@ module.exports.incomingItemsData = async (req, res) => {
       referenceType: refType,
       itemSendBy: req.user._id
     });
-    console.log(returnItems);
+
     await returnItems.save();
 
     res.status(200).json({
@@ -1005,7 +942,7 @@ module.exports.incomingItemsData = async (req, res) => {
       returnItems,
     });
   } catch (error) {
-    console.log(error);
+
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -1017,7 +954,7 @@ module.exports.incomingItemsData = async (req, res) => {
 module.exports.pickupItemOfServicePerson = async (req, res) => {
   try {
     const id = req.user._id;
-    console.log(id);
+
     if (!id) {
       return res.status(404).json({
         success: false,
@@ -1035,7 +972,7 @@ module.exports.pickupItemOfServicePerson = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .select("-__v");
-    console.log(pickupItems);
+
     if (!pickupItems) {
       return res.status(404).json({
         success: false,
@@ -1329,12 +1266,9 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
         // If farmer details are missing, fetch from API using saralId
         if (!item.farmerName || !item.farmerContact) {
           if (item.farmerSaralId) {
-            console.log(item.farmerSaralId);
             const farmerDetails = await fetchFarmerDetails(item.farmerSaralId);
             farmerName = farmerDetails.farmerName;
-            console.log(farmerName);
             farmerContact = farmerDetails.contact;
-            console.log(farmerContact);
           }
         }
 
@@ -1449,8 +1383,6 @@ module.exports.exportIncomingTotalItemsToExcel = async (req, res) => {
 
     // Write Excel file to uploads folder
     XLSX.writeFile(workbook, filePath);
-
-    console.log("File saved at:", filePath);
 
     return res.json({
       success: true,
