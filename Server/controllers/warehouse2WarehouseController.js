@@ -5,7 +5,6 @@ const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsS
 module.exports.sendingDefectiveItems = async (req, res) => {
     try {
         const { fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate} = req.body;
-        console.log(req.body);
 
         if (!fromWarehouse || !toWarehouse || !items || !driverName || !driverContact || !remarks || !pickupDate) {
             return res.status(400).json({
@@ -80,7 +79,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
         await warehouseItemsData.save();
 
         const createDefectiveOrder = new WToW({ fromWarehouse, toWarehouse, isDefective, items, driverName, driverContact, remarks, status, isNewStock, pickupDate, createdBy: req.user._id });
-        console.log(createDefectiveOrder);
+        
         await createDefectiveOrder.save();
 
         return res.status(200).json({
@@ -89,7 +88,7 @@ module.exports.sendingDefectiveItems = async (req, res) => {
             orderData: createDefectiveOrder
         });
     } catch (error) {
-        console.log("WTOW Error ", error);
+        
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -207,82 +206,159 @@ module.exports.outgoingDefectiveOrderData = async(req, res) => {
     }
 };
 
-module.exports.updateDefectiveOrderStatus = async(req, res) => {
-    try{
-        const {defectiveOrderId, status, arrivedDate} = req.body;
-        const warehousePersonName = req.user.name;
+// module.exports.updateDefectiveOrderStatus = async(req, res) => {
+//     try{
+//         const {defectiveOrderId, status, arrivedDate} = req.body;
+//         const warehousePersonName = req.user.name;
 
-        const defectiveOrderData = await WToW.findById(defectiveOrderId);
+//         const defectiveOrderData = await WToW.findById(defectiveOrderId);
+//         if(defectiveOrderData.status === true){
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Order Already Approved"
+//             });
+//         }
+//         //const fromWarehouseName = defectiveOrderData.fromWarehouse;
+//         const toWarehouseName = defectiveOrderData.toWarehouse;
+
+//         //const fromWarehouseData = await Warehouse.findOne({warehouseName: fromWarehouseName});
+//         const toWarehouseData = await Warehouse.findOne({warehouseName: toWarehouseName});
+
+//         //const fromWarehouseItemsData = await WarehouseItems.findOne({warehouse: fromWarehouseData._id});
+//         const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
+
+//         if(status === true && defectiveOrderData.isDefective){
+//             for (let item of defectiveOrderData.items){
+//                 let itemName = item.itemName;
+//                 let quantity = item.quantity;
+
+//                 // const itemData = await Item.find({itemName});
+//                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+                
+//                 warehouseItems.defective = parseInt(warehouseItems.defective) + parseInt(quantity);
+                
+//             }
+//         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === true){
+//             for (let item of defectiveOrderData.items){
+//                 let itemName = item.itemName;
+//                 let quantity = item.quantity;
+
+//                 // const itemData = await Item.find({itemName});
+//                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
+//                 if (!warehouseItems) {
+//                     console.warn(`Item '${itemName}' not found in toWarehouseItemsData`);
+//                     continue;
+//                 }
         
-        //const fromWarehouseName = defectiveOrderData.fromWarehouse;
-        const toWarehouseName = defectiveOrderData.toWarehouse;
+//                 if (typeof warehouseItems.newStock !== "number") {
+//                     warehouseItems.newStock = 0;
+//                 }
+                
+//                 warehouseItems.newStock = parseInt(warehouseItems.newStock) + parseInt(quantity);        
+        
+//             toWarehouseItemsData.markModified("items");
+//             }
+//         }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === false){
+//             for (let item of defectiveOrderData.items){
+//                 let itemName = item.itemName;
+//                 let quantity = item.quantity;
 
-        //const fromWarehouseData = await Warehouse.findOne({warehouseName: fromWarehouseName});
-        const toWarehouseData = await Warehouse.findOne({warehouseName: toWarehouseName});
+//                 // const itemData = await Item.find({itemName});
+//                 let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
 
-        //const fromWarehouseItemsData = await WarehouseItems.findOne({warehouse: fromWarehouseData._id});
-        const toWarehouseItemsData = await WarehouseItems.findOne({warehouse: toWarehouseData._id});
+//                 warehouseItems.quantity = parseInt(warehouseItems.quantity) + parseInt(quantity);
+//             }
+//         }
+//         defectiveOrderData.status = status;
+//         defectiveOrderData.approvedBy = warehousePersonName;
+//         defectiveOrderData.arrivedDate = arrivedDate;
 
-        if(status === true && defectiveOrderData.isDefective){
-            for (let item of defectiveOrderData.items){
-                let itemName = item.itemName;
-                let quantity = item.quantity;
+//         await toWarehouseItemsData.save();
+//         await defectiveOrderData.save();
+//         return res.status(200).json({
+//             success: true,
+//             message: "Status updated successfully & Data manipulated accordingly",
+//             updatedData: defectiveOrderData
+//         });
+//     }catch(error){
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
 
-                // const itemData = await Item.find({itemName});
-                let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
-                console.log("Before Defective", warehouseItems.defective);
-                warehouseItems.defective = parseInt(warehouseItems.defective) + parseInt(quantity);
-                console.log("After Defective", warehouseItems.defective);
+module.exports.updateDefectiveOrderStatus = async (req, res) => {
+    const session = await mongoose.startSession();
+    
+    try {
+        await session.withTransaction(async () => {
+            const { defectiveOrderId, status, arrivedDate } = req.body;
+            const warehousePersonName = req.user.name;
+
+            const defectiveOrderData = await WToW.findById(defectiveOrderId).session(session);
+            if (defectiveOrderData.status === true) {
+                throw new Error("Order Already Approved");
             }
-        }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === true){
-            for (let item of defectiveOrderData.items){
-                let itemName = item.itemName;
-                let quantity = item.quantity;
+            console.log("Defective Order Data:", defectiveOrderData);
 
-                // const itemData = await Item.find({itemName});
-                let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
-                if (!warehouseItems) {
-                    console.warn(`Item '${itemName}' not found in toWarehouseItemsData`);
-                    continue;
+            const toWarehouseName = defectiveOrderData.toWarehouse;
+            console.log("To Warehouse Name:", toWarehouseName);
+            const toWarehouseData = await Warehouse.findOne({ warehouseName: toWarehouseName }).session(session);
+            const toWarehouseItemsData = await WarehouseItems.findOne({ warehouse: toWarehouseData._id }).session(session);
+            console.log("To Warehouse Items Data:", toWarehouseItemsData);
+            if (status === true && defectiveOrderData.isDefective) {
+                for (let item of defectiveOrderData.items) {
+                    const { itemName, quantity } = item;
+                    let warehouseItems = toWarehouseItemsData.items.find(i => i.itemName === itemName);
+                    console.log("Warehouse Items:", warehouseItems);
+                    if (!warehouseItems) throw new Error(`Item '${itemName}' not found in warehouse`);
+                    warehouseItems.defective = parseInt(warehouseItems.defective || 0) + parseInt(quantity);
+                    console.log(`Updated defective stock for ${itemName}:`, warehouseItems.defective);
                 }
-        
-                if (typeof warehouseItems.newStock !== "number") {
-                    warehouseItems.newStock = 0;
+            } else if (status === true && !defectiveOrderData.isDefective && defectiveOrderData.isNewStock) {
+                for (let item of defectiveOrderData.items) {
+                    const { itemName, quantity } = item;
+                    let warehouseItems = toWarehouseItemsData.items.find(i => i.itemName === itemName);
+                    console.log("Warehouse Items:", warehouseItems);
+                    if (!warehouseItems) throw new Error(`Item '${itemName}' not found in warehouse`);
+                    warehouseItems.newStock = parseInt(warehouseItems.newStock || 0) + parseInt(quantity);
+                    console.log(`Updated new stock for ${itemName}:`, warehouseItems.newStock);
                 }
-        
-                console.log("Before New Stock", warehouseItems.newStock);
-                warehouseItems.newStock = parseInt(warehouseItems.newStock) + parseInt(quantity);
-                console.log("After New Stock", warehouseItems.newStock);
-        
-            toWarehouseItemsData.markModified("items");
+                toWarehouseItemsData.markModified("items");
+            } else if (status === true && !defectiveOrderData.isDefective && !defectiveOrderData.isNewStock) {
+                for (let item of defectiveOrderData.items) {
+                    const { itemName, quantity } = item;
+                    let warehouseItems = toWarehouseItemsData.items.find(i => i.itemName === itemName);
+                    console.log("Warehouse Items:", warehouseItems);
+                    if (!warehouseItems) throw new Error(`Item '${itemName}' not found in warehouse`);
+                    warehouseItems.quantity = parseInt(warehouseItems.quantity || 0) + parseInt(quantity);
+                    console.log(`Updated quantity for ${itemName}:`, warehouseItems.quantity);
+                }
             }
-        }else if(status === true && defectiveOrderData.isDefective === false && defectiveOrderData.isNewStock === false){
-            for (let item of defectiveOrderData.items){
-                let itemName = item.itemName;
-                let quantity = item.quantity;
 
-                // const itemData = await Item.find({itemName});
-                let warehouseItems = toWarehouseItemsData.items.find(i => itemName === i.itemName);
-                console.log("Before Quantity", warehouseItems.quantity);
-                warehouseItems.quantity = parseInt(warehouseItems.quantity) + parseInt(quantity);
-                console.log("After Quantity", warehouseItems.quantity);
-            }
-        }
-        defectiveOrderData.status = status;
-        defectiveOrderData.approvedBy = warehousePersonName;
-        defectiveOrderData.arrivedDate = arrivedDate;
+            defectiveOrderData.status = status;
+            defectiveOrderData.approvedBy = warehousePersonName;
+            defectiveOrderData.arrivedDate = arrivedDate;
 
-        await toWarehouseItemsData.save();
-        await defectiveOrderData.save();
+            await toWarehouseItemsData.save({ session });
+            await defectiveOrderData.save({ session });
+        });
+
+        session.endSession();
+
         return res.status(200).json({
             success: true,
-            message: "Status updated successfully & Data manipulated accordingly",
-            updatedData: defectiveOrderData
+            message: "Status updated successfully & Data manipulated accordingly"
         });
-    }catch(error){
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error",
+            message: "Transaction failed. Rolled back.",
             error: error.message
         });
     }
