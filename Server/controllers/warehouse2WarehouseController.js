@@ -355,7 +355,6 @@ module.exports.updateDefectiveOrderStatus = async (req, res) => {
         });
 
     } catch (error) {
-        await session.abortTransaction();
         session.endSession();
         console.error("Transaction failed:", error);
         return res.status(500).json({
