@@ -2300,6 +2300,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
+        console.error("Error in addNewInstallationData:", error.message);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
