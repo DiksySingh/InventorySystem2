@@ -53,7 +53,7 @@ module.exports.incomingItems = async (req, res) => {
     //     message: `Item ${itemName} not found`,
     //   });
     // }
-    console.log(req.user.warehouse);
+
 
     const warehouseItemsData = await WarehouseItems.findOne({ warehouse: req.user.warehouse });
     if (!warehouseItemsData) {

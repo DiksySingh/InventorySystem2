@@ -263,12 +263,10 @@ const importRawMaterialsByExcel = async (req, res) => {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const jsonData = xlsx.utils.sheet_to_json(sheet);
-        console.log(jsonData);
 
         let insertedCount = 0;
 
         for (const row of jsonData) {
-            console.log(row);
             const name = row.name;
             const unit = row.unit;
 

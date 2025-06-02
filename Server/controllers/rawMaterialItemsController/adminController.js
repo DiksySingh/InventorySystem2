@@ -450,7 +450,6 @@ const addRawMaterial = async (req, res) => {
                 message: "rawMaterialName is required"
             });
         }
-        console.log(req.body);
 
         const name = rawMaterialName.trim(); // Trim only once
 
@@ -473,7 +472,6 @@ const addRawMaterial = async (req, res) => {
                 unit: unit
             }
         });
-        console.log(addRawMaterial);
 
         return res.status(201).json({
             success: true,
@@ -1205,9 +1203,10 @@ const addServiceRecord = async (req, res) => {
 
         // ✅ If any stock is insufficient, abort and notify
         if (insufficientStock.length > 0) {
+            console.error("Insufficient stock for raw materials:", insufficientStock);
             return res.status(400).json({
                 success: false,
-                message: "Insufficient stock for one or more raw materials",
+                message: `Insufficient stock for one or more raw materials. Details: ${insufficientStock} `,
                 insufficientStock
             });
         }
@@ -1575,7 +1574,6 @@ const showUnit = async (req, res) => {
 
 const updateItemRawMaterial = async (req, res) => {
     const { itemId, rawMaterialId, quantity, name } = req.body;
-    console.log("Request body:", req.body);
 
     if (!itemId || !rawMaterialId) {
         return res.status(400).json({
@@ -1588,7 +1586,7 @@ const updateItemRawMaterial = async (req, res) => {
         const updateData = {
             updatedBy: req.user.id,
         };
-        console.log(updateData);
+        
         // Check if the composite entry exists
         const existing = await prisma.itemRawMaterial.findUnique({
             where: {
@@ -1616,7 +1614,6 @@ const updateItemRawMaterial = async (req, res) => {
 
         // Update quantity if valid
         if (quantity !== undefined && quantity !== null && !isNaN(quantity)) {
-            console.log("Hi")
             updateData.quantity = parseFloat(quantity);
         }
 
@@ -1630,7 +1627,7 @@ const updateItemRawMaterial = async (req, res) => {
             },
             data: updateData,
         });
-        console.log("Hi2");
+        
         return res.status(200).json({
             success: true,
             message: "Raw Material and/or Quantity updated successfully",
@@ -1983,11 +1980,10 @@ const showOverallRepairedOrRejectedData = async (req, res) => {
         const offsetMinutes = 330;
 
         const startOfToday = moment().startOf("day").subtract(offsetMinutes, "minutes").toDate();
-        console.log(startOfToday);
+        
         const startOfWeek = moment().startOf("week").subtract(offsetMinutes, "minutes").toDate();
-        console.log(startOfWeek);
+    
         const startOfMonth = moment().startOf("month").subtract(offsetMinutes, "minutes").toDate();
-        console.log(startOfMonth);
 
         const baseWhere = { isRepaired };
 

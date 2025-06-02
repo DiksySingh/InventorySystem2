@@ -37,6 +37,18 @@ const installationAssignEmpSchema = new Schema({
             _id: false,
         }
     ],
+    extraItemsList: [
+        {
+            systemItemId: {
+                type: Schema.Types.ObjectId,
+                ref: "SystemItem",
+            },
+            quantity: {
+                type: Number,
+            },
+            _id: false,
+        }
+    ],
     createdAt: {
         type: Date,
         default: Date.now,

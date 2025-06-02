@@ -64,7 +64,6 @@ module.exports.getWarehousePersonContacts = async (req, res) => {
 module.exports.getServicePersonData = async (req, res) => {
     try {
         const { empId } = req.body;
-        console.log(empId);
 
         if (!empId || !Array.isArray(empId) || empId.length === 0) {
             return res.status(400).json({

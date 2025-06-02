@@ -23,15 +23,12 @@ const newSystemInstallationSchema = new Schema ({
     },
     challanPhoto: {
         type: [String],
-        required: true
     },
     landDocPhoto: {
         type: [String],
-        required: true
     },
     sprinklerPhoto: {
         type: [String],
-        required: true
     },
     boreFarmerPhoto: {
         type: [String],

@@ -248,15 +248,24 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         for (const item of farmerActivityData.itemsList) {
             const { systemItemId, quantity } = item;
-            console.log(item);
             const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
-            console.log(existingItem);
             if (existingItem) {
                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
             } else {
                 empAccount.itemsList.push({ systemItemId, quantity });
             }
-            console.log(empAccount.itemsList);
+        }
+
+        if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
+            for (const item of farmerActivityData.extraItemsList) {
+                const { systemItemId, quantity } = item;
+                const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
+                if (existingItem) {
+                    existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
+                } else {
+                    empAccount.itemsList.push({ systemItemId, quantity });
+                }
+            }
         }
 
         empAccount.updatedAt = new Date();
@@ -283,232 +292,6 @@ const updateStatusOfIncomingItems = async (req, res) => {
     }
 };
 
-// const newSystemInstallation = async (req, res) => {
-//     try {
-//         // const {
-//         //     farmerSaralId,
-//         //     latitude,
-//         //     longitude,
-//         //     borePhoto,
-//         //     challanPhoto,
-//         //     landDocPhoto,
-//         //     sprinklerPhoto,
-//         //     boreFarmerPhoto,
-//         //     finalFoundationFarmerPhoto,
-//         //     panelFarmerPhoto,
-//         //     controllerBoxFarmerPhoto,
-//         //     waterDischargeFarmerPhoto
-//         // } = req.body;
-//         // const empId = req.user._id;
-//         // if (!farmerSaralId || !latitude || !longitude || !borePhoto || !challanPhoto || !landDocPhoto || !sprinklerPhoto || !boreFarmerPhoto || !finalFoundationFarmerPhoto || !panelFarmerPhoto || !controllerBoxFarmerPhoto || !waterDischargeFarmerPhoto) {
-//         //     return res.status(400).json({
-//         //         success: false,
-//         //         message: "All fields are required."
-//         //     });
-//         // }
-
-//         const {
-//             farmerSaralId,
-//             latitude,
-//             longitude
-//         } = req.body;
-
-//         const empId = req.user._id;
-
-//         // Check for required fields
-//         const requiredFiles = [
-//             'borePhoto',
-//             'challanPhoto',
-//             'landDocPhoto',
-//             'sprinklerPhoto',
-//             'boreFarmerPhoto',
-//             'finalFoundationFarmerPhoto',
-//             'panelFarmerPhoto',
-//             'controllerBoxFarmerPhoto',
-//             'waterDischargeFarmerPhoto'
-//         ];
-
-//         for (const field of requiredFiles) {
-//             if (!req.files[field] || !req.files[field][0]) {
-//                 return res.status(400).json({
-//                     success: false,
-//                     message: `Missing or empty file: ${field}`
-//                 });
-//             }
-//         }
-
-
-//         if (!farmerSaralId || !latitude || !longitude) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "farmerSaralId, latitude, and longitude are required."
-//             });
-//         }
-
-
-//         let refType;
-//         let empData = await ServicePerson.findOne({ _id: empId });
-//         if (empData) {
-//             refType = "ServicePerson";
-//         } else {
-//             empData = await SurveyPerson.findOne({ _id: empId });
-//             if (!empData) {
-//                 return res.status(400).json({
-//                     success: false,
-//                     message: "EmpID Not Found In Database"
-//                 })
-//             }
-//             refType = "SurveyPerson";
-//         }
-
-//         // const folderPath = "newInstallation"
-//         // const savedBorePhoto = await imageHandlerWithPath(borePhoto, folderPath);
-//         // const borePhotoUrl = savedBorePhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedChallanPhoto = await imageHandlerWithPath(challanPhoto, folderPath);
-//         // const challanPhotoUrl = savedChallanPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedLandDocPhoto = await imageHandlerWithPath(landDocPhoto, folderPath);
-//         // const landDocPhotoUrl = savedLandDocPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedSprinklerPhoto = await imageHandlerWithPath(sprinklerPhoto, folderPath);
-//         // const sprinklerPhotoUrl = savedSprinklerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedBoreFarmerPhoto = await imageHandlerWithPath(boreFarmerPhoto, folderPath);
-//         // const boreFarmerPhotoUrl = savedBoreFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedFoundationFarmerPhoto = await imageHandlerWithPath(finalFoundationFarmerPhoto, folderPath);
-//         // const foundationFarmerPhotoUrl = savedFoundationFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedPanelFarmerPhoto = await imageHandlerWithPath(panelFarmerPhoto, folderPath);
-//         // const panelFarmerPhotoUrl = savedPanelFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedControllerFarmerPhoto = await imageHandlerWithPath(controllerBoxFarmerPhoto, folderPath);
-//         // const controllerFarmerPhotoUrl = savedControllerFarmerPhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const savedWaterDischargePhoto = await imageHandlerWithPath(waterDischargeFarmerPhoto, folderPath);
-//         // const waterDischargeFarmerPhotoUrl = savedWaterDischargePhoto.map((file) => `${req.protocol}://${req.get("host")}/uploads/${folderPath}/${file.fileName}`);
-
-//         // const newInstallationData = {
-//         //     referenceType: refType,
-//         //     farmerSaralId,
-//         //     latitude,
-//         //     longitude,
-//         //     borePhoto: borePhotoUrl,
-//         //     challanPhoto: challanPhotoUrl,
-//         //     landDocPhoto: landDocPhotoUrl,
-//         //     sprinklerPhoto: sprinklerPhotoUrl,
-//         //     boreFarmerPhoto: boreFarmerPhotoUrl,
-//         //     finalFoundationFarmerPhoto: foundationFarmerPhotoUrl,
-//         //     panelFarmerPhoto: panelFarmerPhotoUrl,
-//         //     controllerBoxFarmerPhoto: controllerFarmerPhotoUrl,
-//         //     waterDischargeFarmerPhoto: waterDischargeFarmerPhotoUrl,
-//         //     createdBy: req.user._id
-//         // };
-
-//         const newInstallationData = {
-//             referenceType: refType,
-//             farmerSaralId,
-//             latitude,
-//             longitude,
-//             borePhoto: `/uploads/newInstallation/${req.files.borePhoto[0].filename}`,
-//             challanPhoto: `/uploads/newInstallation/${req.files.challanPhoto[0].filename}`,
-//             landDocPhoto: `/uploads/newInstallation/${req.files.landDocPhoto[0].filename}`,
-//             sprinklerPhoto: `/uploads/newInstallation/${req.files.sprinklerPhoto[0].filename}`,
-//             boreFarmerPhoto: `/uploads/newInstallation/${req.files.boreFarmerPhoto[0].filename}`,
-//             finalFoundationFarmerPhoto: `/uploads/newInstallation/${req.files.finalFoundationFarmerPhoto[0].filename}`,
-//             panelFarmerPhoto: `/uploads/newInstallation/${req.files.panelFarmerPhoto[0].filename}`,
-//             controllerBoxFarmerPhoto: `/uploads/newInstallation/${req.files.controllerBoxFarmerPhoto[0].filename}`,
-//             waterDischargeFarmerPhoto: `/uploads/newInstallation/${req.files.waterDischargeFarmerPhoto[0].filename}`,
-//             createdBy: empId
-//         };
-
-//         const newInstallation = new NewSystemInstallation(newInstallationData);
-//         const savedInstallationData = await newInstallation.save();
-//         if (!savedInstallationData) {
-//             return res.status(500).json({
-//                 success: false,
-//                 message: "Installation data could not be saved"
-//             });
-//         }
-
-//         const farmerActivity = await FarmerItemsActivity.findOne({ farmerSaralId });
-//         if (!farmerActivity) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Farmer Activity Not Found"
-//             });
-//         }
-
-//         const empAccount = await EmpInstallationAccount.findOne({ empId: farmerActivity.empId })
-//             .populate({
-//                 path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
-//                 select: "itemName", // Select only the subItemName field
-//             })
-//             .select("-__v -createdAt -updatedAt -referenceType -incoming");
-//         if (!empAccount) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Employee Account Not Found"
-//             });
-//         }
-//         console.log(empAccount);
-//         for (const item of farmerActivity.itemsList) {
-//             const { systemItemId, quantity } = item;
-//             console.log("Looking for systemItemId:", systemItemId);
-//             console.log("In employee items:", empAccount.itemsList);
-//             const existingItem = empAccount.itemsList.find(i => i.systemItemId._id.toString() === systemItemId.toString());
-//             console.log(existingItem);
-//             if (!existingItem) {
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: "Item Not Found In Employee Account"
-//                 });
-//             }
-//             if (parseInt(existingItem.quantity) < parseInt(quantity)) {
-//                 return res.status(400).json({
-//                     success: false,
-//                     message: "Insufficient Quantity in Employee Account"
-//                 });
-//             }
-//             existingItem.quantity = parseInt(existingItem.quantity) - parseInt(quantity);
-//         }
-//         empAccount.updatedAt = new Date();
-//         empAccount.updatedBy = empId;
-//         const updatedEmpAccount = await empAccount.save();
-//         if (!updatedEmpAccount) {
-//             return res.status(500).json({
-//                 success: false,
-//                 message: "Employee Account could not be updated"
-//             });
-//         }
-
-//         farmerActivity.installationDone = true;
-//         farmerActivity.updatedAt = new Date();
-//         farmerActivity.updatedBy = empId;
-//         const updatedFarmerActivity = await farmerActivity.save();
-//         if (!updatedFarmerActivity) {
-//             return res.status(500).json({
-//                 success: false,
-//                 message: "Farmer Activity could not be updated"
-//             });
-//         }
-
-//         if (updatedEmpAccount && updatedFarmerActivity) {
-//             return res.status(200).json({
-//                 success: true,
-//                 message: "Installation Data & Farmer Activity Saved/Updated Successfully"
-//             });
-//         }
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error",
-//             error: error.message
-//         });
-//     }
-// };
-
 const newSystemInstallation = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -532,9 +315,6 @@ const newSystemInstallation = async (req, res) => {
 
         const requiredFiles = [
             "borePhoto",
-            "challanPhoto",
-            "landDocPhoto",
-            "sprinklerPhoto",
             "boreFarmerPhoto",
             "finalFoundationFarmerPhoto",
             "panelFarmerPhoto",
@@ -553,9 +333,7 @@ const newSystemInstallation = async (req, res) => {
 
             const serverPath = path.join(__dirname, "../uploads/newInstallation", file.filename);
             const urlPath = `/uploads/newInstallation/${file.filename}`;
-            console.log("Server Path:", serverPath);
-            console.log("URL Path:", urlPath);
-
+        
             uploadedFilePaths.push(serverPath);
             storedFileURLs[field] = urlPath;
         }
@@ -594,9 +372,9 @@ const newSystemInstallation = async (req, res) => {
             latitude,
             longitude,
             borePhoto: storedFileURLs.borePhoto,
-            challanPhoto: storedFileURLs.challanPhoto,
-            landDocPhoto: storedFileURLs.landDocPhoto,
-            sprinklerPhoto: storedFileURLs.sprinklerPhoto,
+            // challanPhoto: storedFileURLs.challanPhoto,
+            // landDocPhoto: storedFileURLs.landDocPhoto,
+            // sprinklerPhoto: storedFileURLs.sprinklerPhoto,
             boreFarmerPhoto: storedFileURLs.boreFarmerPhoto,
             finalFoundationFarmerPhoto: storedFileURLs.finalFoundationFarmerPhoto,
             panelFarmerPhoto: storedFileURLs.panelFarmerPhoto,
@@ -660,7 +438,36 @@ const newSystemInstallation = async (req, res) => {
                 });
             }
 
-            existingItem.quantity -= parseInt(quantity);
+            existingItem.quantity = parseInt(existingItem.quantity) - parseInt(quantity);
+        }
+
+        if (farmerActivity.extraItemsList && farmerActivity.extraItemsList.length > 0) {
+            for (const item of farmerActivity.extraItemsList) {
+                const { systemItemId, quantity } = item;
+                const existingItem = empAccount.itemsList.find(i => i.systemItemId._id.toString() === systemItemId.toString());
+
+                if (!existingItem) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    await deleteFiles(uploadedFilePaths);
+                    return res.status(404).json({
+                        success: false,
+                        message: "Item Not Found In Employee Account"
+                    });
+                }
+
+                if (parseInt(existingItem.quantity) < parseInt(quantity)) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    await deleteFiles(uploadedFilePaths);
+                    return res.status(400).json({
+                        success: false,
+                        message: "Insufficient Quantity in Employee Account"
+                    });
+                }
+
+                existingItem.quantity = parseInt(existingItem.quantity) - parseInt(quantity);
+            }
         }
 
         empAccount.updatedAt = new Date();
@@ -722,7 +529,7 @@ const showAcceptedInstallationData = async (req, res) => {
                     "_id": 1,
                     "itemName": 1,
                 })
-            }).sort({ approvalDate: -1});
+            }).sort({ approvalDate: -1 });
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
                 const response = await axios.get(

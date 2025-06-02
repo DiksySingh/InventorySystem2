@@ -18,7 +18,7 @@ const W2W = async(req,res) =>{
             pickupDate: { $gte: start, $lte: end },
             fromWarehouse
         });
-        console.log(records);
+      
         const formattedData = records.map(record => ({
             "From": record.fromWarehouse,
             "To": record.toWarehouse,
@@ -29,7 +29,7 @@ const W2W = async(req,res) =>{
             "Driver_Contact": record.driverContact,
             "Items": record.items.map(item => `${item.itemName}(${item.quantity})`).join(", ")
         }));
-        // console.log(formattedData)
+    
         // Convert JSON data to a worksheet
         const ws = XLSX.utils.json_to_sheet(formattedData);
     

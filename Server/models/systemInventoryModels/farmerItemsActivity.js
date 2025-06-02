@@ -30,7 +30,18 @@ const farmerItemsActivitySchema = new Schema({
             systemItemId: {
                 type: Schema.Types.ObjectId,
                 ref: "SystemItem",
-                required: true
+            },
+            quantity: {
+                type: Number,
+            },
+            _id: false
+        }
+    ],
+    extraItemsList: [
+        {
+            systemItemId: {
+                type: Schema.Types.ObjectId,
+                ref: "SystemItem",
             },
             quantity: {
                 type: Number,
@@ -43,6 +54,10 @@ const farmerItemsActivitySchema = new Schema({
         required: true
     },
     pumpNumber: {
+        type: String,
+        required: true
+    },
+    motorNumber: {
         type: String,
         required: true
     },
