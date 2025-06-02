@@ -35,7 +35,8 @@ const {
   updateSystemId,
   showItemComponents,
   getSystemItemsWithSubItems,
-  allServiceSurveyPersons
+  allServiceSurveyPersons,
+  getSystemItemsFromItemComponentMap
 } = require("../controllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData, inDefectiveItemsOrderHistory, outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/installationDataController");
@@ -82,6 +83,7 @@ router.get("/show-system-items", userVerification(['warehouseAdmin', 'admin']), 
 router.get("/show-system-item-map", userVerification(['warehouseAdmin', 'admin']), showSystemItemMapData);
 router.get("/show-item-component", userVerification(['warehouseAdmin', 'admin']), showItemComponents);
 router.get("/show-items-subItems", userVerification(['warehouseAdmin', 'admin']), getSystemItemsWithSubItems);
+router.get("/show-pump-data", userVerification(['warehouseAdmin', 'admin']), getSystemItemsFromItemComponentMap);
 router.get("/show-inventory-items", userVerification(['warehouseAdmin']), showInstallationInventoryItems);
 router.get("/show-items-stock-status", userVerification(['warehouseAdmin']), showItemsWithStockStatus);
 router.put("/update-subItem-quantity", userVerification(['warehouseAdmin']), updateItemQuantity);
