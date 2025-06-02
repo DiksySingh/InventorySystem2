@@ -53,6 +53,9 @@ const farmerItemsActivitySchema = new Schema({
         type: [String],
         required: true
     },
+    extraPanelNumbers: {
+        type: [String],
+    },
     pumpNumber: {
         type: String,
         required: true

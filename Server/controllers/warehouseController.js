@@ -1899,6 +1899,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             controllerNumber,
             rmuNumber,
             extraItemsList,
+            extraPanelNumbers,
         } = req.body;
 
         // const existingFarmer = await axios.get(`http://88.222.214.93:8000/farmer/showFarmerAccordingToSaralId?saralId=${farmerSaralId}`);
@@ -2095,6 +2096,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             itemsList: finalItemsList,
             extraItemsList: extraItemsList || [],
             panelNumbers,
+            extraPanelNumbers: extraPanelNumbers || [],
             pumpNumber,
             motorNumber,
             controllerNumber,
