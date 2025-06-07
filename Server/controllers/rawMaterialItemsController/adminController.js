@@ -564,49 +564,125 @@ const addRawMaterial = async (req, res) => {
 //     }
 // };
 
+// const showRawMaterials = async (req, res) => {
+//     try {
+//         const allRawMaterials = await prisma.rawMaterial.findMany({
+//             select: {
+//                 id: true,
+//                 name: true,
+//                 stock: true
+//             }
+//         });
+
+//         const enrichedRawMaterials = await Promise.all(
+//             allRawMaterials.map(async (rm) => {
+//                 const maxUsed = await prisma.itemRawMaterial.aggregate({
+//                     where: { rawMaterialId: rm.id },
+//                     _max: { quantity: true }
+//                 });
+
+//                 const maxQuantity = maxUsed._max.quantity || 0;
+//                 const isLow = maxQuantity === 0 ? false : rm.stock < maxQuantity * 50;
+
+//                 return {
+//                     ...rm,
+//                     stockIsLow: isLow
+//                 };
+//             })
+//         );
+
+//         enrichedRawMaterials.sort((a, b) => {
+//             if (a.stockIsLow && b.stockIsLow) {
+//                 return a.stock - b.stock;
+//             }
+//             if (a.stockIsLow) return -1;
+//             if (b.stockIsLow) return 1;
+//             return 0;
+//         });
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Raw-Materials fetched successfully",
+//             data: enrichedRawMaterials
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const showRawMaterials = async (req, res) => {
     try {
-        const allRawMaterials = await prisma.rawMaterial.findMany({
+        const { itemId } = req.query;
+
+        if (!itemId) {
+            return res.status(400).json({
+                success: false,
+                message: "ItemId is required"
+            });
+        }
+
+        // Step 1: Get raw materials attached to this itemId
+        const rawMaterialsForItem = await prisma.itemRawMaterial.findMany({
+            where: { itemId },
             select: {
-                id: true,
-                name: true,
-                stock: true
+                rawMaterial: {
+                    select: {
+                        id: true,
+                        name: true,
+                        stock: true,
+                        unit: true
+                    }
+                },
+                quantity: true
             }
         });
 
+        // Step 2: Enrich each raw material with stock health
         const enrichedRawMaterials = await Promise.all(
-            allRawMaterials.map(async (rm) => {
+            rawMaterialsForItem.map(async (entry) => {
+                const { rawMaterial, quantity } = entry;
+
                 const maxUsed = await prisma.itemRawMaterial.aggregate({
-                    where: { rawMaterialId: rm.id },
+                    where: { rawMaterialId: rawMaterial.id },
                     _max: { quantity: true }
                 });
 
                 const maxQuantity = maxUsed._max.quantity || 0;
-                const isLow = maxQuantity === 0 ? false : rm.stock < maxQuantity * 50;
+                const stockIsLow = maxQuantity === 0 ? false : rawMaterial.stock < maxQuantity * 50;
 
                 return {
-                    ...rm,
-                    stockIsLow: isLow
+                    id: rawMaterial.id,
+                    name: rawMaterial.name,
+                    stock: rawMaterial.stock,
+                    unit: rawMaterial.unit,
+                    quantityUsedInThisItem: quantity,
+                    stockIsLow
                 };
             })
         );
 
+        // Step 3: Sort: low stock first, then all in ascending order of stock
         enrichedRawMaterials.sort((a, b) => {
-            if (a.stockIsLow && b.stockIsLow) {
-                return a.stock - b.stock;
+            if (a.stockIsLow !== b.stockIsLow) {
+                return a.stockIsLow ? -1 : 1;
             }
-            if (a.stockIsLow) return -1;
-            if (b.stockIsLow) return 1;
-            return 0;
+            return a.stock - b.stock;
         });
 
+        // Step 4: Send response
         return res.status(200).json({
             success: true,
-            message: "Raw-Materials fetched successfully",
+            message: "Raw materials fetched successfully for this item",
             data: enrichedRawMaterials
         });
 
     } catch (error) {
+        console.error("Error in showRawMaterials:", error);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -614,7 +690,6 @@ const showRawMaterials = async (req, res) => {
         });
     }
 };
-
 
 const updateRawMaterialStock = async (req, res) => {
     const { rawMaterialId, userId, warehouseId, quantity, type } = req.body;
