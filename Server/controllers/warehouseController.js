@@ -2339,7 +2339,7 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                 })
             })
             .populate({
-                path: "itemsList.extraItemsList", // Populate subItem details
+                path: "extraItemsList.systemItemId", // Populate subItem details
                 model: "SystemItem",
                 select: ({
                     "_id": 0,
