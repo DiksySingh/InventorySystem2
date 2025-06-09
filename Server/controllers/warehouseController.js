@@ -2337,6 +2337,14 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                     "_id": 0,
                     "itemName": 1,
                 })
+            })
+            .populate({
+                path: "itemsList.extraItemsList", // Populate subItem details
+                model: "SystemItem",
+                select: ({
+                    "_id": 0,
+                    "itemName": 1,
+                })
             }).sort({ createdAt: -1 });
         
         const activitiesWithFarmerDetails = await Promise.all(
