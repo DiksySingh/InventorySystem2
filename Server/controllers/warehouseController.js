@@ -1916,7 +1916,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         const warehouseId = req.user.warehouse;
 
         if (
-            !farmerSaralId || !empId || !systemId || !panelNumbers || !itemsList ||
+            !farmerSaralId || !empId || !systemId || !panelNumbers || !itemsList || !Array.isArray(itemsList) || itemsList.length === 0 ||
             !pumpNumber || !motorNumber || !controllerNumber || !rmuNumber
         ) {
             await session.abortTransaction();
