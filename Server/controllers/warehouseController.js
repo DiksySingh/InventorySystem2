@@ -1921,6 +1921,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         ) {
             await session.abortTransaction();
             session.endSession();
+            console.log("ERROR: ", error.message);
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
 
