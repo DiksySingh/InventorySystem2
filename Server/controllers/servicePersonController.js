@@ -713,7 +713,7 @@ const empDashboard = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Employee Account Fetched Successfully",
-            data: empData
+            data: empData || []
         });
     } catch (error) {
         return res.status(500).json({
