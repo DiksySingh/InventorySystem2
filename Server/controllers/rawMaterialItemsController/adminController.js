@@ -2,6 +2,7 @@ const prisma = require("../../config/prismaClient");
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const axios = require("axios");
 const moment = require("moment");
+const mongoose = require("mongoose");
 
 const getDefectiveItemsForWarehouse = async (req, res) => {
     try {
@@ -1752,22 +1753,137 @@ const deleteItemRawMaterial = async (req, res) => {
     }
 };
 
+// const produceNewItem = async (req, res) => {
+//     try {
+//         const { itemId, subItem, quantityProduced, userId } = req.body;
+
+//         const itemRawMaterials = await prisma.itemRawMaterial.findMany({
+//             where: { itemId },
+//             include: {
+//                 rawMaterial: true
+//             }
+//         });
+
+//         if (!itemRawMaterials.length) {
+//             return res.status(404).json({ success: false, message: 'No raw materials linked to this item.' });
+//         }
+
+//         // 🛑 Step 1: Check stock availability before proceeding
+//         const insufficientMaterials = itemRawMaterials.filter(rm => {
+//             const requiredQty = (rm.quantity || 0) * quantityProduced;
+//             return (rm.rawMaterial?.stock ?? 0) < requiredQty;
+//         });
+
+//         if (insufficientMaterials.length > 0) {
+//             const message = insufficientMaterials.map(rm =>
+//                 `Insufficient stock for ${rm.rawMaterial?.name ?? 'Unknown Material'} (required: ${(rm.quantity || 0) * quantityProduced}, available: ${rm.rawMaterial?.stock ?? 0})`
+//             );
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Not enough raw material to produce item.",
+//                 details: message
+//             });
+//         }
+
+//         const timestamp = new Date();
+//         const stockUpdates = [];
+//         const manufacturingUsages = [];
+
+//         for (const rm of itemRawMaterials) {
+//             const totalUsed = (rm.quantity || 0) * quantityProduced;
+
+//             stockUpdates.push(
+//                 prisma.rawMaterial.update({
+//                     where: { id: rm.rawMaterialId },
+//                     data: {
+//                         stock: { decrement: totalUsed }
+//                     }
+//                 })
+//             );
+
+//             manufacturingUsages.push(
+//                 prisma.manufacturingUsage.create({
+//                     data: {
+//                         itemId,
+//                         rawMaterialId: rm.rawMaterialId,
+//                         quantityUsed: totalUsed,
+//                         unit: rm.rawMaterial?.unit ?? null,
+//                         manufacturingDate: timestamp
+//                     }
+//                 })
+//             );
+//         }
+
+//         const warehouseId = "67446a8b27dae6f7f4d985dd";
+//         const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseId });
+
+//         if (!warehouseItemsData) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Warehouse Items Data Not Found",
+//             });
+//         }
+
+//         const itemIndex = warehouseItemsData.items.findIndex((item) => item.itemName === subItem);
+
+//         if (itemIndex === -1) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Item Not Found In Warehouse",
+//             });
+//         }
+
+//         const itemToUpdate = warehouseItemsData.items[itemIndex];
+//         const quantityToUpdate = parseInt(quantityProduced);
+//         itemToUpdate.newStock += quantityToUpdate;
+//         await warehouseItemsData.save();
+
+//         await prisma.$transaction([
+//             ...stockUpdates,
+//             ...manufacturingUsages,
+//             prisma.productionLog.create({
+//                 data: {
+//                     item: { connect: { id: itemId } },
+//                     subItem,
+//                     quantityProduced,
+//                     manufacturingDate: timestamp,
+//                     user: { connect: { id: userId } }
+//                 }
+//             })
+//         ]);
+
+//         return res.status(201).json({
+//             success: true,
+//             message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.`
+//         });
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
+
 const produceNewItem = async (req, res) => {
+    const session = await mongoose.startSession();
+    await session.startTransaction();
+
     try {
         const { itemId, subItem, quantityProduced, userId } = req.body;
 
         const itemRawMaterials = await prisma.itemRawMaterial.findMany({
             where: { itemId },
-            include: {
-                rawMaterial: true
-            }
+            include: { rawMaterial: true }
         });
 
         if (!itemRawMaterials.length) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({ success: false, message: 'No raw materials linked to this item.' });
         }
 
-        // 🛑 Step 1: Check stock availability before proceeding
         const insufficientMaterials = itemRawMaterials.filter(rm => {
             const requiredQty = (rm.quantity || 0) * quantityProduced;
             return (rm.rawMaterial?.stock ?? 0) < requiredQty;
@@ -1777,6 +1893,8 @@ const produceNewItem = async (req, res) => {
             const message = insufficientMaterials.map(rm =>
                 `Insufficient stock for ${rm.rawMaterial?.name ?? 'Unknown Material'} (required: ${(rm.quantity || 0) * quantityProduced}, available: ${rm.rawMaterial?.stock ?? 0})`
             );
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).json({
                 success: false,
                 message: "Not enough raw material to produce item.",
@@ -1814,29 +1932,33 @@ const produceNewItem = async (req, res) => {
         }
 
         const warehouseId = "67446a8b27dae6f7f4d985dd";
-        const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseId });
-
+        const warehouseItemsData = await WarehouseItems.findOne({ warehouse: warehouseId }).session(session);
+        console.log(warehouseItemsData);
         if (!warehouseItemsData) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({
                 success: false,
                 message: "Warehouse Items Data Not Found",
             });
         }
 
-        const itemIndex = warehouseItemsData.items.findIndex((item) => item.itemName === subItem);
-
-        if (itemIndex === -1) {
+        // ✅ Using find() instead of findIndex()
+        const itemToUpdate = warehouseItemsData.items.find(item => item.itemName === subItem);
+        console.log(itemToUpdate);
+        if (!itemToUpdate) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(404).json({
                 success: false,
                 message: "Item Not Found In Warehouse",
             });
         }
 
-        const itemToUpdate = warehouseItemsData.items[itemIndex];
-        const quantityToUpdate = parseInt(quantityProduced);
-        itemToUpdate.newStock += quantityToUpdate;
-        await warehouseItemsData.save();
+        itemToUpdate.newStock += parseInt(quantityProduced);
+        await warehouseItemsData.save({ session });
 
+        // 🔒 Prisma transaction execution
         await prisma.$transaction([
             ...stockUpdates,
             ...manufacturingUsages,
@@ -1851,11 +1973,20 @@ const produceNewItem = async (req, res) => {
             })
         ]);
 
+        await session.commitTransaction();
+        session.endSession();
+
         return res.status(201).json({
             success: true,
             message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.`
         });
+
     } catch (error) {
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
+        session.endSession();
+
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -1863,6 +1994,7 @@ const produceNewItem = async (req, res) => {
         });
     }
 };
+
 
 // const getItemsProducibleCount = async (req, res) => {
 //     try {

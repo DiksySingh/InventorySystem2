@@ -178,6 +178,120 @@ const showNewInstallationDataToInstaller = async (req, res) => {
     }
 };
 
+// const updateStatusOfIncomingItems = async (req, res) => {
+//     try {
+//         const { installationId, farmerSaralId, empId, accepted } = req.body;
+
+//         if (!farmerSaralId || !empId || !accepted) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "All fields are required"
+//             });
+//         }
+
+//         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId })
+//             .populate({
+//                 path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
+//                 select: "itemName", // Select only the subItemName field
+//             });
+//         if (!farmerActivityData) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Farmer Activity Data Not Found"
+//             });
+//         }
+
+//         if (farmerActivityData.accepted) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Farmer Activity Already Accepted"
+//             });
+//         }
+//         if (farmerActivityData.installationDone) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Farmer Activity Already Installation Done"
+//             });
+//         }
+
+//         let empAccount = await EmpInstallationAccount.findOne({ empId })
+//             .populate({
+//                 path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
+//                 select: "itemName", // Select only the subItemName field
+//             });
+
+//         let refType;
+//         let empData = await ServicePerson.findOne({ _id: empId });
+//         if (empData) {
+//             refType = "ServicePerson";
+//         } else {
+//             empData = await SurveyPerson.findOne({ _id: empId });
+//             if (!empData) {
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: "EmpID Not Found In Database"
+//                 })
+//             }
+//             refType = "SurveyPerson";
+//         }
+
+//         if (!empAccount) {
+//             // If no record exists, create a new one
+//             empAccount = new EmpInstallationAccount({
+//                 empId,
+//                 referenceType: refType,  // Adjust based on logic
+//                 incoming: false,
+//                 itemsList: [],
+//                 createdBy: empId,
+//             });
+//         }
+
+//         for (const item of farmerActivityData.itemsList) {
+//             const { systemItemId, quantity } = item;
+//             const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
+//             if (existingItem) {
+//                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
+//             } else {
+//                 empAccount.itemsList.push({ systemItemId, quantity });
+//             }
+//         }
+
+//         if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
+//             for (const item of farmerActivityData.extraItemsList) {
+//                 const { systemItemId, quantity } = item;
+//                 const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
+//                 if (existingItem) {
+//                     existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
+//                 } else {
+//                     empAccount.itemsList.push({ systemItemId, quantity });
+//                 }
+//             }
+//         }
+
+//         empAccount.updatedAt = new Date();
+//         empAccount.updatedBy = empId;
+//         await empAccount.save();
+
+//         farmerActivityData.accepted = accepted;
+//         farmerActivityData.approvalDate = new Date();;
+//         farmerActivityData.updatedAt = new Date();
+//         farmerActivityData.updatedBy = empId;
+//         const savedFarmerActivity = await farmerActivityData.save();
+//         if (savedFarmerActivity) {
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "Farmer Activity Updated Successfully"
+//             });
+//         }
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const updateStatusOfIncomingItems = async (req, res) => {
     try {
         const { installationId, farmerSaralId, empId, accepted } = req.body;
@@ -191,8 +305,8 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId })
             .populate({
-                path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
-                select: "itemName", // Select only the subItemName field
+                path: "itemsList.systemItemId",
+                select: "itemName",
             });
         if (!farmerActivityData) {
             return res.status(400).json({
@@ -207,6 +321,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
                 message: "Farmer Activity Already Accepted"
             });
         }
+
         if (farmerActivityData.installationDone) {
             return res.status(400).json({
                 success: false,
@@ -216,8 +331,8 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         let empAccount = await EmpInstallationAccount.findOne({ empId })
             .populate({
-                path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
-                select: "itemName", // Select only the subItemName field
+                path: "itemsList.systemItemId",
+                select: "itemName",
             });
 
         let refType;
@@ -230,59 +345,70 @@ const updateStatusOfIncomingItems = async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     message: "EmpID Not Found In Database"
-                })
+                });
             }
             refType = "SurveyPerson";
         }
 
         if (!empAccount) {
-            // If no record exists, create a new one
             empAccount = new EmpInstallationAccount({
                 empId,
-                referenceType: refType,  // Adjust based on logic
+                referenceType: refType,
                 incoming: false,
                 itemsList: [],
                 createdBy: empId,
             });
         }
 
-        for (const item of farmerActivityData.itemsList) {
-            const { systemItemId, quantity } = item;
-            const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
-            if (existingItem) {
-                existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
-            } else {
-                empAccount.itemsList.push({ systemItemId, quantity });
-            }
+        // Build item map from existing itemsList
+        const itemMap = new Map();
+        for (const item of empAccount.itemsList) {
+            itemMap.set(item.systemItemId.toString(), {
+                systemItemId: item.systemItemId,
+                quantity: parseInt(item.quantity),
+            });
         }
 
-        if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
-            for (const item of farmerActivityData.extraItemsList) {
-                const { systemItemId, quantity } = item;
-                const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
-                if (existingItem) {
-                    existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
+        // Function to merge new items into the map
+        const mergeItemsIntoMap = (itemsArray = []) => {
+            for (const item of itemsArray) {
+                const itemId = item.systemItemId.toString();
+                const quantity = parseInt(item.quantity);
+
+                if (itemMap.has(itemId)) {
+                    itemMap.get(itemId).quantity += quantity;
                 } else {
-                    empAccount.itemsList.push({ systemItemId, quantity });
+                    itemMap.set(itemId, {
+                        systemItemId: item.systemItemId,
+                        quantity,
+                    });
                 }
             }
-        }
+        };
 
+        // Merge both normal and extra items
+        mergeItemsIntoMap(farmerActivityData.itemsList);
+        mergeItemsIntoMap(farmerActivityData.extraItemsList);
+
+        // Update the full itemsList
+        empAccount.itemsList = Array.from(itemMap.values());
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
         await empAccount.save();
 
         farmerActivityData.accepted = accepted;
-        farmerActivityData.approvalDate = new Date();;
+        farmerActivityData.approvalDate = new Date();
         farmerActivityData.updatedAt = new Date();
         farmerActivityData.updatedBy = empId;
         const savedFarmerActivity = await farmerActivityData.save();
+
         if (savedFarmerActivity) {
             return res.status(200).json({
                 success: true,
                 message: "Farmer Activity Updated Successfully"
             });
         }
+
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -291,6 +417,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         });
     }
 };
+
 
 const newSystemInstallation = async (req, res) => {
     const session = await mongoose.startSession();
