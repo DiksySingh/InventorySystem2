@@ -303,8 +303,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
             });
         }
 
-        const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId })
-            .populate("itemsList.systemItemId", "itemName");
+        const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId });
 
         if (!farmerActivityData) {
             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
@@ -342,38 +341,29 @@ const updateStatusOfIncomingItems = async (req, res) => {
                 createdBy: empId,
             });
         }
-
-        // 1️⃣ Create a map of existing items
-        const itemMap = new Map();
-        for (const item of empAccount.itemsList) {
-            itemMap.set(item.systemItemId.toString(), {
-                systemItemId: item.systemItemId,
-                quantity: parseInt(item.quantity),
-            });
+        console.log(farmerActivityData.itemsList);
+        for (const item of farmerActivityData.itemsList) {
+            const { systemItemId, quantity } = item;
+            const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
+            if (existingItem) {
+                existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
+            } else {
+                empAccount.itemsList.push({ systemItemId, quantity });
+            }
         }
-
-        // 2️⃣ Merge farmerActivityData.itemsList and extraItemsList
-        const mergeItems = (list) => {
-            for (const item of list || []) {
-                const idStr = item.systemItemId.toString();
-                const qty = parseInt(item.quantity);
-                if (itemMap.has(idStr)) {
-                    itemMap.get(idStr).quantity += qty;
+        console.log(farmerActivityData.extraItemsList);
+        if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
+            for (const item of farmerActivityData.extraItemsList) {
+                const { systemItemId, quantity } = item;
+                const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
+                if (existingItem) {
+                    existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
                 } else {
-                    itemMap.set(idStr, {
-                        systemItemId: item.systemItemId._id || item.systemItemId,
-                        quantity: qty,
-                    });
+                    empAccount.itemsList.push({ systemItemId, quantity });
                 }
             }
-        };
-
-        mergeItems(farmerActivityData.itemsList);
-        mergeItems(farmerActivityData.extraItemsList);
-
-        // 3️⃣ Clear and replace itemList
-        empAccount.itemsList.splice(0, empAccount.itemsList.length); // Clear array
-        empAccount.itemsList.push(...Array.from(itemMap.values())); // Push new values
+        }
+        console.log(empAccount);
 
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
@@ -441,7 +431,7 @@ const newSystemInstallation = async (req, res) => {
 
             const serverPath = path.join(__dirname, "../uploads/newInstallation", file.filename);
             const urlPath = `/uploads/newInstallation/${file.filename}`;
-        
+
             uploadedFilePaths.push(serverPath);
             storedFileURLs[field] = urlPath;
         }
