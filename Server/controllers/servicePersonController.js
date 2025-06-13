@@ -296,7 +296,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
     try {
         const { installationId, farmerSaralId, empId, accepted } = req.body;
 
-        if (!farmerSaralId || !empId || !accepted) {
+        if (!farmerSaralId || !empId || accepted === undefined) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
@@ -310,16 +310,16 @@ const updateStatusOfIncomingItems = async (req, res) => {
             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
         }
 
-        if (farmerActivityData.accepted || farmerActivityData.installationDone) {
-            return res.status(400).json({
-                success: false,
-                message: farmerActivityData.accepted
-                    ? "Farmer Activity Already Accepted"
-                    : "Farmer Activity Already Installation Done"
-            });
+        if (farmerActivityData.accepted) {
+            return res.status(400).json({ success: false, message: "Farmer Activity Already Accepted" });
         }
 
-        let empAccount = await EmpInstallationAccount.findOne({ empId });
+        if (farmerActivityData.installationDone) {
+            return res.status(400).json({ success: false, message: "Farmer Activity Already Installation Done" });
+        }
+
+        let empAccount = await EmpInstallationAccount.findOne({ empId })
+            .populate("itemsList.systemItemId", "itemName");
 
         let refType;
         let empData = await ServicePerson.findOne({ _id: empId });
@@ -343,43 +343,53 @@ const updateStatusOfIncomingItems = async (req, res) => {
             });
         }
 
-        // 1️⃣ Create a map of existing items
-        const itemMap = new Map();
-        for (const item of empAccount.itemsList) {
-            itemMap.set(item.systemItemId.toString(), {
-                systemItemId: item.systemItemId,
-                quantity: parseInt(item.quantity),
-            });
+        // Step 1: Merge itemsList
+        for (const item of farmerActivityData.itemsList) {
+            const { systemItemId, quantity } = item;
+            const index = empAccount.itemsList.findIndex(
+                i => i.systemItemId.toString() === systemItemId.toString()
+            );
+            if (index !== -1) {
+                empAccount.itemsList[index].quantity += parseInt(quantity);
+            } else {
+                empAccount.itemsList.push({
+                    systemItemId: systemItemId,
+                    quantity: parseInt(quantity)
+                });
+            }
         }
 
-        // 2️⃣ Merge farmerActivityData.itemsList and extraItemsList
-        const mergeItems = (list) => {
-            for (const item of list || []) {
-                const idStr = item.systemItemId.toString();
-                const qty = parseInt(item.quantity);
-                if (itemMap.has(idStr)) {
-                    itemMap.get(idStr).quantity += qty;
-                } else {
-                    itemMap.set(idStr, {
-                        systemItemId: item.systemItemId._id || item.systemItemId,
-                        quantity: qty,
-                    });
-                }
-            }
-        };
-
-        mergeItems(farmerActivityData.itemsList);
-        mergeItems(farmerActivityData.extraItemsList);
-
-        // 3️⃣ Clear and replace itemList
-        empAccount.itemsList.splice(0, empAccount.itemsList.length); // Clear array
-        empAccount.itemsList.push(...Array.from(itemMap.values())); // Push new values
-
+        // Save empAccount after merging itemsList
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
         await empAccount.save();
 
-        // 4️⃣ Update Farmer Activity
+        // Reload to ensure clean ObjectId matching after save
+        empAccount = await EmpInstallationAccount.findOne({ empId });
+
+        // Step 2: Merge extraItemsList
+        if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
+            for (const item of farmerActivityData.extraItemsList) {
+                const { systemItemId, quantity } = item;
+                const index = empAccount.itemsList.findIndex(
+                    i => i.systemItemId.toString() === systemItemId.toString()
+                );
+                if (index !== -1) {
+                    empAccount.itemsList[index].quantity += parseInt(quantity);
+                } else {
+                    empAccount.itemsList.push({
+                        systemItemId: systemItemId,
+                        quantity: parseInt(quantity)
+                    });
+                }
+            }
+
+            empAccount.updatedAt = new Date();
+            empAccount.updatedBy = empId;
+            await empAccount.save();
+        }
+
+        // Step 3: Update Farmer Activity
         farmerActivityData.accepted = accepted;
         farmerActivityData.approvalDate = new Date();
         farmerActivityData.updatedAt = new Date();
@@ -399,6 +409,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         });
     }
 };
+
 
 const newSystemInstallation = async (req, res) => {
     const session = await mongoose.startSession();
