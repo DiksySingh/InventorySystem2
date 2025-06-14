@@ -2149,6 +2149,195 @@ module.exports.updateItemQuantity = async (req, res) => {
 //     }
 // }
 
+module.exports.addNewInstallationData = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const {
+            farmerSaralId,
+            empId,
+            systemId,
+            itemsList,
+            extraItemsList,
+            extraPanelNumbers,
+            panelNumbers,
+            pumpNumber,
+            controllerNumber,
+            rmuNumber,
+        } = req.body;
+
+        const warehousePersonId = req.user._id;
+        const warehouseId = req.user.warehouse;
+
+        // ✅ Basic Validations
+        if (
+            !farmerSaralId || !empId || !systemId || !itemsList || !panelNumbers ||
+            !pumpNumber || !controllerNumber || !rmuNumber
+        ) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({ success: false, message: "All fields are required" });
+        }
+
+        if (!Array.isArray(itemsList) || itemsList.length === 0) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({ success: false, message: "itemsList should be a non-empty array" });
+        }
+
+        // ✅ Determine Reference Type
+        let refType;
+        let empData = await ServicePerson.findOne({ _id: empId }).session(session);
+        if (empData) {
+            refType = "ServicePerson";
+        } else {
+            empData = await SurveyPerson.findOne({ _id: empId }).session(session);
+            if (!empData) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
+            }
+            refType = "SurveyPerson";
+        }
+
+        // ✅ Merge itemsList + extraItemsList by systemItemId (to avoid duplicate deduction)
+        const combinedItemsMap = new Map();
+        const accumulateItems = (list = []) => {
+            for (const { systemItemId, quantity } of list) {
+                const key = systemItemId.toString();
+                const prevQty = combinedItemsMap.get(key) || 0;
+                combinedItemsMap.set(key, prevQty + parseInt(quantity));
+            }
+        };
+
+        accumulateItems(itemsList);
+        accumulateItems(extraItemsList);
+
+        const mergedItemList = Array.from(combinedItemsMap.entries()).map(([systemItemId, quantity]) => ({
+            systemItemId,
+            quantity
+        }));
+
+        // ✅ Check and Deduct Inventory
+        for (const { systemItemId, quantity } of mergedItemList) {
+            const systemItemData = await SystemItem.findById(systemItemId).session(session);
+            if (!systemItemData) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ success: false, message: "SystemItem Not Found" });
+            }
+
+            const inventoryItems = await InstallationInventory.find({ warehouseId })
+                .populate({
+                    path: "systemItemId",
+                    select: { itemName: 1 },
+                })
+                .session(session);
+
+            const inventoryItem = inventoryItems.find(
+                (inv) => inv.systemItemId.itemName.toLowerCase() === systemItemData.itemName.toLowerCase()
+            );
+
+            if (!inventoryItem) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({
+                    success: false,
+                    message: `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
+                });
+            }
+
+            if (inventoryItem.quantity < quantity) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                    success: false,
+                    message: `Insufficient stock for item "${systemItemData.itemName}"`
+                });
+            }
+
+            // Deduct quantity
+            inventoryItem.quantity -= quantity;
+            inventoryItem.updatedAt = new Date();
+            inventoryItem.updatedBy = warehousePersonId;
+            await inventoryItem.save({ session });
+        }
+
+        // ✅ Save Farmer Activity
+        const activityData = {
+            warehouseId,
+            referenceType: refType,
+            farmerSaralId,
+            empId,
+            systemId,
+            itemsList,
+            extraItemsList: extraItemsList || [],
+            extraPanelNumbers: extraPanelNumbers || [],
+            panelNumbers,
+            pumpNumber,
+            controllerNumber,
+            rmuNumber,
+            createdBy: warehousePersonId
+        };
+
+        const farmerActivity = new FarmerItemsActivity(activityData);
+        const savedFarmerActivity = await farmerActivity.save({ session });
+        if (!savedFarmerActivity) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({
+                success: false,
+                message: "Failed to save farmer activity"
+            });
+        }
+
+        // ✅ Save Installation Assignment to Emp
+        const empAccountData = new InstallationAssignEmp({
+            warehouseId,
+            referenceType: refType,
+            empId,
+            farmerSaralId,
+            systemId,
+            itemsList,
+            extraItemsList,
+            createdBy: warehousePersonId
+        });
+
+        const savedEmpAccountData = await empAccountData.save({ session });
+        if (!savedEmpAccountData) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({
+                success: false,
+                message: "Failed to save employee account data"
+            });
+        }
+
+        // ✅ COMMIT
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Saved Successfully",
+            farmerActivity,
+            empAccountData,
+        });
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Error in addNewInstallationData:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+
 // module.exports.addNewInstallationData = async (req, res) => {
 //     const session = await mongoose.startSession();
 //     session.startTransaction();
@@ -2161,28 +2350,24 @@ module.exports.updateItemQuantity = async (req, res) => {
 //             itemsList,
 //             panelNumbers,
 //             pumpNumber,
+//             motorNumber,
 //             controllerNumber,
 //             rmuNumber,
+//             extraItemsList,
+//             extraPanelNumbers,
 //         } = req.body;
-//         console.log(req.body);
+
 //         const warehousePersonId = req.user._id;
 //         const warehouseId = req.user.warehouse;
 
 //         if (
-//             !farmerSaralId || !empId || !systemId || !itemsList || !panelNumbers ||
-//             !pumpNumber || !controllerNumber || !rmuNumber
+//             !farmerSaralId || !empId || !systemId || !panelNumbers || !itemsList || !Array.isArray(itemsList) || itemsList.length === 0 ||
+//             !pumpNumber || !motorNumber || !controllerNumber || !rmuNumber
 //         ) {
-//             await session.abortTransaction();
-//             session.endSession();
-//             return res.status(400).json({ success: false, message: "All fields are required" });
+//             throw new Error("All fields are required");
 //         }
 
-//         if (!Array.isArray(itemsList) || itemsList.length === 0) {
-//             await session.abortTransaction();
-//             session.endSession();
-//             return res.status(400).json({ success: false, message: "itemsList should be a non-empty array" });
-//         }
-
+//         // Determine employee type
 //         let refType;
 //         let empData = await ServicePerson.findOne({ _id: empId }).session(session);
 //         if (empData) {
@@ -2190,21 +2375,54 @@ module.exports.updateItemQuantity = async (req, res) => {
 //         } else {
 //             empData = await SurveyPerson.findOne({ _id: empId }).session(session);
 //             if (!empData) {
-//                 await session.abortTransaction();
-//                 session.endSession();
-//                 return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
+//                 throw new Error("EmpID Not Found In Database");
 //             }
 //             refType = "SurveyPerson";
 //         }
 
+//         // Build itemsList from SystemItemMap and ItemComponentMap
+//         const systemItemsMapped = await SystemItemMap.find({ systemId }).session(session);
+//         let allItems = [];
+
+//         for (const itemMap of systemItemsMapped) {
+//             allItems.push({
+//                 systemItemId: itemMap.systemItemId.toString(),
+//                 quantity: itemMap.quantity
+//             });
+//         }
+
 //         for (const item of itemsList) {
+//             const subItemMaps = await ItemComponentMap.find({
+//                 systemId,
+//                 systemItemId: item.systemItemId
+//             }).session(session);
+
+//             for (const subMap of subItemMaps) {
+//                 allItems.push({
+//                     systemItemId: subMap.subItemId.toString(),
+//                     quantity: subMap.quantity
+//                 });
+//             }
+//         }
+
+//         // Aggregate item quantities
+//         const itemsMap = new Map();
+//         for (const item of allItems) {
+//             itemsMap.set(item.systemItemId, (itemsMap.get(item.systemItemId) || 0) + item.quantity);
+//         }
+
+//         const finalItemsList = Array.from(itemsMap.entries()).map(([systemItemId, quantity]) => ({
+//             systemItemId,
+//             quantity
+//         }));
+
+//         // Inventory check and update
+//         for (const item of finalItemsList) {
 //             const { systemItemId, quantity } = item;
 
 //             const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
 //             if (!systemItemData) {
-//                 await session.abortTransaction();
-//                 session.endSession();
-//                 return res.status(400).json({ success: false, message: "SystemItem Not Found" });
+//                 throw new Error("SystemItem Not Found");
 //             }
 
 //             const inventoryItems = await InstallationInventory.find({ warehouseId })
@@ -2215,33 +2433,76 @@ module.exports.updateItemQuantity = async (req, res) => {
 //                 .session(session);
 
 //             const inventoryItem = inventoryItems.find(
-//                 (inv) => inv.systemItemId.itemName.toLowerCase() === systemItemData.itemName.toLowerCase()
+//                 (inv) => inv.systemItemId._id.toString() === systemItemId
 //             );
 
 //             if (!inventoryItem) {
-//                 await session.abortTransaction();
-//                 session.endSession();
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
-//                 });
+//                 throw new Error(`Item "${systemItemData.itemName}" not found in warehouse inventory`);
 //             }
 
 //             if (inventoryItem.quantity < quantity) {
-//                 await session.abortTransaction();
-//                 session.endSession();
-//                 return res.status(400).json({
-//                     success: false,
-//                     message: `Insufficient stock for item "${systemItemData.itemName}`
-//                 });
+//                 throw new Error(`Insufficient stock for item "${systemItemData.itemName}"`);
 //             }
 
-//             // Update inventory quantity
-//             inventoryItem.quantity = parseInt(inventoryItem.quantity) - parseInt(quantity);
+//             inventoryItem.quantity -= quantity;
 //             inventoryItem.updatedAt = new Date();
 //             inventoryItem.updatedBy = warehousePersonId;
 //             await inventoryItem.save({ session });
 //         }
+
+//         // (Optional) Handle extraItemsList - same inventory checks
+//         if (extraItemsList && Array.isArray(extraItemsList) && extraItemsList.length > 0) {
+//             for (const item of finalItemsList) {
+//                 const { systemItemId, quantity } = item;
+
+//                 const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
+//                 if (!systemItemData) {
+//                     throw new Error("SystemItem Not Found");
+//                 }
+
+//                 const inventoryItems = await InstallationInventory.find({ warehouseId })
+//                     .populate({
+//                         path: "systemItemId",
+//                         select: { itemName: 1 },
+//                     })
+//                     .session(session);
+
+//                 const inventoryItem = inventoryItems.find(
+//                     (inv) => inv.systemItemId._id.toString() === systemItemId
+//                 );
+
+//                 if (!inventoryItem) {
+//                     throw new Error(`Item "${systemItemData.itemName}" not found in warehouse inventory`);
+//                 }
+
+//                 if (inventoryItem.quantity < quantity) {
+//                     throw new Error(`Insufficient stock for item "${systemItemData.itemName}"`);
+//                 }
+
+//                 inventoryItem.quantity -= quantity;
+//                 inventoryItem.updatedAt = new Date();
+//                 inventoryItem.updatedBy = warehousePersonId;
+//                 await inventoryItem.save({ session });
+//             }
+//         }
+
+//         // Save activity and assignment
+//         const activityData = {
+//             warehouseId,
+//             referenceType: refType,
+//             farmerSaralId,
+//             empId,
+//             systemId,
+//             itemsList: finalItemsList,
+//             extraItemsList: extraItemsList || [],
+//             panelNumbers,
+//             extraPanelNumbers: extraPanelNumbers || [],
+//             pumpNumber,
+//             motorNumber,
+//             controllerNumber,
+//             rmuNumber,
+//             createdBy: warehousePersonId
+//         };
 
 //         const accountData = {
 //             warehouseId,
@@ -2249,49 +2510,25 @@ module.exports.updateItemQuantity = async (req, res) => {
 //             empId,
 //             farmerSaralId,
 //             systemId,
-//             itemsList,
-//             createdBy: warehousePersonId
-//         };
-
-//         const activityData = {
-//             warehouseId,
-//             referenceType: refType,
-//             farmerSaralId,
-//             empId,
-//             systemId,
-//             itemsList,
-//             panelNumbers,
-//             pumpNumber,
-//             controllerNumber,
-//             rmuNumber,
+//             itemsList: finalItemsList,
+//             extraItemsList: extraItemsList || [],
 //             createdBy: warehousePersonId
 //         };
 
 //         const farmerActivity = new FarmerItemsActivity(activityData);
 //         const savedFarmerActivity = await farmerActivity.save({ session });
 //         if (!savedFarmerActivity) {
-//             await session.abortTransaction();
-//             session.endSession();
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Failed to save farmer activity"
-//             });
+//             throw new Error("Failed to save farmer activity");
 //         }
 
 //         const empAccountData = new InstallationAssignEmp(accountData);
 //         const savedEmpAccountData = await empAccountData.save({ session });
 //         if (!savedEmpAccountData) {
-//             await session.abortTransaction();
-//             session.endSession();
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Failed to save employee account data"
-//             });
+//             throw new Error("Failed to save employee account data");
 //         }
 
-//         // COMMIT transaction
+//         // Commit transaction
 //         await session.commitTransaction();
-//         session.endSession();
 
 //         return res.status(200).json({
 //             success: true,
@@ -2301,229 +2538,17 @@ module.exports.updateItemQuantity = async (req, res) => {
 //         });
 
 //     } catch (error) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         console.error("Error in addNewInstallationData:", error.message);
+//         if (session.inTransaction()) {
+//             await session.abortTransaction();
+//         }
 //         return res.status(500).json({
 //             success: false,
-//             message: "Internal Server Error",
-//             error: error.message
+//             message: error.message || "Internal Server Error"
 //         });
+//     } finally {
+//         session.endSession();
 //     }
 // };
-
-
-module.exports.addNewInstallationData = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-        const {
-            farmerSaralId,
-            empId,
-            systemId,
-            itemsList,
-            panelNumbers,
-            pumpNumber,
-            motorNumber,
-            controllerNumber,
-            rmuNumber,
-            extraItemsList,
-            extraPanelNumbers,
-        } = req.body;
-
-        const warehousePersonId = req.user._id;
-        const warehouseId = req.user.warehouse;
-
-        if (
-            !farmerSaralId || !empId || !systemId || !panelNumbers || !itemsList || !Array.isArray(itemsList) || itemsList.length === 0 ||
-            !pumpNumber || !motorNumber || !controllerNumber || !rmuNumber
-        ) {
-            throw new Error("All fields are required");
-        }
-
-        // Determine employee type
-        let refType;
-        let empData = await ServicePerson.findOne({ _id: empId }).session(session);
-        if (empData) {
-            refType = "ServicePerson";
-        } else {
-            empData = await SurveyPerson.findOne({ _id: empId }).session(session);
-            if (!empData) {
-                throw new Error("EmpID Not Found In Database");
-            }
-            refType = "SurveyPerson";
-        }
-
-        // Build itemsList from SystemItemMap and ItemComponentMap
-        const systemItemsMapped = await SystemItemMap.find({ systemId }).session(session);
-        let allItems = [];
-
-        for (const itemMap of systemItemsMapped) {
-            allItems.push({
-                systemItemId: itemMap.systemItemId.toString(),
-                quantity: itemMap.quantity
-            });
-        }
-
-        for (const item of itemsList) {
-            const subItemMaps = await ItemComponentMap.find({
-                systemId,
-                systemItemId: item.systemItemId
-            }).session(session);
-
-            for (const subMap of subItemMaps) {
-                allItems.push({
-                    systemItemId: subMap.subItemId.toString(),
-                    quantity: subMap.quantity
-                });
-            }
-        }
-
-        // Aggregate item quantities
-        const itemsMap = new Map();
-        for (const item of allItems) {
-            itemsMap.set(item.systemItemId, (itemsMap.get(item.systemItemId) || 0) + item.quantity);
-        }
-
-        const finalItemsList = Array.from(itemsMap.entries()).map(([systemItemId, quantity]) => ({
-            systemItemId,
-            quantity
-        }));
-
-        // Inventory check and update
-        for (const item of finalItemsList) {
-            const { systemItemId, quantity } = item;
-
-            const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
-            if (!systemItemData) {
-                throw new Error("SystemItem Not Found");
-            }
-
-            const inventoryItems = await InstallationInventory.find({ warehouseId })
-                .populate({
-                    path: "systemItemId",
-                    select: { itemName: 1 },
-                })
-                .session(session);
-
-            const inventoryItem = inventoryItems.find(
-                (inv) => inv.systemItemId._id.toString() === systemItemId
-            );
-
-            if (!inventoryItem) {
-                throw new Error(`Item "${systemItemData.itemName}" not found in warehouse inventory`);
-            }
-
-            if (inventoryItem.quantity < quantity) {
-                throw new Error(`Insufficient stock for item "${systemItemData.itemName}"`);
-            }
-
-            inventoryItem.quantity -= quantity;
-            inventoryItem.updatedAt = new Date();
-            inventoryItem.updatedBy = warehousePersonId;
-            await inventoryItem.save({ session });
-        }
-
-        // (Optional) Handle extraItemsList - same inventory checks
-        if (extraItemsList && Array.isArray(extraItemsList) && extraItemsList.length > 0) {
-            for (const item of finalItemsList) {
-                const { systemItemId, quantity } = item;
-
-                const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
-                if (!systemItemData) {
-                    throw new Error("SystemItem Not Found");
-                }
-
-                const inventoryItems = await InstallationInventory.find({ warehouseId })
-                    .populate({
-                        path: "systemItemId",
-                        select: { itemName: 1 },
-                    })
-                    .session(session);
-
-                const inventoryItem = inventoryItems.find(
-                    (inv) => inv.systemItemId._id.toString() === systemItemId
-                );
-
-                if (!inventoryItem) {
-                    throw new Error(`Item "${systemItemData.itemName}" not found in warehouse inventory`);
-                }
-
-                if (inventoryItem.quantity < quantity) {
-                    throw new Error(`Insufficient stock for item "${systemItemData.itemName}"`);
-                }
-
-                inventoryItem.quantity -= quantity;
-                inventoryItem.updatedAt = new Date();
-                inventoryItem.updatedBy = warehousePersonId;
-                await inventoryItem.save({ session });
-            }
-        }
-
-        // Save activity and assignment
-        const activityData = {
-            warehouseId,
-            referenceType: refType,
-            farmerSaralId,
-            empId,
-            systemId,
-            itemsList: finalItemsList,
-            extraItemsList: extraItemsList || [],
-            panelNumbers,
-            extraPanelNumbers: extraPanelNumbers || [],
-            pumpNumber,
-            motorNumber,
-            controllerNumber,
-            rmuNumber,
-            createdBy: warehousePersonId
-        };
-
-        const accountData = {
-            warehouseId,
-            referenceType: refType,
-            empId,
-            farmerSaralId,
-            systemId,
-            itemsList: finalItemsList,
-            extraItemsList: extraItemsList || [],
-            createdBy: warehousePersonId
-        };
-
-        const farmerActivity = new FarmerItemsActivity(activityData);
-        const savedFarmerActivity = await farmerActivity.save({ session });
-        if (!savedFarmerActivity) {
-            throw new Error("Failed to save farmer activity");
-        }
-
-        const empAccountData = new InstallationAssignEmp(accountData);
-        const savedEmpAccountData = await empAccountData.save({ session });
-        if (!savedEmpAccountData) {
-            throw new Error("Failed to save employee account data");
-        }
-
-        // Commit transaction
-        await session.commitTransaction();
-
-        return res.status(200).json({
-            success: true,
-            message: "Data Saved Successfully",
-            farmerActivity,
-            empAccountData,
-        });
-
-    } catch (error) {
-        if (session.inTransaction()) {
-            await session.abortTransaction();
-        }
-        return res.status(500).json({
-            success: false,
-            message: error.message || "Internal Server Error"
-        });
-    } finally {
-        session.endSession();
-    }
-};
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
     try {
@@ -2560,7 +2585,7 @@ module.exports.showInstallationDataToWarehouse = async (req, res) => {
                     "itemName": 1,
                 })
             }).sort({ createdAt: -1 });
-        
+
         const activitiesWithFarmerDetails = await Promise.all(
             showData.map(async (data) => {
                 try {
