@@ -2163,6 +2163,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             extraPanelNumbers,
             panelNumbers,
             pumpNumber,
+            motorNumber,
             controllerNumber,
             rmuNumber,
         } = req.body;
@@ -2173,7 +2174,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         // ✅ Basic Validations
         if (
             !farmerSaralId || !empId || !systemId || !itemsList || !panelNumbers ||
-            !pumpNumber || !controllerNumber || !rmuNumber
+            !pumpNumber || !controllerNumber || !rmuNumber || !motorNumber
         ) {
             await session.abortTransaction();
             session.endSession();
@@ -2276,6 +2277,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             extraPanelNumbers: extraPanelNumbers || [],
             panelNumbers,
             pumpNumber,
+            motorNumber,
             controllerNumber,
             rmuNumber,
             createdBy: warehousePersonId
