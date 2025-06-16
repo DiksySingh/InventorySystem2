@@ -23,15 +23,15 @@ const commonRouter = require("./routes/rawMaterialItemsRoutes/commonRouter");
 const testRouter = require("./routes/test");
 
 // Load environment variables
-// const MONGODB_URL = process.env.MONGODB_URL;
-const MONGO_URL = process.env.MONGO_URL;
+const MONGODB_URL = process.env.MONGODB_URL;
+// const MONGO_URL = process.env.MONGO_URL;
 const PORT = process.env.PORT || 8001;
 
 // console.log(`Server running in ${process.env.NODE_ENV || 'local'} mode`);
 // console.log(`Using Database URL: ${process.env.DATABASE_URL}`);
 
 // MongoDB connection
-mongoose.connect(MONGO_URL, {
+mongoose.connect(MONGODB_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
