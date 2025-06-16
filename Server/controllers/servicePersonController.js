@@ -150,19 +150,30 @@ const showNewInstallationDataToInstaller = async (req, res) => {
                     "itemName": 1,
                 })
             }).sort({ createdAt: -1 });
+        // console.log(activities);
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
-                const response = await axios.get(
-                    `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
-                );
-                if (response) {
+                try {
+                    const saralId = activity.farmerSaralId;
+                    const response = await axios.get(
+                        `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${saralId}`
+                    );
+
                     return {
                         ...activity.toObject(),
-                        farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
+                        farmerDetails: response?.data?.data || null,
+                    };
+                } catch (err) {
+                    console.error(`Failed for saralId ${activity.farmerSaralId}:`, err.message);
+                    return {
+                        ...activity.toObject(),
+                        farmerDetails: null, // fallback
                     };
                 }
             })
         );
+
+        console.log(activitiesWithFarmerDetails);
 
         return res.status(200).json({
             success: true,
@@ -452,7 +463,7 @@ const newSystemInstallation = async (req, res) => {
 
             const serverPath = path.join(__dirname, "../uploads/newInstallation", file.filename);
             const urlPath = `/uploads/newInstallation/${file.filename}`;
-        
+
             uploadedFilePaths.push(serverPath);
             storedFileURLs[field] = urlPath;
         }
