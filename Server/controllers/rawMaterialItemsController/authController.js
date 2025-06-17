@@ -216,6 +216,10 @@ const handleRefreshToken = async (req, res) => {
             .cookie('refreshToken', newRefreshToken, options)
             .json({
                 success: true,
+                data: {
+                    accessToken: newAccessToken,
+                    refreshToken: newRefreshToken
+                },
                 message: `Welcome Back ${user.name}!`,
             });
     } catch (error) {
