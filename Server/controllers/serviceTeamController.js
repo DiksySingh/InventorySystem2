@@ -168,3 +168,48 @@ module.exports.showAllWarehouses = async (req, res) => {
 };
 
 
+module.exports.stateWiseServiceSurveyPersons = async (req, res) => {
+    try {
+        const { state } = req.query;
+        const filter = { isActive: true };
+        if (state) {
+            filter.state = state;
+        }
+        const [servicePersons, surveyPersons] = await Promise.all([
+            ServicePerson.find(filter).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 }),
+            SurveyPerson.find(filter).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 })
+        ]);
+
+        const allPersons = [
+            ...surveyPersons.map((person) => ({ ...person, role: "surveyperson" })),
+            ...servicePersons.map((person) => ({ ...person, role: "serviceperson" })),
+        ];
+
+        const cleanedData = allPersons.map((item) => ({
+            _id: item._doc._id,
+            name: item._doc.name,
+            role: item.role,
+            email: item._doc.email,
+            contact: item._doc.contact,
+            state: item._doc.state,
+            district: item._doc.district,
+            block: item._doc.block,
+            latitude: item._doc.latitude,
+            longitude: item._doc.longitude
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: cleanedData || []
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+

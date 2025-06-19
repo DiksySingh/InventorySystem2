@@ -122,7 +122,10 @@ const addServicePersonState = async (req, res) => {
 
 const showNewInstallationDataToInstaller = async (req, res) => {
     try {
-        const installerId = req.user._id
+        const installerId = req.body.installerId;
+        if(!installerId) {
+            throw new Error("Employee ID is not valid");
+        }
         const activities = await FarmerItemsActivity.find({ empId: installerId, accepted: false })
             .populate({
                 path: "warehouseId",

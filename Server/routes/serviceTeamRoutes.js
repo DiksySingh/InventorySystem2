@@ -11,7 +11,8 @@ const {
     getWarehousePersonContacts,
     getServicePersonData,
     allFieldPersonData,
-    showAllWarehouses
+    showAllWarehouses,
+    stateWiseServiceSurveyPersons
 } = require("../controllers/serviceTeamController");
 const {generateInstallationPDF} = require("../helpers/generateInstallationPDF");
 const router = require("express").Router();
@@ -28,5 +29,6 @@ router.get("/service-person-contacts", getServicePersonContacts);
 router.get("/warehouse-person-contacts", getWarehousePersonContacts);
 router.get("/field-person-name", allFieldPersonData);
 router.get("/show-warehouses", showAllWarehouses);
+router.get("/state-wise-service-persons", stateWiseServiceSurveyPersons);
 
 module.exports = router;
