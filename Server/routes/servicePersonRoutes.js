@@ -31,7 +31,7 @@ router.get("/show-emp-dashboard", userVerification(['serviceperson', 'surveypers
 router.post("/update-incoming-item-status",userVerification(['serviceperson', 'surveyperson']), updateStatusOfIncomingItems);
 router.get("/accepted-installation-data", userVerification(['serviceperson', 'surveyperson']), showAcceptedInstallationData);
 router.post("/new-system-installation", userVerification(['serviceperson', 'surveyperson']), uploadHandler, newSystemInstallation);
-router.get("/show-new-install-data", showNewInstallationDataToInstaller);
+
 
 
 module.exports = router;

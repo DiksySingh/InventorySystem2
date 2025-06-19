@@ -122,7 +122,7 @@ const addServicePersonState = async (req, res) => {
 
 const showNewInstallationDataToInstaller = async (req, res) => {
     try {
-        const installerId = req.body.installerId;
+        const installerId = req.query.installerId;
         if(!installerId) {
             throw new Error("Employee ID is not valid");
         }
