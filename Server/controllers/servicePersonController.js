@@ -123,6 +123,7 @@ const addServicePersonState = async (req, res) => {
 const showNewInstallationDataToInstaller = async (req, res) => {
     try {
         const installerId = req.query.installerId;
+        console.log(installerId);
         if(!installerId) {
             throw new Error("Employee ID is not valid");
         }
@@ -153,7 +154,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
                     "itemName": 1,
                 })
             }).sort({ createdAt: -1 });
-        // console.log(activities);
+        console.log(activities);
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
                 try {
