@@ -28,7 +28,7 @@ router.get("/service-installation-data", userVerification(['serviceperson']), ge
 //System Installation
 router.get("/show-emp-dashboard", userVerification(['serviceperson', 'surveyperson']), empDashboard);
 // router.get("/show-new-install-data", userVerification(['serviceperson', 'surveyperson']), showNewInstallationDataToInstaller);
-router.post("/update-incoming-item-status",userVerification(['serviceperson', 'surveyperson']), updateStatusOfIncomingItems);
+// router.post("/update-incoming-item-status",userVerification(['serviceperson', 'surveyperson']), updateStatusOfIncomingItems);
 router.get("/accepted-installation-data", userVerification(['serviceperson', 'surveyperson']), showAcceptedInstallationData);
 router.post("/new-system-installation", userVerification(['serviceperson', 'surveyperson']), uploadHandler, newSystemInstallation);
 
