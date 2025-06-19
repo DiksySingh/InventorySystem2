@@ -636,7 +636,7 @@ const newSystemInstallation = async (req, res) => {
 
 const showAcceptedInstallationData = async (req, res) => {
     try {
-        const empId = req.user._id
+        const empId = req.query.empId;
         const activities = await FarmerItemsActivity.find({ empId, accepted: true })
             .populate({
                 path: "warehouseId",

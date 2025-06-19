@@ -16,7 +16,8 @@ const {
 } = require("../controllers/serviceTeamController");
 const {
     showNewInstallationDataToInstaller,
-    updateStatusOfIncomingItems
+    updateStatusOfIncomingItems,
+    showAcceptedInstallationData
 } = require("../controllers/servicePersonController");
 const {generateInstallationPDF} = require("../helpers/generateInstallationPDF");
 const router = require("express").Router();
@@ -36,5 +37,6 @@ router.get("/show-warehouses", showAllWarehouses);
 router.get("/state-wise-service-persons", stateWiseServiceSurveyPersons);
 router.get("/show-new-install-data", showNewInstallationDataToInstaller);
 router.post("/update-incoming-item-status", updateStatusOfIncomingItems);
+router.get("/accepted-installation-data", showAcceptedInstallationData);
 
 module.exports = router;
