@@ -17,10 +17,12 @@ const {
 const {
     showNewInstallationDataToInstaller,
     updateStatusOfIncomingItems,
-    showAcceptedInstallationData
+    showAcceptedInstallationData,
+    newSystemInstallation
 } = require("../controllers/servicePersonController");
 const {generateInstallationPDF} = require("../helpers/generateInstallationPDF");
 const router = require("express").Router();
+const {uploadHandler} = require("../middlewares/multerConfig");
 
 router.get("/all-service-persons", allServiceSurveyPersons);
 router.get("/show-warehouse-persons", showWarehousePersons);
@@ -38,5 +40,7 @@ router.get("/state-wise-service-persons", stateWiseServiceSurveyPersons);
 router.get("/show-new-install-data", showNewInstallationDataToInstaller);
 router.post("/update-incoming-item-status", updateStatusOfIncomingItems);
 router.get("/accepted-installation-data", showAcceptedInstallationData);
+router.post("/new-system-installation", uploadHandler, newSystemInstallation);
+
 
 module.exports = router;

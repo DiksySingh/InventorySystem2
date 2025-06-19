@@ -30,7 +30,7 @@ router.get("/show-emp-dashboard", userVerification(['serviceperson', 'surveypers
 // router.get("/show-new-install-data", userVerification(['serviceperson', 'surveyperson']), showNewInstallationDataToInstaller);
 // router.post("/update-incoming-item-status",userVerification(['serviceperson', 'surveyperson']), updateStatusOfIncomingItems);
 // router.get("/accepted-installation-data", userVerification(['serviceperson', 'surveyperson']), showAcceptedInstallationData);
-router.post("/new-system-installation", userVerification(['serviceperson', 'surveyperson']), uploadHandler, newSystemInstallation);
+// router.post("/new-system-installation", userVerification(['serviceperson', 'surveyperson']), uploadHandler, newSystemInstallation);
 
 
 

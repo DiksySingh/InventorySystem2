@@ -444,12 +444,13 @@ const newSystemInstallation = async (req, res) => {
     };
 
     try {
-        const { farmerSaralId, latitude, longitude } = req.body;
-        const empId = req.user._id;
+        const { farmerSaralId, latitude, longitude, empId } = req.body;
 
         const requiredFiles = [
-            "borePhoto",
-            "boreFarmerPhoto",
+            "pitPhoto",
+            "earthingFarmerPhoto",
+            "antiTheftNutBoltPhoto",
+            "lightingArresterInstallationPhoto",
             "finalFoundationFarmerPhoto",
             "panelFarmerPhoto",
             "controllerBoxFarmerPhoto",
@@ -472,13 +473,13 @@ const newSystemInstallation = async (req, res) => {
             storedFileURLs[field] = urlPath;
         }
 
-        if (!farmerSaralId || !latitude || !longitude) {
+        if (!farmerSaralId || !latitude || !longitude || !empId) {
             await session.abortTransaction();
             session.endSession();
             await deleteFiles(uploadedFilePaths);
             return res.status(400).json({
                 success: false,
-                message: "farmerSaralId, latitude, and longitude are required."
+                message: "All fields are required."
             });
         }
 
@@ -505,11 +506,10 @@ const newSystemInstallation = async (req, res) => {
             farmerSaralId,
             latitude,
             longitude,
-            borePhoto: storedFileURLs.borePhoto,
-            // challanPhoto: storedFileURLs.challanPhoto,
-            // landDocPhoto: storedFileURLs.landDocPhoto,
-            // sprinklerPhoto: storedFileURLs.sprinklerPhoto,
-            boreFarmerPhoto: storedFileURLs.boreFarmerPhoto,
+            pitPhoto: storedFileURLs.pitPhoto,
+            earthingFarmerPhoto: storedFileURLs.earthingFarmerPhoto,
+            antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto,
+            lightingArresterInstallationPhoto: storedFileURLs.lightingArresterInstallationPhoto,
             finalFoundationFarmerPhoto: storedFileURLs.finalFoundationFarmerPhoto,
             panelFarmerPhoto: storedFileURLs.panelFarmerPhoto,
             controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto,

@@ -17,22 +17,18 @@ const newSystemInstallationSchema = new Schema ({
     longitude: {
         type: String,
     },
-    borePhoto: {
+    pitPhoto: {
         type: [String],
         required: true
     },
-    challanPhoto: {
+    earthingFarmerPhoto: {
         type: [String],
     },
-    landDocPhoto: {
+    antiTheftNutBoltPhoto: {
         type: [String],
     },
-    sprinklerPhoto: {
+    lightingArresterInstallationPhoto: {
         type: [String],
-    },
-    boreFarmerPhoto: {
-        type: [String],
-        required: true
     },
     finalFoundationFarmerPhoto: {
         type: [String],
