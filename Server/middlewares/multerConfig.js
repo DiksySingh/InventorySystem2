@@ -41,15 +41,14 @@ const upload = multer({
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // Temporarily allow up to 5MB (we'll validate manually)
 }).fields([
-  { name: 'borePhoto', maxCount: 1 },
-  { name: 'challanPhoto', maxCount: 1 },
-  { name: 'landDocPhoto', maxCount: 1 },
-  { name: 'sprinklerPhoto', maxCount: 1 },
-  { name: 'boreFarmerPhoto', maxCount: 1 },
-  { name: 'finalFoundationFarmerPhoto', maxCount: 1 },
-  { name: 'panelFarmerPhoto', maxCount: 1 },
-  { name: 'controllerBoxFarmerPhoto', maxCount: 1 },
-  { name: 'waterDischargeFarmerPhoto', maxCount: 1 },
+  { name: 'pitPhoto', maxCount: 1 },
+  { name: 'earthingFarmerPhoto', maxCount: 1 },
+  // { name: 'antiTheftNutBoltPhoto', maxCount: 1 },
+  // { name: 'lightingArresterInstallationPhoto', maxCount: 1 },
+  // { name: 'finalFoundationFarmerPhoto', maxCount: 1 },
+  // { name: 'panelFarmerPhoto', maxCount: 1 },
+  // { name: 'controllerBoxFarmerPhoto', maxCount: 1 },
+  // { name: 'waterDischargeFarmerPhoto', maxCount: 1 },
 ]);
 
 // Middleware handler
