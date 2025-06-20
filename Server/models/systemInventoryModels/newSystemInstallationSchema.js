@@ -19,7 +19,7 @@ const newSystemInstallationSchema = new Schema ({
     },
     pitPhoto: {
         type: [String],
-        required: true
+       // required: true
     },
     earthingFarmerPhoto: {
         type: [String],
@@ -32,19 +32,19 @@ const newSystemInstallationSchema = new Schema ({
     },
     finalFoundationFarmerPhoto: {
         type: [String],
-        required: true
+      //  required: true
     },
     panelFarmerPhoto: {
         type: [String],
-        required: true
+      //  required: true
     },
     controllerBoxFarmerPhoto: {
         type: [String],
-        required: true
+      //  required: true
     },
     waterDischargeFarmerPhoto: {
         type: [String],
-        required: true
+        //required: true
     },
     createdAt: {
         type: Date,
