@@ -18,7 +18,8 @@ const {
     showNewInstallationDataToInstaller,
     updateStatusOfIncomingItems,
     showAcceptedInstallationData,
-    newSystemInstallation
+    newSystemInstallation,
+    getInstallationDataWithImages
 } = require("../controllers/servicePersonController");
 const {generateInstallationPDF} = require("../helpers/generateInstallationPDF");
 const router = require("express").Router();
@@ -41,6 +42,7 @@ router.get("/show-new-install-data", showNewInstallationDataToInstaller);
 router.post("/update-incoming-item-status", updateStatusOfIncomingItems);
 router.get("/accepted-installation-data", showAcceptedInstallationData);
 router.post("/new-system-installation", uploadHandler, newSystemInstallation);
+router.get("/get-new-installation-data", getInstallationDataWithImages)
 
 
 module.exports = router;

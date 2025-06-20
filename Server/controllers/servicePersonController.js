@@ -10,6 +10,11 @@ const mongoose = require("mongoose");
 const fs = require("fs/promises");
 const path = require("path");
 
+const BASE_URL = process.env.BASE_URL;
+const buildFullURLs = (relativePaths = []) => {
+    return relativePaths.map(p => `${BASE_URL}${p}`);
+};
+
 const updateLatitudeLongitude = async (req, res) => {
     try {
         const fileBuffer = req.file.buffer;
@@ -731,6 +736,36 @@ const empDashboard = async (req, res) => {
     }
 }
 
+const getInstallationDataWithImages = async (req, res) => {
+    try {
+        const data = await NewSystemInstallation.find();
+        console.log(data);
+        const transformedData = data.map(install => ({
+            ...install.toObject(),
+            pitPhoto: buildFullURLs(install.pitPhoto),
+            earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+            antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+            lightingArresterInstallationPhoto: buildFullURLs(install.lightingArresterInstallationPhoto),
+            finalFoundationFarmerPhoto: buildFullURLs(install.finalFoundationFarmerPhoto),
+            panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+            controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
+            waterDischargeFarmerPhoto: buildFullURLs(install.waterDischargeFarmerPhoto),
+        }));
+
+        return res.status(200).json({
+            success: true,
+            data: transformedData
+        });
+    } catch (error) {
+        console.error("Error fetching installation data:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     updateLatitudeLongitude,
     addServicePersonState,
@@ -738,6 +773,7 @@ module.exports = {
     updateStatusOfIncomingItems,
     newSystemInstallation,
     empDashboard,
-    showAcceptedInstallationData
+    showAcceptedInstallationData,
+    getInstallationDataWithImages
 };
 
