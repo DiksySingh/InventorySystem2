@@ -41,8 +41,8 @@ const upload = multer({
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // Temporarily allow up to 5MB (we'll validate manually)
 }).fields([
-  { name: 'pitPhoto', maxCount: 1 },
-  { name: 'earthingFarmerPhoto', maxCount: 1 },
+  { name: 'pitPhoto', maxCount: 5 },
+  { name: 'earthingFarmerPhoto', maxCount: 5 },
   // { name: 'antiTheftNutBoltPhoto', maxCount: 1 },
   // { name: 'lightingArresterInstallationPhoto', maxCount: 1 },
   // { name: 'finalFoundationFarmerPhoto', maxCount: 1 },
