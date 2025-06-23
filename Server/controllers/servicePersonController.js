@@ -464,6 +464,7 @@ const newSystemInstallation = async (req, res) => {
 
         for (const field of requiredFiles) {
             const files = req.files[field];
+            console.log(`Processing field: ${field}`, files);
             if (!files || files.length === 0) {
                 await session.abortTransaction();
                 session.endSession();

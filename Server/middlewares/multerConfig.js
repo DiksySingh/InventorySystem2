@@ -62,7 +62,7 @@ const uploadHandler = (req, res, next) => {
           : err.message,
       });
     }
-
+    console.log("Files uploaded successfully:", req.files);
     if (!req.files || Object.keys(req.files).length === 0) {
       return res.status(400).json({
         success: false,
