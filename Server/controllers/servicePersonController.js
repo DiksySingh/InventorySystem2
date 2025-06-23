@@ -129,7 +129,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
     try {
         const installerId = req.query.installerId;
         console.log(installerId);
-        if(!installerId) {
+        if (!installerId) {
             throw new Error("Employee ID is not valid");
         }
         const activities = await FarmerItemsActivity.find({ empId: installerId, accepted: false })
@@ -463,19 +463,23 @@ const newSystemInstallation = async (req, res) => {
         ];
 
         for (const field of requiredFiles) {
-            const file = req.files[field]?.[0];
-            if (!file) {
+            const files = req.files[field];
+            if (!files || files.length === 0) {
                 await session.abortTransaction();
                 session.endSession();
                 await deleteFiles(uploadedFilePaths);
-                return res.status(400).json({ success: false, message: `Missing or empty file: ${field}` });
+                return res.status(400).json({ success: false, message: `Missing or empty files: ${field}` });
             }
 
-            const serverPath = path.join(__dirname, "../uploads/newInstallation", file.filename);
-            const urlPath = `/uploads/newInstallation/${file.filename}`;
+            storedFileURLs[field] = [];
 
-            uploadedFilePaths.push(serverPath);
-            storedFileURLs[field] = urlPath;
+            for (const file of files) {
+                const serverPath = path.join(__dirname, "../uploads/newInstallation", file.filename);
+                const urlPath = `/uploads/newInstallation/${file.filename}`;
+
+                uploadedFilePaths.push(serverPath);
+                storedFileURLs[field].push(urlPath);
+            }
         }
 
         if (!farmerSaralId || !latitude || !longitude || !empId) {
