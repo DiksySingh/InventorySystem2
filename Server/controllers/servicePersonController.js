@@ -11,10 +11,10 @@ const fs = require("fs/promises");
 const path = require("path");
 
 const BASE_URL = process.env.BASE_URL;
-const buildFullURLs = (relativePaths = []) => {
-    return relativePaths.map(p => `${BASE_URL}${p}`);
+const buildFullURLs = (pathsArray) => {
+  if (!pathsArray || !Array.isArray(pathsArray)) return [];
+  return pathsArray.map(path => `${BASE_URL}${path}`);
 };
-
 const updateLatitudeLongitude = async (req, res) => {
     try {
         const fileBuffer = req.file.buffer;
