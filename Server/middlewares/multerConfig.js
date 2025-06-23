@@ -43,12 +43,12 @@ const upload = multer({
 }).fields([
   { name: 'pitPhoto', maxCount: 5 },
   { name: 'earthingFarmerPhoto', maxCount: 5 },
-  // { name: 'antiTheftNutBoltPhoto', maxCount: 1 },
-  // { name: 'lightingArresterInstallationPhoto', maxCount: 1 },
-  // { name: 'finalFoundationFarmerPhoto', maxCount: 1 },
-  // { name: 'panelFarmerPhoto', maxCount: 1 },
-  // { name: 'controllerBoxFarmerPhoto', maxCount: 1 },
-  // { name: 'waterDischargeFarmerPhoto', maxCount: 1 },
+  { name: 'antiTheftNutBoltPhoto', maxCount: 5 },
+  { name: 'lightingArresterInstallationPhoto', maxCount: 5 },
+  { name: 'finalFoundationFarmerPhoto', maxCount: 5 },
+  { name: 'panelFarmerPhoto', maxCount: 5 },
+  { name: 'controllerBoxFarmerPhoto', maxCount: 5 },
+  { name: 'waterDischargeFarmerPhoto', maxCount: 5 },
 ]);
 
 // Middleware handler

@@ -454,12 +454,12 @@ const newSystemInstallation = async (req, res) => {
         const requiredFiles = [
             "pitPhoto",
             "earthingFarmerPhoto",
-            // "antiTheftNutBoltPhoto",
-            // "lightingArresterInstallationPhoto",
-            // "finalFoundationFarmerPhoto",
-            // "panelFarmerPhoto",
-            // "controllerBoxFarmerPhoto",
-            // "waterDischargeFarmerPhoto"
+            "antiTheftNutBoltPhoto",
+            "lightingArresterInstallationPhoto",
+            "finalFoundationFarmerPhoto",
+            "panelFarmerPhoto",
+            "controllerBoxFarmerPhoto",
+            "waterDischargeFarmerPhoto"
         ];
 
         for (const field of requiredFiles) {
@@ -518,12 +518,12 @@ const newSystemInstallation = async (req, res) => {
             longitude,
             pitPhoto: storedFileURLs.pitPhoto,
             earthingFarmerPhoto: storedFileURLs.earthingFarmerPhoto,
-            // antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto,
-            // lightingArresterInstallationPhoto: storedFileURLs.lightingArresterInstallationPhoto,
-            // finalFoundationFarmerPhoto: storedFileURLs.finalFoundationFarmerPhoto,
-            // panelFarmerPhoto: storedFileURLs.panelFarmerPhoto,
-            // controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto,
-            // waterDischargeFarmerPhoto: storedFileURLs.waterDischargeFarmerPhoto,
+            antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto,
+            lightingArresterInstallationPhoto: storedFileURLs.lightingArresterInstallationPhoto,
+            finalFoundationFarmerPhoto: storedFileURLs.finalFoundationFarmerPhoto,
+            panelFarmerPhoto: storedFileURLs.panelFarmerPhoto,
+            controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto,
+            waterDischargeFarmerPhoto: storedFileURLs.waterDischargeFarmerPhoto,
             createdBy: empId
         };
 
