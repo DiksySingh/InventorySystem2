@@ -703,7 +703,7 @@ const showAcceptedInstallationData = async (req, res) => {
 
 const empDashboard = async (req, res) => {
     try {
-        const empId = req.user._id;
+        const empId = req.query.empId;
         const empData = await EmpInstallationAccount.findOne({ empId })
             .populate({
                 path: "empId",
