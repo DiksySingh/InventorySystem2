@@ -2184,7 +2184,20 @@ module.exports.addNewInstallationData = async (req, res) => {
         if (!Array.isArray(itemsList) || itemsList.length === 0) {
             await session.abortTransaction();
             session.endSession();
-            return res.status(400).json({ success: false, message: "itemsList should be a non-empty array" });
+            return res.status(400).json({ success: false, message: "ItemsList is empty" });
+        }
+
+        const existingFarmerActivity = await FarmerItemsActivity.findOne({
+            farmerSaralId,
+            systemId,
+        }).session(session);
+        if (existingFarmerActivity) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({
+                success: false,
+                message: "Farmer activity for this system already exists"
+            });
         }
 
         // ✅ Determine Reference Type
