@@ -400,6 +400,7 @@ module.exports.warehouseOrderDetails = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const warehouseId = req.user.warehouse;
+    
     const warehouseData = await Warehouse.findById({ _id: warehouseId });
     if (!warehouseData) {
       return res.status(404).json({
@@ -407,7 +408,7 @@ module.exports.warehouseOrderDetails = async (req, res) => {
         message: "WarehouseData Not Found"
       });
     }
-
+    
     const pickupItems = await PickupItem.find({ warehouse: warehouseData.warehouseName })
       .populate("servicePerson", "_id name contact")
       .sort({ status: 1, pickupDate: -1 }) // Sort by status (null first), then pickupDate (descending)
@@ -424,7 +425,7 @@ module.exports.warehouseOrderDetails = async (req, res) => {
       totalPages,
       limit,
       totalDocuments,
-      pickupItems,
+      pickupItems: pickupItems || []
     });
   } catch (error) {
     res.status(500).json({
