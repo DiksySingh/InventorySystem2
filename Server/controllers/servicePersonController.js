@@ -760,29 +760,76 @@ const empDashboard = async (req, res) => {
     }
 }
 
+// const getInstallationDataWithImages = async (req, res) => {
+//     try {
+//         const data = await NewSystemInstallation.find();
+//         let transformedData = [];
+//         if (data) {
+//             transformedData = data.map(install => ({
+//                 ...install.toObject(),
+//                 pitPhoto: buildFullURLs(install.pitPhoto),
+//                 earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+//                 antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+//                 lightingArresterInstallationPhoto: buildFullURLs(install.lightingArresterInstallationPhoto),
+//                 finalFoundationFarmerPhoto: buildFullURLs(install.finalFoundationFarmerPhoto),
+//                 panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+//                 controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
+//                 waterDischargeFarmerPhoto: buildFullURLs(install.waterDischargeFarmerPhoto),
+//             }));
+//         }
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Completed Installation Data Fetched Successfully",
+//             data: transformedData || [],
+//         });
+//     } catch (error) {
+//         console.error("Error fetching installation data:", error.message);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal server error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const getInstallationDataWithImages = async (req, res) => {
     try {
         const data = await NewSystemInstallation.find();
         let transformedData = [];
-        if (data) {
-            transformedData = data.map(install => ({
-                ...install.toObject(),
-                pitPhoto: buildFullURLs(install.pitPhoto),
-                earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
-                antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
-                lightingArresterInstallationPhoto: buildFullURLs(install.lightingArresterInstallationPhoto),
-                finalFoundationFarmerPhoto: buildFullURLs(install.finalFoundationFarmerPhoto),
-                panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
-                controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
-                waterDischargeFarmerPhoto: buildFullURLs(install.waterDischargeFarmerPhoto),
-            }));
+
+        if (data && data.length > 0) {
+            for (const install of data) {
+                const installationObj = install.toObject();
+
+                // Fetch related farmer activity using farmerSaralId
+                const farmerActivity = await FarmerItemsActivity.findOne({
+                    farmerSaralId: installationObj.farmerSaralId,
+                }).lean(); // lean() gives plain JS object
+
+                transformedData.push({
+                    ...installationObj,
+                    pitPhoto: buildFullURLs(install.pitPhoto),
+                    earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+                    antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+                    lightingArresterInstallationPhoto: buildFullURLs(install.lightingArresterInstallationPhoto),
+                    finalFoundationFarmerPhoto: buildFullURLs(install.finalFoundationFarmerPhoto),
+                    panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+                    controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
+                    waterDischargeFarmerPhoto: buildFullURLs(install.waterDischargeFarmerPhoto),
+
+                    // Add related farmer activity data
+                    farmerActivity: farmerActivity || null,
+                });
+            }
         }
 
         return res.status(200).json({
             success: true,
             message: "Completed Installation Data Fetched Successfully",
-            data: transformedData || [],
+            data: transformedData,
         });
+
     } catch (error) {
         console.error("Error fetching installation data:", error.message);
         return res.status(500).json({
@@ -792,6 +839,7 @@ const getInstallationDataWithImages = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     updateLatitudeLongitude,
