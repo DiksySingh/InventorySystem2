@@ -740,14 +740,10 @@ const empDashboard = async (req, res) => {
                 })
             })
             .select("-_id -__v -createdAt -updatedAt -createdBy -updatedBy -incoming");
-        if (!empData) {
-            return res.status(400).json({
-                success: false,
-                message: "Employee Account Not Found"
-            });
+        if (empData) {
+            empData.itemsList = empData.itemsList.filter(item => item.quantity > 0);
+            console.log("EmpData: ", empData);
         }
-        empData.itemsList = empData.itemsList.filter(item => item.quantity > 0);
-        console.log("EmpData: ", empData);
         return res.status(200).json({
             success: true,
             message: "Employee Account Fetched Successfully",
