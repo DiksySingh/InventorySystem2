@@ -158,6 +158,14 @@ const showNewInstallationDataToInstaller = async (req, res) => {
                     "_id": 1,
                     "itemName": 1,
                 })
+            })
+            .populate({
+                path: "extraItemsList.systemItemId",
+                model: "SystemItem",
+                select: ({
+                    "_id": 1,
+                    "itemName": 1
+                })
             }).sort({ createdAt: -1 });
         console.log(activities);
         const activitiesWithFarmerDetails = await Promise.all(
@@ -324,7 +332,8 @@ const updateStatusOfIncomingItems = async (req, res) => {
         }
 
         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId })
-            .populate("itemsList.systemItemId", "itemName");
+            .populate("itemsList.systemItemId", "itemName")
+            .populate("extraItemsList.systemItemId", "itemName");
 
         if (!farmerActivityData) {
             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
@@ -670,6 +679,14 @@ const showAcceptedInstallationData = async (req, res) => {
             })
             .populate({
                 path: "itemsList.systemItemId", // Populate subItem details
+                model: "SystemItem",
+                select: ({
+                    "_id": 1,
+                    "itemName": 1,
+                })
+            })
+            .populate({
+                path: "extraItemsList.systemItemId", // Populate subItem details
                 model: "SystemItem",
                 select: ({
                     "_id": 1,
