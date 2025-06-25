@@ -723,6 +723,7 @@ const showAcceptedInstallationData = async (req, res) => {
 const empDashboard = async (req, res) => {
     try {
         const empId = req.query.empId;
+        console.log(empId);
         const empData = await EmpInstallationAccount.findOne({ empId })
             .populate({
                 path: "empId",
@@ -746,6 +747,7 @@ const empDashboard = async (req, res) => {
             });
         }
         empData.itemsList = empData.itemsList.filter(item => item.quantity > 0);
+        console.log("EmpData: ", empData);
         return res.status(200).json({
             success: true,
             message: "Employee Account Fetched Successfully",
