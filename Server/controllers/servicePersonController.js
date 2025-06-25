@@ -722,39 +722,61 @@ const showAcceptedInstallationData = async (req, res) => {
 
 const empDashboard = async (req, res) => {
     try {
-        const empId = req.query.empId;
-        console.log(empId);
-        const empData = await EmpInstallationAccount.findOne({ empId })
+        const { empId } = req.query;
+
+        if (!empId) {
+            return res.status(400).json({
+                success: false,
+                message: "empId is required",
+            });
+        }
+
+        const empObjectId = new mongoose.Types.ObjectId(empId);
+        let refPath;
+        const empDetails = await ServicePerson.findOne({ _id: empObjectId })
+        if(empDetails) {
+            refPath = "ServicePerson";
+        } else {
+            const surveyPersonDetails = await SurveyPerson.findOne({ _id: empObjectId });
+            if (!surveyPersonDetails) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Employee Not Found",
+                });
+            }
+            refPath = "SurveyPerson";
+        }
+
+        const empData = await EmpInstallationAccount.findOne({
+            empId: empObjectId,
+        })
             .populate({
-                path: "empId",
-                select: {
-                    "name": 1,
-                }
+                path: "empId", // dynamic population
+                model: refPath,
+                select: { name: 1 },
             })
             .populate({
-                path: "itemsList.systemItemId", // Populate systemItem details
+                path: "itemsList.systemItemId",
                 model: "SystemItem",
-                select: ({
-                    "_id": 1,
-                    "itemName": 1,
-                })
+                select: { _id: 1, itemName: 1 },
             })
             .select("-_id -__v -createdAt -updatedAt -createdBy -updatedBy -incoming");
+
         if (empData) {
             empData.itemsList = empData.itemsList.filter(item => item.quantity > 0);
-            console.log("EmpData: ", empData);
         }
+
         return res.status(200).json({
             success: true,
             message: "Employee Account Fetched Successfully",
-            data: empData || []
+            data: empData || [],
         });
     } catch (error) {
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
-            error: error.message
-        })
+            error: error.message,
+        });
     }
 }
 
