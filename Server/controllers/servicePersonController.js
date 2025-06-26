@@ -322,16 +322,17 @@ const showNewInstallationDataToInstaller = async (req, res) => {
 
 const updateStatusOfIncomingItems = async (req, res) => {
     try {
-        const { installationId, farmerSaralId, empId, accepted } = req.body;
+        const { installationId, farmerSaralId} = req.body;
+        const empId = req.body.empId || req.user?.id; // Get empId from query or user context
 
-        if (!farmerSaralId || !empId || accepted === undefined) {
+        if (!farmerSaralId || !empId) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
-        const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId })
+        const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
             .populate("itemsList.systemItemId", "itemName")
             .populate("extraItemsList.systemItemId", "itemName");
 
@@ -419,7 +420,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         }
 
         // Step 3: Update Farmer Activity
-        farmerActivityData.accepted = accepted;
+        farmerActivityData.accepted = true;
         farmerActivityData.approvalDate = new Date();
         farmerActivityData.updatedAt = new Date();
         farmerActivityData.updatedBy = empId;
