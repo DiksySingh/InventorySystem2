@@ -127,7 +127,7 @@ const addServicePersonState = async (req, res) => {
 
 const showNewInstallationDataToInstaller = async (req, res) => {
     try {
-        const installerId = req.query.installerId;
+        const installerId = req.query.installerId || req.user?.id;
         console.log(installerId);
         if (!installerId) {
             throw new Error("Employee ID is not valid");
@@ -459,8 +459,8 @@ const newSystemInstallation = async (req, res) => {
     };
 
     try {
-        const { farmerSaralId, latitude, longitude, empId } = req.body;
-
+        const { farmerSaralId, latitude, longitude } = req.body;
+        const empId = req.body.empId || req.user?.id; // Get empId from query or user context
         const requiredFiles = [
             "pitPhoto",
             "earthingFarmerPhoto",
@@ -657,7 +657,7 @@ const newSystemInstallation = async (req, res) => {
 
 const showAcceptedInstallationData = async (req, res) => {
     try {
-        const empId = req.query.empId;
+        const empId = req.query.empId || req.user?.id;
         const activities = await FarmerItemsActivity.find({ empId, accepted: true })
             .populate({
                 path: "warehouseId",
@@ -722,7 +722,7 @@ const showAcceptedInstallationData = async (req, res) => {
 
 const empDashboard = async (req, res) => {
     try {
-        const { empId } = req.query;
+        const empId = req.query.empId || req.user?.id;
 
         if (!empId) {
             return res.status(400).json({
