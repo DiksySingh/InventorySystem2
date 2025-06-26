@@ -426,8 +426,9 @@ const updateStatusOfIncomingItems = async (req, res) => {
         farmerActivityData.approvalDate = new Date();
         farmerActivityData.updatedAt = new Date();
         farmerActivityData.updatedBy = empId;
-        await farmerActivityData.save();
-        console.log("Farmer Activity Updated Successfully:", farmerActivityData);
+console.log("Farmer Activity Updated Successfully:", farmerActivityData);
+        const savedResponse = await farmerActivityData.save();
+        console.log("Saved Response:", savedResponse);
         return res.status(200).json({
             success: true,
             message: "Farmer Activity Updated Successfully",
