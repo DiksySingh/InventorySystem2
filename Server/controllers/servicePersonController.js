@@ -322,7 +322,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
 
 const updateStatusOfIncomingItems = async (req, res) => {
     try {
-        const { installationId, farmerSaralId} = req.body;
+        const { installationId, farmerSaralId } = req.body;
         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
         console.log("empId:", empId);
         console.log("installationId:", installationId);
@@ -422,12 +422,19 @@ const updateStatusOfIncomingItems = async (req, res) => {
         }
 
         // Step 3: Update Farmer Activity
-        farmerActivityData.accepted = true;
-        farmerActivityData.approvalDate = new Date();
-        farmerActivityData.updatedAt = new Date();
-        farmerActivityData.updatedBy = empId;
-console.log("Farmer Activity Updated Successfully:", farmerActivityData);
-        const savedResponse = await farmerActivityData.save();
+        // farmerActivityData.accepted = true;
+        // farmerActivityData.approvalDate = new Date();
+        // farmerActivityData.updatedAt = new Date();
+        // farmerActivityData.updatedBy = empId;
+        await FarmerItemsActivity.findByIdAndUpdate(installationId, {
+            $set: {
+                accepted: true,
+                approvalDate: new Date(),
+                updatedAt: new Date(),
+                updatedBy: empId
+            }
+        });
+
         console.log("Saved Response:", savedResponse);
         return res.status(200).json({
             success: true,
@@ -738,7 +745,7 @@ const empDashboard = async (req, res) => {
         const empObjectId = new mongoose.Types.ObjectId(empId);
         let refPath;
         const empDetails = await ServicePerson.findOne({ _id: empObjectId })
-        if(empDetails) {
+        if (empDetails) {
             refPath = "ServicePerson";
         } else {
             const surveyPersonDetails = await SurveyPerson.findOne({ _id: empObjectId });
