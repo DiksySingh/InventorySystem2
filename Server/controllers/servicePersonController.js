@@ -324,7 +324,9 @@ const updateStatusOfIncomingItems = async (req, res) => {
     try {
         const { installationId, farmerSaralId} = req.body;
         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
-
+        console.log("empId:", empId);
+        console.log("installationId:", installationId);
+        console.log("farmerSaralId:", farmerSaralId);
         if (!farmerSaralId || !empId) {
             return res.status(400).json({
                 success: false,
@@ -335,7 +337,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
             .populate("itemsList.systemItemId", "itemName")
             .populate("extraItemsList.systemItemId", "itemName");
-
+        console.log("farmerActivityData:", farmerActivityData);
         if (!farmerActivityData) {
             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
         }
@@ -425,7 +427,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         farmerActivityData.updatedAt = new Date();
         farmerActivityData.updatedBy = empId;
         await farmerActivityData.save();
-
+        console.log("Farmer Activity Updated Successfully:", farmerActivityData);
         return res.status(200).json({
             success: true,
             message: "Farmer Activity Updated Successfully",
