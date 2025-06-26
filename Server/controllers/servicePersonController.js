@@ -426,7 +426,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         // farmerActivityData.approvalDate = new Date();
         // farmerActivityData.updatedAt = new Date();
         // farmerActivityData.updatedBy = empId;
-        await FarmerItemsActivity.findByIdAndUpdate(installationId, {
+        const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(installationId, {
             $set: {
                 accepted: true,
                 approvalDate: new Date(),
