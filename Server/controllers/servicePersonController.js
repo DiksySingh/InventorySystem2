@@ -925,7 +925,8 @@ const updateInstallationDataWithFiles = async (req, res) => {
     try {
 
         const { installationId, latitude, longitude } = req.body;
-        const empId = req.body.empId || req.user?.id;
+        // const empId = req.body.empId || req.user?.id;
+        const empName = req.body.empName
 
         if (!installationId) {
             return res.status(400).json({
@@ -946,7 +947,7 @@ const updateInstallationDataWithFiles = async (req, res) => {
             latitude,
             longitude,
             updatedAt: new Date(),
-            updatedBy: empId,
+            updatedBy: empName,
         };
 
         if (req.files && Object.keys(req.files).length > 0) {

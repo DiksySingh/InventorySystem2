@@ -59,8 +59,7 @@ const newSystemInstallationSchema = new Schema ({
         required: true
     },
     updatedBy: {
-        type: Schema.Types.ObjectId,
-        ref: "referenceType",
+        type: String, // Changed to String to store employee name
     },
 }, {collection: "inNewSystemInstallations"});
 
