@@ -662,73 +662,123 @@ const newSystemInstallation = async (req, res) => {
     }
 };
 
+// const showAcceptedInstallationData = async (req, res) => {
+//     try {
+//         const empId = req.query.empId || req.user?.id;
+//         console.log("empId:", empId);
+//         const activities = await FarmerItemsActivity.find({ empId, accepted: true })
+//             .populate({
+//                 path: "warehouseId",
+//                 select: {
+//                     "warehouseName": 1,
+//                 }
+//             })
+//             .populate({
+//                 path: "empId",
+//                 select: {
+//                     "name": 1,
+//                 }
+//             })
+//             .populate({
+//                 path: "systemId",
+//                 select: {
+//                     "systemName": 1,
+//                 }
+//             })
+//             .populate({
+//                 path: "itemsList.systemItemId", // Populate subItem details
+//                 model: "SystemItem",
+//                 select: ({
+//                     "_id": 1,
+//                     "itemName": 1,
+//                 })
+//             })
+//             .populate({
+//                 path: "extraItemsList.systemItemId", // Populate subItem details
+//                 model: "SystemItem",
+//                 select: ({
+//                     "_id": 1,
+//                     "itemName": 1,
+//                 })
+//             }).sort({ approvalDate: -1 });
+//             console.log("Activities:", activities);
+//         const activitiesWithFarmerDetails = await Promise.all(
+//             activities.map(async (activity) => {
+//                 const response = await axios.get(
+//                     `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
+//                 );
+//                 if (response) {
+//                     return {
+//                         ...activity.toObject(),
+//                         farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
+//                     };
+//                 }
+//             })
+//         );
+//         console.log("Activities with Farmer Details:", activitiesWithFarmerDetails);
+//         return res.status(200).json({
+//             success: true,
+//             message: "Data Fetched Successfully",
+//             data: activitiesWithFarmerDetails || []
+//         });
+//     } catch (error) {
+//         console.error("Error in showAcceptedInstallationData:", error);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const showAcceptedInstallationData = async (req, res) => {
-    try {
-        const empId = req.query.empId || req.user?.id;
-        console.log("empId:", empId);
-        const activities = await FarmerItemsActivity.find({ empId, accepted: true })
-            .populate({
-                path: "warehouseId",
-                select: {
-                    "warehouseName": 1,
-                }
-            })
-            .populate({
-                path: "empId",
-                select: {
-                    "name": 1,
-                }
-            })
-            .populate({
-                path: "systemId",
-                select: {
-                    "systemName": 1,
-                }
-            })
-            .populate({
-                path: "itemsList.systemItemId", // Populate subItem details
-                model: "SystemItem",
-                select: ({
-                    "_id": 1,
-                    "itemName": 1,
-                })
-            })
-            .populate({
-                path: "extraItemsList.systemItemId", // Populate subItem details
-                model: "SystemItem",
-                select: ({
-                    "_id": 1,
-                    "itemName": 1,
-                })
-            }).sort({ approvalDate: -1 });
-            console.log("Activities:", activities);
-        const activitiesWithFarmerDetails = await Promise.all(
-            activities.map(async (activity) => {
-                const response = await axios.get(
-                    `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
-                );
-                if (response) {
-                    return {
-                        ...activity.toObject(),
-                        farmerDetails: (response?.data?.data) ? response?.data?.data : null, // Assuming the farmer API returns farmer details
-                    };
-                }
-            })
-        );
-        console.log("Activities with Farmer Details:", activitiesWithFarmerDetails);
-        return res.status(200).json({
-            success: true,
-            message: "Data Fetched Successfully",
-            data: activitiesWithFarmerDetails || []
-        });
-    } catch (error) {
-        console.error("Error in showAcceptedInstallationData:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message
-        });
-    }
+  try {
+    const empId = req.query.empId || req.user?.id;
+    console.log("empId:", empId);
+
+    const activities = await FarmerItemsActivity.find({ empId, accepted: true })
+      .populate({ path: "warehouseId", select: { warehouseName: 1 } })
+      .populate({ path: "empId", select: { name: 1 } })
+      .populate({ path: "systemId", select: { systemName: 1 } })
+      .populate({ path: "itemsList.systemItemId", model: "SystemItem", select: { _id: 1, itemName: 1 } })
+      .populate({ path: "extraItemsList.systemItemId", model: "SystemItem", select: { _id: 1, itemName: 1 } })
+      .sort({ approvalDate: -1 })
+      .lean();
+
+    const activitiesWithFarmerDetails = await Promise.all(
+      activities.map(async (activity) => {
+        try {
+          const response = await axios.get(
+            `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
+            { timeout: 5000 }
+          );
+          return {
+            ...activity,
+            farmerDetails: response?.data?.data || null,
+          };
+        } catch (err) {
+          console.error(`Error fetching farmer data for ${activity.farmerSaralId}:`, err.message);
+          return {
+            ...activity,
+            farmerDetails: null,
+          };
+        }
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      data: activitiesWithFarmerDetails,
+    });
+  } catch (error) {
+    console.error("Error in showAcceptedInstallationData:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
 };
 
 const empDashboard = async (req, res) => {
