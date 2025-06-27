@@ -3270,36 +3270,111 @@ module.exports.showWarehousePersons = async (req, res) => {
     }
 };
 
+// module.exports.showIncomingItemsFromFarmer = async (req, res) => {
+//     try {
+//         const { contact, contact2 } = req.query;
+//         // If neither contact nor contact2 is provided, return error
+//         if (!contact && !contact2) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "At least one contact (contact or contact2) is required"
+//             });
+//         }
+
+//         let filter = { incoming: true };
+
+//         // If both contact and contact2 are provided, search for either of them
+//         if (contact && contact2) {
+//             filter.$or = [
+//                 { farmerContact: Number(contact) },
+//                 { farmerContact: Number(contact2) }
+//             ];
+//         }
+//         // If only contact is provided, search for it
+//         else if (contact) {
+//             filter.farmerContact = Number(contact);
+//         }
+//         // If only contact2 is provided, search for it
+//         else if (contact2) {
+//             filter.farmerContact = Number(contact2);
+//         }
+
+//         // Fetch data based on the filter
+//         let incomingItemsData = await PickupItem.find(filter)
+//             .populate({
+//                 path: "servicePerson",
+//                 select: { "_id": 0, "name": 1 }
+//             })
+//             .sort({ pickupDate: -1 })
+//             .select("-servicePersonName -servicePerContact -__v -image")
+//             .lean();
+
+//         // If no data is found, return an empty array
+//         if (!incomingItemsData.length) {
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "No data found",
+//                 data: []
+//             });
+//         }
+
+//         // Format the data before returning
+//         const formattedData = incomingItemsData.map(item => ({
+//             ...item,
+//             items: item.items.map(({ _id, ...rest }) => rest),
+//             pickupDate: item.pickupDate
+//                 ? new Date(item.pickupDate).toISOString().split("T")[0]
+//                 : null,
+//             arrivedDate: item.arrivedDate
+//                 ? new Date(item.arrivedDate).toISOString().split("T")[0]
+//                 : null
+//         }));
+
+//         // Return the fetched and formatted data
+//         return res.status(200).json({
+//             success: true,
+//             message: "Data Fetched Successfully",
+//             data: formattedData
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 module.exports.showIncomingItemsFromFarmer = async (req, res) => {
     try {
-        const { contact, contact2 } = req.query;
-        // If neither contact nor contact2 is provided, return error
-        if (!contact && !contact2) {
+        const contact = req.query.contact;
+        const contact2 = req.query.contact2;
+
+        // Validate that at least one contact is provided and is a number
+        if ((!contact || isNaN(contact)) && (!contact2 || isNaN(contact2))) {
             return res.status(400).json({
                 success: false,
-                message: "At least one contact (contact or contact2) is required"
+                message: "At least one valid contact (contact or contact2) is required"
             });
         }
 
+        // Prepare base filter
         let filter = { incoming: true };
 
-        // If both contact and contact2 are provided, search for either of them
-        if (contact && contact2) {
+        // Build contact filter based on input
+        if (contact && contact2 && !isNaN(contact) && !isNaN(contact2)) {
             filter.$or = [
                 { farmerContact: Number(contact) },
                 { farmerContact: Number(contact2) }
             ];
-        }
-        // If only contact is provided, search for it
-        else if (contact) {
+        } else if (contact && !isNaN(contact)) {
             filter.farmerContact = Number(contact);
-        }
-        // If only contact2 is provided, search for it
-        else if (contact2) {
+        } else if (contact2 && !isNaN(contact2)) {
             filter.farmerContact = Number(contact2);
         }
 
-        // Fetch data based on the filter
+        // Fetch data
         let incomingItemsData = await PickupItem.find(filter)
             .populate({
                 path: "servicePerson",
@@ -3309,8 +3384,7 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
             .select("-servicePersonName -servicePerContact -__v -image")
             .lean();
 
-        // If no data is found, return an empty array
-        if (!incomingItemsData.length) {
+        if (!incomingItemsData || !incomingItemsData.length) {
             return res.status(200).json({
                 success: true,
                 message: "No data found",
@@ -3318,10 +3392,12 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
             });
         }
 
-        // Format the data before returning
+        // Format response
         const formattedData = incomingItemsData.map(item => ({
             ...item,
-            items: item.items.map(({ _id, ...rest }) => rest),
+            items: Array.isArray(item.items)
+                ? item.items.map(({ _id, ...rest }) => rest)
+                : [],
             pickupDate: item.pickupDate
                 ? new Date(item.pickupDate).toISOString().split("T")[0]
                 : null,
@@ -3330,7 +3406,6 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
                 : null
         }));
 
-        // Return the fetched and formatted data
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
@@ -3338,6 +3413,7 @@ module.exports.showIncomingItemsFromFarmer = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Error in showIncomingItemsFromFarmer:", error);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
