@@ -545,7 +545,7 @@ const newSystemInstallation = async (req, res) => {
         const newInstallation = new NewSystemInstallation(newInstallationData);
         console.log("New Installation Data:", newInstallation);
         const savedResponse = await newInstallation.save({ session });
-       console.log("Saved Response:", savedResponse);
+        console.log("Saved Response:", savedResponse);
 
         const farmerActivity = await FarmerItemsActivity.findOne({ farmerSaralId }).session(session);
         if (!farmerActivity) {
@@ -564,7 +564,7 @@ const newSystemInstallation = async (req, res) => {
                 select: "itemName"
             })
             .session(session);
-            console.log("Employee Account Data:", empAccount);
+        console.log("Employee Account Data:", empAccount);
         if (!empAccount) {
             await session.abortTransaction();
             session.endSession();
@@ -732,53 +732,53 @@ const newSystemInstallation = async (req, res) => {
 // };
 
 const showAcceptedInstallationData = async (req, res) => {
-  try {
-    const empId = req.query.empId || req.user?.id;
-    console.log("empId:", empId);
+    try {
+        const empId = req.query.empId || req.user?.id;
+        console.log("empId:", empId);
 
-    const activities = await FarmerItemsActivity.find({ empId, accepted: true })
-      .populate({ path: "warehouseId", select: { warehouseName: 1 } })
-      .populate({ path: "empId", select: { name: 1 } })
-      .populate({ path: "systemId", select: { systemName: 1 } })
-      .populate({ path: "itemsList.systemItemId", model: "SystemItem", select: { _id: 1, itemName: 1 } })
-      .populate({ path: "extraItemsList.systemItemId", model: "SystemItem", select: { _id: 1, itemName: 1 } })
-      .sort({ approvalDate: -1 })
-      .lean();
+        const activities = await FarmerItemsActivity.find({ empId, accepted: true })
+            .populate({ path: "warehouseId", select: { warehouseName: 1 } })
+            .populate({ path: "empId", select: { name: 1 } })
+            .populate({ path: "systemId", select: { systemName: 1 } })
+            .populate({ path: "itemsList.systemItemId", model: "SystemItem", select: { _id: 1, itemName: 1 } })
+            .populate({ path: "extraItemsList.systemItemId", model: "SystemItem", select: { _id: 1, itemName: 1 } })
+            .sort({ approvalDate: -1 })
+            .lean();
 
-    const activitiesWithFarmerDetails = await Promise.all(
-      activities.map(async (activity) => {
-        try {
-          const response = await axios.get(
-            `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
-            { timeout: 5000 }
-          );
-          return {
-            ...activity,
-            farmerDetails: response?.data?.data || null,
-          };
-        } catch (err) {
-          console.error(`Error fetching farmer data for ${activity.farmerSaralId}:`, err.message);
-          return {
-            ...activity,
-            farmerDetails: null,
-          };
-        }
-      })
-    );
+        const activitiesWithFarmerDetails = await Promise.all(
+            activities.map(async (activity) => {
+                try {
+                    const response = await axios.get(
+                        `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
+                        { timeout: 5000 }
+                    );
+                    return {
+                        ...activity,
+                        farmerDetails: response?.data?.data || null,
+                    };
+                } catch (err) {
+                    console.error(`Error fetching farmer data for ${activity.farmerSaralId}:`, err.message);
+                    return {
+                        ...activity,
+                        farmerDetails: null,
+                    };
+                }
+            })
+        );
 
-    return res.status(200).json({
-      success: true,
-      message: "Data Fetched Successfully",
-      data: activitiesWithFarmerDetails,
-    });
-  } catch (error) {
-    console.error("Error in showAcceptedInstallationData:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
+        return res.status(200).json({
+            success: true,
+            message: "Data Fetched Successfully",
+            data: activitiesWithFarmerDetails,
+        });
+    } catch (error) {
+        console.error("Error in showAcceptedInstallationData:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message,
+        });
+    }
 };
 
 const empDashboard = async (req, res) => {
@@ -921,6 +921,77 @@ const getInstallationDataWithImages = async (req, res) => {
     }
 };
 
+const updateInstallationDataWithFiles = async (req, res) => {
+    try {
+
+        const { installationId, latitude, longitude } = req.body;
+        const empId = req.body.empId || req.user?.id;
+
+        if (!installationId) {
+            return res.status(400).json({
+                success: false,
+                message: "Installation ID is required",
+            });
+        }
+
+        const existingDoc = await NewSystemInstallation.findById(installationId);
+        if (!existingDoc) {
+            return res.status(404).json({
+                success: false,
+                message: "Installation not found",
+            });
+        }
+
+        const updateData = {
+            latitude,
+            longitude,
+            updatedAt: new Date(),
+            updatedBy: empId,
+        };
+
+        if (req.files && Object.keys(req.files).length > 0) {
+            for (const field of Object.keys(req.files)) {
+                const newFilePaths = req.files[field].map(file =>
+                    `/uploads/newInstallation/${file.filename}`
+                );
+
+                const oldFiles = existingDoc[field] || [];
+
+                for (const oldPath of oldFiles) {
+                    const absolutePath = path.join(__dirname, "..", oldPath);
+                    try {
+                        await fs.unlink(absolutePath);
+                    } catch (err) {
+                        console.warn(`Could not delete old file: ${oldPath}`, err.message);
+                    }
+                }
+
+                updateData[field] = newFilePaths;
+            }
+        }
+
+        const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
+            installationId,
+            { $set: updateData },
+            { new: true }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Installation data updated successfully",
+            data: updatedDoc,
+        });
+
+    } catch (error) {
+        console.error("Error updating installation data:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
 
 module.exports = {
     updateLatitudeLongitude,
@@ -930,6 +1001,7 @@ module.exports = {
     newSystemInstallation,
     empDashboard,
     showAcceptedInstallationData,
-    getInstallationDataWithImages
+    getInstallationDataWithImages,
+    updateInstallationDataWithFiles
 };
 

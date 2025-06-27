@@ -1,12 +1,12 @@
-const { 
-    allServiceSurveyPersons, 
-    filterServicePersonById, 
-    filterStateWiseServicePerson, 
-    servicePersonBlockData, 
-    showWarehousePersons, 
-    showIncomingItemsFromFarmer, 
+const {
+    allServiceSurveyPersons,
+    filterServicePersonById,
+    filterStateWiseServicePerson,
+    servicePersonBlockData,
+    showWarehousePersons,
+    showIncomingItemsFromFarmer,
 } = require("../controllers/warehouseController");
-const { 
+const {
     getServicePersonContacts,
     getWarehousePersonContacts,
     getServicePersonData,
@@ -20,11 +20,12 @@ const {
     showAcceptedInstallationData,
     newSystemInstallation,
     getInstallationDataWithImages,
-    empDashboard
+    empDashboard,
+    updateInstallationDataWithFiles
 } = require("../controllers/servicePersonController");
-const {generateInstallationPDF} = require("../helpers/generateInstallationPDF");
+const { generateInstallationPDF } = require("../helpers/generateInstallationPDF");
 const router = require("express").Router();
-const {uploadHandler} = require("../middlewares/multerConfig");
+const { uploadHandler } = require("../middlewares/multerConfig");
 
 router.get("/all-service-persons", allServiceSurveyPersons);
 router.get("/show-warehouse-persons", showWarehousePersons);
@@ -44,7 +45,7 @@ router.post("/update-incoming-item-status", updateStatusOfIncomingItems);
 router.get("/accepted-installation-data", showAcceptedInstallationData);
 router.post("/new-system-installation", uploadHandler, newSystemInstallation);
 router.get("/get-new-installation-data", getInstallationDataWithImages);
+router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);
 router.get("/show-emp-dashboard", empDashboard);
-
 
 module.exports = router;

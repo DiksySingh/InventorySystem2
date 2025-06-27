@@ -1,26 +1,24 @@
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs/promises");
-
-// Generate current timestamp
-const getCurrentTimestamp = () => Date.now().toString();
+const fs = require("fs");
 
 // Set up multer storage
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadPath = path.join(__dirname, "../uploads/newInstallation");
-    try {
-      await fs.mkdir(uploadPath, { recursive: true });
-      cb(null, uploadPath);
-    } catch (error) {
-      cb(new Error("Failed to create uploads/newInstallation directory"));
+  
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
     }
+
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const timestamp = getCurrentTimestamp();
-    const ext = path.extname(file.originalname).toLowerCase(); // .jpg, .png, etc.
-    cb(null, `${timestamp}${ext}`); // Only timestamp-based name
-  },
+    const timestamp = Date.now().toString();
+    const ext = path.extname(file.originalname).toLowerCase();
+    const fieldName = file.fieldname; // e.g., pitPhoto
+    cb(null, `${fieldName}-${timestamp}${ext}`);
+  }
 });
 
 // Allow only image types
@@ -62,13 +60,13 @@ const uploadHandler = (req, res, next) => {
           : err.message,
       });
     }
-    console.log("Files uploaded successfully:", req.files);
-    if (!req.files || Object.keys(req.files).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No files uploaded!",
-      });
-    }
+    // console.log("Files uploaded successfully:", req.files);
+    // if (!req.files || Object.keys(req.files).length === 0) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "No files uploaded!",
+    //   });
+    // }
 
     // Flatten all uploaded files into a single array to check sizes
     const allFiles = Object.values(req.files).flat();
