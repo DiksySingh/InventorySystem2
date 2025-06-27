@@ -62,7 +62,6 @@ const farmerItemsActivitySchema = new Schema({
     },
     motorNumber: {
         type: String,
-        required: true
     },
     controllerNumber: {
         type: String,
