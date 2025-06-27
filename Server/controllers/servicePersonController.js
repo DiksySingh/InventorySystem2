@@ -665,6 +665,7 @@ const newSystemInstallation = async (req, res) => {
 const showAcceptedInstallationData = async (req, res) => {
     try {
         const empId = req.query.empId || req.user?.id;
+        console.log("empId:", empId);
         const activities = await FarmerItemsActivity.find({ empId, accepted: true })
             .populate({
                 path: "warehouseId",
@@ -700,6 +701,7 @@ const showAcceptedInstallationData = async (req, res) => {
                     "itemName": 1,
                 })
             }).sort({ approvalDate: -1 });
+            console.log("Activities:", activities);
         const activitiesWithFarmerDetails = await Promise.all(
             activities.map(async (activity) => {
                 const response = await axios.get(
@@ -713,12 +715,14 @@ const showAcceptedInstallationData = async (req, res) => {
                 }
             })
         );
+        console.log("Activities with Farmer Details:", activitiesWithFarmerDetails);
         return res.status(200).json({
             success: true,
             message: "Data Fetched Successfully",
             data: activitiesWithFarmerDetails || []
         });
     } catch (error) {
+        console.error("Error in showAcceptedInstallationData:", error);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
