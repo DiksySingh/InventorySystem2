@@ -324,9 +324,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
     try {
         const { installationId, farmerSaralId } = req.body;
         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
-        console.log("empId:", empId);
-        console.log("installationId:", installationId);
-        console.log("farmerSaralId:", farmerSaralId);
+
         if (!farmerSaralId || !empId) {
             return res.status(400).json({
                 success: false,
@@ -337,7 +335,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
             .populate("itemsList.systemItemId", "itemName")
             .populate("extraItemsList.systemItemId", "itemName");
-        console.log("farmerActivityData:", farmerActivityData);
+
         if (!farmerActivityData) {
             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
         }
@@ -375,7 +373,6 @@ const updateStatusOfIncomingItems = async (req, res) => {
             });
         }
 
-        // Step 1: Merge itemsList
         for (const item of farmerActivityData.itemsList) {
             const { systemItemId, quantity } = item;
             const index = empAccount.itemsList.findIndex(
@@ -391,15 +388,13 @@ const updateStatusOfIncomingItems = async (req, res) => {
             }
         }
 
-        // Save empAccount after merging itemsList
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
         await empAccount.save();
 
-        // Reload to ensure clean ObjectId matching after save
         empAccount = await EmpInstallationAccount.findOne({ empId });
 
-        // Step 2: Merge extraItemsList
+
         if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
             for (const item of farmerActivityData.extraItemsList) {
                 const { systemItemId, quantity } = item;
@@ -421,11 +416,6 @@ const updateStatusOfIncomingItems = async (req, res) => {
             await empAccount.save();
         }
 
-        // Step 3: Update Farmer Activity
-        // farmerActivityData.accepted = true;
-        // farmerActivityData.approvalDate = new Date();
-        // farmerActivityData.updatedAt = new Date();
-        // farmerActivityData.updatedBy = empId;
         const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(installationId, {
             $set: {
                 accepted: true,
@@ -435,7 +425,6 @@ const updateStatusOfIncomingItems = async (req, res) => {
             }
         });
 
-        console.log("Saved Response:", savedResponse);
         return res.status(200).json({
             success: true,
             message: "Farmer Activity Updated Successfully",
@@ -472,6 +461,11 @@ const newSystemInstallation = async (req, res) => {
     try {
         const { farmerSaralId, latitude, longitude } = req.body;
         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
+        console.log("empId:", empId);
+        console.log("farmerSaralId:", farmerSaralId);
+        console.log("latitude:", latitude);
+        console.log("longitude:", longitude);
+
         const requiredFiles = [
             "pitPhoto",
             "earthingFarmerPhoto",
@@ -549,7 +543,9 @@ const newSystemInstallation = async (req, res) => {
         };
 
         const newInstallation = new NewSystemInstallation(newInstallationData);
-        await newInstallation.save({ session });
+        console.log("New Installation Data:", newInstallation);
+        const savedResponse = await newInstallation.save({ session });
+       console.log("Saved Response:", savedResponse);
 
         const farmerActivity = await FarmerItemsActivity.findOne({ farmerSaralId }).session(session);
         if (!farmerActivity) {
@@ -561,14 +557,14 @@ const newSystemInstallation = async (req, res) => {
                 message: "Farmer Activity Not Found"
             });
         }
-
+        console.log("Farmer Activity Data:", farmerActivity);
         const empAccount = await EmpInstallationAccount.findOne({ empId: farmerActivity.empId })
             .populate({
                 path: "itemsList.systemItemId",
                 select: "itemName"
             })
             .session(session);
-
+            console.log("Employee Account Data:", empAccount);
         if (!empAccount) {
             await session.abortTransaction();
             session.endSession();
@@ -634,16 +630,16 @@ const newSystemInstallation = async (req, res) => {
                 existingItem.quantity = parseInt(existingItem.quantity) - parseInt(quantity);
             }
         }
-
+        console.log("Hi");
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
         await empAccount.save({ session });
-
+        console.log("Employee Account Updated Successfully");
         farmerActivity.installationDone = true;
         farmerActivity.updatedAt = new Date();
         farmerActivity.updatedBy = empId;
         await farmerActivity.save({ session });
-
+        console.log("Farmer Activity Updated Successfully");
         await session.commitTransaction();
         session.endSession();
 
@@ -657,7 +653,7 @@ const newSystemInstallation = async (req, res) => {
         await session.abortTransaction();
         session.endSession();
         await deleteFiles(uploadedFilePaths);
-
+        console.error("Error in newSystemInstallation:", error);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
