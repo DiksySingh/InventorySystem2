@@ -927,7 +927,10 @@ const updateInstallationDataWithFiles = async (req, res) => {
         const { installationId, latitude, longitude } = req.body;
         // const empId = req.body.empId || req.user?.id;
         const empName = req.body.empName
-
+        console.log("empName:", empName);
+        console.log("installationId:", installationId);
+        console.log("latitude:", latitude);
+        console.log("longitude:", longitude);
         if (!installationId) {
             return res.status(400).json({
                 success: false,
@@ -942,14 +945,14 @@ const updateInstallationDataWithFiles = async (req, res) => {
                 message: "Installation not found",
             });
         }
-
+        console.log("Existing Document:", existingDoc);
         const updateData = {
             latitude,
             longitude,
             updatedAt: new Date(),
             updatedBy: empName,
         };
-
+        console.log("Update Data:", updateData);
         if (req.files && Object.keys(req.files).length > 0) {
             for (const field of Object.keys(req.files)) {
                 const newFilePaths = req.files[field].map(file =>
@@ -970,13 +973,13 @@ const updateInstallationDataWithFiles = async (req, res) => {
                 updateData[field] = newFilePaths;
             }
         }
-
+        console.log("Final Update Data:", updateData);
         const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
             installationId,
             { $set: updateData },
             { new: true }
         );
-
+        console.log("Updated Document:", updatedDoc);
         return res.status(200).json({
             success: true,
             message: "Installation data updated successfully",
