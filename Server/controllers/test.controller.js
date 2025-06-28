@@ -2,6 +2,9 @@ const W2WTransition = require('../models/serviceInventoryModels/warehouse2Wareho
 const XLSX = require('xlsx');
 const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
 const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
+const fs = require("fs");
+const path = require("path");
+const excelToJSONConvertor = require("../util/Excel/excelToJSONConverter"); // or your actual utility path
 
 const W2W = async(req,res) =>{
     try {
@@ -188,8 +191,96 @@ const exportPickupItemsToExcel = async (req, res) => {
     }
   };
 
+const excelToJSON = async (req, res) => {
+  try {
+    const JSON_Data = await excelToJSONConvertor(req.file.buffer);
+
+    const groupedData = {};
+
+    JSON_Data.forEach((item) => {
+      const talukaCode = parseInt(item.TALUKA_CODE);
+      const village = {
+        id: parseInt(item.CENSUS_CODE),
+        name: item.VILLAGE_NAME,
+      };
+
+      if (!groupedData[talukaCode]) {
+        groupedData[talukaCode] = [];
+      }
+      groupedData[talukaCode].push(village);
+    });
+
+    // Save to JSON file
+    fs.writeFileSync("converted.json", JSON.stringify(groupedData, null, 2));
+
+    return res.status(200).json({
+      success: true,
+      message: "Excel converted and grouped successfully.",
+      data: groupedData,
+    });
+  } catch (error) {
+    console.error("Error converting Excel:", error);
+    return res.status(400).json({
+      success: false,
+      message: "Something went wrong. Please contact the developer.",
+    });
+  }
+};
+
+const excelToJSFile = async (req, res) => {
+  try {
+    const jsonData = await excelToJSONConvertor(req.file.buffer);
+
+    const groupedData = {};
+
+    jsonData.forEach((row) => {
+      const talukaCode = parseInt(row.TALUKA_CODE);
+      const village = {
+        id: parseInt(row.CENSUS_CODE),
+        name: row.VILLAGE_NAME.trim(),
+      };
+
+      if (!groupedData[talukaCode]) {
+        groupedData[talukaCode] = [];
+      }
+
+      groupedData[talukaCode].push(village);
+    });
+
+    // Build string for JS file content
+    let output = `module.exports = {\n  talukaMap: {\n`;
+
+    for (const [talukaCode, villages] of Object.entries(groupedData)) {
+      output += `    ${talukaCode}: [\n`;
+      villages.forEach((v) => {
+        output += `      { id: ${v.id}, name: "${v.name}" },\n`;
+      });
+      output += `    ],\n`;
+    }
+
+    output += `  }\n};\n`;
+
+    const outputPath = path.join(__dirname, "../talukaMap.js");
+    fs.writeFileSync(outputPath, output, "utf-8");
+
+    return res.status(200).json({
+      success: true,
+      message: "Converted and saved to talukaMap.js",
+      path: outputPath,
+    });
+  } catch (err) {
+    console.error("Conversion Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to convert Excel to JS file.",
+    });
+  }
+};
+
 module.exports = {
     W2W,
     getServicePersonForStates,
-    exportPickupItemsToExcel
+    exportPickupItemsToExcel,
+    excelToJSON,
+    excelToJSFile
 }

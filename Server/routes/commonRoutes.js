@@ -23,6 +23,7 @@ const {generateWToWExcel} = require("../helpers/excelReports/warehouse2Warehouse
 const {generateWarehouse2FarmerExcel} = require("../helpers/excelReports/warehouse2FarmerReport");
 const router = require("express").Router();
 const multer = require("multer");
+const { excelToJSON , excelToJSFile} = require("../controllers/test.controller");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -56,4 +57,6 @@ router.get("/export-bhiwani-items-report", generateWarehouseExcel);
 router.get("/export-w2w-report", generateWToWExcel);
 router.get("/export-w2f-report", generateWarehouse2FarmerExcel);
 //router.get("/overall-hisar-report", generateHisarOverallReport);
+
+router.post("/export-excel", upload.single('file'), excelToJSFile);
 module.exports = router;
