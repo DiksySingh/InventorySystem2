@@ -72,6 +72,9 @@ const farmerItemsActivitySchema = new Schema({
         required: true,
         minlength: 15,
     },
+    state: {
+        type: String
+    },
     accepted: {
         type: Boolean,
         default: false

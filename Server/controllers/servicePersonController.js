@@ -459,7 +459,7 @@ const newSystemInstallation = async (req, res) => {
     };
 
     try {
-        const { farmerSaralId, latitude, longitude } = req.body;
+        const { farmerSaralId, latitude, longitude, state } = req.body;
         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
         console.log("empId:", empId);
         console.log("farmerSaralId:", farmerSaralId);
@@ -474,12 +474,12 @@ const newSystemInstallation = async (req, res) => {
             "finalFoundationFarmerPhoto",
             "panelFarmerPhoto",
             "controllerBoxFarmerPhoto",
-            "waterDischargeFarmerPhoto"
+            "waterDischargeFarmerPhoto",
+            "installationVideo" // Added installationVideo
         ];
 
         for (const field of requiredFiles) {
             const files = req.files[field];
-            console.log(`Processing field: ${field}`, files);
             if (!files || files.length === 0) {
                 await session.abortTransaction();
                 session.endSession();
@@ -531,6 +531,7 @@ const newSystemInstallation = async (req, res) => {
             farmerSaralId,
             latitude,
             longitude,
+            state,
             pitPhoto: storedFileURLs.pitPhoto,
             earthingFarmerPhoto: storedFileURLs.earthingFarmerPhoto,
             antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto,
@@ -539,14 +540,14 @@ const newSystemInstallation = async (req, res) => {
             panelFarmerPhoto: storedFileURLs.panelFarmerPhoto,
             controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto,
             waterDischargeFarmerPhoto: storedFileURLs.waterDischargeFarmerPhoto,
+            installationVideo: storedFileURLs.installationVideo, // Added installationVideo
             createdBy: empId
         };
 
         const newInstallation = new NewSystemInstallation(newInstallationData);
-        console.log("New Installation Data:", newInstallation);
+    
         const savedResponse = await newInstallation.save({ session });
-        console.log("Saved Response:", savedResponse);
-
+     
         const farmerActivity = await FarmerItemsActivity.findOne({ farmerSaralId }).session(session);
         if (!farmerActivity) {
             await session.abortTransaction();
@@ -557,14 +558,14 @@ const newSystemInstallation = async (req, res) => {
                 message: "Farmer Activity Not Found"
             });
         }
-        console.log("Farmer Activity Data:", farmerActivity);
+       
         const empAccount = await EmpInstallationAccount.findOne({ empId: farmerActivity.empId })
             .populate({
                 path: "itemsList.systemItemId",
                 select: "itemName"
             })
             .session(session);
-        console.log("Employee Account Data:", empAccount);
+    
         if (!empAccount) {
             await session.abortTransaction();
             session.endSession();
@@ -630,16 +631,16 @@ const newSystemInstallation = async (req, res) => {
                 existingItem.quantity = parseInt(existingItem.quantity) - parseInt(quantity);
             }
         }
-        console.log("Hi");
+       
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
         await empAccount.save({ session });
-        console.log("Employee Account Updated Successfully");
+      
         farmerActivity.installationDone = true;
         farmerActivity.updatedAt = new Date();
         farmerActivity.updatedBy = empId;
         await farmerActivity.save({ session });
-        console.log("Farmer Activity Updated Successfully");
+      
         await session.commitTransaction();
         session.endSession();
 
@@ -876,7 +877,8 @@ const empDashboard = async (req, res) => {
 
 const getInstallationDataWithImages = async (req, res) => {
     try {
-        const data = await NewSystemInstallation.find();
+        const state = req.query.state;
+        const data = await NewSystemInstallation.find({state: state});
         let transformedData = [];
 
         if (data && data.length > 0) {
@@ -923,14 +925,9 @@ const getInstallationDataWithImages = async (req, res) => {
 
 const updateInstallationDataWithFiles = async (req, res) => {
     try {
-
         const { installationId, latitude, longitude } = req.body;
-        // const empId = req.body.empId || req.user?.id;
         const empName = req.body.empName
-        console.log("empName:", empName);
-        console.log("installationId:", installationId);
-        console.log("latitude:", latitude);
-        console.log("longitude:", longitude);
+   
         if (!installationId) {
             return res.status(400).json({
                 success: false,
@@ -945,14 +942,14 @@ const updateInstallationDataWithFiles = async (req, res) => {
                 message: "Installation not found",
             });
         }
-        console.log("Existing Document:", existingDoc);
+   
         const updateData = {
             latitude,
             longitude,
             updatedAt: new Date(),
             updatedBy: empName,
         };
-        console.log("Update Data:", updateData);
+      
         if (req.files && Object.keys(req.files).length > 0) {
             for (const field of Object.keys(req.files)) {
                 const newFilePaths = req.files[field].map(file =>
@@ -973,13 +970,13 @@ const updateInstallationDataWithFiles = async (req, res) => {
                 updateData[field] = newFilePaths;
             }
         }
-        console.log("Final Update Data:", updateData);
+    
         const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
             installationId,
             { $set: updateData },
             { new: true }
         );
-        console.log("Updated Document:", updatedDoc);
+     
         return res.status(200).json({
             success: true,
             message: "Installation data updated successfully",

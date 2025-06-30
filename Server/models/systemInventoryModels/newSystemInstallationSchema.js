@@ -46,6 +46,12 @@ const newSystemInstallationSchema = new Schema ({
         type: [String],
         //required: true
     },
+    installationVideo: {
+        type: [String], // Changed to array to allow multiple videos
+    },
+    state: {
+        type: String,
+    },
     createdAt: {
         type: Date,
         default: Date.now
