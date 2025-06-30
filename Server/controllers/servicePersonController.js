@@ -970,77 +970,171 @@ const getInstallationDataWithImages = async (req, res) => {
     }
 };
 
-const updateInstallationDataWithFiles = async (req, res) => {
-    try {
-        const { installationId, latitude, longitude } = req.body;
-        const empName = req.body.empName
+// const updateInstallationDataWithFiles = async (req, res) => {
+//     try {
+//         const { installationId, latitude, longitude } = req.body;
+//         const empName = req.body.empName
    
-        if (!installationId) {
-            return res.status(400).json({
-                success: false,
-                message: "Installation ID is required",
-            });
-        }
+//         if (!installationId) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Installation ID is required",
+//             });
+//         }
 
-        const existingDoc = await NewSystemInstallation.findById(installationId);
-        if (!existingDoc) {
-            return res.status(404).json({
-                success: false,
-                message: "Installation not found",
-            });
-        }
+//         const existingDoc = await NewSystemInstallation.findById(installationId);
+//         if (!existingDoc) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Installation not found",
+//             });
+//         }
    
-        const updateData = {
-            latitude,
-            longitude,
-            updatedAt: new Date(),
-            updatedBy: empName,
-        };
+//         const updateData = {
+//             latitude,
+//             longitude,
+//             updatedAt: new Date(),
+//             updatedBy: empName,
+//         };
       
-        if (req.files && Object.keys(req.files).length > 0) {
-            for (const field of Object.keys(req.files)) {
-                const newFilePaths = req.files[field].map(file =>
-                    `/uploads/newInstallation/${file.filename}`
-                );
+//         if (req.files && Object.keys(req.files).length > 0) {
+//             for (const field of Object.keys(req.files)) {
+//                 const newFilePaths = req.files[field].map(file =>
+//                     `/uploads/newInstallation/${file.filename}`
+//                 );
 
-                const oldFiles = existingDoc[field] || [];
-                console.log("New files:", newFilePaths);
-                console.log("Old files:", oldFiles);
-                for (const oldPath of oldFiles) {
-                    const absolutePath = path.join(__dirname, "..", oldPath);
-                    console.log("Deleting old file:", absolutePath);
-                    try {
-                        await fs.unlink(absolutePath);
-                        console.log(`Deleted old file: ${absolutePath}`);
-                    } catch (err) {
-                        console.warn(`Could not delete old file: ${oldPath}`, err.message);
-                    }
-                }
+//                 const oldFiles = existingDoc[field] || [];
+//                 console.log("New files:", newFilePaths);
+//                 console.log("Old files:", oldFiles);
+//                 for (const oldPath of oldFiles) {
+//                     const absolutePath = path.join(__dirname, "..", oldPath);
+//                     console.log("Deleting old file:", absolutePath);
+//                     try {
+//                         await fs.unlink(absolutePath);
+//                         console.log(`Deleted old file: ${absolutePath}`);
+//                     } catch (err) {
+//                         console.warn(`Could not delete old file: ${oldPath}`, err.message);
+//                     }
+//                 }
 
-                updateData[field] = newFilePaths;
-            }
-        }
+//                 updateData[field] = newFilePaths;
+//             }
+//         }
     
-        const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
-            installationId,
-            { $set: updateData },
-            { new: true }
-        );
+//         const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
+//             installationId,
+//             { $set: updateData },
+//             { new: true }
+//         );
      
-        return res.status(200).json({
-            success: true,
-            message: "Installation data updated successfully",
-            data: updatedDoc,
+//         return res.status(200).json({
+//             success: true,
+//             message: "Installation data updated successfully",
+//             data: updatedDoc,
+//         });
+
+//     } catch (error) {
+//         console.error("Error updating installation data:", error);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal server error",
+//             error: error.message
+//         });
+//     }
+// };
+
+const updateInstallationDataWithFiles = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { installationId, latitude, longitude, empName } = req.body;
+
+    if (!installationId) {
+      return res.status(400).json({ success: false, message: "Installation ID is required" });
+    }
+
+    const existingDoc = await NewSystemInstallation.findById(installationId).session(session);
+    if (!existingDoc) {
+      return res.status(404).json({ success: false, message: "Installation not found" });
+    }
+
+    const updateData = {
+      latitude,
+      longitude,
+      updatedAt: new Date(),
+      updatedBy: empName,
+    };
+
+    // Prepare rollback safety buffers
+    const uploadedFilesToDelete = [];   // New uploaded files in case of error
+    const oldFileMap = {};              // Backup old paths for later deletion only on success
+
+    if (req.files && Object.keys(req.files).length > 0) {
+      for (const field of Object.keys(req.files)) {
+        const newFilePaths = req.files[field].map(file => {
+          const newPath = `/uploads/newInstallation/${file.filename}`;
+          uploadedFilesToDelete.push(path.join(__dirname, "..", newPath)); // store full path for rollback
+          return newPath;
         });
 
-    } catch (error) {
-        console.error("Error updating installation data:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message
-        });
+        oldFileMap[field] = existingDoc[field] || [];
+        updateData[field] = newFilePaths;
+      }
     }
+
+    // Step 1: Update DB with new data inside transaction
+    await NewSystemInstallation.findByIdAndUpdate(
+      installationId,
+      { $set: updateData },
+      { new: true, session }
+    );
+
+    // Step 2: Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    // Step 3: Safe to delete old files (only after DB update success)
+    for (const field in oldFileMap) {
+      for (const oldPath of oldFileMap[field]) {
+        const abs = path.join(__dirname, "..", oldPath);
+        try {
+          await fs.unlink(abs);
+        } catch (err) {
+          console.warn(`Failed to delete old file ${oldPath}`, err.message);
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Installation data updated successfully",
+      data: { ...existingDoc.toObject(), ...updateData }
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    // Rollback: Delete newly uploaded files
+    if (req.files) {
+      for (const filePath of Object.values(req.files).flat()) {
+        const fullPath = path.join(__dirname, "..", "uploads/newInstallation", filePath.filename);
+        try {
+          await fs.unlink(fullPath);
+        } catch (err) {
+          console.warn("Rollback failed to delete uploaded file:", fullPath);
+        }
+      }
+    }
+
+    console.error("Error updating installation data:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
 };
 
 

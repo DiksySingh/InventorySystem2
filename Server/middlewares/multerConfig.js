@@ -92,15 +92,17 @@
 
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
+const fs = require("fs/promises"); // ✅ Promise-based fs
 
 // Set up multer storage
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadPath = path.join(__dirname, "../uploads/newInstallation");
 
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
+    try {
+      await fs.mkdir(uploadPath, { recursive: true }); // ✅ Async mkdir
+    } catch (err) {
+      return cb(err);
     }
 
     cb(null, uploadPath);
@@ -129,7 +131,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // max 50MB (video + images combined)
+  limits: { fileSize: 50 * 1024 * 1024 }, // max 50MB per file
 }).fields([
   { name: 'pitPhoto', maxCount: 5 },
   { name: 'earthingFarmerPhoto', maxCount: 5 },
@@ -139,7 +141,7 @@ const upload = multer({
   { name: 'panelFarmerPhoto', maxCount: 5 },
   { name: 'controllerBoxFarmerPhoto', maxCount: 5 },
   { name: 'waterDischargeFarmerPhoto', maxCount: 5 },
-  { name: 'installationVideo', maxCount: 1 }, // ✅ new video field
+  { name: 'installationVideo', maxCount: 1 }, // ✅ video field
 ]);
 
 // Middleware handler
@@ -156,18 +158,18 @@ const uploadHandler = (req, res, next) => {
 
     const allFiles = Object.values(req.files).flat();
 
-    // Check manual size limits: 2MB for images, 50MB for video
     for (const file of allFiles) {
       const ext = path.extname(file.originalname).toLowerCase();
+
       if (['.jpeg', '.jpg', '.png'].includes(ext) && file.size > 2 * 1024 * 1024) {
-        await Promise.all(allFiles.map(f => fs.unlink(f.path)));
+        await Promise.all(allFiles.map(f => fs.unlink(f.path))); // ✅ delete all
         return res.status(400).json({
           success: false,
           message: `Image "${file.originalname}" exceeds 2MB limit.`,
         });
       }
 
-      if (['.mp4', '.mov', '.avi', '.mkv'].includes(ext) && file.size > 25 * 1024 * 1024) {
+      if (['.mp4', '.mov', '.avi', '.mkv'].includes(ext) && file.size > 50 * 1024 * 1024) {
         await Promise.all(allFiles.map(f => fs.unlink(f.path)));
         return res.status(400).json({
           success: false,
