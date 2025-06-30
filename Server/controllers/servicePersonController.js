@@ -875,20 +875,67 @@ const empDashboard = async (req, res) => {
 //     }
 // };
 
+// const getInstallationDataWithImages = async (req, res) => {
+//     try {
+//         const state = req.query.state;
+//         const data = await NewSystemInstallation.find({state: state});
+//         let transformedData = [];
+
+//         if (data && data.length > 0) {
+//             for (const install of data) {
+//                 const installationObj = install.toObject();
+
+//                 // Fetch related farmer activity using farmerSaralId
+//                 const farmerActivity = await FarmerItemsActivity.findOne({
+//                     farmerSaralId: installationObj.farmerSaralId,
+//                 }).lean(); // lean() gives plain JS object
+
+//                 transformedData.push({
+//                     ...installationObj,
+//                     pitPhoto: buildFullURLs(install.pitPhoto),
+//                     earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+//                     antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+//                     lightingArresterInstallationPhoto: buildFullURLs(install.lightingArresterInstallationPhoto),
+//                     finalFoundationFarmerPhoto: buildFullURLs(install.finalFoundationFarmerPhoto),
+//                     panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+//                     controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
+//                     waterDischargeFarmerPhoto: buildFullURLs(install.waterDischargeFarmerPhoto),
+
+//                     // Add related farmer activity data
+//                     farmerActivity: farmerActivity || null,
+//                 });
+//             }
+//         }
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Completed Installation Data Fetched Successfully",
+//             data: transformedData,
+//         });
+
+//     } catch (error) {
+//         console.error("Error fetching installation data:", error.message);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal server error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const getInstallationDataWithImages = async (req, res) => {
     try {
         const state = req.query.state;
-        const data = await NewSystemInstallation.find({state: state});
+        const data = await NewSystemInstallation.find({ state: state });
         let transformedData = [];
 
         if (data && data.length > 0) {
             for (const install of data) {
                 const installationObj = install.toObject();
 
-                // Fetch related farmer activity using farmerSaralId
                 const farmerActivity = await FarmerItemsActivity.findOne({
                     farmerSaralId: installationObj.farmerSaralId,
-                }).lean(); // lean() gives plain JS object
+                }).lean();
 
                 transformedData.push({
                     ...installationObj,
@@ -900,8 +947,8 @@ const getInstallationDataWithImages = async (req, res) => {
                     panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
                     controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
                     waterDischargeFarmerPhoto: buildFullURLs(install.waterDischargeFarmerPhoto),
+                    installationVideo: buildFullURLs(install.installationVideo), // ✅ Added video field
 
-                    // Add related farmer activity data
                     farmerActivity: farmerActivity || null,
                 });
             }
@@ -957,11 +1004,14 @@ const updateInstallationDataWithFiles = async (req, res) => {
                 );
 
                 const oldFiles = existingDoc[field] || [];
-
+                console.log("New files:", newFilePaths);
+                console.log("Old files:", oldFiles);
                 for (const oldPath of oldFiles) {
                     const absolutePath = path.join(__dirname, "..", oldPath);
+                    console.log("Deleting old file:", absolutePath);
                     try {
                         await fs.unlink(absolutePath);
+                        console.log(`Deleted old file: ${absolutePath}`);
                     } catch (err) {
                         console.warn(`Could not delete old file: ${oldPath}`, err.message);
                     }
