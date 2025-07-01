@@ -465,6 +465,7 @@ const newSystemInstallation = async (req, res) => {
         console.log("farmerSaralId:", farmerSaralId);
         console.log("latitude:", latitude);
         console.log("longitude:", longitude);
+        console.log("state:", state);
 
         const requiredFiles = [
             "pitPhoto",
@@ -498,7 +499,7 @@ const newSystemInstallation = async (req, res) => {
             }
         }
 
-        if (!farmerSaralId || !latitude || !longitude || !empId) {
+        if (!farmerSaralId || !latitude || !longitude || !empId || !state) {
             await session.abortTransaction();
             session.endSession();
             await deleteFiles(uploadedFilePaths);
@@ -545,9 +546,9 @@ const newSystemInstallation = async (req, res) => {
         };
 
         const newInstallation = new NewSystemInstallation(newInstallationData);
-    
+        console.log("New Installation Data:", newInstallationData);
         const savedResponse = await newInstallation.save({ session });
-     
+        console.log("Saved New Installation Response:", savedResponse);
         const farmerActivity = await FarmerItemsActivity.findOne({ farmerSaralId }).session(session);
         if (!farmerActivity) {
             await session.abortTransaction();
