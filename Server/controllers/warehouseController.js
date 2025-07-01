@@ -2166,6 +2166,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             motorNumber,
             controllerNumber,
             rmuNumber,
+            state
         } = req.body;
 
         const warehousePersonId = req.user._id;
@@ -2174,7 +2175,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         // ✅ Basic Validations
         if (
             !farmerSaralId || !empId || !systemId || !itemsList || !panelNumbers ||
-            !pumpNumber || !controllerNumber || !rmuNumber || !motorNumber
+            !pumpNumber || !controllerNumber || !rmuNumber || !motorNumber || !state
         ) {
             await session.abortTransaction();
             session.endSession();
@@ -2293,6 +2294,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             motorNumber,
             controllerNumber,
             rmuNumber,
+            state,
             createdBy: warehousePersonId
         };
 
