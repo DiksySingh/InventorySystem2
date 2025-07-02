@@ -207,240 +207,6 @@ const showNewInstallationDataToInstaller = async (req, res) => {
     }
 };
 
-// const updateStatusOfIncomingItems = async (req, res) => {
-//     try {
-//         const { installationId, farmerSaralId, empId, accepted } = req.body;
-
-//         if (!farmerSaralId || !empId || !accepted) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "All fields are required"
-//             });
-//         }
-
-//         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId })
-//             .populate({
-//                 path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
-//                 select: "itemName", // Select only the subItemName field
-//             });
-//         if (!farmerActivityData) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Farmer Activity Data Not Found"
-//             });
-//         }
-
-//         if (farmerActivityData.accepted) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Farmer Activity Already Accepted"
-//             });
-//         }
-//         if (farmerActivityData.installationDone) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Farmer Activity Already Installation Done"
-//             });
-//         }
-
-//         let empAccount = await EmpInstallationAccount.findOne({ empId })
-//             .populate({
-//                 path: "itemsList.systemItemId", // Populate subItemId inside itemsList array
-//                 select: "itemName", // Select only the subItemName field
-//             });
-
-//         let refType;
-//         let empData = await ServicePerson.findOne({ _id: empId });
-//         if (empData) {
-//             refType = "ServicePerson";
-//         } else {
-//             empData = await SurveyPerson.findOne({ _id: empId });
-//             if (!empData) {
-//                 return res.status(400).json({
-//                     success: false,
-//                     message: "EmpID Not Found In Database"
-//                 })
-//             }
-//             refType = "SurveyPerson";
-//         }
-
-//         if (!empAccount) {
-//             // If no record exists, create a new one
-//             empAccount = new EmpInstallationAccount({
-//                 empId,
-//                 referenceType: refType,  // Adjust based on logic
-//                 incoming: false,
-//                 itemsList: [],
-//                 createdBy: empId,
-//             });
-//         }
-
-//         for (const item of farmerActivityData.itemsList) {
-//             const { systemItemId, quantity } = item;
-//             const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
-//             if (existingItem) {
-//                 existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
-//             } else {
-//                 empAccount.itemsList.push({ systemItemId, quantity });
-//             }
-//         }
-
-//         if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
-//             for (const item of farmerActivityData.extraItemsList) {
-//                 const { systemItemId, quantity } = item;
-//                 const existingItem = empAccount.itemsList.find(i => i.systemItemId.toString() === systemItemId.toString());
-//                 if (existingItem) {
-//                     existingItem.quantity = parseInt(existingItem.quantity) + parseInt(quantity);
-//                 } else {
-//                     empAccount.itemsList.push({ systemItemId, quantity });
-//                 }
-//             }
-//         }
-
-//         empAccount.updatedAt = new Date();
-//         empAccount.updatedBy = empId;
-//         await empAccount.save();
-
-//         farmerActivityData.accepted = accepted;
-//         farmerActivityData.approvalDate = new Date();;
-//         farmerActivityData.updatedAt = new Date();
-//         farmerActivityData.updatedBy = empId;
-//         const savedFarmerActivity = await farmerActivityData.save();
-//         if (savedFarmerActivity) {
-//             return res.status(200).json({
-//                 success: true,
-//                 message: "Farmer Activity Updated Successfully"
-//             });
-//         }
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error",
-//             error: error.message
-//         });
-//     }
-// };
-
-// const updateStatusOfIncomingItems = async (req, res) => {
-//     try {
-//         const { installationId, farmerSaralId } = req.body;
-//         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
-
-//         if (!farmerSaralId || !empId) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "All fields are required"
-//             });
-//         }
-
-//         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
-//             .populate("itemsList.systemItemId", "itemName")
-//             .populate("extraItemsList.systemItemId", "itemName");
-
-//         if (!farmerActivityData) {
-//             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
-//         }
-
-//         if (farmerActivityData.accepted) {
-//             return res.status(400).json({ success: false, message: "Farmer Activity Already Accepted" });
-//         }
-
-//         if (farmerActivityData.installationDone) {
-//             return res.status(400).json({ success: false, message: "Farmer Activity Already Installation Done" });
-//         }
-
-//         let empAccount = await EmpInstallationAccount.findOne({ empId })
-//             .populate("itemsList.systemItemId", "itemName");
-
-//         let refType;
-//         let empData = await ServicePerson.findOne({ _id: empId });
-//         if (empData) {
-//             refType = "ServicePerson";
-//         } else {
-//             empData = await SurveyPerson.findOne({ _id: empId });
-//             if (!empData) {
-//                 return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
-//             }
-//             refType = "SurveyPerson";
-//         }
-
-//         if (!empAccount) {
-//             empAccount = new EmpInstallationAccount({
-//                 empId,
-//                 referenceType: refType,
-//                 incoming: false,
-//                 itemsList: [],
-//                 createdBy: empId,
-//             });
-//         }
-
-//         for (const item of farmerActivityData.itemsList) {
-//             const { systemItemId, quantity } = item;
-//             const index = empAccount.itemsList.findIndex(
-//                 i => i.systemItemId.toString() === systemItemId.toString()
-//             );
-//             if (index !== -1) {
-//                 empAccount.itemsList[index].quantity += parseInt(quantity);
-//             } else {
-//                 empAccount.itemsList.push({
-//                     systemItemId: systemItemId,
-//                     quantity: parseInt(quantity)
-//                 });
-//             }
-//         }
-
-//         empAccount.updatedAt = new Date();
-//         empAccount.updatedBy = empId;
-//         await empAccount.save();
-
-//         empAccount = await EmpInstallationAccount.findOne({ empId });
-
-
-//         if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
-//             for (const item of farmerActivityData.extraItemsList) {
-//                 const { systemItemId, quantity } = item;
-//                 const index = empAccount.itemsList.findIndex(
-//                     i => i.systemItemId.toString() === systemItemId.toString()
-//                 );
-//                 if (index !== -1) {
-//                     empAccount.itemsList[index].quantity += parseInt(quantity);
-//                 } else {
-//                     empAccount.itemsList.push({
-//                         systemItemId: systemItemId,
-//                         quantity: parseInt(quantity)
-//                     });
-//                 }
-//             }
-
-//             empAccount.updatedAt = new Date();
-//             empAccount.updatedBy = empId;
-//             await empAccount.save();
-//         }
-
-//         const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(installationId, {
-//             $set: {
-//                 accepted: true,
-//                 approvalDate: new Date(),
-//                 updatedAt: new Date(),
-//                 updatedBy: empId
-//             }
-//         });
-
-//         return res.status(200).json({
-//             success: true,
-//             message: "Farmer Activity Updated Successfully",
-//             data: "Farmer Activity Updated Successfully"
-//         });
-
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error",
-//             error: error.message
-//         });
-//     }
-// };
-
 const updateStatusOfIncomingItems = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -627,13 +393,32 @@ const newSystemInstallation = async (req, res) => {
             "installationVideo" // Added installationVideo
         ];
 
+        // for (const field of requiredFiles) {
+        //     const files = req.files[field];
+        //     if (!files || files.length === 0) {
+        //         await session.abortTransaction();
+        //         session.endSession();
+        //         await deleteFiles(uploadedFilePaths);
+        //         return res.status(400).json({ success: false, message: `Missing or empty files: ${field}` });
+        //     }
+
+        //     storedFileURLs[field] = [];
+
+        //     for (const file of files) {
+        //         const serverPath = path.join(__dirname, "../uploads/newInstallation", file.filename);
+        //         const urlPath = `/uploads/newInstallation/${file.filename}`;
+
+        //         uploadedFilePaths.push(serverPath);
+        //         storedFileURLs[field].push(urlPath);
+        //     }
+        // }
+
         for (const field of requiredFiles) {
-            const files = req.files[field];
+            const files = req.files?.[field];
+
+            // If field is not uploaded, just skip it (don't abort)
             if (!files || files.length === 0) {
-                await session.abortTransaction();
-                session.endSession();
-                await deleteFiles(uploadedFilePaths);
-                return res.status(400).json({ success: false, message: `Missing or empty files: ${field}` });
+                continue;  // optional field: no error
             }
 
             storedFileURLs[field] = [];
@@ -646,6 +431,7 @@ const newSystemInstallation = async (req, res) => {
                 storedFileURLs[field].push(urlPath);
             }
         }
+        console.log("storedFileURLs:", storedFileURLs);
 
         if (!farmerSaralId || !latitude || !longitude || !empId || !state) {
             await session.abortTransaction();
@@ -681,15 +467,15 @@ const newSystemInstallation = async (req, res) => {
             latitude,
             longitude,
             state,
-            pitPhoto: storedFileURLs.pitPhoto,
-            earthingFarmerPhoto: storedFileURLs.earthingFarmerPhoto,
-            antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto,
-            lightingArresterInstallationPhoto: storedFileURLs.lightingArresterInstallationPhoto,
-            finalFoundationFarmerPhoto: storedFileURLs.finalFoundationFarmerPhoto,
-            panelFarmerPhoto: storedFileURLs.panelFarmerPhoto,
-            controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto,
-            waterDischargeFarmerPhoto: storedFileURLs.waterDischargeFarmerPhoto,
-            installationVideo: storedFileURLs.installationVideo, // Added installationVideo
+            pitPhoto: storedFileURLs.pitPhoto || [], 
+            earthingFarmerPhoto: storedFileURLs.earthingFarmerPhoto || [], 
+            antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto || [], 
+            lightingArresterInstallationPhoto: storedFileURLs.lightingArresterInstallationPhoto || [], 
+            finalFoundationFarmerPhoto: storedFileURLs.finalFoundationFarmerPhoto || [], 
+            panelFarmerPhoto: storedFileURLs.panelFarmerPhoto || [], 
+            controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto || [], 
+            waterDischargeFarmerPhoto: storedFileURLs.waterDischargeFarmerPhoto || [], 
+            installationVideo: storedFileURLs.installationVideo || [], // Added installationVideo
             createdBy: empId
         };
 
