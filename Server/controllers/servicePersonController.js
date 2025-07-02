@@ -459,8 +459,8 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
             .populate("itemsList.systemItemId", "itemName")
-            .populate("extraItemsList.systemItemId", "itemName")
-            .session(session);
+            .populate("extraItemsList.systemItemId", "itemName");
+            //.session(session);
         console.log("farmerActivityData:", farmerActivityData);
         if (!farmerActivityData) {
             await session.abortTransaction();
