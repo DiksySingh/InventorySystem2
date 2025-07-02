@@ -5,6 +5,7 @@ const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
 const fs = require("fs");
 const path = require("path");
 const excelToJSONConvertor = require("../util/Excel/excelToJSONConverter"); // or your actual utility path
+const FarmerItemsActivity = require("../models/systemInventoryModels/farmerItemsActivity");
 
 const W2W = async(req,res) =>{
     try {
@@ -277,10 +278,34 @@ const excelToJSFile = async (req, res) => {
   }
 };
 
+const addStateFieldToOldDocuments = async (req, res) => {
+    try {
+        const { state } = req.body;
+
+        if (!state) {
+            return res.status(400).json({ message: "State value is required in the request body." });
+        }
+
+        const result = await FarmerItemsActivity.updateMany(
+            { state: { $exists: false } },   // Filter: only documents missing the 'state' field
+            { $set: { state } }              // Set the new state value
+        );
+
+        res.status(200).json({
+            message: `${result.modifiedCount} documents updated successfully.`,
+            details: result
+        });
+    } catch (error) {
+        console.error("Error updating state field:", error);
+        res.status(500).json({ message: "Internal server error." });
+    }
+};
+
 module.exports = {
     W2W,
     getServicePersonForStates,
     exportPickupItemsToExcel,
     excelToJSON,
-    excelToJSFile
+    excelToJSFile,
+    addStateFieldToOldDocuments
 }

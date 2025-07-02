@@ -2166,16 +2166,31 @@ module.exports.addNewInstallationData = async (req, res) => {
             motorNumber,
             controllerNumber,
             rmuNumber,
-            state
         } = req.body;
 
         const warehousePersonId = req.user._id;
         const warehouseId = req.user.warehouse;
-
+        const warehouseData = await Warehouse.findById(warehouseId).session(session);
+        if (!warehouseData) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(404).json({
+                success: false,
+                message: "Warehouse Not Found"
+            });
+        }
+        let state;
+        if(warehouseData.warehouseName === 'Bhiwani' || warehouseData.warehouseName === 'Jind' || warehouseData.warehouseName === 'Hisar' || warehouseData.warehouseName === 'Sirsa'){ 
+            state = "Haryana";
+        } else if(warehouseData.warehouseName === 'Jalna Warehouse'){
+            state = "Maharashtra";
+        } else if(warehouseData.warehouseName === 'Korba Chhattisgarh') {
+            state = "Chhattisgarh";
+        }
         // ✅ Basic Validations
         if (
             !farmerSaralId || !empId || !systemId || !itemsList || !panelNumbers ||
-            !pumpNumber || !controllerNumber || !rmuNumber || !motorNumber || !state
+            !pumpNumber || !controllerNumber || !rmuNumber || !motorNumber
         ) {
             await session.abortTransaction();
             session.endSession();
