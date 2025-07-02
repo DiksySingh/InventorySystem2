@@ -459,8 +459,9 @@ const newSystemInstallation = async (req, res) => {
     };
 
     try {
-        const { farmerSaralId, latitude, longitude, state } = req.body;
+        const { farmerSaralId, latitude, longitude} = req.body;
         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
+        const state = req.body.state || req.user?.state; // Get state from query or user context
         console.log("empId:", empId);
         console.log("farmerSaralId:", farmerSaralId);
         console.log("latitude:", latitude);
