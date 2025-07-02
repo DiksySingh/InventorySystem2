@@ -9,6 +9,7 @@ const EmpInstallationAccount = require("../models/systemInventoryModels/empInsta
 const mongoose = require("mongoose");
 const fs = require("fs/promises");
 const path = require("path");
+const { save } = require("pdfkit");
 
 const BASE_URL = process.env.BASE_URL;
 const buildFullURLs = (pathsArray) => {
@@ -320,44 +321,173 @@ const showNewInstallationDataToInstaller = async (req, res) => {
 //     }
 // };
 
+// const updateStatusOfIncomingItems = async (req, res) => {
+//     try {
+//         const { installationId, farmerSaralId } = req.body;
+//         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
+        
+//         if (!farmerSaralId || !empId) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "All fields are required"
+//             });
+//         }
+
+//         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
+//             .populate("itemsList.systemItemId", "itemName")
+//             .populate("extraItemsList.systemItemId", "itemName");
+
+//         if (!farmerActivityData) {
+//             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
+//         }
+
+//         if (farmerActivityData.accepted) {
+//             return res.status(400).json({ success: false, message: "Farmer Activity Already Accepted" });
+//         }
+
+//         if (farmerActivityData.installationDone) {
+//             return res.status(400).json({ success: false, message: "Farmer Activity Already Installation Done" });
+//         }
+
+//         let empAccount = await EmpInstallationAccount.findOne({ empId })
+//             .populate("itemsList.systemItemId", "itemName");
+
+//         let refType;
+//         let empData = await ServicePerson.findOne({ _id: empId });
+//         if (empData) {
+//             refType = "ServicePerson";
+//         } else {
+//             empData = await SurveyPerson.findOne({ _id: empId });
+//             if (!empData) {
+//                 return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
+//             }
+//             refType = "SurveyPerson";
+//         }
+
+//         if (!empAccount) {
+//             empAccount = new EmpInstallationAccount({
+//                 empId,
+//                 referenceType: refType,
+//                 incoming: false,
+//                 itemsList: [],
+//                 createdBy: empId,
+//             });
+//         }
+
+//         for (const item of farmerActivityData.itemsList) {
+//             const { systemItemId, quantity } = item;
+//             const index = empAccount.itemsList.findIndex(
+//                 i => i.systemItemId.toString() === systemItemId.toString()
+//             );
+//             if (index !== -1) {
+//                 empAccount.itemsList[index].quantity += parseInt(quantity);
+//             } else {
+//                 empAccount.itemsList.push({
+//                     systemItemId: systemItemId,
+//                     quantity: parseInt(quantity)
+//                 });
+//             }
+//         }
+
+//         empAccount.updatedAt = new Date();
+//         empAccount.updatedBy = empId;
+//         await empAccount.save();
+
+//         empAccount = await EmpInstallationAccount.findOne({ empId });
+
+
+//         if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
+//             for (const item of farmerActivityData.extraItemsList) {
+//                 const { systemItemId, quantity } = item;
+//                 const index = empAccount.itemsList.findIndex(
+//                     i => i.systemItemId.toString() === systemItemId.toString()
+//                 );
+//                 if (index !== -1) {
+//                     empAccount.itemsList[index].quantity += parseInt(quantity);
+//                 } else {
+//                     empAccount.itemsList.push({
+//                         systemItemId: systemItemId,
+//                         quantity: parseInt(quantity)
+//                     });
+//                 }
+//             }
+
+//             empAccount.updatedAt = new Date();
+//             empAccount.updatedBy = empId;
+//             await empAccount.save();
+//         }
+
+//         const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(installationId, {
+//             $set: {
+//                 accepted: true,
+//                 approvalDate: new Date(),
+//                 updatedAt: new Date(),
+//                 updatedBy: empId
+//             }
+//         });
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Farmer Activity Updated Successfully",
+//             data: "Farmer Activity Updated Successfully"
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
 const updateStatusOfIncomingItems = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const { installationId, farmerSaralId } = req.body;
-        const empId = req.body.empId || req.user?.id; // Get empId from query or user context
-
-        if (!farmerSaralId || !empId) {
-            return res.status(400).json({
-                success: false,
-                message: "All fields are required"
-            });
+        const empId = req.body.empId || req.user?.id;
+        console.log("empId:", empId);
+        console.log("farmerSaralId:", farmerSaralId);
+        console.log("installationId:", installationId);
+    
+        if (!installationId || !farmerSaralId || !empId) {
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: "All fields are required" });
         }
 
         const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
             .populate("itemsList.systemItemId", "itemName")
-            .populate("extraItemsList.systemItemId", "itemName");
-
+            .populate("extraItemsList.systemItemId", "itemName")
+            .session(session);
+        console.log("farmerActivityData:", farmerActivityData);
         if (!farmerActivityData) {
+            await session.abortTransaction();
             return res.status(400).json({ success: false, message: "Farmer Activity Data Not Found" });
         }
 
         if (farmerActivityData.accepted) {
+            await session.abortTransaction();
             return res.status(400).json({ success: false, message: "Farmer Activity Already Accepted" });
         }
 
         if (farmerActivityData.installationDone) {
+            await session.abortTransaction();
             return res.status(400).json({ success: false, message: "Farmer Activity Already Installation Done" });
         }
 
-        let empAccount = await EmpInstallationAccount.findOne({ empId })
+        let empAccount = await EmpInstallationAccount.findOne({ empId }).session(session)
             .populate("itemsList.systemItemId", "itemName");
-
+        console.log("empAccount:", empAccount);
         let refType;
-        let empData = await ServicePerson.findOne({ _id: empId });
+        let empData = await ServicePerson.findOne({ _id: empId }).session(session);
         if (empData) {
             refType = "ServicePerson";
         } else {
-            empData = await SurveyPerson.findOne({ _id: empId });
+            empData = await SurveyPerson.findOne({ _id: empId }).session(session);
             if (!empData) {
+                await session.abortTransaction();
                 return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
             }
             refType = "SurveyPerson";
@@ -373,6 +503,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
             });
         }
 
+        // Process normal items
         for (const item of farmerActivityData.itemsList) {
             const { systemItemId, quantity } = item;
             const index = empAccount.itemsList.findIndex(
@@ -382,7 +513,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
                 empAccount.itemsList[index].quantity += parseInt(quantity);
             } else {
                 empAccount.itemsList.push({
-                    systemItemId: systemItemId,
+                    systemItemId,
                     quantity: parseInt(quantity)
                 });
             }
@@ -390,12 +521,10 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
-        await empAccount.save();
-
-        empAccount = await EmpInstallationAccount.findOne({ empId });
-
-
-        if (farmerActivityData.extraItemsList && farmerActivityData.extraItemsList.length > 0) {
+        await empAccount.save({ session });
+        console.log("empAccount after saving:", empAccount);
+        // Process extra items
+        if (farmerActivityData.extraItemsList?.length > 0) {
             for (const item of farmerActivityData.extraItemsList) {
                 const { systemItemId, quantity } = item;
                 const index = empAccount.itemsList.findIndex(
@@ -405,7 +534,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
                     empAccount.itemsList[index].quantity += parseInt(quantity);
                 } else {
                     empAccount.itemsList.push({
-                        systemItemId: systemItemId,
+                        systemItemId,
                         quantity: parseInt(quantity)
                     });
                 }
@@ -413,17 +542,25 @@ const updateStatusOfIncomingItems = async (req, res) => {
 
             empAccount.updatedAt = new Date();
             empAccount.updatedBy = empId;
-            await empAccount.save();
+            await empAccount.save({ session });
         }
-
-        const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(installationId, {
-            $set: {
-                accepted: true,
-                approvalDate: new Date(),
-                updatedAt: new Date(),
-                updatedBy: empId
-            }
-        });
+        
+        const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(
+            installationId,
+            {
+                $set: {
+                    accepted: true,
+                    approvalDate: new Date(),
+                    updatedAt: new Date(),
+                    updatedBy: empId
+                }
+            },
+            { session },
+            { new: true }
+        );
+        console.log("Farmer Activity Updated Successfully", savedResponse);
+        await session.commitTransaction();
+        session.endSession();
 
         return res.status(200).json({
             success: true,
@@ -432,6 +569,9 @@ const updateStatusOfIncomingItems = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Error in updateStatusOfIncomingItems:", error);
+        await session.abortTransaction();
+        session.endSession();
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
