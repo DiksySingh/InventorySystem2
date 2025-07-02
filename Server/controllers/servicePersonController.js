@@ -325,7 +325,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
 //     try {
 //         const { installationId, farmerSaralId } = req.body;
 //         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
-        
+
 //         if (!farmerSaralId || !empId) {
 //             return res.status(400).json({
 //                 success: false,
@@ -451,16 +451,23 @@ const updateStatusOfIncomingItems = async (req, res) => {
         console.log("empId:", empId);
         console.log("farmerSaralId:", farmerSaralId);
         console.log("installationId:", installationId);
-    
+
         if (!installationId || !farmerSaralId || !empId) {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
 
-        const farmerActivityData = await FarmerItemsActivity.findOne({ _id: installationId, farmerSaralId, empId })
+        const query = {
+            _id: new mongoose.Types.ObjectId(installationId),
+            farmerSaralId: farmerSaralId,
+            empId: new mongoose.Types.ObjectId(empId)
+        };
+
+        const farmerActivityData = await FarmerItemsActivity.findOne(query)
             .populate("itemsList.systemItemId", "itemName")
-            .populate("extraItemsList.systemItemId", "itemName");
-            //.session(session);
+            .populate("extraItemsList.systemItemId", "itemName")
+            .session(session);
+
         console.log("farmerActivityData:", farmerActivityData);
         if (!farmerActivityData) {
             await session.abortTransaction();
@@ -544,7 +551,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
             empAccount.updatedBy = empId;
             await empAccount.save({ session });
         }
-        
+
         const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(
             installationId,
             {
@@ -599,7 +606,7 @@ const newSystemInstallation = async (req, res) => {
     };
 
     try {
-        const { farmerSaralId, latitude, longitude} = req.body;
+        const { farmerSaralId, latitude, longitude } = req.body;
         const empId = req.body.empId || req.user?.id; // Get empId from query or user context
         const state = req.body.state || req.user?.state; // Get state from query or user context
         console.log("empId:", empId);
@@ -700,14 +707,14 @@ const newSystemInstallation = async (req, res) => {
                 message: "Farmer Activity Not Found"
             });
         }
-       
+
         const empAccount = await EmpInstallationAccount.findOne({ empId: farmerActivity.empId })
             .populate({
                 path: "itemsList.systemItemId",
                 select: "itemName"
             })
             .session(session);
-    
+
         if (!empAccount) {
             await session.abortTransaction();
             session.endSession();
@@ -773,16 +780,16 @@ const newSystemInstallation = async (req, res) => {
                 existingItem.quantity = parseInt(existingItem.quantity) - parseInt(quantity);
             }
         }
-       
+
         empAccount.updatedAt = new Date();
         empAccount.updatedBy = empId;
         await empAccount.save({ session });
-      
+
         farmerActivity.installationDone = true;
         farmerActivity.updatedAt = new Date();
         farmerActivity.updatedBy = empId;
         await farmerActivity.save({ session });
-      
+
         await session.commitTransaction();
         session.endSession();
 
@@ -1116,7 +1123,7 @@ const getInstallationDataWithImages = async (req, res) => {
 //     try {
 //         const { installationId, latitude, longitude } = req.body;
 //         const empName = req.body.empName
-   
+
 //         if (!installationId) {
 //             return res.status(400).json({
 //                 success: false,
@@ -1131,14 +1138,14 @@ const getInstallationDataWithImages = async (req, res) => {
 //                 message: "Installation not found",
 //             });
 //         }
-   
+
 //         const updateData = {
 //             latitude,
 //             longitude,
 //             updatedAt: new Date(),
 //             updatedBy: empName,
 //         };
-      
+
 //         if (req.files && Object.keys(req.files).length > 0) {
 //             for (const field of Object.keys(req.files)) {
 //                 const newFilePaths = req.files[field].map(file =>
@@ -1162,13 +1169,13 @@ const getInstallationDataWithImages = async (req, res) => {
 //                 updateData[field] = newFilePaths;
 //             }
 //         }
-    
+
 //         const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
 //             installationId,
 //             { $set: updateData },
 //             { new: true }
 //         );
-     
+
 //         return res.status(200).json({
 //             success: true,
 //             message: "Installation data updated successfully",
@@ -1186,97 +1193,97 @@ const getInstallationDataWithImages = async (req, res) => {
 // };
 
 const updateInstallationDataWithFiles = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-  try {
-    const { installationId, latitude, longitude, empName } = req.body;
+    try {
+        const { installationId, latitude, longitude, empName } = req.body;
 
-    if (!installationId) {
-      return res.status(400).json({ success: false, message: "Installation ID is required" });
-    }
+        if (!installationId) {
+            return res.status(400).json({ success: false, message: "Installation ID is required" });
+        }
 
-    const existingDoc = await NewSystemInstallation.findById(installationId).session(session);
-    if (!existingDoc) {
-      return res.status(404).json({ success: false, message: "Installation not found" });
-    }
+        const existingDoc = await NewSystemInstallation.findById(installationId).session(session);
+        if (!existingDoc) {
+            return res.status(404).json({ success: false, message: "Installation not found" });
+        }
 
-    const updateData = {
-      latitude,
-      longitude,
-      updatedAt: new Date(),
-      updatedBy: empName,
-    };
+        const updateData = {
+            latitude,
+            longitude,
+            updatedAt: new Date(),
+            updatedBy: empName,
+        };
 
-    // Prepare rollback safety buffers
-    const uploadedFilesToDelete = [];   // New uploaded files in case of error
-    const oldFileMap = {};              // Backup old paths for later deletion only on success
+        // Prepare rollback safety buffers
+        const uploadedFilesToDelete = [];   // New uploaded files in case of error
+        const oldFileMap = {};              // Backup old paths for later deletion only on success
 
-    if (req.files && Object.keys(req.files).length > 0) {
-      for (const field of Object.keys(req.files)) {
-        const newFilePaths = req.files[field].map(file => {
-          const newPath = `/uploads/newInstallation/${file.filename}`;
-          uploadedFilesToDelete.push(path.join(__dirname, "..", newPath)); // store full path for rollback
-          return newPath;
+        if (req.files && Object.keys(req.files).length > 0) {
+            for (const field of Object.keys(req.files)) {
+                const newFilePaths = req.files[field].map(file => {
+                    const newPath = `/uploads/newInstallation/${file.filename}`;
+                    uploadedFilesToDelete.push(path.join(__dirname, "..", newPath)); // store full path for rollback
+                    return newPath;
+                });
+
+                oldFileMap[field] = existingDoc[field] || [];
+                updateData[field] = newFilePaths;
+            }
+        }
+
+        // Step 1: Update DB with new data inside transaction
+        await NewSystemInstallation.findByIdAndUpdate(
+            installationId,
+            { $set: updateData },
+            { new: true, session }
+        );
+
+        // Step 2: Commit transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        // Step 3: Safe to delete old files (only after DB update success)
+        for (const field in oldFileMap) {
+            for (const oldPath of oldFileMap[field]) {
+                const abs = path.join(__dirname, "..", oldPath);
+                try {
+                    await fs.unlink(abs);
+                } catch (err) {
+                    console.warn(`Failed to delete old file ${oldPath}`, err.message);
+                }
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Installation data updated successfully",
+            data: { ...existingDoc.toObject(), ...updateData }
         });
 
-        oldFileMap[field] = existingDoc[field] || [];
-        updateData[field] = newFilePaths;
-      }
-    }
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
 
-    // Step 1: Update DB with new data inside transaction
-    await NewSystemInstallation.findByIdAndUpdate(
-      installationId,
-      { $set: updateData },
-      { new: true, session }
-    );
-
-    // Step 2: Commit transaction
-    await session.commitTransaction();
-    session.endSession();
-
-    // Step 3: Safe to delete old files (only after DB update success)
-    for (const field in oldFileMap) {
-      for (const oldPath of oldFileMap[field]) {
-        const abs = path.join(__dirname, "..", oldPath);
-        try {
-          await fs.unlink(abs);
-        } catch (err) {
-          console.warn(`Failed to delete old file ${oldPath}`, err.message);
+        // Rollback: Delete newly uploaded files
+        if (req.files) {
+            for (const filePath of Object.values(req.files).flat()) {
+                const fullPath = path.join(__dirname, "..", "uploads/newInstallation", filePath.filename);
+                try {
+                    await fs.unlink(fullPath);
+                } catch (err) {
+                    console.warn("Rollback failed to delete uploaded file:", fullPath);
+                }
+            }
         }
-      }
+
+        console.error("Error updating installation data:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Installation data updated successfully",
-      data: { ...existingDoc.toObject(), ...updateData }
-    });
-
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-
-    // Rollback: Delete newly uploaded files
-    if (req.files) {
-      for (const filePath of Object.values(req.files).flat()) {
-        const fullPath = path.join(__dirname, "..", "uploads/newInstallation", filePath.filename);
-        try {
-          await fs.unlink(fullPath);
-        } catch (err) {
-          console.warn("Rollback failed to delete uploaded file:", fullPath);
-        }
-      }
-    }
-
-    console.error("Error updating installation data:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message
-    });
-  }
 };
 
 
