@@ -3136,6 +3136,7 @@ module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
 module.exports.allServiceSurveyPersons = async (req, res) => {
     try {
         const { state } = req.query;
+        console.log("State:", state);
         const filter = { isActive: true };
         if (state) {
             filter.state = state;
