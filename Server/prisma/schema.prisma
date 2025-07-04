@@ -143,6 +143,7 @@ model ServiceRecord {
   repairedRejectedBy      String?        // Name of the technician //Shiv
   remarks         String?        // Additional repair notes // Deffective Items
   repairedParts   Json?          // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
+  farmerSaralId   String?        // Farmer's Saral ID (if applicable) //1234567890
 
   userId          String         // User who created the record (foreign key)
   user            User           @relation(fields: [userId], references: [id])  // Relationship to User model

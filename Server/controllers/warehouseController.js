@@ -2060,7 +2060,8 @@ module.exports.updateItemQuantity = async (req, res) => {
 
 //                 if (inventoryItem.quantity < quantity) {
 //                     await session.abortTransaction();
-//                     session.endSession();
+//                     session.endSession();.3
+
 //                     return res.status(400).json({
 //                         success: false,
 //                         message: `Insufficient stock for item "${systemItemData.itemName}"`
