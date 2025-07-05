@@ -784,7 +784,6 @@ const updateRawMaterialStock = async (req, res) => {
     }
 };
 
-
 const deleteAllRawMaterials = async (req, res) => {
     try {
         await prisma.rawMaterial.deleteMany();  // Deletes all rows in the RawMaterial table
@@ -1220,13 +1219,14 @@ const addServiceRecord = async (req, res) => {
             repairedRejectedBy,
             remarks,
             repairedParts, // Array of objects: [{ rawMaterialId: "123", quantity: 2, unit: "pcs" }]
+            farmerSaralId,
             userId,
         } = req.body;
 
         // ✅ Basic validation
         if (
             !item || !subItem || !quantity || !serialNumber || !faultAnalysis ||
-            !repairedRejectedBy || !remarks || !Array.isArray(repairedParts) ||
+            !repairedRejectedBy || !remarks || !farmerSaralId || !Array.isArray(repairedParts) ||
             repairedParts.length === 0 || !userId
         ) {
             return res.status(400).json({
@@ -1298,6 +1298,7 @@ const addServiceRecord = async (req, res) => {
                 isRepaired,
                 repairedRejectedBy,
                 remarks,
+                farmerSaralId,
                 repairedParts,
                 userId,
             },
@@ -1865,7 +1866,6 @@ const deleteItemRawMaterial = async (req, res) => {
 //     }
 // };
 
-
 const produceNewItem = async (req, res) => {
     const session = await mongoose.startSession();
     await session.startTransaction();
@@ -1994,7 +1994,6 @@ const produceNewItem = async (req, res) => {
         });
     }
 };
-
 
 // const getItemsProducibleCount = async (req, res) => {
 //     try {
