@@ -637,7 +637,7 @@ module.exports.updateOrderStatus = async (req, res) => {
 //******************* ServicePerson Access ****************************//
 module.exports.servicePersonDashboard = async (req, res) => {
   try {
-    const servicePersonId = req.user._id
+    const servicePersonId = req.user._id;
 
     const incomingItemData = await IncomingItemDetails.find({ servicePerson: servicePersonId }).select(
       "-servicePerson"
