@@ -1207,7 +1207,7 @@ const getRawMaterialsByItemId = async (req, res) => {
 //     }
 // };
 
-const addServiceRecord = async (req, res) => {
+const  addServiceRecord = async (req, res) => {
     try {
         const {
             item,
