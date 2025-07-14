@@ -1,7 +1,7 @@
-const WarehousePerson = require("../models/serviceInventoryModels/warehousePersonSchema");
-const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
-const SurveyPerson = require("../models/serviceInventoryModels/surveyPersonSchema");
-const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
+const WarehousePerson = require("../../models/serviceInventoryModels/warehousePersonSchema");
+const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema");
+const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 
 module.exports.getServicePersonContacts = async (req, res) => {
     try {

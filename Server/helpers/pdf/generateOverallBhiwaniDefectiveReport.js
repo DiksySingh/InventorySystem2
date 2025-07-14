@@ -153,11 +153,11 @@ const fs = require("fs").promises;
 const path = require("path");
 const moment = require("moment");
 const mongoose = require("mongoose");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
-const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
-const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema");
-const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
-const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
+const RepairNRejectItems = require("../../models/serviceInventoryModels/repairNRejectSchema");
+const WToW = require("../../models/serviceInventoryModels/warehouse2WarehouseSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 
 const generateHTML = (warehouseName, data, totals) => {
     const itemRows = data.map((item) => `

@@ -5,7 +5,7 @@ const {
     servicePersonBlockData,
     showWarehousePersons,
     showIncomingItemsFromFarmer,
-} = require("../controllers/warehouseController");
+} = require("../controllers/serviceControllers/warehouseController");
 const {
     getServicePersonContacts,
     getWarehousePersonContacts,
@@ -13,7 +13,7 @@ const {
     allFieldPersonData,
     showAllWarehouses,
     stateWiseServiceSurveyPersons
-} = require("../controllers/serviceTeamController");
+} = require("../controllers/serviceControllers/serviceTeamController");
 const {
     showNewInstallationDataToInstaller,
     updateStatusOfIncomingItems,
@@ -22,8 +22,8 @@ const {
     getInstallationDataWithImages,
     empDashboard,
     updateInstallationDataWithFiles
-} = require("../controllers/servicePersonController");
-const { generateInstallationPDF } = require("../helpers/generateInstallationPDF");
+} = require("../controllers/serviceControllers/servicePersonController");
+const { generateInstallationPDF } = require("../helpers/pdf/generateInstallationPDF");
 const router = require("express").Router();
 const { uploadHandler } = require("../middlewares/multerConfig");
 

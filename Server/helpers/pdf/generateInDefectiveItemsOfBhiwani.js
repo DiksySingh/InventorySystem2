@@ -2,9 +2,9 @@ const puppeteer = require("puppeteer");
 const fs = require("fs").promises;
 const path = require("path");
 const moment = require("moment");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
-const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
-const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
+const RepairNRejectItems = require("../../models/serviceInventoryModels/repairNRejectSchema");
+const WToW = require("../../models/serviceInventoryModels/warehouse2WarehouseSchema");
 
 const generateHTML = (data, totals, wToWData, wToWTotal) => {
     const rows = data.map((item) => `

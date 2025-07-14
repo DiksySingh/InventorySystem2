@@ -2,7 +2,7 @@ const puppeteer = require("puppeteer");
 const fs = require("fs").promises;
 const path = require("path");
 const moment = require("moment");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
 
 // const generateHTML = (data) => {
 //     let rows = data.map((item) => {

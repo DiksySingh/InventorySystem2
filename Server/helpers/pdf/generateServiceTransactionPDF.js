@@ -3,7 +3,7 @@ const fs = require("fs").promises;
 const path = require("path");
 const moment = require("moment");
 const axios = require("axios"); // Import axios for API calls
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
 
 const fetchFarmerDetails = async (saralId) => {
     try {

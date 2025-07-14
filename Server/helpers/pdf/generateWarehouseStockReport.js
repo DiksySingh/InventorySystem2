@@ -1,8 +1,8 @@
 const puppeteer = require("puppeteer");
-const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const fs = require("fs");
 const path = require("path");
-const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 const mongoose = require("mongoose"); // by shiv
 module.exports.getSpecificWarehouseStockReportPDF = async (req, res) => {
   try {

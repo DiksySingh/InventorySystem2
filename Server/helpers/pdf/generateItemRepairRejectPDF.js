@@ -1,5 +1,5 @@
 const puppeteer = require("puppeteer");
-const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
+const RepairNRejectItems = require("../../models/serviceInventoryModels/repairNRejectSchema");
 const fs = require("fs");
 const path = require("path");
 

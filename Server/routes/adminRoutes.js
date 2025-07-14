@@ -1,14 +1,14 @@
-const { warehousePersonSignup, surveyPersonSignup, updateServicePerson } = require("../controllers/authController");
-const { allOrderDetails, servicePersonIncomingItemsData, servicePersonIncomingItemsData2, servicePersonOutgoingItemsData } = require("../controllers/pickupItemController");
-const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/itemController");
+const { warehousePersonSignup, surveyPersonSignup, updateServicePerson } = require("../controllers/serviceControllers/authController");
+const { allOrderDetails, servicePersonIncomingItemsData, servicePersonIncomingItemsData2, servicePersonOutgoingItemsData } = require("../controllers/serviceControllers/pickupItemController");
+const { showItems, showItemsData, updateItemName, allIncomingItemDetails } = require("../controllers/serviceControllers/itemController");
 const { 
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
   deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSystemSubItem, showSystemItems, 
   showWarehouseItemsData, uploadSystemItemsFromExcel, uploadSystemSubItemsFromExcel, attachItemComponentMapByExcel, showStockUpdateHistory,
   updateInstallationInventoryFromExcel
-} = require("../controllers/warehouseController");
-const { allDefectiveItemsData } = require("../controllers/warehouse2WarehouseController");
-const {getInstallationsData} = require("../controllers/installationDataController");
+} = require("../controllers/serviceControllers/warehouseController");
+const { allDefectiveItemsData } = require("../controllers/serviceControllers/warehouse2WarehouseController");
+const {getInstallationsData} = require("../controllers/serviceControllers/installationDataController");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
 const multer = require("multer");

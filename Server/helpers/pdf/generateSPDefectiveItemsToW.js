@@ -3,8 +3,8 @@ const puppeteer = require("puppeteer");
 const fs = require("fs").promises;
 const path = require("path");
 const moment = require("moment");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
-const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
+const RepairNRejectItems = require("../../models/serviceInventoryModels/repairNRejectSchema");
 
 const generateHTML = async (data, repairRejectData) => {
   let warehouseWiseData = {}; // Grouping defective items by warehouse

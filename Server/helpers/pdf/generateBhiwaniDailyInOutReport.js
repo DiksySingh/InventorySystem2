@@ -3,9 +3,9 @@ const mongoose = require("mongoose");
 const moment = require("moment");
 const fs = require("fs").promises;
 const path = require("path");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
-const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema");
-const RepairNRejectItems = require("../models/serviceInventoryModels/repairNRejectSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
+const WToW = require("../../models/serviceInventoryModels/warehouse2WarehouseSchema");
+const RepairNRejectItems = require("../../models/serviceInventoryModels/repairNRejectSchema");
 
 const generateHTML = (defectiveIncoming, outgoingItems, repairedItems, rejectedItems) => {
     const generateRows = (data) => {

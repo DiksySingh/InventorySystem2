@@ -1,6 +1,6 @@
-const WToW = require("../models/serviceInventoryModels/warehouse2WarehouseSchema");
-const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
-const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
+const WToW = require("../../models/serviceInventoryModels/warehouse2WarehouseSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const mongoose = require("mongoose");
 
 module.exports.sendingDefectiveItems = async (req, res) => {

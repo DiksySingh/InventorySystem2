@@ -1,5 +1,5 @@
 const xlsx = require("xlsx");
-const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema"); // Import your model
+const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema"); // Import your model
 
 // Controller function to generate Excel and send as a download
 const downloadActiveServicePersonsExcel = async (req, res) => {

@@ -1,7 +1,7 @@
-const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus, showServicePersonRepairedHoldingItems, updateServicePersonHoldingItems} = require("../controllers/pickupItemController");
-const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/warehouseController");
-const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp, getServicePersonInstallationData, checkServicePersonLatLong} = require("../controllers/installationDataController");
-const {empDashboard, showNewInstallationDataToInstaller, updateStatusOfIncomingItems, showAcceptedInstallationData, newSystemInstallation} = require("../controllers/servicePersonController");
+const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus, showServicePersonRepairedHoldingItems, updateServicePersonHoldingItems} = require("../controllers/serviceControllers/pickupItemController");
+const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/serviceControllers/warehouseController");
+const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp, getServicePersonInstallationData, checkServicePersonLatLong} = require("../controllers/serviceControllers/installationDataController");
+const {empDashboard, showNewInstallationDataToInstaller, updateStatusOfIncomingItems, showAcceptedInstallationData, newSystemInstallation} = require("../controllers/serviceControllers/servicePersonController");
 const {uploadHandler} = require("../middlewares/multerConfig");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();

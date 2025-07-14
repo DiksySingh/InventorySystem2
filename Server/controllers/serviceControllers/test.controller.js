@@ -1,11 +1,11 @@
-const W2WTransition = require('../models/serviceInventoryModels/warehouse2WarehouseSchema');
+const W2WTransition = require('../../models/serviceInventoryModels/warehouse2WarehouseSchema');
 const XLSX = require('xlsx');
-const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
+const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
 const fs = require("fs");
 const path = require("path");
-const excelToJSONConvertor = require("../util/Excel/excelToJSONConverter"); // or your actual utility path
-const FarmerItemsActivity = require("../models/systemInventoryModels/farmerItemsActivity");
+const excelToJSONConvertor = require("../../util/Excel/excelToJSONConverter"); // or your actual utility path
+const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerItemsActivity");
 
 const W2W = async(req,res) =>{
     try {

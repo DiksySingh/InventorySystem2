@@ -1,7 +1,7 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs").promises;
 const path = require("path");
-const IncomingItemDetails = require("../models/serviceInventoryModels/incomingItemsTotal");
+const OutgoingItemsTotal = require("../../models/serviceInventoryModels/outgoingItemsTotal");
 
 const generateHTML = (data) => {
   let grandTotal = 0;
@@ -81,7 +81,7 @@ const generateHTML = (data) => {
         </style>
     </head>
     <body>
-        <h2>Items Report - Service Person (State Wise)</h2>
+        <h2>Repaired Items On Service Person (State Wise)</h2>
         <table>
             <thead>
                 <tr>
@@ -105,10 +105,10 @@ const generateHTML = (data) => {
     </html>`;
 };
 
-exports.generateIncomingItemsPDF = async (req, res) => {
+exports.servicePersonRepairedHoldingItemsPDF = async (req, res) => {
   try {
     // Fetch data from MongoDB with state-wise grouping
-    const data = await IncomingItemDetails.aggregate([
+    const data = await OutgoingItemsTotal.aggregate([
       {
         $lookup: {
           from: "inServicePersons",
@@ -196,7 +196,7 @@ exports.generateIncomingItemsPDF = async (req, res) => {
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
 
     const date = new Date().toISOString().split("T")[0];
-    const filePath = path.join(uploadDir, `ServicePersonItemsReport_${date}.pdf`);
+    const filePath = path.join(uploadDir, `SPRepairedItemsHoldingReport_${date}.pdf`);
 
     await page.pdf({
       path: filePath,

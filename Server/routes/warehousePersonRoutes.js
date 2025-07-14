@@ -1,6 +1,6 @@
-const { servicePersonSignup } = require("../controllers/authController");
-const { outgoingItemsData, warehouseOrderDetails, updateOrderStatus } = require("../controllers/pickupItemController");
-const { showItems, incomingItems, warehouseIncomingItemDetails} = require("../controllers/itemController");
+const { servicePersonSignup } = require("../controllers/serviceControllers/authController");
+const { outgoingItemsData, warehouseOrderDetails, updateOrderStatus } = require("../controllers/serviceControllers/pickupItemController");
+const { showItems, incomingItems, warehouseIncomingItemDetails} = require("../controllers/serviceControllers/itemController");
 const { 
   addWarehouseItemsStock,
   getWarehouse,
@@ -37,9 +37,9 @@ const {
   getSystemItemsWithSubItems,
   allServiceSurveyPersons,
   getSystemItemsFromItemComponentMap
-} = require("../controllers/warehouseController");
-const { sendingDefectiveItems, inDefectiveItemsData, inDefectiveItemsOrderHistory, outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/warehouse2WarehouseController");
-const { getWarehouseInstallationData } = require("../controllers/installationDataController");
+} = require("../controllers/serviceControllers/warehouseController");
+const { sendingDefectiveItems, inDefectiveItemsData, inDefectiveItemsOrderHistory, outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/serviceControllers/warehouse2WarehouseController");
+const { getWarehouseInstallationData } = require("../controllers/serviceControllers/installationDataController");
 const router = require("express").Router();
 const { userVerification } = require("../middlewares/authMiddlewares");
 

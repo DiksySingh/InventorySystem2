@@ -3,13 +3,13 @@ const XLSX = require("xlsx");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
-const Item = require("../models/serviceInventoryModels/itemSchema");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
-const OutgoingItemDetails = require("../models/serviceInventoryModels/outgoingItemsTotal");
-const IncomingItemDetails = require("../models/serviceInventoryModels/incomingItemsTotal");
-const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
-const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
-const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
+const Item = require("../../models/serviceInventoryModels/itemSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
+const OutgoingItemDetails = require("../../models/serviceInventoryModels/outgoingItemsTotal");
+const IncomingItemDetails = require("../../models/serviceInventoryModels/incomingItemsTotal");
+const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 
 //***************************** Admin Access **************************//
 module.exports.allOrderDetails = async (req, res) => {

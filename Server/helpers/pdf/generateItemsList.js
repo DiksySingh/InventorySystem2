@@ -1,7 +1,7 @@
 const ExcelJS = require("exceljs");
 const path = require("path");
 const fs = require("fs");
-const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 
 const generateWarehouseExcel = async (req, res) => {
   try {

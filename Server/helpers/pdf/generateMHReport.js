@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const PickupItem = require("../models/serviceInventoryModels/pickupItemSchema");
+const PickupItem = require("../../models/serviceInventoryModels/pickupItemSchema");
 const XLSX = require("xlsx");
 
 // Controller to export data as Excel and send it as a buffer

@@ -1,16 +1,16 @@
-const Admin = require("../models/serviceInventoryModels/adminSchema");
-const ServicePerson = require("../models/serviceInventoryModels/servicePersonSchema");
-const WarehousePerson = require("../models/serviceInventoryModels/warehousePersonSchema");
-const SurveyPerson = require("../models/serviceInventoryModels/surveyPersonSchema");
-const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
-const Item = require("../models/serviceInventoryModels/itemSchema");
+const Admin = require("../../models/serviceInventoryModels/adminSchema");
+const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema");
+const WarehousePerson = require("../../models/serviceInventoryModels/warehousePersonSchema");
+const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const Item = require("../../models/serviceInventoryModels/itemSchema");
 const {
   createSecretToken,
   createRefreshToken,
-} = require("../util/secretToken");
+} = require("../../util/secretToken");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { refreshToken } = require("../middlewares/authMiddlewares");
+const { refreshToken } = require("../../middlewares/authMiddlewares");
 
 module.exports.adminSignup = async (req, res) => {
   const { email, password, createdAt, role } = req.body;

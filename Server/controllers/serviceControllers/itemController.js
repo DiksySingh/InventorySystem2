@@ -1,8 +1,8 @@
 const moment = require("moment-timezone");
-const Item = require("../models/serviceInventoryModels/itemSchema");
-const IncomingItem = require("../models/serviceInventoryModels/incomingItemSchema");
-const WarehouseItems = require("../models/serviceInventoryModels/warehouseItemsSchema");
-const Warehouse = require("../models/serviceInventoryModels/warehouseSchema");
+const Item = require("../../models/serviceInventoryModels/itemSchema");
+const IncomingItem = require("../../models/serviceInventoryModels/incomingItemSchema");
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 
 //************************* Warehouse Access *****************************// 
 // View All Items
