@@ -21,6 +21,7 @@ const {generateWarehouseExcel} = require("../helpers/pdf/generateItemsList");
 const {exportIncomingPickupItemsToExcel, exportIncomingTotalItemsToExcel, uploadExcelAndUpdatePickupItems} = require("../controllers/serviceControllers/pickupItemController");
 const {generateWToWExcel} = require("../helpers/excelReports/warehouse2WarehouseReport");
 const {generateWarehouse2FarmerExcel} = require("../helpers/excelReports/warehouse2FarmerReport");
+const {exportPickupItemsToExcel} = require("../helpers/pdf/generateInOutItemsReport");
 const router = require("express").Router();
 const multer = require("multer");
 const { excelToJSON , excelToJSFile, addStateFieldToOldDocuments} = require("../controllers/serviceControllers/test.controller");
@@ -60,5 +61,6 @@ router.get("/export-w2f-report", generateWarehouse2FarmerExcel);
 
 router.post("/export-excel", upload.single('file'), excelToJSFile);
 router.put("/addStateFieldToOldDocuments", addStateFieldToOldDocuments);
+router.get("/exportPickupItemsToExcel", exportPickupItemsToExcel);  
 
 module.exports = router;
