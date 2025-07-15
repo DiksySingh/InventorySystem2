@@ -137,7 +137,7 @@ module.exports.generateBhiwaniDailyReport = async (req, res) => {
         }
 
         const htmlContent = generateHTML(reportData, { totalIncoming, totalOutgoing, totalRepaired, totalRejected, totalDefective });
-        const uploadsDir = path.join(__dirname, "../uploads");
+        const uploadsDir = path.join(__dirname, "../../uploads");
         await fs.mkdir(uploadsDir, { recursive: true });
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();

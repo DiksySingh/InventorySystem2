@@ -181,7 +181,7 @@ exports.generateIncomingItemsPDF = async (req, res) => {
     ]);    
 
     // Ensure uploads directory exists
-    const uploadDir = path.join(__dirname, "../uploads");
+    const uploadDir = path.join(__dirname, "../../uploads");
     await fs.mkdir(uploadDir, { recursive: true });
 
     // Generate HTML content

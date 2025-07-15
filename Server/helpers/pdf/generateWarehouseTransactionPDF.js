@@ -166,7 +166,7 @@ module.exports.generateWarehouseTransactionPDF = async (req, res) => {
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: "load" });
 
-        const uploadDir = path.join(__dirname, "../uploads");
+        const uploadDir = path.join(__dirname, "../../uploads");
         await fs.mkdir(uploadDir, { recursive: true });
 
         const fileName = `OutgoingItemsReport_${moment().format("YYYY-MM-DD")}.pdf`;
