@@ -15,7 +15,7 @@ const generateHTML = (defectiveIncoming, outgoingItems, repairedItems, rejectedI
                 <td>${item.quantity}</td>
             </tr>
         `).join('');
-    };
+    };   
 
     const totalQuantity = (data) => {
         return data.reduce((sum, item) => sum + item.quantity, 0);
