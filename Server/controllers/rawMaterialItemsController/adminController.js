@@ -1219,14 +1219,14 @@ const  addServiceRecord = async (req, res) => {
             repairedRejectedBy,
             remarks,
             repairedParts, // Array of objects: [{ rawMaterialId: "123", quantity: 2, unit: "pcs" }]
-            farmerSaralId,
+            //farmerSaralId,
             userId,
         } = req.body;
 
         // ✅ Basic validation
         if (
             !item || !subItem || !quantity || !serialNumber || !faultAnalysis ||
-            !repairedRejectedBy || !remarks || !farmerSaralId || !Array.isArray(repairedParts) ||
+            !repairedRejectedBy || !remarks || !Array.isArray(repairedParts) ||
             repairedParts.length === 0 || !userId
         ) {
             return res.status(400).json({
@@ -1298,7 +1298,7 @@ const  addServiceRecord = async (req, res) => {
                 isRepaired,
                 repairedRejectedBy,
                 remarks,
-                farmerSaralId,
+                //farmerSaralId,
                 repairedParts,
                 userId,
             },
