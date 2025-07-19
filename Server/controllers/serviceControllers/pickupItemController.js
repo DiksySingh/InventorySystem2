@@ -733,6 +733,7 @@ module.exports.incomingItemsData = async (req, res) => {
       approvedBy,
       pickupDate
     } = req.body;
+    console.log("req.body", req.body);
     if (
       !farmerContact ||
       !farmerComplaintId ||
@@ -760,7 +761,7 @@ module.exports.incomingItemsData = async (req, res) => {
       items: { $size: items.length, $all: items.map(item => ({ itemName: item.itemName, quantity: item.quantity })) },
       incoming: true
     });
-
+    console.log("existingPickupData", existingPickupData);
     if (existingPickupData) {
       return res.status(400).json({
         success: false,
@@ -777,7 +778,7 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Warehouse Doesn't Exist",
       });
     }
-
+    console.log("warehouseData", warehouseData);
     const warehouseId = warehouseData._id;
 
     const warehouseItemRecord = await WarehouseItems.findOne({ warehouse: warehouseId });
@@ -787,7 +788,7 @@ module.exports.incomingItemsData = async (req, res) => {
         message: "Warehouse Items Data Not Found",
       });
     }
-
+    console.log("warehouseItemRecord", warehouseItemRecord);
     for (let item of items) {
       const itemName = item.itemName;
       const quantityToAdjust = item.quantity;
@@ -936,14 +937,14 @@ module.exports.incomingItemsData = async (req, res) => {
     });
 
     await returnItems.save();
-
+    console.log("returnItems:", returnItems);
     res.status(200).json({
       success: true,
       message: "Data Logged Successfully",
       returnItems,
     });
   } catch (error) {
-
+    console.error("Error in incomingItemsData:", error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
