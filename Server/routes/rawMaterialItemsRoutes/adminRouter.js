@@ -34,6 +34,7 @@ router.get("/getItemsProducibleCount", adminController.getItemsProducibleCount);
 router.get("/getInsufficientRawMaterials", adminController.getInsufficientRawMaterials);
 router.get("/showOverallServiceData", tokenVerification(['Admin']), adminController.showOverallRepairedOrRejectedData);
 router.get("/showProductionSummary", tokenVerification(['Admin']), adminController.showProductionSummary);
+router.get("/getAllProductionLogs", tokenVerification(['Admin']), adminController.getAllProductionLogs);
 
 router.get("/generateServiceRecordPDF", generateServiceRecordPDF);
 router.get("/generateRawMaterialStockPDF", generateRawMaterialStockPDF);

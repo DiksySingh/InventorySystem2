@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id           String          @id @default(uuid())
+  id           String   @id @default(uuid())
   name         String?
-  email        String?         @unique
+  email        String?  @unique
   contact      String?
   password     String?
   roleId       String?
@@ -19,14 +19,21 @@ model User {
   state        String?
   isActive     Boolean?
   refreshToken String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @default(now()) @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
-  updatedItems     ItemRawMaterial[] @relation("UserUpdates")
-  stocks       StockMovement[]
-  services     ServiceRecord[] // One-to-Many relationship with ServiceRecord
-  productionLogs ProductionLog[]
-  role         Role?           @relation(fields: [roleId], references: [id])
+  updatedItems          ItemRawMaterial[]        @relation("UserUpdates")
+  stocks                StockMovement[]
+  services              ServiceRecord[] // One-to-Many relationship with ServiceRecord
+  productionLogs        ProductionLog[]
+  role                  Role?                    @relation(fields: [roleId], references: [id])
+  stageActivity         StageActivity[]
+  itemUsage             ItemUsage[]
+  requestedItemRequests ItemRequestData[]        @relation("RequestedByUser")
+  approvedItemRequests  ItemRequestData[]        @relation("ApprovedByUser")
+  updatedItemRequests   ItemRequestData[]        @relation("UpdatedByUser")
+  createdServiceProcess Service_Process_Record[] @relation("CreatedByUser")
+  updatedServiceProcess Service_Process_Record[] @relation("UpdatedByUser")
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -53,56 +60,55 @@ model Item {
   updatedAt          DateTime             @updatedAt
   rawMaterials       ItemRawMaterial[]
   manufacturingUsage ManufacturingUsage[]
-  productionLogs ProductionLog[]
+  productionLogs     ProductionLog[]
 }
 
 model RawMaterial {
-  id                  String               @id @default(uuid())
-  name                String?              @unique
-  stock               Float?
-  unit                String?              
+  id    String  @id @default(uuid())
+  name  String? @unique
+  stock Float?
+  unit  String?
 
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   ItemRawMaterial     ItemRawMaterial[]
   manufacturingUsages ManufacturingUsage[]
   serviceUsages       ServiceUsage[]
   stockMovements      StockMovement[]
+  itemUsage           ItemUsage[]
 }
 
-
 model ItemRawMaterial {
-  id            String       @id @default(uuid())
+  id            String   @id @default(uuid())
   itemId        String?
   rawMaterialId String?
   quantity      Float?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   updatedBy     String?
 
-  user          User?         @relation("UserUpdates", fields: [updatedBy], references: [id])
-  item          Item?        @relation(fields: [itemId], references: [id])
-  rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
-  
+  user        User?        @relation("UserUpdates", fields: [updatedBy], references: [id])
+  item        Item?        @relation(fields: [itemId], references: [id])
+  rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
   @@unique([itemId, rawMaterialId])
   @@index([rawMaterialId], map: "ItemRawMaterial_rawMaterialId_fkey")
 }
 
 model StockMovement {
-  id            String       @id @default(uuid())
+  id            String   @id @default(uuid())
   rawMaterialId String?
   userId        String?
   warehouseId   String?
   quantity      Float?
   unit          String?
   type          String?
-  timestamp     DateTime     @default(now())
+  timestamp     DateTime @default(now())
 
-  rawMaterial   RawMaterial? @relation(fields: [rawMaterialId], references: [id])
-  warehouse     Warehouse?   @relation(fields: [warehouseId], references: [id])
-  user          User?        @relation(fields: [userId], references: [id])
+  rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  warehouse   Warehouse?   @relation(fields: [warehouseId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
 
   @@index([rawMaterialId], map: "StockMovement_rawMaterialId_fkey")
   @@index([warehouseId], map: "StockMovement_warehouseId_fkey")
@@ -113,74 +119,241 @@ model ManufacturingUsage {
   itemId            String?
   rawMaterialId     String?
   quantityUsed      Float?
-  unit            String?      // Reference to Unit 
+  unit              String? // Reference to Unit 
   manufacturingDate DateTime     @default(now())
   item              Item?        @relation(fields: [itemId], references: [id])
   rawMaterial       RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
   @@index([itemId], map: "ManufacturingUsage_itemId_fkey")
   @@index([rawMaterialId], map: "ManufacturingUsage_rawMaterialId_fkey")
- 
 }
+
 model ProductionLog {
   id                String   @id @default(uuid())
   itemId            String
-  subItem           String   // NEW FIELD
+  subItem           String // NEW FIELD
   quantityProduced  Int
   manufacturingDate DateTime @default(now())
   userId            String
-  item              Item?     @relation(fields: [itemId], references: [id])
-  user              User?     @relation(fields: [userId], references: [id])
+  item              Item?    @relation(fields: [itemId], references: [id])
+  user              User?    @relation(fields: [userId], references: [id])
 }
+
 model ServiceRecord {
-  id              String         @id @default(uuid()) // Unique Service Record ID
-  item            String?        // Main item being repaired (e.g., motor)  //Motor
-  subItem         String?        // Sub-item (e.g., capacitor, fuse) //MOTOR 10HP AC 380V
-  quantity        Float?         // Quantity of items handled    //1
-  serialNumber    String?        // Serial number of the serviced item //ABCB1234
-  faultAnalysis   String?        // Description of the fault or issue found  //Stamp Damaged
-  isRepaired      Boolean?           // Whether the main item was fixed //true
-  repairedRejectedBy      String?        // Name of the technician //Shiv
-  remarks         String?        // Additional repair notes // Deffective Items
-  repairedParts   Json?          // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
-  farmerSaralId   String?        // Farmer's Saral ID (if applicable) //1234567890
+  id                 String   @id @default(uuid()) // Unique Service Record ID
+  item               String? // Main item being repaired (e.g., motor)  //Motor
+  subItem            String? // Sub-item (e.g., capacitor, fuse) //MOTOR 10HP AC 380V
+  quantity           Float? // Quantity of items handled    //1
+  serialNumber       String? // Serial number of the serviced item //ABCB1234
+  faultAnalysis      String? // Description of the fault or issue found  //Stamp Damaged
+  isRepaired         Boolean? // Whether the main item was fixed //true
+  repairedRejectedBy String? // Name of the technician //Shiv
+  remarks            String? // Additional repair notes // Defective Items
+  repairedParts      Json? // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
 
-  userId          String         // User who created the record (foreign key)
-  user            User           @relation(fields: [userId], references: [id])  // Relationship to User model
+  userId String // User who created the record (foreign key)
+  user   User   @relation(fields: [userId], references: [id]) // Relationship to User model
 
-  servicedAt      DateTime       @default(now())                           // Service date
-  updatedAt       DateTime       @updatedAt                                // Automatically updated timestamp
-  
-  serviceUsages   ServiceUsage[]                                           // Relationship to parts usage
+  servicedAt DateTime @default(now()) // Service date
+  updatedAt  DateTime @updatedAt // Automatically updated timestamp
 
-  @@index([serialNumber], map: "ServiceRecord_serialNumber_idx")           // Index on serialNumber for fast lookups
-  @@index([userId], map: "ServiceRecord_userId_idx")                       // Index on userId for efficient queries
+  serviceUsages ServiceUsage[] // Relationship to parts usage
+
+  @@index([serialNumber], map: "ServiceRecord_serialNumber_idx") // Index on serialNumber for fast lookups
+  @@index([userId], map: "ServiceRecord_userId_idx") // Index on userId for efficient queries
 }
 
 model ServiceUsage {
-  id            String         @id @default(uuid())               // Unique ID
-  serviceId     String         // Foreign key to ServiceRecord (One-to-Many)
-  rawMaterialId String?        // Material/part used
-  quantityUsed  Float?         // Quantity used in this service
+  id            String  @id @default(uuid()) // Unique ID
+  serviceId     String // Foreign key to ServiceRecord (One-to-Many)
+  rawMaterialId String? // Material/part used
+  quantityUsed  Float? // Quantity used in this service
   // isRepaired    Boolean?       // Indicates if the part was repaired/replaced
   // remarks       String?        // Additional notes for this part usage
-  unit        String?         // Reference to Unit
- 
+  unit          String? // Reference to Unit
 
   // Relationships
-  rawMaterial   RawMaterial?   @relation(fields: [rawMaterialId], references: [id]) // Part reference
-  service       ServiceRecord?  @relation(fields: [serviceId], references: [id])    // Linked service record
+  rawMaterial RawMaterial?   @relation(fields: [rawMaterialId], references: [id]) // Part reference
+  service     ServiceRecord? @relation(fields: [serviceId], references: [id]) // Linked service record
 
   // Timestamps
-  createdAt     DateTime       @default(now())                     // Record creation time
-  updatedAt     DateTime       @updatedAt                         // Last modification time
+  createdAt DateTime @default(now()) // Record creation time
+  updatedAt DateTime @updatedAt // Last modification time
 
-  @@index([serviceId], map: "ServiceUsage_serviceId_fkey")        // Index for service lookups
-  @@index([rawMaterialId], map: "ServiceUsage_rawMaterialId_fkey")// Index for material lookups
+  @@index([serviceId], map: "ServiceUsage_serviceId_fkey") // Index for service lookups
+  @@index([rawMaterialId], map: "ServiceUsage_rawMaterialId_fkey") // Index for material lookups
 }
 
 model Unit {
-  id          String    @id @default(uuid())
-  name        String    @unique  // Example: "kg", "liters", "pieces"
-  createdAt   DateTime  @default(now())
+  id        String   @id @default(uuid())
+  name      String   @unique // Example: "kg", "liters", "pieces"
+  createdAt DateTime @default(now())
+}
+
+model Stage {
+  id                               String                   @id @default(uuid())
+  name                             String                   @unique
+  description                      String?
+  createdAt                        DateTime                 @default(now())
+  updatedAt                        DateTime                 @updatedAt
+  stageActivity                    StageActivity[]
+  serviceProcess                   Service_Process_Record[]
+  itemTypeStage                    ItemType_Stage[]
+  serviceProcessInitialStage       Service_Process_Record[] @relation("InitialStage")
+  serviceProcessRestartedFromStage Service_Process_Record[] @relation("RestartedFrom")
+  stageFlowCurrentStage            StageFlow[]              @relation("CurrentStage")
+  stageFlowNextStage               StageFlow[]              @relation("NextStage")
+  failureRedirectStage             FailureRedirect[]
+}
+
+model ItemType {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  serviceProcess  Service_Process_Record[]
+  itemTypeStage   ItemType_Stage[]
+  stageFlow       StageFlow[]
+  failureRedirect FailureRedirect[]
+}
+
+enum FailureReason {
+  VIBRATION
+  OVERLOAD
+  EARTHING
+  OTHER
+}
+
+enum ActivityStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+model StageActivity {
+  id               String         @id @default(uuid())
+  serviceProcessId String?
+  empId            String?
+  stageId          String?
+  status           ActivityStatus @default(PENDING)
+  isCurrent        Boolean        @default(false)
+  failureReason    FailureReason?
+  remarks          String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  serviceProcess Service_Process_Record? @relation(fields: [serviceProcessId], references: [id])
+  stage          Stage?                  @relation(fields: [stageId], references: [id])
+  user           User?                   @relation(fields: [empId], references: [id])
+}
+
+model ItemType_Stage {
+  id         String   @id @default(uuid())
+  itemTypeId String?
+  stageId    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  itemType ItemType? @relation(fields: [itemTypeId], references: [id])
+  stage    Stage?    @relation(fields: [stageId], references: [id])
+}
+
+model ItemRequestData {
+  id                   String   @id @default(uuid())
+  serviceProcessId     String?
+  isProcessRequest     Boolean  @default(false) // true = tied to specific process, false = advance/global
+  rawMaterialRequested Json?
+  requestedTo          String?
+  requestedBy          String?
+  requestedAt          DateTime @default(now())
+  approved             Boolean?
+  approvedBy           String?
+  approvedAt           DateTime
+  materialGiven        Boolean?
+  updatedAt            DateTime
+  updatedBy            String?
+
+  //Relation
+  serviceProcess  Service_Process_Record? @relation(fields: [serviceProcessId], references: [id])
+  requestedByUser User?                   @relation("RequestedByUser", fields: [requestedBy], references: [id])
+  approvedByUser  User?                   @relation("ApprovedByUser", fields: [approvedBy], references: [id])
+  updatedByUser   User?                   @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+}
+
+enum ProcessStatus {
+  PENDING
+  IN_PROGRESS
+  FAILED
+  REDIRECTED
+  COMPLETED
+}
+
+model Service_Process_Record {
+  id                   String        @id @default(uuid())
+  item                 String?
+  subItem              String?
+  itemTypeId           String?
+  serialNumber         String?
+  stageId              String?
+  initialStageId       String? // NEW - where it originally started
+  restartedFromStageId String? // NEW - where it restarted from
+  status               ProcessStatus @default(PENDING)
+  createdAt            DateTime      @default(now())
+  createdBy            String?
+  updatedAt            DateTime      @updatedAt
+  updatedBy            String?
+
+  itemType           ItemType? @relation(fields: [itemTypeId], references: [id])
+  stage              Stage?    @relation(fields: [stageId], references: [id])
+  initialStage       Stage?    @relation("InitialStage", fields: [initialStageId], references: [id])
+  restartedFromStage Stage?    @relation("RestartedFrom", fields: [restartedFromStageId], references: [id])
+
+  createdUser User? @relation("CreatedByUser", fields: [createdBy], references: [id])
+  updatedUser User? @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+
+  itemRequestData     ItemRequestData[]
+  stageActivity       StageActivity[]
+  serviceProcessUsage ItemUsage[]
+}
+
+model StageFlow {
+  id             String  @id @default(uuid())
+  itemTypeId     String?
+  currentStageId String?
+  nextStageId    String?
+
+  itemType     ItemType? @relation(fields: [itemTypeId], references: [id])
+  currentStage Stage?    @relation("CurrentStage", fields: [currentStageId], references: [id])
+  nextStage    Stage?    @relation("NextStage", fields: [nextStageId], references: [id])
+}
+
+model FailureRedirect {
+  id              String        @id @default(uuid())
+  itemTypeId      String? // Optional if universal
+  failureReason   FailureReason
+  redirectStageId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  itemType      ItemType? @relation(fields: [itemTypeId], references: [id])
+  redirectStage Stage?    @relation(fields: [redirectStageId], references: [id])
+}
+
+model ItemUsage {
+  id               String  @id @default(uuid())
+  serviceProcessId String?
+  empId            String?
+  rawMaterialId    String?
+  quantityUsed     Float?
+  unit             String?
+
+  rawMaterial    RawMaterial?            @relation(fields: [rawMaterialId], references: [id])
+  serviceProcess Service_Process_Record? @relation(fields: [serviceProcessId], references: [id])
+  user           User?                   @relation(fields: [empId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
