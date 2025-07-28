@@ -2508,8 +2508,8 @@ const addStageFlow = async (req, res) => {
         nextStageId
       }
     });
-
-    if(existingStageFlow.length > 0) {
+    
+    if(existingStageFlow) {
       return res.status(400).json({
         success: false,
         message: "Data already exists"
@@ -2522,8 +2522,13 @@ const addStageFlow = async (req, res) => {
         currentStageId,
         nextStageId
       }
-    })
-    
+    });
+     
+    return res.status(200).json({
+      success: true,
+      message: "Data added successfully",
+      data: newStageFlow
+    });
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
@@ -2531,6 +2536,54 @@ const addStageFlow = async (req, res) => {
       message: "Internal Server Error",
       error: error.message
     })
+  }
+};
+
+const addFailureRedirectStage = async (req, res) => {
+  try {
+    const {itemTypeId, failureReason, redirectStageId} = req?.body;
+    if(!itemTypeId || !failureReason || !redirectStageId) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      });
+    }
+
+    const existingData = await prisma.failureRedirect.findFirst({
+      where: {
+        itemTypeId,
+        failureReason,
+        redirectStageId
+      }
+    });
+
+    if(existingData) {
+      return res.status(400).json({
+        success: false,
+        message: "Data already exists"
+      });
+    }
+
+    const newData = await prisma.failureRedirect.create({
+      data: {
+        itemTypeId,
+        failureReason,
+        redirectStageId
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Data inserted successfully",
+      data: newData
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
   }
 };
 
@@ -2631,6 +2684,130 @@ const showStagesByItemType = async (req, res) => {
   }
 };
 
+const showStageFlow = async (req, res) => {
+  try {
+    const itemTypeId = req?.query?.itemTypeId;
+
+    const getStageFlow = await prisma.stageFlow.findMany({
+      where: {
+        itemTypeId
+      },
+      orderBy: {
+        createdAt: "asc"
+      },
+      include: {
+        itemType: {
+          select: {
+            // id: true,
+            name: true // adjust based on your ItemType fields
+          }
+        },
+        currentStage: {
+          select: {
+            // id: true,
+            name: true,
+            description: true
+          }
+        },
+        nextStage: {
+          select: {
+            // id: true,
+            name: true,
+            description: true
+          }
+        }
+      },
+    });
+
+    const flattenData = getStageFlow.map(data => ({
+      id: data.id,
+      itemTypeId: data.itemTypeId,
+      itemTypeName: data.itemType?.name || null,
+
+      currentStageId: data.currentStageId,
+      currentStageName: data.currentStage?.name || null,
+      currentStageDescription: data.currentStage?.description || null,
+
+      nextStageId: data.nextStageId,
+      nextStageName: data.nextStage?.name || null,
+      nextStageDescription: data.nextStage?.description || null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: flattenData
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
+const showFailureRedirectStage = async (req, res) => {
+  try {
+    const itemTypeId = req?.query?.itemTypeId;
+    if(!itemTypeId) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      });
+    }
+
+    const failureRedirectData = await prisma.failureRedirect.findMany({
+      where: {
+        itemTypeId
+      },
+      orderBy: {
+        createdAt: "asc"
+      },
+      include: {
+        itemType: {
+          select: {
+            name: true
+          }
+        },
+        redirectStage: {
+          select: {
+            name: true,
+            description: true
+          }
+        }
+      }
+    });
+
+    const normalizeData = failureRedirectData.map(data => ({
+      id: data?.id,
+      itemTypeId: data?.itemTypeId,
+      itemTypeName: data?.itemType?.name || null,
+
+      failureReason: data?.failureReason,
+
+      redirectStageId: data?.redirectStageId,
+      redirectStageName: data?.redirectStage?.name || null,
+      redirectStageDescription: data?.redirectStage?.description || null
+    }))
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: normalizeData
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
+
 module.exports = {
   showEmployees,
   deactivateEmployee,
@@ -2665,7 +2842,11 @@ module.exports = {
   addStage,
   addItemType,
   attachItemTypeWithStage,
+  addStageFlow,
+  addFailureRedirectStage,
   showStages,
   showProductType,
   showStagesByItemType,
+  showStageFlow,
+  showFailureRedirectStage
 };
