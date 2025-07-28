@@ -2321,7 +2321,7 @@ const showProductionSummary = async (req, res) => {
 
 const addStage = async (req, res) => {
   try {
-    const name = req?.body?.name;
+    const {name, description} = req?.body;
     if (!name) {
       return res.status(400).json({
         success: false,
@@ -2346,6 +2346,7 @@ const addStage = async (req, res) => {
     const newStage = await prisma.stage.create({
       data: {
         name: name,
+        description: description || null
       },
     });
 
@@ -2490,9 +2491,6 @@ const attachItemTypeWithStage = async (req, res) => {
     });
   }
 };
-
-
-
  
 module.exports = {
   showEmployees,

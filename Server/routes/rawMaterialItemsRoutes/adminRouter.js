@@ -41,4 +41,8 @@ router.get("/generateRawMaterialStockPDF", generateRawMaterialStockPDF);
 router.get("/generateDailyServiceRecordPDF", generateDailyServiceRecordPDF);
 router.delete("/deleteRawMaterialReport", deleteRawMaterialReport);
 
+router.post("/addStage", adminController.addStage);
+router.post("/addItemType", adminController.addItemType);
+router.post("/attachItemTypeWithStage", adminController.attachItemTypeWithStage);
+
 module.exports = router;

@@ -93,7 +93,7 @@ const ExcelJS = require("exceljs");
 
 const getDateRange = () => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), 3, 1); // April is month index 3
+  const start = new Date(now.getFullYear(), 6, 1); // April is month index 3
   const end = new Date();
   end.setHours(23, 59, 59, 999);
   return { start, end };
