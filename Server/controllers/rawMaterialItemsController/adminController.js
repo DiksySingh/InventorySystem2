@@ -1891,12 +1891,10 @@ const produceNewItem = async (req, res) => {
     if (!itemRawMaterials.length) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No raw materials linked to this item.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No raw materials linked to this item.",
+      });
     }
 
     const insufficientMaterials = itemRawMaterials.filter((rm) => {
@@ -2257,13 +2255,11 @@ const showOverallRepairedOrRejectedData = async (req, res) => {
       monthly: monthly,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal Server Error",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
 
@@ -2319,96 +2315,6 @@ const showProductionSummary = async (req, res) => {
   }
 };
 
-const addStage = async (req, res) => {
-  try {
-    const {name, description} = req?.body;
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
-    }
-
-    const existingStage = await prisma.$queryRaw`
-            SELECT * FROM Stage
-            WHERE LOWER(name) = LOWER(${name}) 
-            LIMIT 1;
-        `;
-
-    if (existingStage.length > 0) {
-      // Check if an entry exists
-      return res.status(400).json({
-        success: false,
-        message: "Data already exists",
-      });
-    }
-
-    const newStage = await prisma.stage.create({
-      data: {
-        name: name,
-        description: description || null
-      },
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Data added successfully",
-      data: newStage,
-    });
-  } catch (error) {
-    console.error("Error while adding stage: ", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
-const addItemType = async (req, res) => {
-  try {
-    const name = req?.body?.name;
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
-    }
-
-    const existingItemType = await prisma.$queryRaw`
-            SELECT * FROM ItemType
-            WHERE LOWER(name) = LOWER(${name})
-            LIMIT 1;
-        `;
-
-    if (existingItemType) {
-      return res.status(400).json({
-        success: false,
-        message: "Data already exists",
-      });
-    }
-
-    const newItemType = await prisma.itemType.create({
-      data: {
-        name: name,
-      },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Data added successfully",
-      data: newItemType,
-    });
-  } catch (error) {
-    console.error("Error while adding data: ", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
 const getAllProductionLogs = async (req, res) => {
   try {
     const logs = await prisma.productionLog.findMany({
@@ -2444,6 +2350,96 @@ const getAllProductionLogs = async (req, res) => {
   }
 };
 
+/****************** New System ******************************/
+const addStage = async (req, res) => {
+  try {
+    const { name, description } = req?.body;
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    const existingStage = await prisma.$queryRaw`
+            SELECT * FROM Stage
+            WHERE LOWER(name) = LOWER(${name}) 
+            LIMIT 1;
+        `;
+
+    if (existingStage.length > 0) {
+      // Check if an entry exists
+      return res.status(400).json({
+        success: false,
+        message: "Data already exists",
+      });
+    }
+
+    const newStage = await prisma.stage.create({
+      data: {
+        name: name,
+        description: description || null,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Data added successfully",
+      data: newStage,
+    });
+  } catch (error) {
+    console.error("Error while adding stage: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const addItemType = async (req, res) => {
+  try {
+    const name = req?.body?.name;
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    const existingItemType = await prisma.$queryRaw`
+            SELECT * FROM ItemType
+            WHERE LOWER(name) = LOWER(${name})
+            LIMIT 1;
+        `;
+    if (existingItemType.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Data already exists",
+      });
+    }
+
+    const newItemType = await prisma.itemType.create({
+      data: {
+        name: name,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Data added successfully",
+      data: newItemType,
+    });
+  } catch (error) {
+    console.error("Error while adding data: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const attachItemTypeWithStage = async (req, res) => {
   try {
     const { itemTypeId, stageId } = req.body;
@@ -2451,47 +2447,190 @@ const attachItemTypeWithStage = async (req, res) => {
     if (!itemTypeId || !stageId) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
     const existingData = await prisma.itemType_Stage.findFirst({
       where: {
         itemTypeId,
-        stageId
-      }
+        stageId,
+      },
     });
 
     if (existingData) {
       return res.status(400).json({
         success: false,
-        message: "Data already exists"
+        message: "Data already exists",
       });
     }
 
     const insertData = await prisma.itemType_Stage.create({
       data: {
         itemTypeId,
-        stageId
-      }
+        stageId,
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: "Data added successfully",
-      data: insertData
+      data: insertData,
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+//  itemTypeId     String?
+//   currentStageId String?
+//   nextStageId    String?
+
+const addStageFlow = async (req, res) => {
+  try {
+    const {itemTypeId, currentStageId, nextStageId} = req?.body;
+    if(!itemTypeId || !currentStageId || !nextStageId) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      });
+    }
+
+    const existingStageFlow = await prisma.stageFlow.findFirst({
+      where: {
+        itemTypeId,
+        currentStageId,
+        nextStageId
+      }
     });
 
+    if(existingStageFlow.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Data already exists"
+      });
+    }
+
+    const newStageFlow = await prisma.stageFlow.create({
+      data: {
+        itemTypeId,
+        currentStageId,
+        nextStageId
+      }
+    })
+    
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
       error: error.message
+    })
+  }
+};
+
+const showStages = async (req, res) => {
+  try {
+    const getStage = await prisma.stage.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: getStage || [],
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
- 
+
+const showProductType = async (req, res) => {
+  try {
+    const getProductType = await prisma.itemType.findMany({
+      orderBy: {
+        createdAt: "asc"
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: getProductType || [],
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const showStagesByItemType = async (req, res) => {
+  try {
+    const itemTypeId = req?.query?.itemTypeId;
+
+    if (!itemTypeId) {
+      return res.status(400).json({
+        success: false,
+        message: "itemTypeId is required",
+      });
+    }
+
+    const getStages = await prisma.itemType_Stage.findMany({
+      where: {
+        itemTypeId: itemTypeId,
+      },
+      orderBy: {
+        createdAt: "asc", // ascending order (earliest first)
+      },
+      select: {
+        id: true,
+        itemTypeId: true,
+        stage: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Stages fetched successfully",
+      data: getStages,
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   showEmployees,
   deactivateEmployee,
@@ -2522,8 +2661,11 @@ module.exports = {
   getInsufficientRawMaterials,
   showOverallRepairedOrRejectedData,
   showProductionSummary,
+  getAllProductionLogs,
   addStage,
   addItemType,
-  getAllProductionLogs,
-  attachItemTypeWithStage
+  attachItemTypeWithStage,
+  showStages,
+  showProductType,
+  showStagesByItemType,
 };

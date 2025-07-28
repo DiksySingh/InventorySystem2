@@ -44,5 +44,8 @@ router.delete("/deleteRawMaterialReport", deleteRawMaterialReport);
 router.post("/addStage", adminController.addStage);
 router.post("/addItemType", adminController.addItemType);
 router.post("/attachItemTypeWithStage", adminController.attachItemTypeWithStage);
+router.get("/showStages", adminController.showStages);
+router.get("/showProductType", adminController.showProductType);
+router.get("/showStagesByItemType", adminController.showStagesByItemType);
 
 module.exports = router;
