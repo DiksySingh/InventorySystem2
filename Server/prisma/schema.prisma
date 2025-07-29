@@ -277,9 +277,9 @@ model ItemRequestData {
   requestedAt          DateTime @default(now())
   approved             Boolean?
   approvedBy           String?
-  approvedAt           DateTime
+  approvedAt           DateTime?
   materialGiven        Boolean?
-  updatedAt            DateTime
+  updatedAt            DateTime?  @updatedAt
   updatedBy            String?
 
   //Relation
