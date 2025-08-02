@@ -1,0 +1,15 @@
+const express = require("express");
+const router = express.Router();
+const lineWorkerController = require("../../controllers/rawMaterialItemsController/lineWorkerController");
+const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
+
+router.get("/showStorePersons", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.showStorePersons);
+router.post("/createPreProcessItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createPreProcessItemRequest);
+router.post("/createInProcessItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createInProcessItemRequest);
+router.post("/createServiceProcess", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createServiceProcess); 
+router.get("/getProcessForUserStage", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.getProcessForUserStage);
+router.get("/showUserItemStock", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.showUserItemStock);
+router.post("/createItemUsageLog", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createItemUsageLog);
+router.post("/updateStageAndMoveNext", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.updateStageAndMoveNext);
+
+module.exports = router;
