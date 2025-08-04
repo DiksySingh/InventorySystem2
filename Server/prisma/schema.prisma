@@ -34,7 +34,7 @@ model User {
   updatedItemRequests   ItemRequestData[]        @relation("UpdatedByUser")
   createdServiceProcess Service_Process_Record[] @relation("CreatedByUser")
   updatedServiceProcess Service_Process_Record[] @relation("UpdatedByUser")
-  userItemStock UserItemStock[]
+  userItemStock         UserItemStock[]
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -78,7 +78,7 @@ model RawMaterial {
   serviceUsages       ServiceUsage[]
   stockMovements      StockMovement[]
   itemUsage           ItemUsage[]
-  userItemStock UserItemStock[]
+  userItemStock       UserItemStock[]
 }
 
 model ItemRawMaterial {
@@ -206,6 +206,7 @@ model Stage {
   stageFlowCurrentStage            StageFlow[]              @relation("CurrentStage")
   stageFlowNextStage               StageFlow[]              @relation("NextStage")
   failureRedirectStage             FailureRedirect[]
+
   @@map("Stage")
 }
 
@@ -219,6 +220,7 @@ model ItemType {
   itemTypeStage   ItemType_Stage[]
   stageFlow       StageFlow[]
   failureRedirect FailureRedirect[]
+
   @@map("ItemType")
 }
 
@@ -252,6 +254,7 @@ model StageActivity {
   serviceProcess Service_Process_Record? @relation(fields: [serviceProcessId], references: [id])
   stage          Stage?                  @relation(fields: [stageId], references: [id])
   user           User?                   @relation(fields: [empId], references: [id])
+
   @@map("StageActivity")
 }
 
@@ -264,22 +267,23 @@ model ItemType_Stage {
 
   itemType ItemType? @relation(fields: [itemTypeId], references: [id])
   stage    Stage?    @relation(fields: [stageId], references: [id])
+
   @@map("ItemType_Stage")
 }
 
 model ItemRequestData {
-  id                   String   @id @default(uuid())
+  id                   String    @id @default(uuid())
   serviceProcessId     String?
-  isProcessRequest     Boolean  @default(false) // true = tied to specific process, false = advance/global
+  isProcessRequest     Boolean   @default(false) // true = tied to specific process, false = advance/global
   rawMaterialRequested Json?
   requestedTo          String?
   requestedBy          String?
-  requestedAt          DateTime @default(now())
+  requestedAt          DateTime  @default(now())
   approved             Boolean?
   approvedBy           String?
   approvedAt           DateTime?
   materialGiven        Boolean?
-  updatedAt            DateTime?  @updatedAt
+  updatedAt            DateTime? @updatedAt
   updatedBy            String?
 
   //Relation
@@ -287,6 +291,7 @@ model ItemRequestData {
   requestedByUser User?                   @relation("RequestedByUser", fields: [requestedBy], references: [id])
   approvedByUser  User?                   @relation("ApprovedByUser", fields: [approvedBy], references: [id])
   updatedByUser   User?                   @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+
   @@map("ItemRequestData")
 }
 
@@ -308,6 +313,7 @@ model Service_Process_Record {
   initialStageId       String? // NEW - where it originally started
   restartedFromStageId String? // NEW - where it restarted from
   status               ProcessStatus @default(PENDING)
+  isRepaired           Boolean?
   createdAt            DateTime      @default(now())
   createdBy            String?
   updatedAt            DateTime      @updatedAt
@@ -324,6 +330,7 @@ model Service_Process_Record {
   itemRequestData     ItemRequestData[]
   stageActivity       StageActivity[]
   serviceProcessUsage ItemUsage[]
+
   @@map("Service_Process_Record")
 }
 
@@ -338,6 +345,7 @@ model StageFlow {
   itemType     ItemType? @relation(fields: [itemTypeId], references: [id])
   currentStage Stage?    @relation("CurrentStage", fields: [currentStageId], references: [id])
   nextStage    Stage?    @relation("NextStage", fields: [nextStageId], references: [id])
+
   @@map("StageFlow")
 }
 
@@ -351,6 +359,7 @@ model FailureRedirect {
 
   itemType      ItemType? @relation(fields: [itemTypeId], references: [id])
   redirectStage Stage?    @relation(fields: [redirectStageId], references: [id])
+
   @@map("FailureRedirect")
 }
 
@@ -368,6 +377,7 @@ model ItemUsage {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   @@map("ItemUsage")
 }
 
@@ -380,7 +390,7 @@ model UserItemStock {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  user User? @relation(fields: [empId], references: [id])
+  user        User?        @relation(fields: [empId], references: [id])
   rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
   @@unique([empId, rawMaterialId])

@@ -20,6 +20,8 @@ const serviceTeamRoute = require("./routes/serviceTeamRoutes");
 const authRouter = require("./routes/rawMaterialItemsRoutes/authRouter");
 const adminRouter = require("./routes/rawMaterialItemsRoutes/adminRouter");
 const commonRouter = require("./routes/rawMaterialItemsRoutes/commonRouter");
+const lineWorkerRouter = require("./routes/rawMaterialItemsRoutes/lineWorkerRouter");
+const storekeeperRouter = require("./routes/rawMaterialItemsRoutes/storekeeperRouter");
 const testRouter = require("./routes/test");
 
 // Load environment variables
@@ -74,6 +76,8 @@ app.use("/service-team", serviceTeamRoute);
 app.use("/auth", authRouter);
 app.use("/admin", adminRouter);
 app.use("/common", commonRouter);
+app.use("/line-worker", lineWorkerRouter);
+app.use("/store-keeper", storekeeperRouter);
 app.use("/test", testRouter);
 
 // Start the server
