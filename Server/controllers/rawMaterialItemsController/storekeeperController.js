@@ -5,8 +5,23 @@ const getLineWorkerList = async (req, res) => {
     const userData = await prisma.user.findMany({
       where: {
         role: {
-          name: {
-            notIn: ["Admin", "SuperAdmin", "Store"],
+          is: {
+            name: {
+              notIn: ["Admin", "SuperAdmin", "Store"],
+            },
+          },
+        },
+      },
+      orderBy: {
+        name: "asc"
+      },
+      select: {
+        id: true,
+        name: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -14,7 +29,7 @@ const getLineWorkerList = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: userData || []
+      data: userData || [],
     });
   } catch (error) {
     console.error("ERROR: ", error);
@@ -28,7 +43,7 @@ const getLineWorkerList = async (req, res) => {
 
 const showIncomingItemRequest = async (req, res) => {
   try {
-    const empId = req.query;
+    const empId = req.query?.empId;
     if (!empId) {
       throw new Error("Employee Id Not Found");
     }
@@ -36,7 +51,7 @@ const showIncomingItemRequest = async (req, res) => {
     const incomingItemRequest = await prisma.itemRequestData.findMany({
       where: {
         requestedBy: empId,
-        approved: false,
+        approved: null,
       },
       orderBy: {
         requestedAt: "desc",
@@ -223,7 +238,7 @@ const sanctionItemForRequest = async (req, res) => {
 const getUserItemStock = async (req, res) => {
   try {
     const empId = req?.query?.empId;
-    if(!empId) {
+    if (!empId) {
       throw new Error("Employee ID Not Found");
     }
 
@@ -231,30 +246,29 @@ const getUserItemStock = async (req, res) => {
       where: {
         empId,
         quantity: {
-          gt: 0
-        }
+          gt: 0,
+        },
       },
       include: {
-          rawMaterial: true,
-          select: {
-            id: true,
-            name: true,
-          }
-      }
+        rawMaterial: true,
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: userItemStockDetails || []
+      data: userItemStockDetails || [],
     });
-    
   } catch (error) {
     console.log("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -263,6 +277,6 @@ module.exports = {
   getLineWorkerList,
   showIncomingItemRequest,
   approveIncomingItemRequest,
-  sanctionItemForRequest, 
+  sanctionItemForRequest,
   getUserItemStock,
 };

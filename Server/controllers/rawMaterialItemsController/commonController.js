@@ -359,7 +359,8 @@ const updateRawMaterialStockByExcel = async (req, res) => {
         error: error.message,
       });
     }
-  };
+};
+
 
 module.exports = {
     addRole,

@@ -5,14 +5,18 @@ const showStorePersons = async (req, res) => {
     const storeUsers = await prisma.user.findMany({
       where: {
         role: {
-          name: "Store",
+          is: {
+            name: "Store",
+          },
         },
       },
       select: {
         id: true,
         name: true,
         role: {
-          name: true,
+          select: {
+            name: true,
+          },
         },
       },
     });
@@ -32,16 +36,74 @@ const showStorePersons = async (req, res) => {
   }
 };
 
+const rawMaterialForItemRequest = async (req, res) => {
+  try {
+    const allRawMaterial = await prisma.rawMaterial.findMany({
+      orderBy: {
+        stock: "asc"
+      },
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        unit: true
+      }
+    });
+
+    const filteredData = allRawMaterial.map((data) => ({
+      id: data.id,
+      name: data.name,
+      stock: data.stock,
+      unit: data.unit,
+      outOfStock: data.stock === 0 ? true : false
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: filteredData || []
+    });
+  } catch (error) {
+    console.log("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 const createPreProcessItemRequest = async (req, res) => {
   try {
     const { rawMaterialRequested, requestedTo } = req?.body;
+    console.log("Req.body: ", req.body);
     const empId = req?.user?.id;
+    console.log("EmpId: ", empId);
     if (
       !rawMaterialRequested ||
       !requestedTo ||
       rawMaterialRequested.length === 0
     ) {
       throw new Error("All fields are required");
+    }
+
+    const isStoreKeeper = await prisma.user.findFirst({
+      where: {
+        id: requestedTo
+      },
+      include: {
+        role: {
+          select: {
+            name: true
+          }
+        }
+      }
+    });
+    if(isStoreKeeper.role.name !== "Store") {
+      return res.status(400).json({
+        success: false,
+        message: "You can only request item to storekeeper"
+      });
     }
 
     for (let rawMaterial of rawMaterialRequested) {
@@ -80,6 +142,7 @@ const createPreProcessItemRequest = async (req, res) => {
 
       return newRequest;
     });
+    console.log("Pre-process: ", result);
 
     return res.status(200).json({
       success: true,
@@ -107,6 +170,25 @@ const createInProcessItemRequest = async (req, res) => {
       rawMaterialRequested.length === 0
     ) {
       throw new Error("All fields are required");
+    }
+
+    const isStoreKeeper = await prisma.user.findFirst({
+      where: {
+        id: requestedTo
+      },
+      include: {
+        role: {
+          select: {
+            name: true
+          }
+        }
+      }
+    });
+    if(isStoreKeeper.role.name !== "Store") {
+      return res.status(400).json({
+        success: false,
+        message: "You can only request item to storekeeper"
+      });
     }
 
     for (let rawMaterial of rawMaterialRequested) {
@@ -482,7 +564,7 @@ const updateStageAndMoveNext = async (req, res) => {
           },
         },
       });
-      
+
       if (
         updatedCurrentActivity?.stage?.name === "Testing" &&
         updatedCurrentActivity?.serviceProcess?.itemType?.name === "SERVICE"
@@ -560,7 +642,7 @@ const updateStageAndMoveNext = async (req, res) => {
               },
             });
           }
-        } else if(updatedCurrentActivity?.status === "COMPLETED") {
+        } else if (updatedCurrentActivity?.status === "COMPLETED") {
           //logic for updating the stock for the service material
         }
       } else if (
@@ -743,6 +825,7 @@ const updateStageAndMoveNext = async (req, res) => {
 
 module.exports = {
   showStorePersons,
+  rawMaterialForItemRequest,
   createPreProcessItemRequest,
   createInProcessItemRequest,
   createServiceProcess,
