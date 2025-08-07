@@ -341,7 +341,7 @@ module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
     // const { email, password, role } = req.body;
-
+    
     const options = {
       withCredentials: true,
       httpOnly: true,
@@ -389,7 +389,7 @@ module.exports.Login = async (req, res) => {
     }
     //const role = roles[email] || 'serviceperson';
     //const role = user.role;
-    const accessToken = createSecretToken(user._id, user.role);
+    const accessToken = createSecretToken(user._id, user?.role);
     const refreshToken = createRefreshToken(user._id);
 
     // Update the refreshToken in the database
@@ -429,7 +429,7 @@ module.exports.Login = async (req, res) => {
         longitude: user.longitude || null,
         // accessToken,
         // refreshToken,
-        role,
+        role: user.role || null,
       });
   } catch (error) {
     res.status(500).json({
