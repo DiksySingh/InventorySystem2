@@ -7,19 +7,19 @@ const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
 
 //ServicePerson Routes
-router.get("/dashboard",userVerification(["serviceperson"]),servicePersonDashboard);
-router.get("/warehouse-items", userVerification(['serviceperson']), showWarehouseItems);
-router.get("/all-warehouses", userVerification(['serviceperson']), showWarehouses);
-router.post("/incoming-items",userVerification(["serviceperson"]),incomingItemsData);
-router.get("/pickedup-items",userVerification(["serviceperson"]),pickupItemOfServicePerson);
-router.get("/approved-order-history", userVerification(['serviceperson']), viewApprovedOrderHistory);
-router.put("/update-outgoing-status", userVerification(["serviceperson"]), updateOrderStatus);
-router.get("/show-holding-items", userVerification(['serviceperson']), showServicePersonRepairedHoldingItems);
-router.put("/update-holding-items", userVerification(['serviceperson']), updateServicePersonHoldingItems);
+router.get("/dashboard",userVerification(["serviceperson", 'installer', 'fieldsales', 'filing']),servicePersonDashboard);
+router.get("/warehouse-items", userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), showWarehouseItems);
+router.get("/all-warehouses", userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), showWarehouses);
+router.post("/incoming-items", userVerification(["serviceperson", 'installer', 'fieldsales', 'filing']),incomingItemsData);
+router.get("/pickedup-items", userVerification(["serviceperson", 'installer', 'fieldsales', 'filing']),pickupItemOfServicePerson);
+router.get("/approved-order-history", userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), viewApprovedOrderHistory);
+router.put("/update-outgoing-status", userVerification(["serviceperson", 'installer', 'fieldsales', 'filing']), updateOrderStatus);
+router.get("/show-holding-items", userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), showServicePersonRepairedHoldingItems);
+router.put("/update-holding-items", userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), updateServicePersonHoldingItems);
 
-router.get("/get-pickupItem-data", userVerification(['serviceperson']), getPickupItemData);
-router.get("/check-lat-long", userVerification(['serviceperson']), checkServicePersonLatLong);
-router.post("/new-installation-data",userVerification(['serviceperson']), createInstallationData);
+router.get("/get-pickupItem-data", userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), getPickupItemData);
+router.get("/check-lat-long", userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), checkServicePersonLatLong);
+router.post("/new-installation-data",userVerification(['serviceperson', 'installer', 'fieldsales', 'filing']), createInstallationData);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
