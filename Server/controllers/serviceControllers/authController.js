@@ -339,8 +339,8 @@ module.exports.updateServicePerson = async (req, res) => {
 
 module.exports.Login = async (req, res) => {
   try {
-    //const { email, password } = req.body;
-    const { email, password, role } = req.body;
+    const { email, password } = req.body;
+    // const { email, password, role } = req.body;
 
     const options = {
       withCredentials: true,
@@ -348,17 +348,22 @@ module.exports.Login = async (req, res) => {
       secure: false,
     };
 
-    if (!email || !password || !role) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
       });
     }
     const normalizedEmail = email.toLowerCase().trim()
-    let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role })||
-      await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }).populate('warehouse') ||
-      await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }) ||
-      await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role });
+    // let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role })||
+    //   await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }).populate('warehouse') ||
+    //   await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }) ||
+    //   await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role });
+
+       let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')})||
+      await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}).populate('warehouse') ||
+      await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}) ||
+      await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')});
 
     if (!user) {
       return res.status(401).json({
@@ -384,7 +389,7 @@ module.exports.Login = async (req, res) => {
     }
     //const role = roles[email] || 'serviceperson';
     //const role = user.role;
-    const accessToken = createSecretToken(user._id, role);
+    const accessToken = createSecretToken(user._id, user.role);
     const refreshToken = createRefreshToken(user._id);
 
     // Update the refreshToken in the database

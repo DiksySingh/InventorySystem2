@@ -1,5 +1,4 @@
 const prisma = require("../../config/prismaClient");
-
 const getLineWorkerList = async (req, res) => {
   try {
     const userData = await prisma.user.findMany({
@@ -13,7 +12,7 @@ const getLineWorkerList = async (req, res) => {
         },
       },
       orderBy: {
-        name: "asc"
+        name: "asc",
       },
       select: {
         id: true,
@@ -168,7 +167,7 @@ const sanctionItemForRequest = async (req, res) => {
           );
         }
 
-        if (rawMaterialData.stock < rawMaterial.quantity) {
+        if (Number(rawMaterialData.stock) < Number(rawMaterial.quantity)) {
           throw new Error(
             `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds available stock`
           );
@@ -178,7 +177,7 @@ const sanctionItemForRequest = async (req, res) => {
         await tx.rawMaterial.update({
           where: { id: rawMaterialData.id },
           data: {
-            stock: { decrement: rawMaterial.quantity },
+            stock: { decrement: Number(rawMaterial.quantity) },
           },
         });
 
@@ -194,7 +193,7 @@ const sanctionItemForRequest = async (req, res) => {
           await tx.userItemStock.update({
             where: { id: existingUserItemStockData.id }, // MUST use unique ID here
             data: {
-              quantity: { increment: rawMaterial.quantity },
+              quantity: { increment: Number(rawMaterial.quantity) },
             },
           });
         } else {
@@ -202,7 +201,7 @@ const sanctionItemForRequest = async (req, res) => {
             data: {
               empId: itemRequestData.requestedBy,
               rawMaterialId: rawMaterial.rawMaterialId,
-              quantity: rawMaterial.quantity,
+              quantity: Number(rawMaterial.quantity),
               unit: rawMaterial.unit,
             },
           });
@@ -249,12 +248,17 @@ const getUserItemStock = async (req, res) => {
           gt: 0,
         },
       },
-      include: {
-        rawMaterial: true,
-        select: {
-          id: true,
-          name: true,
+      select: {
+        id: true,
+        empId: true,
+        rawMaterial: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
+        quantity: true,
+        unit: true,
       },
     });
 
@@ -273,10 +277,121 @@ const getUserItemStock = async (req, res) => {
   }
 };
 
+const showProcessData = async (req, res) => {
+  try {
+    const { filterType, startDate, endDate, status } = req.body;
+    let start, end;
+
+    const now = new Date();
+    const today = new Date(now.setHours(0, 0, 0, 0));
+
+    switch (filterType) {
+      case "Today":
+        start = today;
+        end = new Date(today);
+        end.setHours(23, 59, 59, 9999);
+        break;
+
+      case "Week":
+        start = new Date(today);
+        start.setDate(today.getDate() - 6); // past 7 days
+        end = new Date();
+        break;
+
+      case "Month":
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999
+        );
+        break;
+
+      case "Year":
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        break;
+
+      case "Custom":
+        if (!startDate || !endDate) {
+          return res.status(400).json({
+            success: false,
+            message: "Start date and end date required for custom range",
+          });
+        }
+        start = new Date(startDate);
+        end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: "Invalid filter type",
+        });
+    }
+
+    const filterConditions = {
+       createdAt: {
+          gte: start,
+          lte: end,
+        },
+    };
+
+    if(status && ["IN_PROGRESS", "COMPLETED", "REDIRECTED"].includes(status)) {
+      filterConditions.status = status
+    }
+
+    const processData = await prisma.service_Process_Record.findMany({
+      where: filterConditions,
+      orderBy: {
+        createdAt: 'asc',
+      },
+      select: {
+        id: true,
+        item: true,
+        subItem: true,
+        itemType: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        serialNumber: true,
+        stage: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        status: true,
+        createdAt: true
+      }
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: processData || [],
+    });
+  } catch (error) {
+    console.log("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   getLineWorkerList,
   showIncomingItemRequest,
   approveIncomingItemRequest,
   sanctionItemForRequest,
   getUserItemStock,
+  showProcessData
 };

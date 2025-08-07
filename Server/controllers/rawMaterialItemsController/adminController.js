@@ -40,7 +40,7 @@ const getDefectiveItemsForWarehouse = async (req, res) => {
                       },
                       "controller",
                       "others",
-                    ],
+                    ], 
                   },
                 ],
               },
@@ -224,6 +224,12 @@ const showEmployees = async (req, res) => {
         name: true,
         email: true,
         contact: true,
+        roleId: true,
+        role: {
+          select: {
+            name: true
+          }
+        }
       },
     });
 

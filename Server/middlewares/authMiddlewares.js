@@ -11,7 +11,8 @@ const jwt = require("jsonwebtoken");
 
 module.exports.userVerification = (allowedRoles) => {
   return async (req, res, next) => {
-    const token = req.cookies.accessToken || req.headers.authorization?.split(" ")[1]; 
+    const token =
+      req.cookies.accessToken || req.headers.authorization?.split(" ")[1];
     if (!token) {
       return res.status(400).json({
         status: false,
@@ -35,26 +36,41 @@ module.exports.userVerification = (allowedRoles) => {
         try {
           let user;
 
-          if (data.role === "serviceperson") {  
-            user = await ServicePerson.findById(data.id).select("-password -createdAt -refreshToken -__v");
-          } else if(data.role === "warehouseAdmin") {
-            user = await WarehousePerson.findById(data.id).select("-password -createdAt -refreshToken -__v");
-          } else if(data.role === "surveyperson"){
-            user = await SurveyPerson.findById(data.id).select("-password -createdAt -refreshToken -__v");
+          const serviceRoles = new Set([
+            "serviceperson",
+            "installer",
+            "filing",
+            "fieldsales",
+          ]);
+
+          if (serviceRoles.has(data.role)) {
+            user = await ServicePerson.findById(data.id).select(
+              "-password -createdAt -refreshToken -__v"
+            );
+          } else if (data.role === "warehouseAdmin") {
+            user = await WarehousePerson.findById(data.id).select(
+              "-password -createdAt -refreshToken -__v"
+            );
+          } else if (data.role === "surveyperson") {
+            user = await SurveyPerson.findById(data.id).select(
+              "-password -createdAt -refreshToken -__v"
+            );
           } else {
-            user = await Admin.findById(data.id).select("-password -createdAt -refreshToken -__v");
+            user = await Admin.findById(data.id).select(
+              "-password -createdAt -refreshToken -__v"
+            );
           }
           if (!user) {
             return res.status(404).json({
               status: false,
-              message: `${user.role} not found`
+              message: `User not found`,
             });
           }
 
-          if(user.isActive === false){
+          if (user.isActive === false) {
             return res.status(403).json({
               status: false,
-              message: "User is not active"
+              message: "User is not active",
             });
           }
 
@@ -72,7 +88,7 @@ module.exports.userVerification = (allowedRoles) => {
           return res.status(500).json({
             status: false,
             message: "Internal Server Error",
-            error: error.message
+            error: error.message,
           });
         }
       }
@@ -111,9 +127,9 @@ module.exports.refreshToken = async (req, res) => {
           user = await ServicePerson.findById(id);
           if (!user) {
             user = await WarehousePerson.findById(id);
-            if(!user){
+            if (!user) {
               user = await SurveyPerson.findById(id);
-              if(!user){
+              if (!user) {
                 return res.status(400).json({
                   success: false,
                   message: "Admin, WarehousePerson or ServicePerson Not Found",

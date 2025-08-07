@@ -1,9 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const storekeeperController = require("../../controllers/rawMaterialItemsController/storekeeperController");
+const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 
-router.get("/getLineWorkerList", storekeeperController.getLineWorkerList);
-router.get("/showIncomingItemRequest", storekeeperController.showIncomingItemRequest);
-router.put("/approveIncomingItemRequest", storekeeperController.approveIncomingItemRequest);
+router.get("/getLineWorkerList", tokenVerification(['Store']), storekeeperController.getLineWorkerList);
+router.get("/showIncomingItemRequest", tokenVerification(['Store']), storekeeperController.showIncomingItemRequest);
+router.put("/approveIncomingItemRequest", tokenVerification(['Store']), storekeeperController.approveIncomingItemRequest);
+router.post("/sanctionItemForRequest", tokenVerification(['Store']), storekeeperController.sanctionItemForRequest);
+router.get("/getUserItemStock", storekeeperController.getUserItemStock);
 
 module.exports = router;
