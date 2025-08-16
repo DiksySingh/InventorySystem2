@@ -555,7 +555,7 @@ const newSystemInstallation = async (req, res) => {
           message: "Item Not Found In Employee Account",
         });
       }
-
+      console.log("existingItem", existingItem);
       if (parseInt(existingItem.quantity) < parseInt(quantity)) {
         await session.abortTransaction();
         session.endSession();
