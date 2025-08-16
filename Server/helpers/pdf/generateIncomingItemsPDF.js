@@ -208,6 +208,7 @@ exports.generateIncomingItemsPDF = async (req, res) => {
     await browser.close();
 
     res.status(200).json({
+      success: true,
       message: "PDF has been successfully generated",
     });
   } catch (error) {

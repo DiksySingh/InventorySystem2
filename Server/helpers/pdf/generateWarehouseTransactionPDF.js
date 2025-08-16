@@ -178,7 +178,7 @@ module.exports.generateWarehouseTransactionPDF = async (req, res) => {
 
         console.log(`PDF saved at: ${filePath}`);
 
-        res.status(200).json({ message: "PDF saved successfully"});
+        res.status(200).json({ success: true, message: "PDF saved successfully"});
 
     } catch (error) {
         console.error("Error generating PDF:", error);

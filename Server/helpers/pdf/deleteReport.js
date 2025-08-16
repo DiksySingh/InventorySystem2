@@ -56,7 +56,7 @@ const deleteAllReports = async (req, res) => {
 
         return res.json({
             success: true,
-            message: "All file deletions processed.",
+            message: "All file deletions processed successfully",
             deletedFiles,
             notFoundFiles,
         });

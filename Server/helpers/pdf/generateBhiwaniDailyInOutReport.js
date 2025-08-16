@@ -126,7 +126,7 @@ module.exports.generateBhiwaniDailyInOutReport = async (req, res) => {
         await page.pdf({ path: filePath, format: "A4", printBackground: true });
         await browser.close();
 
-        res.status(200).json({ message: "PDF saved successfully" });
+        res.status(200).json({success: true, message: "PDF saved successfully" });
     } catch (error) {
         console.error("Error generating PDF:", error);
         res.status(500).send("Internal Server Error");
