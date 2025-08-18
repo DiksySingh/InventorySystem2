@@ -3147,7 +3147,10 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
             SurveyPerson.find(filter).select("-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v").sort({ state: 1, district: 1 })
         ]);
 
-        const filterServicePerson = servicePersons.filter((person) => { return person.role === 'serviceperson' || person.role === 'fieldsales' });
+        const filterServicePerson = servicePersons.filter((person) => { 
+            return person.role === 'serviceperson'; 
+                //|| person.role === 'fieldsales' 
+            });
 
         const allPersons = [
             ...surveyPersons.map((person) => ({ ...person, role: "surveyperson" })),
