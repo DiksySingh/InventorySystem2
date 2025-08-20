@@ -1,5 +1,6 @@
 const {
     allServiceSurveyPersons,
+    fieldWorkerList,
     filterServicePersonById,
     filterStateWiseServicePerson,
     servicePersonBlockData,
@@ -28,6 +29,7 @@ const router = require("express").Router();
 const { uploadHandler } = require("../middlewares/multerConfig");
 
 router.get("/all-service-persons", allServiceSurveyPersons);
+router.get("/field-worker-list", fieldWorkerList);
 router.get("/show-warehouse-persons", showWarehousePersons);
 router.get("/find-service-person", filterServicePersonById);
 router.post("/get-serviceperson-data", getServicePersonData)
