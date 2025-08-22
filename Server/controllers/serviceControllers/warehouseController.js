@@ -66,7 +66,7 @@ module.exports.addWarehouse = async (req, res) => {
 
 module.exports.showWarehouses = async (req, res) => {
     try {
-        const allWarehouses = await Warehouse.find().select("-__v -createdAt");
+        const allWarehouses = await Warehouse.find({warehouseName: {$nin: ["Sirsa", "Hisar", "Jind", "Fatehabad"]}}).select("-__v -createdAt");
 
         if (allWarehouses.length === 0) {
             return res.status(404).json({
