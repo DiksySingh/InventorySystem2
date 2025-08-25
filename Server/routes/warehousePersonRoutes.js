@@ -37,7 +37,8 @@ const {
   getSystemItemsWithSubItems,
   allServiceSurveyPersons,
   servicePersonForMaharashtra,
-  getSystemItemsFromItemComponentMap
+  getSystemItemsFromItemComponentMap,
+  declinePickupItemsTransaction
 } = require("../controllers/serviceControllers/warehouseController");
 const { sendingDefectiveItems, inDefectiveItemsData, inDefectiveItemsOrderHistory, outgoingDefectiveOrderData, updateDefectiveOrderStatus } = require("../controllers/serviceControllers/warehouse2WarehouseController");
 const { getWarehouseInstallationData } = require("../controllers/serviceControllers/installationDataController");
@@ -68,6 +69,7 @@ router.get("/warehouse-in-out-orders",userVerification(["warehouseAdmin"]), ware
 router.get("/repair-items-history", userVerification(['warehouseAdmin']), warehouseRepairItemsData);
 router.get("/reject-items-history", userVerification(['warehouseAdmin']), warehouseRejectItemsData);
 router.put("/update-incoming-status", userVerification(["warehouseAdmin"]), updateOrderStatus);
+router.put("/decline-incoming-items", userVerification(['warehouseAdmin']), declinePickupItemsTransaction)
 router.post("/defective-order-data", userVerification(['warehouseAdmin']), sendingDefectiveItems);
 router.get("/view-defective-orders", userVerification(['warehouseAdmin']), inDefectiveItemsData);
 router.get("/defective-order-history", userVerification(['warehouseAdmin']), inDefectiveItemsOrderHistory);

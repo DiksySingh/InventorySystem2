@@ -4217,3 +4217,43 @@ module.exports.updateInstallationInventoryFromExcel = async (req, res) => {
         });
     }
 };
+
+module.exports.declinePickupItemsTransaction = async (req, res) => {
+    try {
+        const { transactionId, remark } = req.body;
+
+        if (!transactionId || !remark.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Incomplete Data"
+            });
+        }
+
+        const existingData = await PickupItem.findOneAndUpdate(
+            { _id: transactionId, status: null },
+            { status: false, warehouseRemark, declinedBy: req.user?.name, declineDate: new Date() },
+            { new: true }
+        );
+
+        if (!existingData) {
+            return res.status(404).json({
+                success: false,
+                message: "Data Not Found or Already Processed"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Transaction Declined Successfully",
+            data: existingData
+        });
+
+    } catch (error) {
+        console.error("ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};

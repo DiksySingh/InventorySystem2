@@ -89,11 +89,20 @@ const pickupItemSchema = new Schema(
       type: Boolean,
       default: false
     },
+    warehouseRemark: {
+      type: String,
+    },
     pickupDate: {
       type: Date,
       required: true,
     },
     arrivedDate: {
+      type: Date,
+    },
+     declinedBy: {
+      type: String
+    },
+    declineDate: {
       type: Date,
     },
     referenceType: {
