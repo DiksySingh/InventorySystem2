@@ -4231,7 +4231,7 @@ module.exports.declinePickupItemsTransaction = async (req, res) => {
 
         const existingData = await PickupItem.findOneAndUpdate(
             { _id: transactionId, status: null },
-            { status: false, warehouseRemark, declinedBy: req.user?.name, declineDate: new Date() },
+            { status: false, warehouseRemark: remark, declinedBy: req.user?.name, declineDate: new Date() },
             { new: true }
         );
 
