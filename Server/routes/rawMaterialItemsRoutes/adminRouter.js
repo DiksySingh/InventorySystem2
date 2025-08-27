@@ -41,6 +41,9 @@ router.get("/generateRawMaterialStockPDF", generateRawMaterialStockPDF);
 router.get("/generateDailyServiceRecordPDF", generateDailyServiceRecordPDF);
 router.delete("/deleteRawMaterialReport", deleteRawMaterialReport);
 
+router.post("/addBOM", adminController.addBOM);
+router.post("/addBOMByExcel", adminController.addBOMByExcel);
+router.post("/updateBOM", adminController.updateBOM);
 router.post("/addStage", adminController.addStage);
 router.post("/addItemType", adminController.addItemType);
 router.post("/attachItemTypeWithStage", adminController.attachItemTypeWithStage);
@@ -51,5 +54,7 @@ router.get("/showProductType", adminController.showProductType);
 router.get("/showStagesByItemType", adminController.showStagesByItemType);
 router.get("/showStageFlow", adminController.showStageFlow);
 router.get("/showFailureRedirectStage", adminController.showFailureRedirectStage);
+
+router.get("/showStockUpdateHistory", adminController.showStockUpdateHistory);
 
 module.exports = router;

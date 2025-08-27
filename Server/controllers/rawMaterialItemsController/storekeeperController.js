@@ -1,4 +1,6 @@
 const prisma = require("../../config/prismaClient");
+const fs = require("fs/promises");
+
 const getLineWorkerList = async (req, res) => {
   try {
     const userData = await prisma.user.findMany({
@@ -336,20 +338,20 @@ const showProcessData = async (req, res) => {
     }
 
     const filterConditions = {
-       createdAt: {
-          gte: start,
-          lte: end,
-        },
+      createdAt: {
+        gte: start,
+        lte: end,
+      },
     };
 
-    if(status && ["IN_PROGRESS", "COMPLETED", "REDIRECTED"].includes(status)) {
-      filterConditions.status = status
+    if (status && ["IN_PROGRESS", "COMPLETED", "REDIRECTED"].includes(status)) {
+      filterConditions.status = status;
     }
 
     const processData = await prisma.service_Process_Record.findMany({
       where: filterConditions,
       orderBy: {
-        createdAt: 'asc',
+        createdAt: "asc",
       },
       select: {
         id: true,
@@ -358,20 +360,20 @@ const showProcessData = async (req, res) => {
         itemType: {
           select: {
             id: true,
-            name: true
-          }
+            name: true,
+          },
         },
         serialNumber: true,
         stage: {
           select: {
             id: true,
-            name: true
-          }
+            name: true,
+          },
         },
         status: true,
-        createdAt: true
-      }
-    })
+        createdAt: true,
+      },
+    });
 
     return res.status(200).json({
       success: true,
@@ -387,11 +389,99 @@ const showProcessData = async (req, res) => {
     });
   }
 };
+
+const updateStock = async (req, res) => {
+  const uploadFiles = [];
+  try {
+    const empId = req?.user?.id;
+    const rawMaterialList = req?.body?.rawMaterialList;
+
+    if (!rawMaterialList || rawMaterialList.length === 0) {
+      throw new Error("Data not found");
+    }
+    if (!req.files || !req.files.billPhotos) {
+      throw new Error("File not uploaded");
+    }
+
+    const billPhotoUrl = req.files.billPhotos.map((file) => {
+      uploadFiles.push(file.path); // store path for cleanup if needed
+      return `/uploads/rawMaterial/billPhoto/${file.filename}`;
+    });
+
+    const result = await prisma.$transaction(async (tx) => {
+      const addBillPhoto = await tx.stockMovementBatch.create({
+        data: {
+          billPhotos: billPhotoUrl, // JSON array
+        },
+      });
+
+      for (const rawMaterial of rawMaterialList) {
+        const existingRawMaterial = await tx.rawMaterial.findFirst({
+          where: { id: rawMaterial.rawMaterialId },
+        });
+
+        if (!existingRawMaterial) {
+          throw new Error("Raw Material Not Found");
+        }
+
+        await tx.stockMovement.create({
+          data: {
+            batchId: addBillPhoto.id,
+            rawMaterialId: rawMaterial.rawMaterialId,
+            userId: empId,
+            warehouseId: null,
+            quantity: rawMaterial.quantity,
+            unit: existingRawMaterial.unit,
+            type: "IN",
+          },
+        });
+
+        await tx.rawMaterial.update({
+          where: { id: rawMaterial.rawMaterialId },
+          data: {
+            stock: { increment: rawMaterial.quantity },
+          },
+        });
+      }
+
+      return addBillPhoto;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Stock updated successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.log("ERROR: ", error);
+    // Rollback is automatic with Prisma transactions, but cleanup files manually
+    if (uploadedFiles.length > 0) {
+      await Promise.all(
+        uploadedFiles.map(async (filePath) => {
+          try {
+            await fs.unlink(filePath);
+            console.log(`🗑 Deleted uploaded file: ${filePath}`);
+          } catch (unlinkErr) {
+            console.error(`Failed to delete file ${filePath}:`, unlinkErr);
+          }
+        })
+      );
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getLineWorkerList,
   showIncomingItemRequest,
   approveIncomingItemRequest,
   sanctionItemForRequest,
   getUserItemStock,
-  showProcessData
+  showProcessData,
+  updateStock,
 };

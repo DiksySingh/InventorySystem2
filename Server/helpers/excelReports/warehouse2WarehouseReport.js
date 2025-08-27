@@ -6,10 +6,9 @@ const WToW = require("../../models/serviceInventoryModels/warehouse2WarehouseSch
 const generateWToWExcel = async (req, res) => {
   try {
     const records = await WToW.find({
-      fromWarehouse: "Bhiwani",
-      toWarehouse: "Jalna Warehouse"
+      status: false
     }).select("fromWarehouse toWarehouse items isDefective pickupDate");
-
+    
     if (!records.length) {
       return res.status(404).json({ message: "No matching records found." });
     }
@@ -36,6 +35,7 @@ const generateWToWExcel = async (req, res) => {
           toWarehouse: record.toWarehouse,
           itemName: item.itemName,
           quantity: item.quantity,
+          serialNumber: item.serialNumber ? item.serialNumber.join(", "): "",
           isDefective: record.isDefective ? "Yes" : "No",
           pickupDate: record.pickupDate ? record.pickupDate.toISOString().split("T")[0] : ""
         });

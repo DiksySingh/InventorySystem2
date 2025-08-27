@@ -3,6 +3,7 @@ const WarehouseItems = require("../../models/serviceInventoryModels/warehouseIte
 const axios = require("axios");
 const moment = require("moment");
 const mongoose = require("mongoose");
+const ExcelJs = require("exceljs");
 
 const getDefectiveItemsForWarehouse = async (req, res) => {
   try {
@@ -40,7 +41,7 @@ const getDefectiveItemsForWarehouse = async (req, res) => {
                       },
                       "controller",
                       "others",
-                    ], 
+                    ],
                   },
                 ],
               },
@@ -227,9 +228,9 @@ const showEmployees = async (req, res) => {
         roleId: true,
         role: {
           select: {
-            name: true
-          }
-        }
+            name: true,
+          },
+        },
       },
     });
 
@@ -2356,6 +2357,408 @@ const getAllProductionLogs = async (req, res) => {
   }
 };
 
+// const addBOM = async (req, res) => {
+//   try {
+//     const {itemId, rawMaterialList} = req?.body;
+//     if(!itemId || !rawMaterialList || rawMaterialList.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "All fields are required"
+//       });
+//     }
+
+//     for(let rawMaterial of rawMaterialList) {
+//       const existingRawMaterial = await prisma.rawMaterial.findUnique({
+//         where: {
+//           id: rawMaterial.rawMaterialId
+//         }
+//       });
+
+//       if(!existingRawMaterial) {
+//         throw new Error(`Raw Material Data Not Found`);
+//       }
+
+//       const existingItemRawMaterial = await prisma.itemRawMaterial.findUnique({
+//         where: {
+//           itemId_rawMaterialId: {
+//             itemId,
+//             rawMaterialId: rawMaterial.rawMaterialId
+//           }
+//         }
+//       });
+
+//       if(existingItemRawMaterial) {
+//         throw new Error("Data already exists")
+//       }
+//     }
+
+//     for(let rawMaterial of rawMaterialList) {
+//       await prisma.itemRawMaterial.create({
+//         data: {
+//           itemId,
+//           rawMaterialId: rawMaterial.rawMaterialId,
+//           quantity: rawMaterial.quantity
+//         }
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "BOM Added Successfully"
+//     });
+
+//   } catch (error) {
+//     console.log("ERROR: ", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message
+//     });
+//   }
+// };
+
+const addBOM = async (req, res) => {
+  try {
+    const { itemId, rawMaterialList } = req.body;
+
+    if (!itemId || !rawMaterialList || rawMaterialList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "itemId and rawMaterialList are required",
+      });
+    }
+
+    // Get all rawMaterialIds from request
+    const rawMaterialIds = rawMaterialList.map((r) => r.rawMaterialId);
+
+    // 1. Check if all raw materials exist in one query
+    const existingRawMaterials = await prisma.rawMaterial.findMany({
+      where: { id: { in: rawMaterialIds } },
+      select: { id: true },
+    });
+
+    const existingIds = existingRawMaterials.map((rm) => rm.id);
+
+    // Find any invalid ids
+    const invalidIds = rawMaterialIds.filter((id) => !existingIds.includes(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Raw Materials not found: ${invalidIds.join(", ")}`,
+      });
+    }
+
+    // 2. Check if any (itemId, rawMaterialId) already exist
+    const existingItemRawMaterials = await prisma.itemRawMaterial.findMany({
+      where: {
+        itemId,
+        rawMaterialId: { in: rawMaterialIds },
+      },
+      select: { rawMaterialId: true },
+    });
+
+    if (existingItemRawMaterials.length > 0) {
+      const duplicates = existingItemRawMaterials.map((e) => e.rawMaterialId);
+      return res.status(400).json({
+        success: false,
+        message: `Duplicate BOM entries already exist for rawMaterials: ${duplicates.join(
+          ", "
+        )}`,
+      });
+    }
+
+    // 3. Insert all at once
+    await prisma.itemRawMaterial.createMany({
+      data: rawMaterialList.map((r) => ({
+        itemId,
+        rawMaterialId: r.rawMaterialId,
+        quantity: r.quantity,
+      })),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "BOM added successfully",
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const addBOMByExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel File Not Uploaded",
+      });
+    }
+
+    const workbook = new ExcelJs.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    const worksheet = workbook.worksheets[0];
+    let itemId = null;
+    let itemName = null;
+
+    for (let i = 2; i <= worksheet.rowCount; i++) {
+      const row = worksheet.getRow(i);
+      const currentItemName = row.getCell(1).value?.toString().trim();
+      const rawMaterialName = row.getCell(2).value?.toString().trim();
+      const quantity = parseFloat(row.getCell(3).value) || 0;
+      const unit = row.getCell(4).value?.toString().trim();
+
+      if (!currentItemName || !rawMaterialName || quantity === 0) continue;
+
+      if (!itemId) {
+        itemName = currentItemName;
+        let existingItem = await prisma.item.findFirst({
+          where: {
+            name: {
+              equals: itemName,
+              mode: "insensitive",
+            },
+          },
+        });
+
+        if (!existingItem) {
+          existingItem = await prisma.item.create({
+            data: {
+              name: itemName,
+            },
+          });
+        }
+        itemId = existingItem.id;
+      }
+
+      let rawMaterial = await prisma.rawMaterial.findFirst({
+        where: {
+          name: {
+            equals: rawMaterialName,
+            mode: "insensitive",
+          },
+        },
+      });
+
+      if (!rawMaterial) {
+        rawMaterial = await prisma.rawMaterial.create({
+          data: {
+            name: rawMaterial,
+            quantity: 0,
+            unit,
+          },
+        });
+      }
+
+      await prisma.itemRawMaterial.upset({
+        where: {
+          itemId_rawMaterialId: {
+            itemId,
+            rawMaterialId: rawMaterial.id,
+          },
+        },
+        update: {
+          quantity,
+          updatedAt: new Date(),
+        },
+        create: {
+          itemId,
+          rawMaterialId: rawMaterial.id,
+          quantity,
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "BOM uploaded successfully",
+    });
+  } catch (error) {
+    console.log("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const detachRawMaterialFromItem = async (req, res) => {
+  try {
+    const { itemId, rawMaterialId } = req.body;
+
+    if (!itemId || !rawMaterialId) {
+      return res.status(400).json({
+        success: false,
+        message: "itemId and rawMaterialId are required",
+        data: null,
+      });
+    }
+
+    const deleted = await prisma.itemRawMaterial
+      .delete({
+        where: {
+          itemId_rawMaterialId: {
+            itemId,
+            rawMaterialId,
+          },
+        },
+      })
+      .catch(() => null); // catch if not found
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Data not found",
+        data: null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Data removed successfully",
+      data: deleted,
+    });
+  } catch (error) {
+    console.error("ERROR (detachRawMaterialFromItem):", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+      data: null,
+    });
+  }
+};
+
+const detachRawMaterialFromStage = async (req, res) => {
+  try {
+    const { stageId, rawMaterialId } = req.body;
+
+    if (!stageId || !rawMaterialId) {
+      return res.status(400).json({
+        success: false,
+        message: "stageId and rawMaterialId are required",
+        data: null,
+      });
+    }
+
+    const deleted = await prisma.stageRawMaterial
+      .delete({
+        where: {
+          stageId_rawMaterialId: {
+            stageId,
+            rawMaterialId,
+          },
+        },
+      })
+      .catch(() => null); // catch if not found
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Data not found",
+        data: null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Data removed successfully",
+      data: deleted,
+    });
+  } catch (error) {
+    console.error("ERROR (detachRawMaterialFromStage):", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+      data: null,
+    });
+  }
+};
+
+const updateBOM = async (req, res) => {
+  try {
+    const itemId = req?.query?.itemId;
+    const { rawMaterialList } = req?.body;
+    console.log("ItemId: ", itemId);
+    console.log("RawMaterials: ", rawMaterialList);
+    if (!itemId || !rawMaterialList || rawMaterialList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Incomplete Data",
+      });
+    }
+
+    const existingRecords = await prisma.itemRawMaterial.findMany({
+      where: {
+        itemId: itemId,
+      },
+    });
+
+    if (!existingRecords) {
+      throw new Error("Record Not Found");
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existingIds = existingRecords.map((r) => r.rawMaterialId);
+      const newIds = rawMaterialList.map((r) => r.rawMaterialId);
+
+      const toRemove = existingRecords.filter(
+        (r) => !newIds.includes(r.rawMaterialId)
+      );
+      await tx.itemRawMaterial.deleteMany({
+        where: {
+          itemId,
+          rawMaterialId: { in: toRemove.map((r) => r.rawMaterialId) },
+        },
+      });
+
+      const upserts = await Promise.all(
+        rawMaterialList.map((rm) =>
+          tx.itemRawMaterial.upsert({
+            where: {
+              itemId_rawMaterialId: {
+                itemId,
+                rawMaterialId: rm.rawMaterialId,
+              },
+            },
+            update: {
+              quantity: rm.quantity,
+              //updatedBy: req?.user?.id
+            },
+            create: {
+              itemId,
+              rawMaterialId: rm.rawMaterialId,
+              quantity: rm.quantity,
+              //updatedBy: req?.user?.id
+            },
+          })
+        )
+      );
+      return upserts;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "BOM Updated Successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 /****************** New System ******************************/
 const addStage = async (req, res) => {
   try {
@@ -2493,17 +2896,146 @@ const attachItemTypeWithStage = async (req, res) => {
   }
 };
 
+const attachRawMaterialWithStage = async (req, res) => {
+  try {
+    const { stageId, rawMaterialList } = req.body;
+
+    if (!stageId || !rawMaterialList || rawMaterialList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    const existingStage = await prisma.stage.findUnique({
+      where: { id: stageId },
+    });
+
+    if (!existingStage) {
+      return res.status(400).json({
+        success: false,
+        message: "Stage Not Found",
+      });
+    }
+
+    const existingRawMaterials = await prisma.rawMaterial.findMany({
+      where: { id: { in: rawMaterialList } },
+      select: { id: true },
+    });
+
+    if (existingRawMaterials.length !== rawMaterialList.length) {
+      return res.status(400).json({
+        success: false,
+        message: "One or more RawMaterials not found",
+      });
+    }
+
+    const stageRawMaterials = rawMaterialList.map((rawMaterialId) => ({
+      stageId,
+      rawMaterialId,
+    }));
+
+    await prisma.stageRawMaterial.createMany({
+      data: stageRawMaterials,
+      skipDuplicates: true, // prevents duplicate (stageId, rawMaterialId)
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Raw materials successfully attached to stage",
+    });
+  } catch (error) {
+    console.log("ERROR ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const updateStageRawMaterial = async (req, res) => {
+  try {
+    const stageId = req?.query?.stageId;
+    const { rawMaterialList } = req?.body;
+
+    if (!stageId || !Array.isArray(rawMaterialList) || rawMaterialList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "stageId and rawMaterialList are required",
+      });
+    }
+
+    const existingRecords = await prisma.stageRawMaterial.findMany({
+      where: { stageId },
+    });
+
+    const existingIds = existingRecords.map((r) => r.rawMaterialId);
+    const newIds = rawMaterialList.map((r) => r.rawMaterialId);
+
+    const toRemove = existingIds.filter((id) => !newIds.includes(id));
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Remove old ones
+      if (toRemove.length > 0) {
+        await tx.stageRawMaterial.deleteMany({
+          where: {
+            stageId,
+            rawMaterialId: { in: toRemove },
+          },
+        });
+      }
+
+      // Upsert new/updated ones
+      const upserts = await Promise.all(
+        rawMaterialList.map((rm) =>
+          tx.stageRawMaterial.upsert({
+            where: {
+              stageId_rawMaterialId: {
+                stageId,
+                rawMaterialId: rm.rawMaterialId,
+              },
+            },
+            update: {
+              updatedAt: new Date(),
+            },
+            create: {
+              stageId,
+              rawMaterialId: rm.rawMaterialId,
+            },
+          })
+        )
+      );
+
+      return { addedOrUpdated: upserts, removed: toRemove };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Stage-RawMaterial Data Updated Successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 //  itemTypeId     String?
 //   currentStageId String?
 //   nextStageId    String?
 
 const addStageFlow = async (req, res) => {
   try {
-    const {itemTypeId, currentStageId, nextStageId} = req?.body;
-    if(!itemTypeId || !currentStageId || !nextStageId) {
+    const { itemTypeId, currentStageId, nextStageId } = req?.body;
+    if (!itemTypeId || !currentStageId || !nextStageId) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
@@ -2511,14 +3043,14 @@ const addStageFlow = async (req, res) => {
       where: {
         itemTypeId,
         currentStageId,
-        nextStageId
-      }
+        nextStageId,
+      },
     });
-    
-    if(existingStageFlow) {
+
+    if (existingStageFlow) {
       return res.status(400).json({
         success: false,
-        message: "Data already exists"
+        message: "Data already exists",
       });
     }
 
@@ -2526,32 +3058,32 @@ const addStageFlow = async (req, res) => {
       data: {
         itemTypeId,
         currentStageId,
-        nextStageId
-      }
+        nextStageId,
+      },
     });
-     
+
     return res.status(200).json({
       success: true,
       message: "Data added successfully",
-      data: newStageFlow
+      data: newStageFlow,
     });
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
-    })
+      error: error.message,
+    });
   }
 };
 
 const addFailureRedirectStage = async (req, res) => {
   try {
-    const {itemTypeId, failureReason, redirectStageId} = req?.body;
-    if(!itemTypeId || !failureReason || !redirectStageId) {
+    const { itemTypeId, failureReason, redirectStageId } = req?.body;
+    if (!itemTypeId || !failureReason || !redirectStageId) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
@@ -2559,14 +3091,14 @@ const addFailureRedirectStage = async (req, res) => {
       where: {
         itemTypeId,
         failureReason,
-        redirectStageId
-      }
+        redirectStageId,
+      },
     });
 
-    if(existingData) {
+    if (existingData) {
       return res.status(400).json({
         success: false,
-        message: "Data already exists"
+        message: "Data already exists",
       });
     }
 
@@ -2574,21 +3106,21 @@ const addFailureRedirectStage = async (req, res) => {
       data: {
         itemTypeId,
         failureReason,
-        redirectStageId
-      }
+        redirectStageId,
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: "Data inserted successfully",
-      data: newData
+      data: newData,
     });
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -2621,7 +3153,7 @@ const showProductType = async (req, res) => {
   try {
     const getProductType = await prisma.itemType.findMany({
       orderBy: {
-        createdAt: "asc"
+        createdAt: "asc",
       },
       select: {
         id: true,
@@ -2696,36 +3228,36 @@ const showStageFlow = async (req, res) => {
 
     const getStageFlow = await prisma.stageFlow.findMany({
       where: {
-        itemTypeId
+        itemTypeId,
       },
       orderBy: {
-        createdAt: "asc"
+        createdAt: "asc",
       },
       include: {
         itemType: {
           select: {
             // id: true,
-            name: true // adjust based on your ItemType fields
-          }
+            name: true, // adjust based on your ItemType fields
+          },
         },
         currentStage: {
           select: {
             // id: true,
             name: true,
-            description: true
-          }
+            description: true,
+          },
         },
         nextStage: {
           select: {
             // id: true,
             name: true,
-            description: true
-          }
-        }
+            description: true,
+          },
+        },
       },
     });
 
-    const flattenData = getStageFlow.map(data => ({
+    const flattenData = getStageFlow.map((data) => ({
       id: data.id,
       itemTypeId: data.itemTypeId,
       itemTypeName: data.itemType?.name || null,
@@ -2742,14 +3274,14 @@ const showStageFlow = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: flattenData
+      data: flattenData,
     });
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -2757,36 +3289,36 @@ const showStageFlow = async (req, res) => {
 const showFailureRedirectStage = async (req, res) => {
   try {
     const itemTypeId = req?.query?.itemTypeId;
-    if(!itemTypeId) {
+    if (!itemTypeId) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
     const failureRedirectData = await prisma.failureRedirect.findMany({
       where: {
-        itemTypeId
+        itemTypeId,
       },
       orderBy: {
-        createdAt: "asc"
+        createdAt: "asc",
       },
       include: {
         itemType: {
           select: {
-            name: true
-          }
+            name: true,
+          },
         },
         redirectStage: {
           select: {
             name: true,
-            description: true
-          }
-        }
-      }
+            description: true,
+          },
+        },
+      },
     });
 
-    const normalizeData = failureRedirectData.map(data => ({
+    const normalizeData = failureRedirectData.map((data) => ({
       id: data?.id,
       itemTypeId: data?.itemTypeId,
       itemTypeName: data?.itemType?.name || null,
@@ -2795,24 +3327,68 @@ const showFailureRedirectStage = async (req, res) => {
 
       redirectStageId: data?.redirectStageId,
       redirectStageName: data?.redirectStage?.name || null,
-      redirectStageDescription: data?.redirectStage?.description || null
-    }))
+      redirectStageDescription: data?.redirectStage?.description || null,
+    }));
 
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: normalizeData
+      data: normalizeData,
     });
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
+const showStockUpdateHistory = async (req, res) => {
+  try {
+    const stockUpdateHistory = await prisma.stockMovementBatch.findMany({
+      include: {
+        stockMovement: {
+          include: {
+            rawMaterial: true,
+            user: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!stockUpdateHistory || stockUpdateHistory.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No stock update history available",
+      });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    const formattedHistory = stockUpdateHistory.map((batch) => ({
+      ...batch,
+      billPhotos: batch.billPhotos
+        ? batch.billPhotos.map((photo) => `${baseUrl}${photo}`)
+        : [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Stock update history fetched successfully",
+      data: formattedHistory,
+    });
+  } catch (error) {
+    console.log("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   showEmployees,
@@ -2845,14 +3421,22 @@ module.exports = {
   showOverallRepairedOrRejectedData,
   showProductionSummary,
   getAllProductionLogs,
+  addBOM,
+  addBOMByExcel,
+  updateBOM,
   addStage,
   addItemType,
   attachItemTypeWithStage,
+  attachRawMaterialWithStage,
+  updateStageRawMaterial,
   addStageFlow,
   addFailureRedirectStage,
   showStages,
   showProductType,
   showStagesByItemType,
   showStageFlow,
-  showFailureRedirectStage
+  showFailureRedirectStage,
+  showStockUpdateHistory,
+  detachRawMaterialFromItem,
+  detachRawMaterialFromStage
 };

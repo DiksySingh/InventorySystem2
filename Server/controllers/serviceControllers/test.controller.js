@@ -7,6 +7,58 @@ const path = require("path");
 const excelToJSONConvertor = require("../../util/Excel/excelToJSONConverter"); // or your actual utility path
 const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerItemsActivity");
 
+const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSchema");
+const WarehousePerson = require("../../models/serviceInventoryModels/warehousePersonSchema");
+
+const exportActiveUsers = async (req, res) => {
+  try {
+    // Fetch active users from all collections
+    const warehousePersons = await WarehousePerson.find({ isActive: true, state: "Haryana" }, "name contact role isActive");
+    const surveyPersons = await SurveyPerson.find({ isActive: true, state: "Haryana"}, "name contact role isActive");
+    const servicePersons = await ServicePerson.find({ isActive: true, state: "Haryana"}, "name contact role isActive");
+
+    // Merge all results into a single array
+    const allUsers = [
+      ...warehousePersons.map(u => u.toObject()),
+      ...surveyPersons.map(u => u.toObject()),
+      ...servicePersons.map(u => u.toObject())
+    ];
+
+    if (allUsers.length === 0) {
+      return res.status(404).json({ success: false, message: "No active users found" });
+    }
+
+    // Convert data to worksheet
+    const worksheetData = allUsers.map(user => ({
+      Name: user.name,
+      Contact: user.contact,
+      Role: user.role,
+      Active: user.isActive ? "Yes" : "No"
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "ActiveUsers");
+
+    // Generate buffer
+    const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+    // Set response headers for download
+    res.setHeader("Content-Disposition", "attachment; filename=ActiveUsers.xlsx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    // Send file
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error("Error exporting users:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 const W2W = async(req,res) =>{
     try {
         let { startDate, endDate, toWarehouse , fromWarehouse } = req.query;
@@ -302,6 +354,7 @@ const addStateFieldToOldDocuments = async (req, res) => {
 };
 
 module.exports = {
+    exportActiveUsers,
     W2W,
     getServicePersonForStates,
     exportPickupItemsToExcel,
