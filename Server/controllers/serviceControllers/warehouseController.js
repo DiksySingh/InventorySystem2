@@ -2092,14 +2092,14 @@ module.exports.addNewInstallationData = async (req, res) => {
     );
 
     // ✅ Process inventory updates
-    const warehouseItemsData = await WarehouseItems.findById(warehouseId);
-    if (!warehouseItemsData) {
-      await session.abortTransaction();
-      session.endSession();
-      return res
-        .status(404)
-        .json({ success: false, message: "Warehouse Data Not Found" });
-    }
+    // const warehouseItemsData = await WarehouseItems.findById(warehouseId);
+    // if (!warehouseItemsData) {
+    //   await session.abortTransaction();
+    //   session.endSession();
+    //   return res
+    //     .status(404)
+    //     .json({ success: false, message: "Warehouse Data Not Found" });
+    // }
 
     for (const { systemItemId, quantity } of mergedItemList) {
       const systemItemData = await SystemItem.findById(systemItemId).session(
@@ -2145,69 +2145,69 @@ module.exports.addNewInstallationData = async (req, res) => {
           });
       }
 
-      let existingItemData;
+      // let existingItemData;
 
-      // ✅ MOTOR logic
-      if (systemItemName === "MOTOR 10HP AC 440V") {
-        existingItemData = warehouseItemsData.items.find(
-          (item) => item.itemName === systemItemName
-        );
-      }
+      // // ✅ MOTOR logic
+      // if (systemItemName === "MOTOR 10HP AC 440V") {
+      //   existingItemData = warehouseItemsData.items.find(
+      //     (item) => item.itemName === systemItemName
+      //   );
+      // }
 
-      // ✅ PUMP logic
-      if (
-        [
-          "PUMP 10HP AC 30MTR",
-          "PUMP 10HP AC 50MTR",
-          "PUMP 10HP AC 70MTR",
-          "PUMP 10HP AC 100MTR",
-        ].includes(systemItemName)
-      ) {
-        const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
-        const haveCommonBase = (name1, name2, minCommonWords = 3) => {
-          const words1 = normalizeWords(name1);
-          const words2 = normalizeWords(name2);
-          const common = words1.filter((word) => words2.includes(word));
-          return common.length >= minCommonWords;
-        };
+      // // ✅ PUMP logic
+      // if (
+      //   [
+      //     "PUMP 10HP AC 30MTR",
+      //     "PUMP 10HP AC 50MTR",
+      //     "PUMP 10HP AC 70MTR",
+      //     "PUMP 10HP AC 100MTR",
+      //   ].includes(systemItemName)
+      // ) {
+      //   const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+      //   const haveCommonBase = (name1, name2, minCommonWords = 3) => {
+      //     const words1 = normalizeWords(name1);
+      //     const words2 = normalizeWords(name2);
+      //     const common = words1.filter((word) => words2.includes(word));
+      //     return common.length >= minCommonWords;
+      //   };
 
-        existingItemData = warehouseItemsData.items.find((item) =>
-          haveCommonBase(item.itemName, systemItemName)
-        );
-      }
+      //   existingItemData = warehouseItemsData.items.find((item) =>
+      //     haveCommonBase(item.itemName, systemItemName)
+      //   );
+      // }
 
-      // ✅ Controller logic
-      if (systemItemName === "Controller - RMU - 10HP AC GALO") {
-        existingItemData = warehouseItemsData.items.find(
-          (item) => item.itemName === "CONTROLLER 10HP AC GALO"
-        );
-      }
+      // // ✅ Controller logic
+      // if (systemItemName === "Controller - RMU - 10HP AC GALO") {
+      //   existingItemData = warehouseItemsData.items.find(
+      //     (item) => item.itemName === "CONTROLLER 10HP AC GALO"
+      //   );
+      // }
 
-      if (!existingItemData) {
-        await session.abortTransaction();
-        session.endSession();
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: `Item "${systemItemName}" Not Found In Warehouse`,
-          });
-      }
+      // if (!existingItemData) {
+      //   await session.abortTransaction();
+      //   session.endSession();
+      //   return res
+      //     .status(404)
+      //     .json({
+      //       success: false,
+      //       message: `Item "${systemItemName}" Not Found In Warehouse`,
+      //     });
+      // }
 
-      if (existingItemData.newStock < quantity) {
-        await session.abortTransaction();
-        session.endSession();
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: `Insufficient stock for the ${systemItemName}`,
-          });
-      }
+      // if (existingItemData.newStock < quantity) {
+      //   await session.abortTransaction();
+      //   session.endSession();
+      //   return res
+      //     .status(400)
+      //     .json({
+      //       success: false,
+      //       message: `Insufficient stock for the ${systemItemName}`,
+      //     });
+      // }
 
-      // ✅ Deduct from WarehouseItems
-      existingItemData.newStock =
-        parseInt(existingItemData.newStock) - parseInt(quantity);
+      // // ✅ Deduct from WarehouseItems
+      // existingItemData.newStock =
+      //   parseInt(existingItemData.newStock) - parseInt(quantity);
 
       // ✅ Deduct from InstallationInventory
       inventoryItem.quantity -= quantity;
