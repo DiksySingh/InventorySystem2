@@ -2430,7 +2430,7 @@ const produceNewItem = async (req, res) => {
       await session.abortTransaction();
     }
     session.endSession();
-
+    console.log("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
