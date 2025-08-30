@@ -2315,7 +2315,7 @@ const produceNewItem = async (req, res) => {
     // Mongoose - update warehouse stock
     const warehouseId = "67446a8b27dae6f7f4d985dd";
     const warehouseItemsData = await WarehouseItems.findOne({
-      warehouse: warehouseId, // ✅ correct field
+      warehouse: new mongoose.Types.ObjectId(warehouseId), // ✅ correct field
     }).session(session);
 
     if (!warehouseItemsData) {
@@ -2348,7 +2348,7 @@ const produceNewItem = async (req, res) => {
     // MOTOR
     if (subItem === "MOTOR 10HP AC 440V") {
       installationInventory = await InstallationInventory.findOne({
-        warehouseId: mongoose.Types.ObjectId(warehouseId),
+        warehouseId: new mongoose.Types.ObjectId(warehouseId),
       })
         .populate({ path: "warehouseId", select: { _id: 1, warehouse: 1 } })
         .populate({ path: "systemItemId", select: { _id: 1, itemName: 1 } });
@@ -2368,7 +2368,7 @@ const produceNewItem = async (req, res) => {
 
       if (pumpRegex.test(subItem)) {
         installationInventory = await InstallationInventory.findOne({
-          warehouseId: mongoose.Types.ObjectId(warehouseId),
+          warehouseId: new mongoose.Types.ObjectId(warehouseId),
         })
           .populate({ path: "warehouseId", select: { _id: 1, warehouse: 1 } })
           .populate({ path: "systemItemId", select: { _id: 1, itemName: 1 } });
@@ -2388,7 +2388,7 @@ const produceNewItem = async (req, res) => {
     // CONTROLLER
     if (subItem === "CONTROLLER 10HP AC GALO") {
       installationInventory = await InstallationInventory.findOne({
-        warehouseId: mongoose.Types.ObjectId(warehouseId),
+        warehouseId: new mongoose.Types.ObjectId(warehouseId),
       })
         .populate({ path: "warehouseId", select: { _id: 1, warehouse: 1 } })
         .populate({ path: "systemItemId", select: { _id: 1, itemName: 1 } });
