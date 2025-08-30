@@ -2315,7 +2315,7 @@ const produceNewItem = async (req, res) => {
     // Mongoose - update warehouse stock
     const warehouseId = "67446a8b27dae6f7f4d985dd";
     const warehouseItemsData = await WarehouseItems.findOne({
-      warehouse: new mongoose.Types.ObjectId(warehouseId), // ✅ correct field
+      warehouse: warehouseId, // ✅ correct field
     }).session(session);
 
     if (!warehouseItemsData) {
