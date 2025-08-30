@@ -4,6 +4,7 @@ const axios = require("axios");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const ExcelJs = require("exceljs");
+const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 
 const getDefectiveItemsForWarehouse = async (req, res) => {
   try {
@@ -99,10 +100,77 @@ const getDefectiveItemsForWarehouse = async (req, res) => {
   }
 };
 
+// const getDefectiveItemsListByWarehouse = async (req, res) => {
+//   try {
+//     const { itemName } = req.query; // Get warehouse and item names from query
+//     const warehouseName = "Bhiwani";
+//     if (!warehouseName || !itemName) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Please provide both warehouseName and itemName to filter by.",
+//       });
+//     }
+
+//     const items = await WarehouseItems.aggregate([
+//       // Lookup to get warehouse details based on warehouse ID
+//       {
+//         $lookup: {
+//           from: "inWarehouses", // Collection name for warehouses in MongoDB
+//           localField: "warehouse",
+//           foreignField: "_id",
+//           as: "warehouseDetails",
+//         },
+//       },
+//       { $unwind: "$warehouseDetails" }, // Unwind warehouse details to access fields
+//       {
+//         $match: {
+//           "warehouseDetails.warehouseName": warehouseName, // Filter by specific warehouse name
+//         },
+//       },
+//       { $unwind: "$items" }, // Unwind items array to filter individual items
+//       {
+//         $match: {
+//           "items.itemName": { $regex: itemName, $options: "i" }, // Case-insensitive match for item name
+//         },
+//       },
+//       {
+//         $project: {
+//           itemName: "$items.itemName",
+//           // quantity: "$items.quantity",
+//           defective: "$items.defective",
+//           // repaired: "$items.repaired",
+//           // rejected: "$items.rejected",
+//         },
+//       },
+//     ]);
+
+//     if (items.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: `No items found matching '${itemName}' in warehouse '${warehouseName}'.`,
+//       });
+//     }
+
+//     return res.status(201).json({
+//       success: true,
+//       message: `Items matching '${itemName}' in warehouse '${warehouseName}' found.`,
+//       data: items || [],
+//     });
+//   } catch (error) {
+//     console.error("Error fetching items:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch items.",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const getDefectiveItemsListByWarehouse = async (req, res) => {
   try {
-    const { itemName } = req.query; // Get warehouse and item names from query
+    const { itemName } = req.query;
     const warehouseName = "Bhiwani";
+
     if (!warehouseName || !itemName) {
       return res.status(400).json({
         success: false,
@@ -110,35 +178,39 @@ const getDefectiveItemsListByWarehouse = async (req, res) => {
       });
     }
 
+    // Split itemName into individual words for flexible matching
+    const searchWords = itemName.split(" ").filter(Boolean);
+
+    // Create an array of regex conditions (all words must appear)
+    const regexConditions = searchWords.map((word) => ({
+      "items.itemName": { $regex: word, $options: "i" },
+    }));
+
     const items = await WarehouseItems.aggregate([
-      // Lookup to get warehouse details based on warehouse ID
       {
         $lookup: {
-          from: "inWarehouses", // Collection name for warehouses in MongoDB
+          from: "inWarehouses",
           localField: "warehouse",
           foreignField: "_id",
           as: "warehouseDetails",
         },
       },
-      { $unwind: "$warehouseDetails" }, // Unwind warehouse details to access fields
+      { $unwind: "$warehouseDetails" },
       {
         $match: {
-          "warehouseDetails.warehouseName": warehouseName, // Filter by specific warehouse name
+          "warehouseDetails.warehouseName": warehouseName,
         },
       },
-      { $unwind: "$items" }, // Unwind items array to filter individual items
+      { $unwind: "$items" },
       {
         $match: {
-          "items.itemName": { $regex: itemName, $options: "i" }, // Case-insensitive match for item name
+          $and: regexConditions, // ensure all words are present
         },
       },
       {
         $project: {
           itemName: "$items.itemName",
-          // quantity: "$items.quantity",
           defective: "$items.defective",
-          // repaired: "$items.repaired",
-          // rejected: "$items.rejected",
         },
       },
     ]);
@@ -150,10 +222,10 @@ const getDefectiveItemsListByWarehouse = async (req, res) => {
       });
     }
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       message: `Items matching '${itemName}' in warehouse '${warehouseName}' found.`,
-      data: items || [],
+      data: items,
     });
   } catch (error) {
     console.error("Error fetching items:", error);
@@ -1502,7 +1574,7 @@ const getItemRawMaterials = async (req, res) => {
   }
 };
 
-const  getRepairedServiceRecords = async (req, res) => {
+const getRepairedServiceRecords = async (req, res) => {
   try {
     // Fetch service records based on isRepaired filter and sort by servicedAt
     const serviceRecords = await prisma.serviceRecord.findMany({
@@ -1885,145 +1957,232 @@ const deleteItemRawMaterial = async (req, res) => {
 //     }
 // };
 
-const produceNewItem = async (req, res) => {
-  const session = await mongoose.startSession();
-  await session.startTransaction();
+// const produceNewItem = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   await session.startTransaction();
 
-  try {
-    const { itemId, subItem, quantityProduced, userId } = req.body;
+//   try {
+//     const { itemId, subItem, quantityProduced, userId } = req.body;
 
-    const itemRawMaterials = await prisma.itemRawMaterial.findMany({
-      where: { itemId },
-      include: { rawMaterial: true },
-    });
+//     const itemRawMaterials = await prisma.itemRawMaterial.findMany({
+//       where: { itemId },
+//       include: { rawMaterial: true },
+//     });
 
-    if (!itemRawMaterials.length) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({
-        success: false,
-        message: "No raw materials linked to this item.",
-      });
-    }
+//     if (!itemRawMaterials.length) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(404).json({
+//         success: false,
+//         message: "No raw materials linked to this item.",
+//       });
+//     }
 
-    const insufficientMaterials = itemRawMaterials.filter((rm) => {
-      const requiredQty = (rm.quantity || 0) * quantityProduced;
-      return (rm.rawMaterial?.stock ?? 0) < requiredQty;
-    });
+//     const insufficientMaterials = itemRawMaterials.filter((rm) => {
+//       const requiredQty = (rm.quantity || 0) * quantityProduced;
+//       return (rm.rawMaterial?.stock ?? 0) < requiredQty;
+//     });
 
-    if (insufficientMaterials.length > 0) {
-      const message = insufficientMaterials.map(
-        (rm) =>
-          `Insufficient stock for ${
-            rm.rawMaterial?.name ?? "Unknown Material"
-          } (required: ${(rm.quantity || 0) * quantityProduced}, available: ${
-            rm.rawMaterial?.stock ?? 0
-          })`
-      );
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: "Not enough raw material to produce item.",
-        details: message,
-      });
-    }
+//     if (insufficientMaterials.length > 0) {
+//       const message = insufficientMaterials.map(
+//         (rm) =>
+//           `Insufficient stock for ${
+//             rm.rawMaterial?.name ?? "Unknown Material"
+//           } (required: ${(rm.quantity || 0) * quantityProduced}, available: ${
+//             rm.rawMaterial?.stock ?? 0
+//           })`
+//       );
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(400).json({
+//         success: false,
+//         message: "Not enough raw material to produce item.",
+//         details: message,
+//       });
+//     }
 
-    const timestamp = new Date();
-    const stockUpdates = [];
-    const manufacturingUsages = [];
+//     const timestamp = new Date();
+//     const stockUpdates = [];
+//     const manufacturingUsages = [];
 
-    for (const rm of itemRawMaterials) {
-      const totalUsed = (rm.quantity || 0) * quantityProduced;
+//     for (const rm of itemRawMaterials) {
+//       const totalUsed = (rm.quantity || 0) * quantityProduced;
 
-      stockUpdates.push(
-        prisma.rawMaterial.update({
-          where: { id: rm.rawMaterialId },
-          data: {
-            stock: { decrement: totalUsed },
-          },
-        })
-      );
+//       stockUpdates.push(
+//         prisma.rawMaterial.update({
+//           where: { id: rm.rawMaterialId },
+//           data: {
+//             stock: { decrement: totalUsed },
+//           },
+//         })
+//       );
 
-      manufacturingUsages.push(
-        prisma.manufacturingUsage.create({
-          data: {
-            itemId,
-            rawMaterialId: rm.rawMaterialId,
-            quantityUsed: totalUsed,
-            unit: rm.rawMaterial?.unit ?? null,
-            manufacturingDate: timestamp,
-          },
-        })
-      );
-    }
+//       manufacturingUsages.push(
+//         prisma.manufacturingUsage.create({
+//           data: {
+//             itemId,
+//             rawMaterialId: rm.rawMaterialId,
+//             quantityUsed: totalUsed,
+//             unit: rm.rawMaterial?.unit ?? null,
+//             manufacturingDate: timestamp,
+//           },
+//         })
+//       );
+//     }
 
-    const warehouseId = "67446a8b27dae6f7f4d985dd";
-    const warehouseItemsData = await WarehouseItems.findOne({
-      warehouse: warehouseId,
-    }).session(session);
-    console.log(warehouseItemsData);
-    if (!warehouseItemsData) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse Items Data Not Found",
-      });
-    }
+//     const warehouseId = "67446a8b27dae6f7f4d985dd";
+//     const warehouseItemsData = await WarehouseItems.findOne({
+//       warehouse: warehouseId,
+//     }).session(session);
+//     console.log(warehouseItemsData);
+//     if (!warehouseItemsData) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(404).json({
+//         success: false,
+//         message: "Warehouse Items Data Not Found",
+//       });
+//     }
 
-    // ✅ Using find() instead of findIndex()
-    const itemToUpdate = warehouseItemsData.items.find(
-      (item) => item.itemName === subItem
-    );
-    console.log(itemToUpdate);
-    if (!itemToUpdate) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({
-        success: false,
-        message: "Item Not Found In Warehouse",
-      });
-    }
+//     // ✅ Using find() instead of findIndex()
+//     const itemToUpdate = warehouseItemsData.items.find(
+//       (item) => item.itemName === subItem
+//     );
+//     console.log(itemToUpdate);
+//     if (!itemToUpdate) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(404).json({
+//         success: false,
+//         message: "Item Not Found In Warehouse",
+//       });
+//     }
 
-    itemToUpdate.newStock += parseInt(quantityProduced);
-    await warehouseItemsData.save({ session });
+//     itemToUpdate.newStock += parseInt(quantityProduced);
+//     await warehouseItemsData.save({ session });
+//     let installatinInventory, existingItem;
+//     if (subItem === "MOTOR 10HP AC 440V") {
+//       installatinInventory = await prisma.installatinInventory
+//         .findMany({
+//           warehouseId: mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd"),
+//         })
+//         .populate({
+//           path: "warehouseId",
+//           select: {
+//             _id: 1,
+//             warehouse: 1,
+//           },
+//         })
+//         .populate({
+//           path: "systemItemId",
+//           select: {
+//             _id: 1,
+//             itemName: 1,
+//           },
+//         });
 
-    // 🔒 Prisma transaction execution
-    await prisma.$transaction([
-      ...stockUpdates,
-      ...manufacturingUsages,
-      prisma.productionLog.create({
-        data: {
-          item: { connect: { id: itemId } },
-          subItem,
-          quantityProduced,
-          manufacturingDate: timestamp,
-          user: { connect: { id: userId } },
-        },
-      }),
-    ]);
+//       existingItem =
+//         installatinInventory.systemItemId.itemName === "MOTOR 10HP AC 440V";
+//       existingItem.quantity =
+//         parseInt(existingItem.quantity) + parseInt(quantityProduced);
+//     }
 
-    await session.commitTransaction();
-    session.endSession();
+//     if (
+//       subItem === "PUMP 10HP AC 4INCH 30MTR" ||
+//       subItem === "PUMP 10HP AC 2.5INCH 50MTR" ||
+//       subItem === "PUMP 10HP AC 2INCH 70MTR" ||
+//       subItem === "PUMP 10HP AC 2INCH 100MTR"
+//     ) {
+//       // Regex with optional INCH part
+//       const pumpRegex = /^PUMP 10HP AC (?:\d+INCH )?(\d+MTR)$/i;
 
-    return res.status(201).json({
-      success: true,
-      message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.`,
-    });
-  } catch (error) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    session.endSession();
+//       if (pumpRegex.test(subItem)) {
+//         let installationInventory = await InstallationInventory.findOne({
+//           warehouseId: mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd"),
+//         })
+//           .populate({
+//             path: "warehouseId",
+//             select: { _id: 1, warehouse: 1 },
+//           })
+//           .populate({
+//             path: "systemItemId",
+//             select: { _id: 1, itemName: 1 },
+//           });
 
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
+//         if (
+//           installationInventory &&
+//           pumpRegex.test(installationInventory.systemItemId?.itemName)
+//         ) {
+//           installationInventory.quantity =
+//             parseInt(installationInventory.quantity) +
+//             parseInt(quantityProduced);
+
+//           await installationInventory.save();
+//         }
+//       }
+//     }
+
+//     if(subItem === "CONTROLLER 10HP AC GALO") {
+//        installatinInventory = await prisma.installatinInventory
+//         .findMany({
+//           warehouseId: mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd"),
+//         })
+//         .populate({
+//           path: "warehouseId",
+//           select: {
+//             _id: 1,
+//             warehouse: 1,
+//           },
+//         })
+//         .populate({
+//           path: "systemItemId",
+//           select: {
+//             _id: 1,
+//             itemName: 1,
+//           },
+//         });
+
+//       existingItem =
+//         installatinInventory.systemItemId.itemName === "Controller - RMU - 10HP AC GALO";
+//       existingItem.quantity =
+//         parseInt(existingItem.quantity) + parseInt(quantityProduced);
+//     }
+
+//     // 🔒 Prisma transaction execution
+//     await prisma.$transaction([
+//       ...stockUpdates,
+//       ...manufacturingUsages,
+//       prisma.productionLog.create({
+//         data: {
+//           item: { connect: { id: itemId } },
+//           subItem,
+//           quantityProduced,
+//           manufacturingDate: timestamp,
+//           user: { connect: { id: userId } },
+//         },
+//       }),
+//     ]);
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(201).json({
+//       success: true,
+//       message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.`,
+//     });
+//   } catch (error) {
+//     if (session.inTransaction()) {
+//       await session.abortTransaction();
+//     }
+//     session.endSession();
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
 
 // const getItemsProducibleCount = async (req, res) => {
 //     try {
@@ -2078,6 +2237,207 @@ const produceNewItem = async (req, res) => {
 //         });
 //     }
 // };
+
+//Also updating specific items stock in the installationInventory while producing the item
+const produceNewItem = async (req, res) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+
+  try {
+    const { itemId, subItem, quantityProduced, userId } = req.body;
+
+    // Prisma - get raw materials
+    const itemRawMaterials = await prisma.itemRawMaterial.findMany({
+      where: { itemId },
+      include: { rawMaterial: true },
+    });
+
+    if (!itemRawMaterials.length) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "No raw materials linked to this item.",
+      });
+    }
+
+    // Check stock availability
+    const insufficientMaterials = itemRawMaterials.filter((rm) => {
+      const requiredQty = (rm.quantity || 0) * quantityProduced;
+      return (rm.rawMaterial?.stock ?? 0) < requiredQty;
+    });
+
+    if (insufficientMaterials.length > 0) {
+      const message = insufficientMaterials.map(
+        (rm) =>
+          `Insufficient stock for ${rm.rawMaterial?.name ?? "Unknown Material"} 
+          (required: ${(rm.quantity || 0) * quantityProduced}, available: ${
+            rm.rawMaterial?.stock ?? 0
+          })`
+      );
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: "Not enough raw material to produce item.",
+        details: message,
+      });
+    }
+
+    const timestamp = new Date();
+    const stockUpdates = [];
+    const manufacturingUsages = [];
+
+    // Prepare stock decrements & usage logs
+    for (const rm of itemRawMaterials) {
+      const totalUsed = (rm.quantity || 0) * quantityProduced;
+
+      stockUpdates.push(
+        prisma.rawMaterial.update({
+          where: { id: rm.rawMaterialId },
+          data: { stock: { decrement: totalUsed } },
+        })
+      );
+
+      manufacturingUsages.push(
+        prisma.manufacturingUsage.create({
+          data: {
+            itemId,
+            rawMaterialId: rm.rawMaterialId,
+            quantityUsed: totalUsed,
+            unit: rm.rawMaterial?.unit ?? null,
+            manufacturingDate: timestamp,
+          },
+        })
+      );
+    }
+
+    // Mongoose - update warehouse stock
+    const warehouseId = "67446a8b27dae6f7f4d985dd";
+    const warehouseItemsData = await WarehouseItems.findOne({
+      warehouse: warehouseId,
+    }).session(session);
+
+    if (!warehouseItemsData) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse Items Data Not Found",
+      });
+    }
+
+    const itemToUpdate = warehouseItemsData.items.find(
+      (item) => item.itemName === subItem
+    );
+    if (!itemToUpdate) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "Item Not Found In Warehouse",
+      });
+    }
+
+    itemToUpdate.newStock += parseInt(quantityProduced);
+    await warehouseItemsData.save({ session });
+
+    // ✅ Handle installation inventory
+    let installationInventory, existingItem;
+
+    // MOTOR
+    if (subItem === "MOTOR 10HP AC 440V") {
+      installationInventory = await InstallationInventory.findOne({
+        warehouseId: mongoose.Types.ObjectId(warehouseId),
+      })
+        .populate({ path: "warehouseId", select: { _id: 1, warehouse: 1 } })
+        .populate({ path: "systemItemId", select: { _id: 1, itemName: 1 } });
+
+      if (
+        installationInventory?.systemItemId?.itemName === "MOTOR 10HP AC 440V"
+      ) {
+        installationInventory.quantity =
+          parseInt(installationInventory.quantity) + parseInt(quantityProduced);
+        await installationInventory.save();
+      }
+    }
+
+    // PUMP
+    if (/^PUMP 10HP AC/.test(subItem)) {
+      const pumpRegex = /^PUMP 10HP AC (?:\d+INCH )?(\d+MTR)$/i;
+
+      if (pumpRegex.test(subItem)) {
+        installationInventory = await InstallationInventory.findOne({
+          warehouseId: mongoose.Types.ObjectId(warehouseId),
+        })
+          .populate({ path: "warehouseId", select: { _id: 1, warehouse: 1 } })
+          .populate({ path: "systemItemId", select: { _id: 1, itemName: 1 } });
+
+        if (
+          installationInventory &&
+          pumpRegex.test(installationInventory.systemItemId?.itemName)
+        ) {
+          installationInventory.quantity =
+            parseInt(installationInventory.quantity) +
+            parseInt(quantityProduced);
+          await installationInventory.save();
+        }
+      }
+    }
+
+    // CONTROLLER
+    if (subItem === "CONTROLLER 10HP AC GALO") {
+      installationInventory = await InstallationInventory.findOne({
+        warehouseId: mongoose.Types.ObjectId(warehouseId),
+      })
+        .populate({ path: "warehouseId", select: { _id: 1, warehouse: 1 } })
+        .populate({ path: "systemItemId", select: { _id: 1, itemName: 1 } });
+
+      if (
+        installationInventory?.systemItemId?.itemName ===
+        "Controller - RMU - 10HP AC GALO"
+      ) {
+        installationInventory.quantity =
+          parseInt(installationInventory.quantity) + parseInt(quantityProduced);
+        await installationInventory.save();
+      }
+    }
+
+    // 🔒 Prisma transaction (raw material + production log)
+    await prisma.$transaction([
+      ...stockUpdates,
+      ...manufacturingUsages,
+      prisma.productionLog.create({
+        data: {
+          item: { connect: { id: itemId } },
+          subItem,
+          quantityProduced,
+          manufacturingDate: timestamp,
+          user: { connect: { id: userId } },
+        },
+      }),
+    ]);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(201).json({
+      success: true,
+      message: `Produced ${subItem}: ${quantityProduced} and updated warehouse stock.`,
+    });
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    session.endSession();
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 
 const getItemsProducibleCount = async (req, res) => {
   try {
@@ -2961,7 +3321,11 @@ const updateStageRawMaterial = async (req, res) => {
     const stageId = req?.query?.stageId;
     const { rawMaterialList } = req?.body;
 
-    if (!stageId || !Array.isArray(rawMaterialList) || rawMaterialList.length === 0) {
+    if (
+      !stageId ||
+      !Array.isArray(rawMaterialList) ||
+      rawMaterialList.length === 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "stageId and rawMaterialList are required",
@@ -3440,5 +3804,5 @@ module.exports = {
   showFailureRedirectStage,
   showStockUpdateHistory,
   detachRawMaterialFromItem,
-  detachRawMaterialFromStage
+  detachRawMaterialFromStage,
 };
