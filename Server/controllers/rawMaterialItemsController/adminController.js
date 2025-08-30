@@ -1502,7 +1502,7 @@ const getItemRawMaterials = async (req, res) => {
   }
 };
 
-const getRepairedServiceRecords = async (req, res) => {
+const  getRepairedServiceRecords = async (req, res) => {
   try {
     // Fetch service records based on isRepaired filter and sort by servicedAt
     const serviceRecords = await prisma.serviceRecord.findMany({

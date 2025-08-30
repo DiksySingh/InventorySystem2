@@ -24,6 +24,8 @@ const StockUpdateActivity = require("../../models/systemInventoryModels/stockUpd
 const StockHistory = require("../../models/serviceInventoryModels/stockHistorySchema");
 const OutgoingItems = require("../../models/serviceInventoryModels/outgoingItems");
 const SerialNumber = require("../../models/systemInventoryModels/serialNumberSchema");
+const fs = require("fs");
+const path = require("path");
 
 //****************** Admin Access ******************//
 
@@ -4102,14 +4104,9 @@ module.exports.addSerialNumber = async (req, res) => {
     productType = productType.trim().toLowerCase();
     const trimmedSerialNumber = serialNumber.trim().toUpperCase();
 
-    // Check if serial number already exists (case-insensitive)
+    // Check if serial number already exists
     const isExist = await SerialNumber.findOne({
-      productType,
-      serialNumberList: {
-        $elemMatch: {
-          serialNumber: { $regex: `^${trimmedSerialNumber}$`, $options: "i" },
-        },
-      },
+      serialNumber: trimmedSerialNumber,
     }).lean();
 
     if (isExist) {
@@ -4119,16 +4116,19 @@ module.exports.addSerialNumber = async (req, res) => {
       });
     }
 
-    // Insert serial number (create document if not exists)
-    await SerialNumber.findOneAndUpdate(
-      { productType },
-      { $push: { serialNumberList: { serialNumber: trimmedSerialNumber, isUsed: false } } },
-      { upsert: true, new: true }
-    );
+    // Create new document
+    const newSerial = new SerialNumber({
+      productType,
+      serialNumber: trimmedSerialNumber,
+      isUsed: false,
+    });
 
-    return res.status(200).json({
+    await newSerial.save();
+
+    return res.status(201).json({
       success: true,
-      message: "Data inserted successfully",
+      message: "Serial number inserted successfully",
+      data: newSerial,
     });
   } catch (error) {
     console.error("ERROR:", error.stack);
@@ -4142,7 +4142,7 @@ module.exports.addSerialNumber = async (req, res) => {
 
 module.exports.getSerialNumber = async (req, res) => {
   try {
-    const productType = req.query?.productType?.trim();
+    const productType = req.query?.productType?.trim().toLowerCase();
     if (!productType) {
       return res.status(400).json({
         success: false,
@@ -4150,16 +4150,13 @@ module.exports.getSerialNumber = async (req, res) => {
       });
     }
 
-    const serialNumberData = await SerialNumber.findOne(
+    // Fetch all serial numbers for the given product type
+    const serialNumbers = await SerialNumber.find(
       { productType },
-      {
-        _id: 0,
-        "serialNumberList.serialNumber": 1,
-        "serialNumberList.isUsed": 1,
-      }
+      { _id: 0, serialNumber: 1, isUsed: 1 }
     ).lean();
 
-    if (!serialNumberData) {
+    if (!serialNumbers || serialNumbers.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No serial numbers found for the given product type",
@@ -4169,7 +4166,7 @@ module.exports.getSerialNumber = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: serialNumberData.serialNumberList,
+      data: serialNumbers,
     });
   } catch (error) {
     console.error("ERROR: ", error.stack);
@@ -4190,17 +4187,14 @@ module.exports.checkSerialNumber = async (req, res) => {
         message: "Product Type & Serial Number are required",
       });
     }
-    const trimmedPrductType = productType.trim().toLowerCase();
-    const trimmedSerialNumber = serialNumber.trim();
 
-    // Check if serial number exists but is NOT used yet
+    const trimmedProductType = productType.trim().toLowerCase();
+    const trimmedSerialNumber = serialNumber.trim().toUpperCase();
+
+    // Find the serial number for the given product type
     const existsSerial = await SerialNumber.findOne({
-      productType: trimmedPrductType,
-      serialNumberList: {
-        $elemMatch: {
-          serialNumber: { $regex: `^${trimmedSerialNumber}$`, $options: "i" },
-        },
-      },
+      productType: trimmedProductType,
+      serialNumber: trimmedSerialNumber,
     }).lean();
 
     if (!existsSerial) {
@@ -4210,18 +4204,7 @@ module.exports.checkSerialNumber = async (req, res) => {
       });
     }
 
-    // Check if serial number exists and is marked as used
-    const usedSerial = await SerialNumber.findOne({
-      productType: trimmedPrductType,
-      serialNumberList: {
-        $elemMatch: {
-          serialNumber: { $regex: `^${trimmedSerialNumber}$`, $options: "i" }, // case-insensitive
-          isUsed: true,
-        },
-      },
-    }).lean();
-
-    if (usedSerial) {
+    if (existsSerial.isUsed) {
       return res.status(200).json({
         success: true,
         message: "Already Dispatched",
@@ -4262,39 +4245,151 @@ module.exports.uploadSerialNumbers = async (req, res) => {
       });
     }
 
-    // Expected Excel Columns: productType, serialNumber
-    for (const row of sheetData) {
-      const productType = row.productType?.trim().toLowerCase();
-      const serialNumber = row.serialNumber?.trim().toUpperCase();
+    const bulkInsertData = [];
+    const duplicateRows = [];
 
-      if (!productType || !serialNumber) continue;
+    for (const row of sheetData) {
+      // Convert values to string safely
+      const productType = row.productType
+        ? String(row.productType).trim().toLowerCase()
+        : null;
+
+      const serialNumber = row.serialNumber
+        ? String(row.serialNumber).trim().toUpperCase()
+        : null;
+
+      if (!productType || !serialNumber) {
+        duplicateRows.push({ ...row, reason: "Invalid data" });
+        continue;
+      }
 
       // Check if serial number already exists
       const exists = await SerialNumber.findOne({
         productType,
-        serialNumberList: {
-          $elemMatch: {
-            serialNumber: { $regex: `^${serialNumber}$`, $options: "i" },
-          },
-        },
+        serialNumber,
       }).lean();
 
       if (exists) {
-        console.log(row); 
-        continue;
-      } // skip duplicate
+        duplicateRows.push({ productType, serialNumber, reason: "Duplicate" });
+      } else {
+        bulkInsertData.push({
+          productType,
+          serialNumber,
+          isUsed: false,
+        });
+      }
+    }
 
-      // Insert (upsert if productType does not exist)
-      await SerialNumber.findOneAndUpdate(
-        { productType },
-        { $push: { serialNumberList: { serialNumber, isUsed: false } } },
-        { upsert: true }
-      );
+    // Insert only valid unique serial numbers
+    if (bulkInsertData.length > 0) {
+      await SerialNumber.insertMany(bulkInsertData);
+    }
+
+    // If duplicates exist, generate an Excel file
+    if (duplicateRows.length > 0) {
+      const newWB = XLSX.utils.book_new();
+      const newWS = XLSX.utils.json_to_sheet(duplicateRows);
+      XLSX.utils.book_append_sheet(newWB, newWS, "Duplicates");
+
+      const filePath = path.join(__dirname, "../../uploads/duplicates.xlsx");
+      XLSX.writeFile(newWB, filePath);
+
+      return res.download(filePath, "duplicate_serials.xlsx", (err) => {
+        if (err) {
+          console.error("Download error:", err);
+        }
+        // optionally remove file after download
+        fs.unlinkSync(filePath);
+      });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Serial Number Uploaded Successfully",
+      message: `${bulkInsertData.length} Serial Numbers Uploaded Successfully. No duplicates found.`,
+    });
+  } catch (error) {
+    console.error("ERROR:", error.stack);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+module.exports.updateSerialNumbersAsUsed = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    // Parse Excel buffer
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (!sheetData.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is empty",
+      });
+    }
+
+    const failedRows = [];
+    let updatedCount = 0;
+
+    for (const row of sheetData) {
+      // Convert values to string safely
+      const productType = row.productType
+        ? String(row.productType).trim().toLowerCase()
+        : null;
+
+      const serialNumber = row.serialNumber
+        ? String(row.serialNumber).trim().toUpperCase()
+        : null;
+
+      if (!productType || !serialNumber) {
+        failedRows.push({ ...row, reason: "Invalid data" });
+        continue;
+      }
+
+      // Try to update (only if not already used)
+      const result = await SerialNumber.findOneAndUpdate(
+        { productType, serialNumber, isUsed: false },
+        { $set: { isUsed: true } },
+        { new: true }
+      );
+
+      if (result) {
+        updatedCount++;
+      } else {
+        failedRows.push({ productType, serialNumber, reason: "Not found or already used" });
+      }
+    }
+
+    // If there are failed rows, export them into an Excel
+    if (failedRows.length > 0) {
+      const newWB = XLSX.utils.book_new();
+      const newWS = XLSX.utils.json_to_sheet(failedRows);
+      XLSX.utils.book_append_sheet(newWB, newWS, "Failed Updates");
+
+      const filePath = path.join(__dirname, "../../uploads/failed_updates.xlsx");
+      XLSX.writeFile(newWB, filePath);
+
+      return res.download(filePath, "failed_updates.xlsx", (err) => {
+        if (err) {
+          console.error("Download error:", err);
+        }
+        // remove after download
+        fs.unlinkSync(filePath);
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `${updatedCount} Serial Numbers updated successfully. No failures.`,
     });
   } catch (error) {
     console.error("ERROR:", error.stack);

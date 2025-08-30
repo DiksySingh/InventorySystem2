@@ -53,6 +53,7 @@ const {
   getSerialNumber,
   checkSerialNumber,
   uploadSerialNumbers,
+  updateSerialNumbersAsUsed
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -302,4 +303,5 @@ router.post("/add-serial-number", addSerialNumber);
 router.get("/get-serial-number", getSerialNumber);
 router.get("check-serial-number", checkSerialNumber);
 router.post("/upload-serial-number", upload.single("file"), uploadSerialNumbers);
+router.put("/update-serial-number", upload.single('file'), updateSerialNumbersAsUsed);
 module.exports = router;

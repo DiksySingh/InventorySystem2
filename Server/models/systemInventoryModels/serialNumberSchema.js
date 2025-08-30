@@ -8,20 +8,16 @@ const serialNumberSchema = new Schema({
         lowercase: true,
         required: true
     },
-    serialNumberList: [
-        {
-            serialNumber: {
-                type: String,
-                trim: true,
-                unique: true,
-                requried: true
-            },
-            isUsed: {
-                type: Boolean,
-                default: false
-            }
-        }
-    ]
+    serialNumber: {
+        type: String,
+        required: true,
+        trim: true,
+        uppercase: true,
+    },
+    isUsed: {
+        type: Boolean,
+        default: false
+    }
 },{timestamps: true, collection: "inSerialNumbers"});
 
 const SerialNumber = mongoose.model("SerialNumber", serialNumberSchema);
