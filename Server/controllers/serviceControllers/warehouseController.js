@@ -4764,7 +4764,7 @@ module.exports.updateIncomingPickupItemSerial = async (req, res) => {
   try {
     const { transactionId, updatedSerialNumber } = req.body;
     const empRole = req.user?.role;
-
+    console.log(transactionId, updatedSerialNumber);
     // Role check
     if (empRole !== "warehouseAdmin") {
       await session.abortTransaction();
@@ -4802,7 +4802,7 @@ module.exports.updateIncomingPickupItemSerial = async (req, res) => {
         message: "This serial number is already in use",
       });
     }
-
+    console.log("Hi");
     // Update document atomically
     const updatedPickupItem = await PickupItem.findOneAndUpdate(
       { _id: transactionId, incoming: true },
@@ -4815,7 +4815,7 @@ module.exports.updateIncomingPickupItemSerial = async (req, res) => {
       },
       { new: true, session }
     );
-
+    console.log(updatedPickupItem);
     if (!updatedPickupItem) {
       await session.abortTransaction();
       session.endSession();
