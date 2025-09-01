@@ -2301,11 +2301,15 @@ module.exports.addNewInstallationData = async (req, res) => {
     const warehouseId = req.user.warehouse;
 
     // ✅ Fetch warehouse data
-    const warehouseData = await Warehouse.findById(warehouseId).session(session);
+    const warehouseData = await Warehouse.findById(warehouseId).session(
+      session
+    );
     if (!warehouseData) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: "Warehouse Not Found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Warehouse Not Found" });
     }
 
     // ✅ Determine State
@@ -2333,13 +2337,17 @@ module.exports.addNewInstallationData = async (req, res) => {
     ) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({ success: false, message: "All fields are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
     }
 
     if (!Array.isArray(itemsList) || itemsList.length === 0) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({ success: false, message: "ItemsList is empty" });
+      return res
+        .status(400)
+        .json({ success: false, message: "ItemsList is empty" });
     }
 
     // ✅ Check if farmer activity already exists
@@ -2366,7 +2374,9 @@ module.exports.addNewInstallationData = async (req, res) => {
       if (!empData) {
         await session.abortTransaction();
         session.endSession();
-        return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
+        return res
+          .status(400)
+          .json({ success: false, message: "EmpID Not Found In Database" });
       }
       refType = "SurveyPerson";
     }
@@ -2394,20 +2404,28 @@ module.exports.addNewInstallationData = async (req, res) => {
     // ✅ Process inventory updates
     let warehouseItemsData;
     if (state === "Haryana") {
-      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(session);
+      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(
+        session
+      );
       if (!warehouseItemsData) {
         await session.abortTransaction();
         session.endSession();
-        return res.status(404).json({ success: false, message: "Warehouse Data Not Found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Warehouse Data Not Found" });
       }
     }
 
     for (const { systemItemId, quantity } of mergedItemList) {
-      const systemItemData = await SystemItem.findById(systemItemId).session(session);
+      const systemItemData = await SystemItem.findById(systemItemId).session(
+        session
+      );
       if (!systemItemData) {
         await session.abortTransaction();
         session.endSession();
-        return res.status(400).json({ success: false, message: "SystemItem Not Found" });
+        return res
+          .status(400)
+          .json({ success: false, message: "SystemItem Not Found" });
       }
 
       const systemItemName = systemItemData.itemName || "";
@@ -2417,7 +2435,8 @@ module.exports.addNewInstallationData = async (req, res) => {
 
       const inventoryItem = inventoryItems.find(
         (inv) =>
-          inv.systemItemId?.itemName?.toLowerCase() === systemItemName.toLowerCase()
+          inv.systemItemId?.itemName?.toLowerCase() ===
+          systemItemName.toLowerCase()
       );
       if (!inventoryItem) {
         await session.abortTransaction();
@@ -2463,7 +2482,8 @@ module.exports.addNewInstallationData = async (req, res) => {
             "PUMP 10HP AC 100MTR",
           ].includes(systemItemName)
         ) {
-          const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+          const normalizeWords = (str) =>
+            (str || "").toLowerCase().split(/\s+/);
           const haveCommonBase = (name1, name2, minCommonWords = 3) => {
             const words1 = normalizeWords(name1);
             const words2 = normalizeWords(name2);
@@ -4470,7 +4490,10 @@ module.exports.checkSerialNumber = async (req, res) => {
   try {
     const { productType, serialNumber, panelNumberList } = req.body;
 
-    if (!productType || (!serialNumber && (!panelNumberList || panelNumberList.length === 0))) {
+    if (
+      !productType ||
+      (!serialNumber && (!panelNumberList || panelNumberList.length === 0))
+    ) {
       return res.status(400).json({
         success: false,
         message: "Product Type & Serial Number(s) are required",
@@ -4481,7 +4504,9 @@ module.exports.checkSerialNumber = async (req, res) => {
 
     // 🔹 CASE 1: If panelNumberList is provided
     if (Array.isArray(panelNumberList) && panelNumberList.length > 0) {
-      const trimmedPanelNumbers = panelNumberList.map(num => String(num).trim().toUpperCase());
+      const trimmedPanelNumbers = panelNumberList.map((num) =>
+        String(num).trim().toUpperCase()
+      );
 
       // Find all matching serial numbers
       const serials = await SerialNumber.find({
@@ -4497,8 +4522,12 @@ module.exports.checkSerialNumber = async (req, res) => {
       }
 
       // Separate used & unused serials
-      const usedSerials = serials.filter(s => s.isUsed).map(s => s.serialNumber);
-      const unusedSerials = serials.filter(s => !s.isUsed).map(s => s.serialNumber);
+      const usedSerials = serials
+        .filter((s) => s.isUsed)
+        .map((s) => s.serialNumber);
+      const unusedSerials = serials
+        .filter((s) => !s.isUsed)
+        .map((s) => s.serialNumber);
 
       return res.status(200).json({
         success: true,
@@ -4686,7 +4715,11 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
       if (result) {
         updatedCount++;
       } else {
-        failedRows.push({ productType, serialNumber, reason: "Not found or already used" });
+        failedRows.push({
+          productType,
+          serialNumber,
+          reason: "Not found or already used",
+        });
       }
     }
 
@@ -4696,7 +4729,10 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
       const newWS = XLSX.utils.json_to_sheet(failedRows);
       XLSX.utils.book_append_sheet(newWB, newWS, "Failed Updates");
 
-      const filePath = path.join(__dirname, "../../uploads/failed_updates.xlsx");
+      const filePath = path.join(
+        __dirname,
+        "../../uploads/failed_updates.xlsx"
+      );
       XLSX.writeFile(newWB, filePath);
 
       return res.download(filePath, "failed_updates.xlsx", (err) => {
@@ -4769,7 +4805,7 @@ module.exports.updateIncomingPickupItemSerial = async (req, res) => {
 
     // Update document atomically
     const updatedPickupItem = await PickupItem.findOneAndUpdate(
-      {_id: transactionId, incoming: true},
+      { _id: transactionId, incoming: true },
       {
         $set: {
           updatedSerialNumber: normalizedSerial,
@@ -4801,6 +4837,94 @@ module.exports.updateIncomingPickupItemSerial = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error("Error updating PickupItem:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.updateOutogingItemFarmerDetails = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      transactionId,
+      farmerName,
+      farmerContact,
+      farmerVillage,
+      farmerComplaintId,
+      farmerSaralId,
+    } = req.body;
+
+    if (!transactionId) {
+      return res.status(422).json({
+        success: false,
+        message: "transactionId is required",
+      });
+    }
+
+    if (req?.user?.role !== "warehouseAdmin") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: "Only warehouse person is allowed to update.",
+      });
+    }
+    const verifyOutgoingItem = await PickupItem.findOne({
+      _id: transactionId,
+      incoming: false,
+    });
+
+    if (!verifyOutgoingItem) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: "Outgoing Item Data Not Found",
+      });
+    }
+
+    // Build update object dynamically (only provided fields will update)
+    const updateFields = {};
+    if (farmerName) updateFields.farmerName = farmerName.trim();
+    if (farmerContact) updateFields.farmerContact = farmerContact;
+    if (farmerVillage) updateFields.farmerVillage = farmerVillage.trim();
+    if (farmerComplaintId) updateFields.farmerComplaintId = farmerComplaintId;
+    if (farmerSaralId) updateFields.farmerSaralId = farmerSaralId.trim();
+    updateFields.updatedAt = new Date();
+    updateFields.updatedBy = req.user?._id;
+
+    const updatedPickupItem = await PickupItem.findByIdAndUpdate(
+      transactionId,
+      { $set: updateFields },
+      { new: true, session }
+    );
+
+    if (!updatedPickupItem) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: `PickupItem with id ${transactionId} not found`,
+      });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Farmer details updated successfully",
+      data: updatedPickupItem,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error updating farmer details:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
