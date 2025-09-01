@@ -165,6 +165,7 @@ module.exports.servicePersonOutgoingItemsData = async (req, res) => {
 //Added saralId and complaintId into the model for better tracking of the complaints
 module.exports.outgoingItemsData = async (req, res) => {
   try {
+    console.log("req.body: ", req.body);
     const {
       servicePerson,
       farmerName,
@@ -199,7 +200,7 @@ module.exports.outgoingItemsData = async (req, res) => {
         message: "All fields are required",
       });
     }
-
+    
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
