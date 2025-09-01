@@ -89,6 +89,11 @@ const pickupItemSchema = new Schema(
       type: Boolean,
       default: false
     },
+    updatedSerialNumber: {
+      type: String,
+      uppercase: true,
+      trim: true
+    },
     warehouseRemark: {
       type: String,
     },
@@ -99,7 +104,7 @@ const pickupItemSchema = new Schema(
     arrivedDate: {
       type: Date,
     },
-     declinedBy: {
+    declinedBy: {
       type: String
     },
     declineDate: {
@@ -112,6 +117,13 @@ const pickupItemSchema = new Schema(
     itemSendBy: {
       type: Schema.Types.ObjectId,
       refPath: "referenceType",
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      refPath: "WarehousePerson"
+    },
+    updatedAt: {
+      type: Date,
     }
   },
   { collection: "inPickupItems" }

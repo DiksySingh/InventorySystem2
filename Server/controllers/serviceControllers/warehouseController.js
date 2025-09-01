@@ -1968,6 +1968,316 @@ module.exports.updateItemQuantity = async (req, res) => {
 //   }
 // };
 
+// module.exports.addNewInstallationData = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const {
+//       farmerSaralId,
+//       empId,
+//       systemId,
+//       itemsList,
+//       extraItemsList,
+//       extraPanelNumbers,
+//       panelNumbers,
+//       pumpNumber,
+//       motorNumber,
+//       controllerNumber,
+//       rmuNumber,
+//     } = req.body;
+
+//     const warehousePersonId = req.user._id;
+//     const warehouseId = req.user.warehouse;
+
+//     // ✅ Fetch warehouse data
+//     const warehouseData = await Warehouse.findById(warehouseId).session(
+//       session
+//     );
+//     if (!warehouseData) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Warehouse Not Found" });
+//     }
+
+//     // ✅ Determine State
+//     let state;
+//     const whName = warehouseData.warehouseName;
+//     if (["Bhiwani", "Jind", "Hisar", "Sirsa"].includes(whName)) {
+//       state = "Haryana";
+//     } else if (whName === "Jalna Warehouse") {
+//       state = "Maharashtra";
+//     } else if (whName === "Korba Chhattisgarh") {
+//       state = "Chhattisgarh";
+//     }
+
+//     // ✅ Basic Validations
+//     if (
+//       !farmerSaralId ||
+//       !empId ||
+//       !systemId ||
+//       !itemsList ||
+//       !panelNumbers ||
+//       !pumpNumber ||
+//       !controllerNumber ||
+//       !rmuNumber ||
+//       !motorNumber
+//     ) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "All fields are required" });
+//     }
+
+//     if (!Array.isArray(itemsList) || itemsList.length === 0) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "ItemsList is empty" });
+//     }
+
+//     // ✅ Check if farmer activity already exists
+//     const existingFarmerActivity = await FarmerItemsActivity.findOne({
+//       farmerSaralId,
+//       systemId,
+//     }).session(session);
+//     if (existingFarmerActivity) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res
+//         .status(400)
+//         .json({
+//           success: false,
+//           message: "Farmer activity for this system already exists",
+//         });
+//     }
+
+//     // ✅ Determine Reference Type
+//     let refType;
+//     let empData = await ServicePerson.findById(empId).session(session);
+//     if (empData) {
+//       refType = "ServicePerson";
+//     } else {
+//       empData = await SurveyPerson.findById(empId).session(session);
+//       if (!empData) {
+//         await session.abortTransaction();
+//         session.endSession();
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "EmpID Not Found In Database" });
+//       }
+//       refType = "SurveyPerson";
+//     }
+
+//     // ✅ Merge itemsList + extraItemsList
+//     const combinedItemsMap = new Map();
+//     const accumulateItems = (list = []) => {
+//       for (const { systemItemId, quantity } of list) {
+//         if (!systemItemId || !quantity) continue;
+//         const key = systemItemId.toString();
+//         const prevQty = combinedItemsMap.get(key) || 0;
+//         combinedItemsMap.set(key, prevQty + parseInt(quantity));
+//       }
+//     };
+//     accumulateItems(itemsList);
+//     accumulateItems(extraItemsList);
+
+//     const mergedItemList = Array.from(combinedItemsMap.entries()).map(
+//       ([systemItemId, quantity]) => ({
+//         systemItemId,
+//         quantity,
+//       })
+//     );
+
+//     // ✅ Process inventory updates
+//     // const warehouseItemsData = await WarehouseItems.findById(warehouseId);
+//     // if (!warehouseItemsData) {
+//     //   await session.abortTransaction();
+//     //   session.endSession();
+//     //   return res
+//     //     .status(404)
+//     //     .json({ success: false, message: "Warehouse Data Not Found" });
+//     // }
+
+//     for (const { systemItemId, quantity } of mergedItemList) {
+//       const systemItemData = await SystemItem.findById(systemItemId).session(
+//         session
+//       );
+//       if (!systemItemData) {
+//         await session.abortTransaction();
+//         session.endSession();
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "SystemItem Not Found" });
+//       }
+
+//       const systemItemName = systemItemData.itemName || "";
+//       const inventoryItems = await InstallationInventory.find({ warehouseId })
+//         .populate({ path: "systemItemId", select: { itemName: 1 } })
+//         .session(session);
+
+//       const inventoryItem = inventoryItems.find(
+//         (inv) =>
+//           inv.systemItemId?.itemName?.toLowerCase() ===
+//           systemItemName.toLowerCase()
+//       );
+//       if (!inventoryItem) {
+//         await session.abortTransaction();
+//         session.endSession();
+//         return res
+//           .status(404)
+//           .json({
+//             success: false,
+//             message: `SubItem "${systemItemName}" not found in warehouse inventory`,
+//           });
+//       }
+
+//       if (inventoryItem.quantity < quantity) {
+//         await session.abortTransaction();
+//         session.endSession();
+//         return res
+//           .status(400)
+//           .json({
+//             success: false,
+//             message: `Insufficient stock for item "${systemItemName}"`,
+//           });
+//       }
+
+//       // let existingItemData;
+
+//       // // ✅ MOTOR logic
+//       // if (systemItemName === "MOTOR 10HP AC 440V") {
+//       //   existingItemData = warehouseItemsData.items.find(
+//       //     (item) => item.itemName === systemItemName
+//       //   );
+//       // }
+
+//       // // ✅ PUMP logic
+//       // if (
+//       //   [
+//       //     "PUMP 10HP AC 30MTR",
+//       //     "PUMP 10HP AC 50MTR",
+//       //     "PUMP 10HP AC 70MTR",
+//       //     "PUMP 10HP AC 100MTR",
+//       //   ].includes(systemItemName)
+//       // ) {
+//       //   const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+//       //   const haveCommonBase = (name1, name2, minCommonWords = 3) => {
+//       //     const words1 = normalizeWords(name1);
+//       //     const words2 = normalizeWords(name2);
+//       //     const common = words1.filter((word) => words2.includes(word));
+//       //     return common.length >= minCommonWords;
+//       //   };
+
+//       //   existingItemData = warehouseItemsData.items.find((item) =>
+//       //     haveCommonBase(item.itemName, systemItemName)
+//       //   );
+//       // }
+
+//       // // ✅ Controller logic
+//       // if (systemItemName === "Controller - RMU - 10HP AC GALO") {
+//       //   existingItemData = warehouseItemsData.items.find(
+//       //     (item) => item.itemName === "CONTROLLER 10HP AC GALO"
+//       //   );
+//       // }
+
+//       // if (!existingItemData) {
+//       //   await session.abortTransaction();
+//       //   session.endSession();
+//       //   return res
+//       //     .status(404)
+//       //     .json({
+//       //       success: false,
+//       //       message: `Item "${systemItemName}" Not Found In Warehouse`,
+//       //     });
+//       // }
+
+//       // if (existingItemData.newStock < quantity) {
+//       //   await session.abortTransaction();
+//       //   session.endSession();
+//       //   return res
+//       //     .status(400)
+//       //     .json({
+//       //       success: false,
+//       //       message: `Insufficient stock for the ${systemItemName}`,
+//       //     });
+//       // }
+
+//       // // ✅ Deduct from WarehouseItems
+//       // existingItemData.newStock =
+//       //   parseInt(existingItemData.newStock) - parseInt(quantity);
+
+//       // ✅ Deduct from InstallationInventory
+//       inventoryItem.quantity -= quantity;
+//       inventoryItem.updatedAt = new Date();
+//       inventoryItem.updatedBy = warehousePersonId;
+//       await inventoryItem.save({ session });
+//     }
+
+//     // ✅ Save Farmer Activity
+//     const farmerActivity = new FarmerItemsActivity({
+//       warehouseId,
+//       referenceType: refType,
+//       farmerSaralId,
+//       empId,
+//       systemId,
+//       itemsList,
+//       extraItemsList: extraItemsList || [],
+//       extraPanelNumbers: extraPanelNumbers || [],
+//       panelNumbers,
+//       pumpNumber,
+//       motorNumber,
+//       controllerNumber,
+//       rmuNumber,
+//       state,
+//       createdBy: warehousePersonId,
+//     });
+
+//     const savedFarmerActivity = await farmerActivity.save({ session });
+//     if (!savedFarmerActivity) throw new Error("Failed to save farmer activity");
+
+//     // ✅ Save Installation Assignment
+//     const empAccountData = new InstallationAssignEmp({
+//       warehouseId,
+//       referenceType: refType,
+//       empId,
+//       farmerSaralId,
+//       systemId,
+//       itemsList,
+//       extraItemsList,
+//       createdBy: warehousePersonId,
+//     });
+
+//     const savedEmpAccountData = await empAccountData.save({ session });
+//     if (!savedEmpAccountData)
+//       throw new Error("Failed to save employee account data");
+
+//     // ✅ Commit transaction
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Data Saved Successfully",
+//       farmerActivity,
+//       empAccountData,
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     console.error("Error in addNewInstallationData:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 module.exports.addNewInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -1991,15 +2301,11 @@ module.exports.addNewInstallationData = async (req, res) => {
     const warehouseId = req.user.warehouse;
 
     // ✅ Fetch warehouse data
-    const warehouseData = await Warehouse.findById(warehouseId).session(
-      session
-    );
+    const warehouseData = await Warehouse.findById(warehouseId).session(session);
     if (!warehouseData) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(404)
-        .json({ success: false, message: "Warehouse Not Found" });
+      return res.status(404).json({ success: false, message: "Warehouse Not Found" });
     }
 
     // ✅ Determine State
@@ -2027,17 +2333,13 @@ module.exports.addNewInstallationData = async (req, res) => {
     ) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields are required" });
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
     if (!Array.isArray(itemsList) || itemsList.length === 0) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({ success: false, message: "ItemsList is empty" });
+      return res.status(400).json({ success: false, message: "ItemsList is empty" });
     }
 
     // ✅ Check if farmer activity already exists
@@ -2048,12 +2350,10 @@ module.exports.addNewInstallationData = async (req, res) => {
     if (existingFarmerActivity) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Farmer activity for this system already exists",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Farmer activity for this system already exists",
+      });
     }
 
     // ✅ Determine Reference Type
@@ -2066,9 +2366,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       if (!empData) {
         await session.abortTransaction();
         session.endSession();
-        return res
-          .status(400)
-          .json({ success: false, message: "EmpID Not Found In Database" });
+        return res.status(400).json({ success: false, message: "EmpID Not Found In Database" });
       }
       refType = "SurveyPerson";
     }
@@ -2094,25 +2392,22 @@ module.exports.addNewInstallationData = async (req, res) => {
     );
 
     // ✅ Process inventory updates
-    // const warehouseItemsData = await WarehouseItems.findById(warehouseId);
-    // if (!warehouseItemsData) {
-    //   await session.abortTransaction();
-    //   session.endSession();
-    //   return res
-    //     .status(404)
-    //     .json({ success: false, message: "Warehouse Data Not Found" });
-    // }
+    let warehouseItemsData;
+    if (state === "Haryana") {
+      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(session);
+      if (!warehouseItemsData) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(404).json({ success: false, message: "Warehouse Data Not Found" });
+      }
+    }
 
     for (const { systemItemId, quantity } of mergedItemList) {
-      const systemItemData = await SystemItem.findById(systemItemId).session(
-        session
-      );
+      const systemItemData = await SystemItem.findById(systemItemId).session(session);
       if (!systemItemData) {
         await session.abortTransaction();
         session.endSession();
-        return res
-          .status(400)
-          .json({ success: false, message: "SystemItem Not Found" });
+        return res.status(400).json({ success: false, message: "SystemItem Not Found" });
       }
 
       const systemItemName = systemItemData.itemName || "";
@@ -2122,100 +2417,94 @@ module.exports.addNewInstallationData = async (req, res) => {
 
       const inventoryItem = inventoryItems.find(
         (inv) =>
-          inv.systemItemId?.itemName?.toLowerCase() ===
-          systemItemName.toLowerCase()
+          inv.systemItemId?.itemName?.toLowerCase() === systemItemName.toLowerCase()
       );
       if (!inventoryItem) {
         await session.abortTransaction();
         session.endSession();
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: `SubItem "${systemItemName}" not found in warehouse inventory`,
-          });
+        return res.status(404).json({
+          success: false,
+          message: `SubItem "${systemItemName}" not found in warehouse inventory`,
+        });
       }
 
       if (inventoryItem.quantity < quantity) {
         await session.abortTransaction();
         session.endSession();
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: `Insufficient stock for item "${systemItemName}"`,
-          });
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for item "${systemItemName}"`,
+        });
       }
 
-      // let existingItemData;
-
-      // // ✅ MOTOR logic
-      // if (systemItemName === "MOTOR 10HP AC 440V") {
-      //   existingItemData = warehouseItemsData.items.find(
-      //     (item) => item.itemName === systemItemName
-      //   );
-      // }
-
-      // // ✅ PUMP logic
-      // if (
-      //   [
-      //     "PUMP 10HP AC 30MTR",
-      //     "PUMP 10HP AC 50MTR",
-      //     "PUMP 10HP AC 70MTR",
-      //     "PUMP 10HP AC 100MTR",
-      //   ].includes(systemItemName)
-      // ) {
-      //   const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
-      //   const haveCommonBase = (name1, name2, minCommonWords = 3) => {
-      //     const words1 = normalizeWords(name1);
-      //     const words2 = normalizeWords(name2);
-      //     const common = words1.filter((word) => words2.includes(word));
-      //     return common.length >= minCommonWords;
-      //   };
-
-      //   existingItemData = warehouseItemsData.items.find((item) =>
-      //     haveCommonBase(item.itemName, systemItemName)
-      //   );
-      // }
-
-      // // ✅ Controller logic
-      // if (systemItemName === "Controller - RMU - 10HP AC GALO") {
-      //   existingItemData = warehouseItemsData.items.find(
-      //     (item) => item.itemName === "CONTROLLER 10HP AC GALO"
-      //   );
-      // }
-
-      // if (!existingItemData) {
-      //   await session.abortTransaction();
-      //   session.endSession();
-      //   return res
-      //     .status(404)
-      //     .json({
-      //       success: false,
-      //       message: `Item "${systemItemName}" Not Found In Warehouse`,
-      //     });
-      // }
-
-      // if (existingItemData.newStock < quantity) {
-      //   await session.abortTransaction();
-      //   session.endSession();
-      //   return res
-      //     .status(400)
-      //     .json({
-      //       success: false,
-      //       message: `Insufficient stock for the ${systemItemName}`,
-      //     });
-      // }
-
-      // // ✅ Deduct from WarehouseItems
-      // existingItemData.newStock =
-      //   parseInt(existingItemData.newStock) - parseInt(quantity);
-
-      // ✅ Deduct from InstallationInventory
+      // ✅ Deduct from InstallationInventory (always)
       inventoryItem.quantity -= quantity;
       inventoryItem.updatedAt = new Date();
       inventoryItem.updatedBy = warehousePersonId;
       await inventoryItem.save({ session });
+
+      // ✅ Extra Haryana-specific logic
+      if (state === "Haryana") {
+        let existingItemData;
+
+        // MOTOR logic
+        if (systemItemName === "MOTOR 10HP AC 440V") {
+          existingItemData = warehouseItemsData.items.find(
+            (item) => item.itemName === systemItemName
+          );
+        }
+
+        // PUMP logic
+        if (
+          [
+            "PUMP 10HP AC 30MTR",
+            "PUMP 10HP AC 50MTR",
+            "PUMP 10HP AC 70MTR",
+            "PUMP 10HP AC 100MTR",
+          ].includes(systemItemName)
+        ) {
+          const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+          const haveCommonBase = (name1, name2, minCommonWords = 3) => {
+            const words1 = normalizeWords(name1);
+            const words2 = normalizeWords(name2);
+            const common = words1.filter((word) => words2.includes(word));
+            return common.length >= minCommonWords;
+          };
+
+          existingItemData = warehouseItemsData.items.find((item) =>
+            haveCommonBase(item.itemName, systemItemName)
+          );
+        }
+
+        // Controller logic
+        if (systemItemName === "Controller - RMU - 10HP AC GALO") {
+          existingItemData = warehouseItemsData.items.find(
+            (item) => item.itemName === "CONTROLLER 10HP AC GALO"
+          );
+        }
+
+        if (!existingItemData) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(404).json({
+            success: false,
+            message: `Item "${systemItemName}" Not Found In Warehouse`,
+          });
+        }
+
+        if (existingItemData.newStock < quantity) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient stock for the ${systemItemName}`,
+          });
+        }
+
+        // ✅ Deduct from WarehouseItems (Haryana only)
+        existingItemData.newStock =
+          parseInt(existingItemData.newStock) - parseInt(quantity);
+      }
     }
 
     // ✅ Save Farmer Activity
@@ -4179,19 +4468,51 @@ module.exports.getSerialNumber = async (req, res) => {
 
 module.exports.checkSerialNumber = async (req, res) => {
   try {
-    const { productType, serialNumber } = req.body;
+    const { productType, serialNumber, panelNumberList } = req.body;
 
-    if (!productType || !serialNumber) {
+    if (!productType || (!serialNumber && (!panelNumberList || panelNumberList.length === 0))) {
       return res.status(400).json({
         success: false,
-        message: "Product Type & Serial Number are required",
+        message: "Product Type & Serial Number(s) are required",
       });
     }
 
-    const trimmedProductType = productType.trim().toLowerCase();
-    const trimmedSerialNumber = serialNumber.trim().toUpperCase();
+    const trimmedProductType = String(productType).trim().toLowerCase();
 
-    // Find the serial number for the given product type
+    // 🔹 CASE 1: If panelNumberList is provided
+    if (Array.isArray(panelNumberList) && panelNumberList.length > 0) {
+      const trimmedPanelNumbers = panelNumberList.map(num => String(num).trim().toUpperCase());
+
+      // Find all matching serial numbers
+      const serials = await SerialNumber.find({
+        productType: trimmedProductType,
+        serialNumber: { $in: trimmedPanelNumbers },
+      }).lean();
+
+      if (!serials || serials.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No serial numbers found for this product type",
+        });
+      }
+
+      // Separate used & unused serials
+      const usedSerials = serials.filter(s => s.isUsed).map(s => s.serialNumber);
+      const unusedSerials = serials.filter(s => !s.isUsed).map(s => s.serialNumber);
+
+      return res.status(200).json({
+        success: true,
+        message: "Panel numbers checked successfully",
+        data: {
+          usedSerials,
+          unusedSerials,
+        },
+      });
+    }
+
+    // 🔹 CASE 2: Single serial number check
+    const trimmedSerialNumber = String(serialNumber).trim().toUpperCase();
+
     const existsSerial = await SerialNumber.findOne({
       productType: trimmedProductType,
       serialNumber: trimmedSerialNumber,
@@ -4396,6 +4717,94 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+    });
+  }
+};
+
+module.exports.updateIncomingPickupItemSerial = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { transactionId, updatedSerialNumber } = req.body;
+    const empRole = req.user?.role;
+
+    // Role check
+    if (empRole !== "warehouseAdmin") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({
+        success: false,
+        message: "Only warehouse person is allowed to update",
+      });
+    }
+
+    // Input validation
+    if (!transactionId || !updatedSerialNumber) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(422).json({
+        success: false,
+        message: "transactionId and updatedSerialNumber are required",
+      });
+    }
+
+    // Normalize serial number
+    const normalizedSerial = updatedSerialNumber.trim().toUpperCase();
+
+    // Check uniqueness inside transaction
+    const existingSerial = await PickupItem.findOne(
+      { updatedSerialNumber: normalizedSerial, incoming: true },
+      null,
+      { session }
+    );
+    if (existingSerial) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(409).json({
+        success: false,
+        message: "This serial number is already in use",
+      });
+    }
+
+    // Update document atomically
+    const updatedPickupItem = await PickupItem.findOneAndUpdate(
+      {_id: transactionId, incoming: true},
+      {
+        $set: {
+          updatedSerialNumber: normalizedSerial,
+          updatedBy: req.user?._id,
+          updatedAt: new Date(),
+        },
+      },
+      { new: true, session }
+    );
+
+    if (!updatedPickupItem) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: `Incoming PickupItem with id ${transactionId} not found`,
+      });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "PickupItem updated successfully",
+      data: updatedPickupItem,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error updating PickupItem:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
