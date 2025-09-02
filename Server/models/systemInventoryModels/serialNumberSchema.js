@@ -14,6 +14,11 @@ const serialNumberSchema = new Schema({
         trim: true,
         uppercase: true,
     },
+    state: {
+        type: String,
+        required: true,
+        trim: true,
+    },
     isUsed: {
         type: Boolean,
         default: false

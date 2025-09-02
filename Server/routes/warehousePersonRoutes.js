@@ -303,7 +303,7 @@ router.get(
 router.put("/update-systemId", updateSystemId);
 router.post("/add-serial-number", addSerialNumber);
 router.get("/get-serial-number", getSerialNumber);
-router.get("check-serial-number", checkSerialNumber);
+router.get("/check-serial-number", checkSerialNumber);
 router.post("/upload-serial-number", upload.single("file"), uploadSerialNumbers);
 router.put("/update-serial-number", upload.single('file'), updateSerialNumbersAsUsed);
 router.put("/update-pickup-item-serial", userVerification(['warehouseAdmin']), updateIncomingPickupItemSerial);

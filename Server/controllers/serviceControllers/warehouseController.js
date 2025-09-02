@@ -1659,336 +1659,6 @@ module.exports.updateItemQuantity = async (req, res) => {
 
 //     const warehousePersonId = req.user._id;
 //     const warehouseId = req.user.warehouse;
-//     const warehouseData = await Warehouse.findById(warehouseId).session(
-//       session
-//     );
-//     if (!warehouseData) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(404).json({
-//         success: false,
-//         message: "Warehouse Not Found",
-//       });
-//     }
-//     let state;
-//     if (
-//       warehouseData.warehouseName === "Bhiwani" ||
-//       warehouseData.warehouseName === "Jind" ||
-//       warehouseData.warehouseName === "Hisar" ||
-//       warehouseData.warehouseName === "Sirsa"
-//     ) {
-//       state = "Haryana";
-//     } else if (warehouseData.warehouseName === "Jalna Warehouse") {
-//       state = "Maharashtra";
-//     } else if (warehouseData.warehouseName === "Korba Chhattisgarh") {
-//       state = "Chhattisgarh";
-//     }
-//     // ✅ Basic Validations
-//     if (
-//       !farmerSaralId ||
-//       !empId ||
-//       !systemId ||
-//       !itemsList ||
-//       !panelNumbers ||
-//       !pumpNumber ||
-//       !controllerNumber ||
-//       !rmuNumber ||
-//       !motorNumber
-//     ) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "All fields are required" });
-//     }
-
-//     if (!Array.isArray(itemsList) || itemsList.length === 0) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "ItemsList is empty" });
-//     }
-
-//     const existingFarmerActivity = await FarmerItemsActivity.findOne({
-//       farmerSaralId,
-//       systemId,
-//     }).session(session);
-//     if (existingFarmerActivity) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({
-//         success: false,
-//         message: "Farmer activity for this system already exists",
-//       });
-//     }
-
-//     // ✅ Determine Reference Type
-//     let refType;
-//     let empData = await ServicePerson.findOne({ _id: empId }).session(session);
-//     if (empData) {
-//       refType = "ServicePerson";
-//     } else {
-//       empData = await SurveyPerson.findOne({ _id: empId }).session(session);
-//       if (!empData) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res
-//           .status(400)
-//           .json({ success: false, message: "EmpID Not Found In Database" });
-//       }
-//       refType = "SurveyPerson";
-//     }
-
-//     // ✅ Merge itemsList + extraItemsList by systemItemId (to avoid duplicate deduction)
-//     const combinedItemsMap = new Map();
-//     const accumulateItems = (list = []) => {
-//       for (const { systemItemId, quantity } of list) {
-//         const key = systemItemId.toString();
-//         const prevQty = combinedItemsMap.get(key) || 0;
-//         combinedItemsMap.set(key, prevQty + parseInt(quantity));
-//       }
-//     };
-
-//     accumulateItems(itemsList);
-//     accumulateItems(extraItemsList);
-
-//     const mergedItemList = Array.from(combinedItemsMap.entries()).map(
-//       ([systemItemId, quantity]) => ({
-//         systemItemId,
-//         quantity,
-//       })
-//     );
-
-//     // ✅ Check and Deduct Inventory
-//     for (const { systemItemId, quantity } of mergedItemList) {
-//       const systemItemData = await SystemItem.findById(systemItemId).session(
-//         session
-//       );
-//       if (!systemItemData) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res
-//           .status(400)
-//           .json({ success: false, message: "SystemItem Not Found" });
-//       }
-
-//       const inventoryItems = await InstallationInventory.find({ warehouseId })
-//         .populate({
-//           path: "systemItemId",
-//           select: { itemName: 1 },
-//         })
-//         .session(session);
-
-//       const inventoryItem = inventoryItems.find(
-//         (inv) =>
-//           inv.systemItemId.itemName.toLowerCase() ===
-//           systemItemData.itemName.toLowerCase()
-//       );
-
-//       if (!inventoryItem) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res.status(404).json({
-//           success: false,
-//           message: `SubItem "${systemItemData.itemName}" not found in warehouse inventory`,
-//         });
-//       }
-
-//       if (inventoryItem.quantity < quantity) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res.status(400).json({
-//           success: false,
-//           message: `Insufficient stock for item "${systemItemData.itemName}"`,
-//         });
-//       }
-
-//       const warehouseItemsData = await WarehouseItems.findById(warehouseId);
-//       if (!warehouseItemsData) {
-//         return res.status(404).json({
-//           success: false,
-//           message: "Warehouse Data Not Found",
-//         });
-//       }
-//       if (systemItemData.itemName === "MOTOR 10HP AC 440V") {
-//         existingItemData = warehouseItemsData.items.find(
-//           (item) => item.itemName === systemItemData.itemName
-//         );
-//         if (!existingItemData) {
-//           return res.status(404).json({
-//             success: false,
-//             message: "Item Not Found In Warehouse",
-//           });
-//         }
-
-//         if (existingItemData.newStock < quantity) {
-//           return res.status(400).json({
-//             success: false,
-//             message: `Insufficient stock for the ${systemItemData.itemName}`,
-//           });
-//         }
-
-//         existingItemData.quantity =
-//           parseInt(existingItemData.quantity) - parseInt(quantity);
-//       }
-
-//       if (
-//         systemItemData.itemName === "PUMP 10HP AC 30MTR" ||
-//         systemItemData.itemName === "PUMP 10HP AC 50MTR" ||
-//         systemItemData.itemName === "PUMP 10HP AC 70MTR" ||
-//         systemItemData.itemName === "PUMP 10HP AC 100MTR"
-//       ) {
-//         // existingItemData = warehouseItemsData.items.find((item) => item.itemName === systemItemData.itemName);
-//         const normalizeWords = (str) => str.toLowerCase().split(/\s+/);
-
-//         const haveCommonBase = (name1, name2, minCommonWords = 3) => {
-//           const words1 = normalizeWords(name1);
-//           const words2 = normalizeWords(name2);
-//           const common = words1.filter((word) => words2.includes(word));
-//           return common.length >= minCommonWords; // You can adjust threshold
-//         };
-
-//         existingItemData = warehouseItemsData.items.find((item) =>
-//           haveCommonBase(item.itemName, systemItemData.itemName)
-//         );
-
-//         if (!existingItemData) {
-//           return res.status(404).json({
-//             success: false,
-//             message: "Item Not Found In Warehouse",
-//           });
-//         }
-//         if (existingItemData.newStock < quantity) {
-//           return res.status(400).json({
-//             success: false,
-//             message: `Insufficient stock for the ${systemItemData.itemName}`,
-//           });
-//         }
-
-//         existingItemData.newStock = parseInt(existingItemData.newStock) - parseInt(quantity);
-//       }
-
-//       if (systemItemData.itemName === "Controller - RMU - 10HP AC GALO") {
-//             const existingItemData = warehouseItemsData.items.find((item) => item.itemName === "CONTROLLER 10HP AC GALO");
-//             if(!existingItemData) {
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: "Item Not Found In Warehouse"
-//                 });
-//             }
-//             if (existingItemData.newStock < quantity) {
-//                 return res.status(400).json({
-//                     success: false,
-//                     message: `Insufficient stock for the ${systemItemData.itemName}`,
-//                 });
-//             }
-
-//             existingItemData.newStock = parseInt(existingItemData.newStock) - parseInt(quantity);
-
-//       }
-//       // Deduct quantity
-//       inventoryItem.quantity -= quantity;
-//       inventoryItem.updatedAt = new Date();
-//       inventoryItem.updatedBy = warehousePersonId;
-//       await inventoryItem.save({ session });
-//     }
-
-//     // ✅ Save Farmer Activity
-//     const activityData = {
-//       warehouseId,
-//       referenceType: refType,
-//       farmerSaralId,
-//       empId,
-//       systemId,
-//       itemsList,
-//       extraItemsList: extraItemsList || [],
-//       extraPanelNumbers: extraPanelNumbers || [],
-//       panelNumbers,
-//       pumpNumber,
-//       motorNumber,
-//       controllerNumber,
-//       rmuNumber,
-//       state,
-//       createdBy: warehousePersonId,
-//     };
-
-//     const farmerActivity = new FarmerItemsActivity(activityData);
-//     const savedFarmerActivity = await farmerActivity.save({ session });
-//     if (!savedFarmerActivity) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({
-//         success: false,
-//         message: "Failed to save farmer activity",
-//       });
-//     }
-
-//     // ✅ Save Installation Assignment to Emp
-//     const empAccountData = new InstallationAssignEmp({
-//       warehouseId,
-//       referenceType: refType,
-//       empId,
-//       farmerSaralId,
-//       systemId,
-//       itemsList,
-//       extraItemsList,
-//       createdBy: warehousePersonId,
-//     });
-
-//     const savedEmpAccountData = await empAccountData.save({ session });
-//     if (!savedEmpAccountData) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({
-//         success: false,
-//         message: "Failed to save employee account data",
-//       });
-//     }
-
-//     // ✅ COMMIT
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Data Saved Successfully",
-//       farmerActivity,
-//       empAccountData,
-//     });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     console.error("Error in addNewInstallationData:", error.message);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
-
-// module.exports.addNewInstallationData = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const {
-//       farmerSaralId,
-//       empId,
-//       systemId,
-//       itemsList,
-//       extraItemsList,
-//       extraPanelNumbers,
-//       panelNumbers,
-//       pumpNumber,
-//       motorNumber,
-//       controllerNumber,
-//       rmuNumber,
-//     } = req.body;
-
-//     const warehousePersonId = req.user._id;
-//     const warehouseId = req.user.warehouse;
 
 //     // ✅ Fetch warehouse data
 //     const warehouseData = await Warehouse.findById(warehouseId).session(
@@ -2048,12 +1718,10 @@ module.exports.updateItemQuantity = async (req, res) => {
 //     if (existingFarmerActivity) {
 //       await session.abortTransaction();
 //       session.endSession();
-//       return res
-//         .status(400)
-//         .json({
-//           success: false,
-//           message: "Farmer activity for this system already exists",
-//         });
+//       return res.status(400).json({
+//         success: false,
+//         message: "Farmer activity for this system already exists",
+//       });
 //     }
 
 //     // ✅ Determine Reference Type
@@ -2094,14 +1762,19 @@ module.exports.updateItemQuantity = async (req, res) => {
 //     );
 
 //     // ✅ Process inventory updates
-//     // const warehouseItemsData = await WarehouseItems.findById(warehouseId);
-//     // if (!warehouseItemsData) {
-//     //   await session.abortTransaction();
-//     //   session.endSession();
-//     //   return res
-//     //     .status(404)
-//     //     .json({ success: false, message: "Warehouse Data Not Found" });
-//     // }
+//     let warehouseItemsData;
+//     if (state === "Haryana") {
+//       warehouseItemsData = await WarehouseItems.findById(warehouseId).session(
+//         session
+//       );
+//       if (!warehouseItemsData) {
+//         await session.abortTransaction();
+//         session.endSession();
+//         return res
+//           .status(404)
+//           .json({ success: false, message: "Warehouse Data Not Found" });
+//       }
+//     }
 
 //     for (const { systemItemId, quantity } of mergedItemList) {
 //       const systemItemData = await SystemItem.findById(systemItemId).session(
@@ -2128,94 +1801,90 @@ module.exports.updateItemQuantity = async (req, res) => {
 //       if (!inventoryItem) {
 //         await session.abortTransaction();
 //         session.endSession();
-//         return res
-//           .status(404)
-//           .json({
-//             success: false,
-//             message: `SubItem "${systemItemName}" not found in warehouse inventory`,
-//           });
+//         return res.status(404).json({
+//           success: false,
+//           message: `SubItem "${systemItemName}" not found in warehouse inventory`,
+//         });
 //       }
 
 //       if (inventoryItem.quantity < quantity) {
 //         await session.abortTransaction();
 //         session.endSession();
-//         return res
-//           .status(400)
-//           .json({
-//             success: false,
-//             message: `Insufficient stock for item "${systemItemName}"`,
-//           });
+//         return res.status(400).json({
+//           success: false,
+//           message: `Insufficient stock for item "${systemItemName}"`,
+//         });
 //       }
 
-//       // let existingItemData;
-
-//       // // ✅ MOTOR logic
-//       // if (systemItemName === "MOTOR 10HP AC 440V") {
-//       //   existingItemData = warehouseItemsData.items.find(
-//       //     (item) => item.itemName === systemItemName
-//       //   );
-//       // }
-
-//       // // ✅ PUMP logic
-//       // if (
-//       //   [
-//       //     "PUMP 10HP AC 30MTR",
-//       //     "PUMP 10HP AC 50MTR",
-//       //     "PUMP 10HP AC 70MTR",
-//       //     "PUMP 10HP AC 100MTR",
-//       //   ].includes(systemItemName)
-//       // ) {
-//       //   const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
-//       //   const haveCommonBase = (name1, name2, minCommonWords = 3) => {
-//       //     const words1 = normalizeWords(name1);
-//       //     const words2 = normalizeWords(name2);
-//       //     const common = words1.filter((word) => words2.includes(word));
-//       //     return common.length >= minCommonWords;
-//       //   };
-
-//       //   existingItemData = warehouseItemsData.items.find((item) =>
-//       //     haveCommonBase(item.itemName, systemItemName)
-//       //   );
-//       // }
-
-//       // // ✅ Controller logic
-//       // if (systemItemName === "Controller - RMU - 10HP AC GALO") {
-//       //   existingItemData = warehouseItemsData.items.find(
-//       //     (item) => item.itemName === "CONTROLLER 10HP AC GALO"
-//       //   );
-//       // }
-
-//       // if (!existingItemData) {
-//       //   await session.abortTransaction();
-//       //   session.endSession();
-//       //   return res
-//       //     .status(404)
-//       //     .json({
-//       //       success: false,
-//       //       message: `Item "${systemItemName}" Not Found In Warehouse`,
-//       //     });
-//       // }
-
-//       // if (existingItemData.newStock < quantity) {
-//       //   await session.abortTransaction();
-//       //   session.endSession();
-//       //   return res
-//       //     .status(400)
-//       //     .json({
-//       //       success: false,
-//       //       message: `Insufficient stock for the ${systemItemName}`,
-//       //     });
-//       // }
-
-//       // // ✅ Deduct from WarehouseItems
-//       // existingItemData.newStock =
-//       //   parseInt(existingItemData.newStock) - parseInt(quantity);
-
-//       // ✅ Deduct from InstallationInventory
+//       // ✅ Deduct from InstallationInventory (always)
 //       inventoryItem.quantity -= quantity;
 //       inventoryItem.updatedAt = new Date();
 //       inventoryItem.updatedBy = warehousePersonId;
 //       await inventoryItem.save({ session });
+
+//       // ✅ Extra Haryana-specific logic
+//       if (state === "Haryana") {
+//         let existingItemData;
+
+//         // MOTOR logic
+//         if (systemItemName === "MOTOR 10HP AC 440V") {
+//           existingItemData = warehouseItemsData.items.find(
+//             (item) => item.itemName === systemItemName
+//           );
+//         }
+
+//         // PUMP logic
+//         if (
+//           [
+//             "PUMP 10HP AC 30MTR",
+//             "PUMP 10HP AC 50MTR",
+//             "PUMP 10HP AC 70MTR",
+//             "PUMP 10HP AC 100MTR",
+//           ].includes(systemItemName)
+//         ) {
+//           const normalizeWords = (str) =>
+//             (str || "").toLowerCase().split(/\s+/);
+//           const haveCommonBase = (name1, name2, minCommonWords = 3) => {
+//             const words1 = normalizeWords(name1);
+//             const words2 = normalizeWords(name2);
+//             const common = words1.filter((word) => words2.includes(word));
+//             return common.length >= minCommonWords;
+//           };
+
+//           existingItemData = warehouseItemsData.items.find((item) =>
+//             haveCommonBase(item.itemName, systemItemName)
+//           );
+//         }
+
+//         // Controller logic
+//         if (systemItemName === "Controller - RMU - 10HP AC GALO") {
+//           existingItemData = warehouseItemsData.items.find(
+//             (item) => item.itemName === "CONTROLLER 10HP AC GALO"
+//           );
+//         }
+
+//         if (!existingItemData) {
+//           await session.abortTransaction();
+//           session.endSession();
+//           return res.status(404).json({
+//             success: false,
+//             message: `Item "${systemItemName}" Not Found In Warehouse`,
+//           });
+//         }
+
+//         if (existingItemData.newStock < quantity) {
+//           await session.abortTransaction();
+//           session.endSession();
+//           return res.status(400).json({
+//             success: false,
+//             message: `Insufficient stock for the ${systemItemName}`,
+//           });
+//         }
+
+//         // ✅ Deduct from WarehouseItems (Haryana only)
+//         existingItemData.newStock =
+//           parseInt(existingItemData.newStock) - parseInt(quantity);
+//       }
 //     }
 
 //     // ✅ Save Farmer Activity
@@ -2301,15 +1970,9 @@ module.exports.addNewInstallationData = async (req, res) => {
     const warehouseId = req.user.warehouse;
 
     // ✅ Fetch warehouse data
-    const warehouseData = await Warehouse.findById(warehouseId).session(
-      session
-    );
+    const warehouseData = await Warehouse.findById(warehouseId).session(session);
     if (!warehouseData) {
-      await session.abortTransaction();
-      session.endSession();
-      return res
-        .status(404)
-        .json({ success: false, message: "Warehouse Not Found" });
+      throw new Error("Warehouse Not Found");
     }
 
     // ✅ Determine State
@@ -2335,19 +1998,11 @@ module.exports.addNewInstallationData = async (req, res) => {
       !rmuNumber ||
       !motorNumber
     ) {
-      await session.abortTransaction();
-      session.endSession();
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields are required" });
+      throw new Error("All fields are required");
     }
 
     if (!Array.isArray(itemsList) || itemsList.length === 0) {
-      await session.abortTransaction();
-      session.endSession();
-      return res
-        .status(400)
-        .json({ success: false, message: "ItemsList is empty" });
+      throw new Error("ItemsList is empty");
     }
 
     // ✅ Check if farmer activity already exists
@@ -2356,12 +2011,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       systemId,
     }).session(session);
     if (existingFarmerActivity) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({
-        success: false,
-        message: "Farmer activity for this system already exists",
-      });
+      throw new Error("Farmer activity for this system already exists");
     }
 
     // ✅ Determine Reference Type
@@ -2372,11 +2022,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     } else {
       empData = await SurveyPerson.findById(empId).session(session);
       if (!empData) {
-        await session.abortTransaction();
-        session.endSession();
-        return res
-          .status(400)
-          .json({ success: false, message: "EmpID Not Found In Database" });
+        throw new Error("EmpID Not Found In Database");
       }
       refType = "SurveyPerson";
     }
@@ -2404,28 +2050,16 @@ module.exports.addNewInstallationData = async (req, res) => {
     // ✅ Process inventory updates
     let warehouseItemsData;
     if (state === "Haryana") {
-      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(
-        session
-      );
+      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(session);
       if (!warehouseItemsData) {
-        await session.abortTransaction();
-        session.endSession();
-        return res
-          .status(404)
-          .json({ success: false, message: "Warehouse Data Not Found" });
+        throw new Error("Warehouse Data Not Found");
       }
     }
 
     for (const { systemItemId, quantity } of mergedItemList) {
-      const systemItemData = await SystemItem.findById(systemItemId).session(
-        session
-      );
+      const systemItemData = await SystemItem.findById(systemItemId).session(session);
       if (!systemItemData) {
-        await session.abortTransaction();
-        session.endSession();
-        return res
-          .status(400)
-          .json({ success: false, message: "SystemItem Not Found" });
+        throw new Error("SystemItem Not Found");
       }
 
       const systemItemName = systemItemData.itemName || "";
@@ -2435,25 +2069,14 @@ module.exports.addNewInstallationData = async (req, res) => {
 
       const inventoryItem = inventoryItems.find(
         (inv) =>
-          inv.systemItemId?.itemName?.toLowerCase() ===
-          systemItemName.toLowerCase()
+          inv.systemItemId?.itemName?.toLowerCase() === systemItemName.toLowerCase()
       );
       if (!inventoryItem) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(404).json({
-          success: false,
-          message: `SubItem "${systemItemName}" not found in warehouse inventory`,
-        });
+        throw new Error(`SubItem "${systemItemName}" not found in warehouse inventory`);
       }
 
       if (inventoryItem.quantity < quantity) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for item "${systemItemName}"`,
-        });
+        throw new Error(`Insufficient stock for item "${systemItemName}"`);
       }
 
       // ✅ Deduct from InstallationInventory (always)
@@ -2482,8 +2105,7 @@ module.exports.addNewInstallationData = async (req, res) => {
             "PUMP 10HP AC 100MTR",
           ].includes(systemItemName)
         ) {
-          const normalizeWords = (str) =>
-            (str || "").toLowerCase().split(/\s+/);
+          const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
           const haveCommonBase = (name1, name2, minCommonWords = 3) => {
             const words1 = normalizeWords(name1);
             const words2 = normalizeWords(name2);
@@ -2504,21 +2126,11 @@ module.exports.addNewInstallationData = async (req, res) => {
         }
 
         if (!existingItemData) {
-          await session.abortTransaction();
-          session.endSession();
-          return res.status(404).json({
-            success: false,
-            message: `Item "${systemItemName}" Not Found In Warehouse`,
-          });
+          throw new Error(`Item "${systemItemName}" Not Found In Warehouse`);
         }
 
         if (existingItemData.newStock < quantity) {
-          await session.abortTransaction();
-          session.endSession();
-          return res.status(400).json({
-            success: false,
-            message: `Insufficient stock for the ${systemItemName}`,
-          });
+          throw new Error(`Insufficient stock for the ${systemItemName}`);
         }
 
         // ✅ Deduct from WarehouseItems (Haryana only)
@@ -2538,16 +2150,15 @@ module.exports.addNewInstallationData = async (req, res) => {
       extraItemsList: extraItemsList || [],
       extraPanelNumbers: extraPanelNumbers || [],
       panelNumbers,
-      pumpNumber,
-      motorNumber,
-      controllerNumber,
-      rmuNumber,
+      pumpNumber: pumpNumber.trim().toUpperCase(),
+      motorNumber: motorNumber.trim().toUpperCase(),
+      controllerNumber: controllerNumber.trim().toUpperCase(),
+      rmuNumber: rmuNumber.trim().toUpperCase(),
       state,
       createdBy: warehousePersonId,
     });
 
-    const savedFarmerActivity = await farmerActivity.save({ session });
-    if (!savedFarmerActivity) throw new Error("Failed to save farmer activity");
+    await farmerActivity.save({ session });
 
     // ✅ Save Installation Assignment
     const empAccountData = new InstallationAssignEmp({
@@ -2561,9 +2172,58 @@ module.exports.addNewInstallationData = async (req, res) => {
       createdBy: warehousePersonId,
     });
 
-    const savedEmpAccountData = await empAccountData.save({ session });
-    if (!savedEmpAccountData)
-      throw new Error("Failed to save employee account data");
+    await empAccountData.save({ session });
+
+    // ✅ Mark serial numbers as used (inside transaction)
+    const updates = [];
+
+    // Panel Numbers (multiple)
+    if (Array.isArray(panelNumbers)) {
+      panelNumbers.forEach((sn) => {
+        updates.push({
+          updateOne: {
+            filter: { productType: "panel", serialNumber: sn.toUpperCase(), state },
+            update: { $set: { isUsed: true } },
+          },
+        });
+      });
+    }
+
+    // Pump
+    updates.push({
+      updateOne: {
+        filter: { productType: "pump", serialNumber: pumpNumber.toUpperCase(), state },
+        update: { $set: { isUsed: true } },
+      },
+    });
+
+    // Motor
+    updates.push({
+      updateOne: {
+        filter: { productType: "motor", serialNumber: motorNumber.toUpperCase(), state },
+        update: { $set: { isUsed: true } },
+      },
+    });
+
+    // Controller
+    updates.push({
+      updateOne: {
+        filter: { productType: "controller", serialNumber: controllerNumber.toUpperCase(), state },
+        update: { $set: { isUsed: true } },
+      },
+    });
+
+    // RMU
+    updates.push({
+      updateOne: {
+        filter: { productType: "rmu", serialNumber: rmuNumber.toUpperCase(), state },
+        update: { $set: { isUsed: true } },
+      },
+    });
+
+    if (updates.length > 0) {
+      await SerialNumber.bulkWrite(updates, { session });
+    }
 
     // ✅ Commit transaction
     await session.commitTransaction();
@@ -2571,9 +2231,7 @@ module.exports.addNewInstallationData = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Data Saved Successfully",
-      farmerActivity,
-      empAccountData,
+      message: "Data Saved Successfully & Serial Numbers Marked as Used",
     });
   } catch (error) {
     await session.abortTransaction();
@@ -4401,9 +4059,9 @@ module.exports.declinePickupItemsTransaction = async (req, res) => {
 
 module.exports.addSerialNumber = async (req, res) => {
   try {
-    let { productType, serialNumber } = req.body;
+    let { productType, serialNumber, state} = req.body;
 
-    if (!productType || !serialNumber) {
+    if (!productType || !serialNumber || !state) {
       return res.status(400).json({
         success: false,
         message: "Product type and serial number are required",
@@ -4429,6 +4087,7 @@ module.exports.addSerialNumber = async (req, res) => {
     const newSerial = new SerialNumber({
       productType,
       serialNumber: trimmedSerialNumber,
+      state,
       isUsed: false,
     });
 
@@ -4462,7 +4121,7 @@ module.exports.getSerialNumber = async (req, res) => {
     // Fetch all serial numbers for the given product type
     const serialNumbers = await SerialNumber.find(
       { productType },
-      { _id: 0, serialNumber: 1, isUsed: 1 }
+      { _id: 0, serialNumber: 1, state: 1, isUsed: 1 }
     ).lean();
 
     if (!serialNumbers || serialNumbers.length === 0) {
@@ -4487,6 +4146,7 @@ module.exports.getSerialNumber = async (req, res) => {
 };
 
 module.exports.checkSerialNumber = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const { productType, serialNumber, panelNumberList } = req.body;
 
@@ -4500,28 +4160,56 @@ module.exports.checkSerialNumber = async (req, res) => {
       });
     }
 
+    const warehouseId = req.user.warehouse;
+
+    // ✅ Fetch warehouse data
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if (!warehouseData) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Warehouse Not Found" });
+    }
+
+    // ✅ Determine State
+    let state;
+    const whName = warehouseData.warehouseName;
+    if (["Bhiwani"].includes(whName)) {
+      state = "Haryana";
+    } else if (whName === "Jalna Warehouse") {
+      state = "Maharashtra";
+    } else if (whName === "Korba Chhattisgarh") {
+      state = "Chhattisgarh";
+    }
+
     const trimmedProductType = String(productType).trim().toLowerCase();
 
-    // 🔹 CASE 1: If panelNumberList is provided
+    // 🔹 CASE 1: Multiple Panel Numbers
     if (Array.isArray(panelNumberList) && panelNumberList.length > 0) {
       const trimmedPanelNumbers = panelNumberList.map((num) =>
         String(num).trim().toUpperCase()
       );
 
-      // Find all matching serial numbers
+      // Find in SerialNumber collection
       const serials = await SerialNumber.find({
         productType: trimmedProductType,
+        state,
         serialNumber: { $in: trimmedPanelNumbers },
       }).lean();
 
-      if (!serials || serials.length === 0) {
+      // Find in FarmerItemsActivity collection
+      const farmerActivity = await FarmerItemsActivity.find({
+        panelNumbers: { $in: trimmedPanelNumbers },
+        state,
+      }).lean();
+
+      if ((!serials || serials.length === 0) && farmerActivity.length === 0) {
         return res.status(404).json({
           success: false,
-          message: "No serial numbers found for this product type",
+          message: "No panel numbers found for this product type",
         });
       }
 
-      // Separate used & unused serials
+      // SerialNumber collection check
       const usedSerials = serials
         .filter((s) => s.isUsed)
         .map((s) => s.serialNumber);
@@ -4529,32 +4217,60 @@ module.exports.checkSerialNumber = async (req, res) => {
         .filter((s) => !s.isUsed)
         .map((s) => s.serialNumber);
 
+      // FarmerItemsActivity check
+      const alreadyAssigned = farmerActivity.map((f) => f.panelNumbers).flat();
+
       return res.status(200).json({
         success: true,
         message: "Panel numbers checked successfully",
         data: {
           usedSerials,
           unusedSerials,
+          installationSerials: alreadyAssigned, // ✅ from FarmerItemsActivity
         },
       });
     }
 
-    // 🔹 CASE 2: Single serial number check
+    // 🔹 CASE 2: Single Serial Number
     const trimmedSerialNumber = String(serialNumber).trim().toUpperCase();
 
+    // Check in SerialNumber collection
     const existsSerial = await SerialNumber.findOne({
       productType: trimmedProductType,
+      state,
       serialNumber: trimmedSerialNumber,
     }).lean();
 
-    if (!existsSerial) {
+    // Check in FarmerItemsActivity (for pump, motor, controller, rmu, panels)
+    const existsInFarmerActivity = await FarmerItemsActivity.findOne({
+      state,
+      $or: [
+        { pumpNumber: trimmedSerialNumber },
+        { motorNumber: trimmedSerialNumber },
+        { controllerNumber: trimmedSerialNumber },
+        { rmuNumber: trimmedSerialNumber },
+        { panelNumbers: trimmedSerialNumber },
+        { extraPanelNumbers: trimmedSerialNumber },
+      ],
+    }).lean();
+
+    if (!existsSerial && !existsInFarmerActivity) {
       return res.status(404).json({
         success: false,
         message: "Serial Number not found for this product type",
       });
     }
 
-    if (existsSerial.isUsed) {
+    // If found in FarmerItemsActivity → Already assigned
+    if (existsInFarmerActivity) {
+      return res.status(200).json({
+        success: true,
+        message: "Already Assigned in FarmerItemsActivity",
+      });
+    }
+
+    // Else check SerialNumber.isUsed flag
+    if (existsSerial && existsSerial.isUsed) {
       return res.status(200).json({
         success: true,
         message: "Already Dispatched",
@@ -4570,6 +4286,71 @@ module.exports.checkSerialNumber = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message,
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+
+module.exports.checkRMUNumber = async (req, res) => {
+  try {
+    const { rmuNumber } = req.body;
+
+    if (!rmuNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "RMU Number is required",
+      });
+    }
+
+    const trimmedRMUNumber = rmuNumber.trim().toUpperCase();
+
+    // Check if this RMU already exists in SerialNumber collection
+    const existingRMU = await SerialNumber.findOne({
+      productType: "rmu",   // <-- FIXED
+      serialNumber: trimmedRMUNumber,
+    });
+
+    if (!existingRMU) {
+      // If not in SerialNumber, check FarmerItemsActivity (already dispatched system)
+      const dispatchedSystem = await FarmerItemsActivity.findOne({
+        rmuNumber: trimmedRMUNumber,
+      });
+
+      if (!dispatchedSystem) {
+        // Add it as a new SerialNumber and mark as used
+        const addRMUNumber = new SerialNumber({
+          productType: "rmu",   // <-- FIXED
+          serialNumber: trimmedRMUNumber,
+          isUsed: true,
+        });
+
+        await addRMUNumber.save();
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `RMU Number ${trimmedRMUNumber} already dispatched.`,
+        });
+      }
+    } else if (existingRMU.isUsed === true) {
+      return res.status(400).json({
+        success: false,
+        message: `RMU Number ${trimmedRMUNumber} already dispatched.`,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `RMU Number ${trimmedRMUNumber} can be used.`,
+    });
+  } catch (error) {
+    console.error("ERROR in checkRMUNumber: ", error.stack);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
@@ -4607,7 +4388,10 @@ module.exports.uploadSerialNumbers = async (req, res) => {
       const serialNumber = row.serialNumber
         ? String(row.serialNumber).trim().toUpperCase()
         : null;
-
+      
+      const state = row.state 
+      ? String(row.state).trim()
+      : null;
       if (!productType || !serialNumber) {
         duplicateRows.push({ ...row, reason: "Invalid data" });
         continue;
@@ -4617,6 +4401,7 @@ module.exports.uploadSerialNumbers = async (req, res) => {
       const exists = await SerialNumber.findOne({
         productType,
         serialNumber,
+        state,
       }).lean();
 
       if (exists) {
@@ -4625,6 +4410,7 @@ module.exports.uploadSerialNumbers = async (req, res) => {
         bulkInsertData.push({
           productType,
           serialNumber,
+          state,
           isUsed: false,
         });
       }
@@ -4690,8 +4476,8 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
     const failedRows = [];
     let updatedCount = 0;
 
-    for (const row of sheetData) {
-      // Convert values to string safely
+    // Build bulk operations
+    const bulkOps = sheetData.map((row) => {
       const productType = row.productType
         ? String(row.productType).trim().toLowerCase()
         : null;
@@ -4700,27 +4486,25 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
         ? String(row.serialNumber).trim().toUpperCase()
         : null;
 
+      const state = row.state ? String(row.state).trim() : null;
+
       if (!productType || !serialNumber) {
         failedRows.push({ ...row, reason: "Invalid data" });
-        continue;
+        return null;
       }
 
-      // Try to update (only if not already used)
-      const result = await SerialNumber.findOneAndUpdate(
-        { productType, serialNumber, isUsed: false },
-        { $set: { isUsed: true } },
-        { new: true }
-      );
+      return {
+        updateOne: {
+          filter: { productType, serialNumber },
+          update: { $set: { isUsed: true} },
+        },
+      };
+    }).filter(Boolean); // remove nulls
 
-      if (result) {
-        updatedCount++;
-      } else {
-        failedRows.push({
-          productType,
-          serialNumber,
-          reason: "Not found or already used",
-        });
-      }
+    // Run bulkWrite in one go
+    if (bulkOps.length > 0) {
+      const result = await SerialNumber.bulkWrite(bulkOps, { ordered: false });
+      updatedCount = result.modifiedCount;
     }
 
     // If there are failed rows, export them into an Excel
@@ -4729,10 +4513,7 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
       const newWS = XLSX.utils.json_to_sheet(failedRows);
       XLSX.utils.book_append_sheet(newWB, newWS, "Failed Updates");
 
-      const filePath = path.join(
-        __dirname,
-        "../../uploads/failed_updates.xlsx"
-      );
+      const filePath = path.join(__dirname, "../../uploads/failed_updates.xlsx");
       XLSX.writeFile(newWB, filePath);
 
       return res.download(filePath, "failed_updates.xlsx", (err) => {
@@ -4756,6 +4537,7 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
     });
   }
 };
+
 
 module.exports.updateIncomingPickupItemSerial = async (req, res) => {
   const session = await mongoose.startSession();

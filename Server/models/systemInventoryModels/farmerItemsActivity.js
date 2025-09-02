@@ -51,26 +51,38 @@ const farmerItemsActivitySchema = new Schema({
     ],
     panelNumbers: {
         type: [String],
-        required: true
+        required: true,
+        uppercase: true,
+        trim: true
     },
     extraPanelNumbers: {
         type: [String],
+        uppercase: true,
+        trim: true
     },
     pumpNumber: {
         type: String,
-        required: true
+        required: true,
+        uppercase: true,
+        trim: true
     },
     motorNumber: {
         type: String,
+        uppercase: true,
+        trim: true
     },
     controllerNumber: {
         type: String,
-        required: true
+        required: true,
+         uppercase: true,
+        trim: true
     },
     rmuNumber: {
         type:String,
         required: true,
         minlength: 15,
+        uppercase: true,
+        trim: true
     },
     state: {
         type: String
