@@ -4293,51 +4293,79 @@ module.exports.checkSerialNumber = async (req, res) => {
   }
 };
 
-
 module.exports.checkRMUNumber = async (req, res) => {
   try {
-    const { rmuNumber } = req.body;
-
-    if (!rmuNumber) {
+    const { productType, rmuNumber } = req.body;
+    if ((productType.trim().toLowerCase() !== "rmu") || !rmuNumber) {
       return res.status(400).json({
         success: false,
-        message: "RMU Number is required",
+        message: "Product Type & RMU Number is required",
       });
+    }
+
+    const warehouseId = req.user.warehouse;
+    const warehouseData = await Warehouse.findById(warehouseId);
+
+    if (!warehouseData) {
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse Not Found",
+      });
+    }
+
+    // ✅ State mapping
+    const whName = warehouseData.warehouseName;
+    let state;
+    if (["Bhiwani"].includes(whName)) {
+      state = "Haryana";
+    } else if (whName === "Jalna Warehouse") {
+      state = "Maharashtra";
+    } else if (whName === "Korba Chhattisgarh") {
+      state = "Chhattisgarh";
     }
 
     const trimmedRMUNumber = rmuNumber.trim().toUpperCase();
 
-    // Check if this RMU already exists in SerialNumber collection
-    const existingRMU = await SerialNumber.findOne({
-      productType: "rmu",   // <-- FIXED
+    // ✅ Check in SerialNumber
+    let existingRMU = await SerialNumber.findOne({
+      productType: productType.trim().toLowerCase(),
+      state,
       serialNumber: trimmedRMUNumber,
     });
 
     if (!existingRMU) {
-      // If not in SerialNumber, check FarmerItemsActivity (already dispatched system)
+      // Check in FarmerItemsActivity (already dispatched)
       const dispatchedSystem = await FarmerItemsActivity.findOne({
         rmuNumber: trimmedRMUNumber,
       });
 
-      if (!dispatchedSystem) {
-        // Add it as a new SerialNumber and mark as used
-        const addRMUNumber = new SerialNumber({
-          productType: "rmu",   // <-- FIXED
-          serialNumber: trimmedRMUNumber,
-          isUsed: true,
-        });
-
-        await addRMUNumber.save();
-      } else {
+      if (dispatchedSystem) {
         return res.status(400).json({
           success: false,
-          message: `RMU Number ${trimmedRMUNumber} already dispatched.`,
+          message: `${state} - RMU Number ${trimmedRMUNumber} already dispatched.`,
         });
       }
-    } else if (existingRMU.isUsed === true) {
+
+      // If not found anywhere, create new SerialNumber
+      existingRMU = new SerialNumber({
+        productType: productType.trim().toLowerCase(),
+        state,
+        serialNumber: trimmedRMUNumber,
+        isUsed: false, // keep available until actually dispatched
+      });
+      await existingRMU.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `RMU Number ${trimmedRMUNumber} registered & can be used.`,
+      });
+    }
+
+    // ✅ If already exists but marked used
+    if (existingRMU.isUsed) {
       return res.status(400).json({
         success: false,
-        message: `RMU Number ${trimmedRMUNumber} already dispatched.`,
+        message: `${state} - RMU Number ${trimmedRMUNumber} already dispatched.`,
       });
     }
 
