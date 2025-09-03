@@ -4239,14 +4239,22 @@ module.exports.checkSerialNumber = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     const { productType, serialNumber, panelNumberList } = req.body;
-    console.log("Received Data:", { productType, serialNumber, panelNumberList });
+    console.log("Received Data:", {
+      productType,
+      serialNumber,
+      panelNumberList,
+    });
     const trimmedProductType = productType
       ? String(productType).trim().toLowerCase()
       : null;
     const trimmedSerialNumber = serialNumber
       ? String(serialNumber).trim().toUpperCase()
       : null;
-    console.log("Trimmed Data:", { trimmedProductType, trimmedSerialNumber, panelNumberList });
+    console.log("Trimmed Data:", {
+      trimmedProductType,
+      trimmedSerialNumber,
+      panelNumberList,
+    });
     if (
       !trimmedProductType ||
       (!trimmedSerialNumber &&
@@ -4306,16 +4314,23 @@ module.exports.checkSerialNumber = async (req, res) => {
         });
       }
 
-      // SerialNumber collection check
-      const usedSerials = serials
-        .filter((s) => s.isUsed)
-        .map((s) => s.serialNumber);
-      const unusedSerials = serials
-        .filter((s) => !s.isUsed)
-        .map((s) => s.serialNumber);
+      // Extract FarmerActivity numbers (only those present in frontend input)
+      const farmerActivityNumbers = farmerActivity
+        .map((f) => f.panelNumbers)
+        .flat()
+        .filter((num) => trimmedPanelNumbers.includes(num));
 
-      // FarmerItemsActivity check
-      const alreadyAssigned = farmerActivity.map((f) => f.panelNumbers).flat();
+      // Prepare used & unused lists
+      const usedSerials = [
+        ...serials.filter((s) => s.isUsed).map((s) => s.serialNumber),
+        ...farmerActivityNumbers,
+      ];
+
+      const unusedSerials = serials
+        .filter(
+          (s) => !s.isUsed && !farmerActivityNumbers.includes(s.serialNumber)
+        )
+        .map((s) => s.serialNumber);
 
       return res.status(200).json({
         success: true,
@@ -4323,7 +4338,6 @@ module.exports.checkSerialNumber = async (req, res) => {
         data: {
           usedSerials,
           unusedSerials,
-          installationSerials: alreadyAssigned, // ✅ from FarmerItemsActivity
         },
       });
     }
@@ -4859,20 +4873,29 @@ module.exports.addMotorNumbersFromExcel = async (filePath) => {
 
       // Skip if motorNumber is empty
       if (!motorNumber || motorNumber.trim() === "") {
-        console.log(`⏭ Skipping row for farmerSaralId ${farmerSaralId} (empty motorNumber)`);
+        console.log(
+          `⏭ Skipping row for farmerSaralId ${farmerSaralId} (empty motorNumber)`
+        );
         continue;
       }
 
       // 3. Update only if motorNumber is not already present
       const updated = await FarmerItemsActivity.updateOne(
-        { farmerSaralId, $or: [{ motorNumber: { $exists: false } }, { motorNumber: "" }] },
+        {
+          farmerSaralId,
+          $or: [{ motorNumber: { $exists: false } }, { motorNumber: "" }],
+        },
         { $set: { motorNumber: motorNumber.toUpperCase().trim() } }
       );
 
       if (updated.modifiedCount > 0) {
-        console.log(`✅ Updated motorNumber for farmerSaralId ${farmerSaralId}`);
+        console.log(
+          `✅ Updated motorNumber for farmerSaralId ${farmerSaralId}`
+        );
       } else {
-        console.log(`⚠️ Skipped farmerSaralId ${farmerSaralId} (already has motorNumber or not found)`);
+        console.log(
+          `⚠️ Skipped farmerSaralId ${farmerSaralId} (already has motorNumber or not found)`
+        );
       }
     }
 
