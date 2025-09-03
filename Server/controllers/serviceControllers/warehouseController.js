@@ -1970,7 +1970,9 @@ module.exports.addNewInstallationData = async (req, res) => {
     const warehouseId = req.user.warehouse;
 
     // ✅ Fetch warehouse data
-    const warehouseData = await Warehouse.findById(warehouseId).session(session);
+    const warehouseData = await Warehouse.findById(warehouseId).session(
+      session
+    );
     if (!warehouseData) {
       throw new Error("Warehouse Not Found");
     }
@@ -2050,14 +2052,18 @@ module.exports.addNewInstallationData = async (req, res) => {
     // ✅ Process inventory updates
     let warehouseItemsData;
     if (state === "Haryana") {
-      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(session);
+      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(
+        session
+      );
       if (!warehouseItemsData) {
         throw new Error("Warehouse Data Not Found");
       }
     }
 
     for (const { systemItemId, quantity } of mergedItemList) {
-      const systemItemData = await SystemItem.findById(systemItemId).session(session);
+      const systemItemData = await SystemItem.findById(systemItemId).session(
+        session
+      );
       if (!systemItemData) {
         throw new Error("SystemItem Not Found");
       }
@@ -2069,10 +2075,13 @@ module.exports.addNewInstallationData = async (req, res) => {
 
       const inventoryItem = inventoryItems.find(
         (inv) =>
-          inv.systemItemId?.itemName?.toLowerCase() === systemItemName.toLowerCase()
+          inv.systemItemId?.itemName?.toLowerCase() ===
+          systemItemName.toLowerCase()
       );
       if (!inventoryItem) {
-        throw new Error(`SubItem "${systemItemName}" not found in warehouse inventory`);
+        throw new Error(
+          `SubItem "${systemItemName}" not found in warehouse inventory`
+        );
       }
 
       if (inventoryItem.quantity < quantity) {
@@ -2105,7 +2114,8 @@ module.exports.addNewInstallationData = async (req, res) => {
             "PUMP 10HP AC 100MTR",
           ].includes(systemItemName)
         ) {
-          const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+          const normalizeWords = (str) =>
+            (str || "").toLowerCase().split(/\s+/);
           const haveCommonBase = (name1, name2, minCommonWords = 3) => {
             const words1 = normalizeWords(name1);
             const words2 = normalizeWords(name2);
@@ -2182,7 +2192,11 @@ module.exports.addNewInstallationData = async (req, res) => {
       panelNumbers.forEach((sn) => {
         updates.push({
           updateOne: {
-            filter: { productType: "panel", serialNumber: sn.toUpperCase(), state },
+            filter: {
+              productType: "panel",
+              serialNumber: sn.toUpperCase(),
+              state,
+            },
             update: { $set: { isUsed: true } },
           },
         });
@@ -2192,7 +2206,11 @@ module.exports.addNewInstallationData = async (req, res) => {
     // Pump
     updates.push({
       updateOne: {
-        filter: { productType: "pump", serialNumber: pumpNumber.toUpperCase(), state },
+        filter: {
+          productType: "pump",
+          serialNumber: pumpNumber.toUpperCase(),
+          state,
+        },
         update: { $set: { isUsed: true } },
       },
     });
@@ -2200,7 +2218,11 @@ module.exports.addNewInstallationData = async (req, res) => {
     // Motor
     updates.push({
       updateOne: {
-        filter: { productType: "motor", serialNumber: motorNumber.toUpperCase(), state },
+        filter: {
+          productType: "motor",
+          serialNumber: motorNumber.toUpperCase(),
+          state,
+        },
         update: { $set: { isUsed: true } },
       },
     });
@@ -2208,7 +2230,11 @@ module.exports.addNewInstallationData = async (req, res) => {
     // Controller
     updates.push({
       updateOne: {
-        filter: { productType: "controller", serialNumber: controllerNumber.toUpperCase(), state },
+        filter: {
+          productType: "controller",
+          serialNumber: controllerNumber.toUpperCase(),
+          state,
+        },
         update: { $set: { isUsed: true } },
       },
     });
@@ -2216,7 +2242,11 @@ module.exports.addNewInstallationData = async (req, res) => {
     // RMU
     updates.push({
       updateOne: {
-        filter: { productType: "rmu", serialNumber: rmuNumber.toUpperCase(), state },
+        filter: {
+          productType: "rmu",
+          serialNumber: rmuNumber.toUpperCase(),
+          state,
+        },
         update: { $set: { isUsed: true } },
       },
     });
@@ -2887,15 +2917,15 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
     ]);
 
     const filterServicePerson = servicePersons.filter((person) => {
-      return person.role === "fieldsales";
+      return person.role === "serviceperson";
       //|| person.role === 'fieldsales';
     });
 
     const allPersons = [
-      //...surveyPersons.map((person) => ({ ...person, role: "surveyperson" })),
+      ...surveyPersons.map((person) => ({ ...person, role: "surveyperson" })),
       ...filterServicePerson.map((person) => ({
         ...person,
-        role: "fieldsales",
+        role: "serviceperson",
       })),
     ];
 
@@ -2985,7 +3015,6 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
 //     });
 //   }
 // };
-
 
 module.exports.fieldWorkerList = async (req, res) => {
   try {
@@ -4120,7 +4149,7 @@ module.exports.declinePickupItemsTransaction = async (req, res) => {
 
 module.exports.addSerialNumber = async (req, res) => {
   try {
-    let { productType, serialNumber, state} = req.body;
+    let { productType, serialNumber, state } = req.body;
 
     if (!productType || !serialNumber || !state) {
       return res.status(400).json({
@@ -4210,10 +4239,18 @@ module.exports.checkSerialNumber = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     const { productType, serialNumber, panelNumberList } = req.body;
-
+    console.log("Received Data:", { productType, serialNumber, panelNumberList });
+    const trimmedProductType = productType
+      ? String(productType).trim().toLowerCase()
+      : null;
+    const trimmedSerialNumber = serialNumber
+      ? String(serialNumber).trim().toUpperCase()
+      : null;
+    console.log("Trimmed Data:", { trimmedProductType, trimmedSerialNumber, panelNumberList });
     if (
-      !productType ||
-      (!serialNumber && (!panelNumberList || panelNumberList.length === 0))
+      !trimmedProductType ||
+      (!trimmedSerialNumber &&
+        (!Array.isArray(panelNumberList) || panelNumberList.length === 0))
     ) {
       return res.status(400).json({
         success: false,
@@ -4241,8 +4278,7 @@ module.exports.checkSerialNumber = async (req, res) => {
     } else if (whName === "Korba Chhattisgarh") {
       state = "Chhattisgarh";
     }
-
-    const trimmedProductType = String(productType).trim().toLowerCase();
+    console.log("Determined State:", state);
 
     // 🔹 CASE 1: Multiple Panel Numbers
     if (Array.isArray(panelNumberList) && panelNumberList.length > 0) {
@@ -4291,9 +4327,6 @@ module.exports.checkSerialNumber = async (req, res) => {
         },
       });
     }
-
-    // 🔹 CASE 2: Single Serial Number
-    const trimmedSerialNumber = String(serialNumber).trim().toUpperCase();
 
     // Check in SerialNumber collection
     const existsSerial = await SerialNumber.findOne({
@@ -4357,7 +4390,7 @@ module.exports.checkSerialNumber = async (req, res) => {
 module.exports.checkRMUNumber = async (req, res) => {
   try {
     const { productType, rmuNumber } = req.body;
-    if ((productType.trim().toLowerCase() !== "rmu") || !rmuNumber) {
+    if (productType.trim().toLowerCase() !== "rmu" || !rmuNumber) {
       return res.status(400).json({
         success: false,
         message: "Product Type & RMU Number is required",
@@ -4477,10 +4510,8 @@ module.exports.uploadSerialNumbers = async (req, res) => {
       const serialNumber = row.serialNumber
         ? String(row.serialNumber).trim().toUpperCase()
         : null;
-      
-      const state = row.state 
-      ? String(row.state).trim()
-      : null;
+
+      const state = row.state ? String(row.state).trim() : null;
       if (!productType || !serialNumber) {
         duplicateRows.push({ ...row, reason: "Invalid data" });
         continue;
@@ -4566,29 +4597,31 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
     let updatedCount = 0;
 
     // Build bulk operations
-    const bulkOps = sheetData.map((row) => {
-      const productType = row.productType
-        ? String(row.productType).trim().toLowerCase()
-        : null;
+    const bulkOps = sheetData
+      .map((row) => {
+        const productType = row.productType
+          ? String(row.productType).trim().toLowerCase()
+          : null;
 
-      const serialNumber = row.serialNumber
-        ? String(row.serialNumber).trim().toUpperCase()
-        : null;
+        const serialNumber = row.serialNumber
+          ? String(row.serialNumber).trim().toUpperCase()
+          : null;
 
-      const state = row.state ? String(row.state).trim() : null;
+        const state = row.state ? String(row.state).trim() : null;
 
-      if (!productType || !serialNumber) {
-        failedRows.push({ ...row, reason: "Invalid data" });
-        return null;
-      }
+        if (!productType || !serialNumber) {
+          failedRows.push({ ...row, reason: "Invalid data" });
+          return null;
+        }
 
-      return {
-        updateOne: {
-          filter: { productType, serialNumber },
-          update: { $set: { isUsed: true} },
-        },
-      };
-    }).filter(Boolean); // remove nulls
+        return {
+          updateOne: {
+            filter: { productType, serialNumber },
+            update: { $set: { isUsed: true } },
+          },
+        };
+      })
+      .filter(Boolean); // remove nulls
 
     // Run bulkWrite in one go
     if (bulkOps.length > 0) {
@@ -4602,7 +4635,10 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
       const newWS = XLSX.utils.json_to_sheet(failedRows);
       XLSX.utils.book_append_sheet(newWB, newWS, "Failed Updates");
 
-      const filePath = path.join(__dirname, "../../uploads/failed_updates.xlsx");
+      const filePath = path.join(
+        __dirname,
+        "../../uploads/failed_updates.xlsx"
+      );
       XLSX.writeFile(newWB, filePath);
 
       return res.download(filePath, "failed_updates.xlsx", (err) => {
@@ -4626,7 +4662,6 @@ module.exports.updateSerialNumbersAsUsed = async (req, res) => {
     });
   }
 };
-
 
 module.exports.updateIncomingPickupItemSerial = async (req, res) => {
   const session = await mongoose.startSession();
