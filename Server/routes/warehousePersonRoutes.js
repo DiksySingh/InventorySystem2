@@ -56,7 +56,8 @@ const {
   uploadSerialNumbers,
   updateSerialNumbersAsUsed,
   updateIncomingPickupItemSerial,
-  updateOutogingItemFarmerDetails
+  updateOutogingItemFarmerDetails,
+  addMotorNumbersFromExcel
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -304,10 +305,11 @@ router.get(
 router.put("/update-systemId", updateSystemId);
 router.post("/add-serial-number", addSerialNumber);
 router.get("/get-serial-number", getSerialNumber);
-router.get("/check-serial-number", checkSerialNumber);
+router.post("/check-serial-number", checkSerialNumber);
 router.post("/upload-serial-number", upload.single("file"), uploadSerialNumbers);
 router.put("/update-serial-number", upload.single('file'), updateSerialNumbersAsUsed);
-router.get("/check-rmu-number", userVerification(["warehouseAdmin"]), checkRMUNumber);
+router.post("/check-rmu-number", userVerification(["warehouseAdmin"]), checkRMUNumber);
 router.put("/update-pickup-item-serial", userVerification(['warehouseAdmin']), updateIncomingPickupItemSerial);
-router.put("/update-outgoing-item-farmer-details", userVerification(['warehouseAdmin']), updateOutogingItemFarmerDetails)
+router.put("/update-outgoing-item-farmer-details", userVerification(['warehouseAdmin']), updateOutogingItemFarmerDetails);
+router.put("/update-motor-number", upload.single("file"), addMotorNumbersFromExcel);
 module.exports = router;

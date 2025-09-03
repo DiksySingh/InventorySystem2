@@ -4838,3 +4838,46 @@ module.exports.updateOutogingItemFarmerDetails = async (req, res) => {
     });
   }
 };
+
+module.exports.addMotorNumbersFromExcel = async (filePath) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    // Parse Excel buffer
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    // 2. Loop through Excel rows
+    for (const row of data) {
+      const { farmerSaralId, motorNumber } = row;
+
+      // Skip if motorNumber is empty
+      if (!motorNumber || motorNumber.trim() === "") {
+        console.log(`⏭ Skipping row for farmerSaralId ${farmerSaralId} (empty motorNumber)`);
+        continue;
+      }
+
+      // 3. Update only if motorNumber is not already present
+      const updated = await FarmerItemsActivity.updateOne(
+        { farmerSaralId, $or: [{ motorNumber: { $exists: false } }, { motorNumber: "" }] },
+        { $set: { motorNumber: motorNumber.toUpperCase().trim() } }
+      );
+
+      if (updated.modifiedCount > 0) {
+        console.log(`✅ Updated motorNumber for farmerSaralId ${farmerSaralId}`);
+      } else {
+        console.log(`⚠️ Skipped farmerSaralId ${farmerSaralId} (already has motorNumber or not found)`);
+      }
+    }
+
+    console.log("🎉 Update process completed!");
+  } catch (error) {
+    console.error("❌ Error updating motorNumbers:", error);
+  }
+};
