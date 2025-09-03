@@ -4289,6 +4289,7 @@ module.exports.checkSerialNumber = async (req, res) => {
     console.log("Determined State:", state);
 
     // 🔹 CASE 1: Multiple Panel Numbers
+    // 🔹 CASE 1: Multiple Panel Numbers
     if (Array.isArray(panelNumberList) && panelNumberList.length > 0) {
       const trimmedPanelNumbers = panelNumberList.map((num) =>
         String(num).trim().toUpperCase()
@@ -4320,17 +4321,24 @@ module.exports.checkSerialNumber = async (req, res) => {
         .flat()
         .filter((num) => trimmedPanelNumbers.includes(num));
 
-      // Prepare used & unused lists
+      // Prepare used & unused lists (deduplicated)
       const usedSerials = [
-        ...serials.filter((s) => s.isUsed).map((s) => s.serialNumber),
-        ...farmerActivityNumbers,
+        ...new Set([
+          ...serials.filter((s) => s.isUsed).map((s) => s.serialNumber),
+          ...farmerActivityNumbers,
+        ]),
       ];
 
-      const unusedSerials = serials
-        .filter(
-          (s) => !s.isUsed && !farmerActivityNumbers.includes(s.serialNumber)
-        )
-        .map((s) => s.serialNumber);
+      const unusedSerials = [
+        ...new Set(
+          serials
+            .filter(
+              (s) =>
+                !s.isUsed && !farmerActivityNumbers.includes(s.serialNumber)
+            )
+            .map((s) => s.serialNumber)
+        ),
+      ];
 
       return res.status(200).json({
         success: true,
