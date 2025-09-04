@@ -26,6 +26,7 @@ const OutgoingItems = require("../../models/serviceInventoryModels/outgoingItems
 const SerialNumber = require("../../models/systemInventoryModels/serialNumberSchema");
 const fs = require("fs");
 const path = require("path");
+const ExcelJS = require("exceljs");
 
 //****************** Admin Access ******************//
 
@@ -4266,6 +4267,13 @@ module.exports.checkSerialNumber = async (req, res) => {
       });
     }
 
+    if(trimmedProductType === "rmu" && trimmedSerialNumber.length !== 15){
+      return res.status(400).json({
+        success: false,
+        message: "RMU Number must be exactly 15 characters long",
+      });
+    }
+
     const warehouseId = req.user.warehouse;
 
     // ✅ Fetch warehouse data
@@ -4861,7 +4869,7 @@ module.exports.updateOutogingItemFarmerDetails = async (req, res) => {
   }
 };
 
-module.exports.addMotorNumbersFromExcel = async (filePath) => {
+module.exports.addMotorNumbersFromExcel = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -4876,7 +4884,7 @@ module.exports.addMotorNumbersFromExcel = async (filePath) => {
     const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
     // 2. Loop through Excel rows
-    for (const row of data) {
+    for (const row of sheetData) {
       const { farmerSaralId, motorNumber } = row;
 
       // Skip if motorNumber is empty
@@ -4910,5 +4918,57 @@ module.exports.addMotorNumbersFromExcel = async (filePath) => {
     console.log("🎉 Update process completed!");
   } catch (error) {
     console.error("❌ Error updating motorNumbers:", error);
+  }
+};
+
+module.exports.exportMotorNumbersExcel = async (req, res) => {
+  try {
+    // Fetch only motorNumbers where state = Maharashtra
+    const records = await FarmerItemsActivity.find(
+      { state: "Maharashtra" },
+      { motorNumber: 1, _id: 0 }
+    ).lean();
+
+    if (!records.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No motor numbers found for Maharashtra",
+      });
+    }
+
+    // Create workbook & worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("MotorNumbers");
+
+    // Define header
+    worksheet.columns = [
+      { header: "Motor Number", key: "motorNumber", width: 30 }
+    ];
+
+    // Insert rows
+    records.forEach(record => {
+      worksheet.addRow({ motorNumber: record.motorNumber });
+    });
+
+    // Set response headers for file download
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=motorNumbers_maharashtra.xlsx"
+    );
+
+    // Write to response
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error exporting motor numbers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error generating Excel file",
+      error: error.message,
+    });
   }
 };
