@@ -4388,7 +4388,7 @@ module.exports.checkSerialNumber = async (req, res) => {
     if (existsInFarmerActivity) {
       return res.status(200).json({
         success: true,
-        message: `Already Assigned in FarmerItemsActivity - ${existsInFarmerActivity.farmerSaralId}`,
+        message: `Farmer Already Assigned - ${existsInFarmerActivity.farmerSaralId}`,
       });
     }
 
