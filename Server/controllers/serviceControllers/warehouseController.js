@@ -4367,7 +4367,6 @@ module.exports.checkSerialNumber = async (req, res) => {
 
     // Check in FarmerItemsActivity (for pump, motor, controller, rmu, panels)
     const existsInFarmerActivity = await FarmerItemsActivity.findOne({
-      state,
       $or: [
         { pumpNumber: trimmedSerialNumber },
         { motorNumber: trimmedSerialNumber },
@@ -4389,7 +4388,7 @@ module.exports.checkSerialNumber = async (req, res) => {
     if (existsInFarmerActivity) {
       return res.status(200).json({
         success: true,
-        message: "Already Assigned in FarmerItemsActivity",
+        message: `Already Assigned in FarmerItemsActivity - ${existsInFarmerActivity.farmerSaralId}`,
       });
     }
 
