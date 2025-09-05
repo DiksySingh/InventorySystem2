@@ -402,6 +402,7 @@ const newSystemInstallation = async (req, res) => {
 
     const requiredFiles = [
       "pitPhoto",
+      // "borePhoto",
       "earthingFarmerPhoto",
       "antiTheftNutBoltPhoto",
       "lightingArresterInstallationPhoto",
@@ -411,26 +412,6 @@ const newSystemInstallation = async (req, res) => {
       "waterDischargeFarmerPhoto",
       "installationVideo", // Added installationVideo
     ];
-
-    // for (const field of requiredFiles) {
-    //     const files = req.files[field];
-    //     if (!files || files.length === 0) {
-    //         await session.abortTransaction();
-    //         session.endSession();
-    //         await deleteFiles(uploadedFilePaths);
-    //         return res.status(400).json({ success: false, message: `Missing or empty files: ${field}` });
-    //     }
-
-    //     storedFileURLs[field] = [];
-
-    //     for (const file of files) {
-    //         const serverPath = path.join(__dirname, "../uploads/newInstallation", file.filename);
-    //         const urlPath = `/uploads/newInstallation/${file.filename}`;
-
-    //         uploadedFilePaths.push(serverPath);
-    //         storedFileURLs[field].push(urlPath);
-    //     }
-    // }
 
     for (const field of requiredFiles) {
       const files = req.files?.[field];
@@ -454,127 +435,124 @@ const newSystemInstallation = async (req, res) => {
         storedFileURLs[field].push(urlPath);
       }
     }
-    console.log("storedFileURLs:", storedFileURLs);
 
-    if (!farmerSaralId || !latitude || !longitude || !empId || !state) {
-      await session.abortTransaction();
-      session.endSession();
-      await deleteFiles(uploadedFilePaths);
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required.",
-      });
-    }
-
-    let refType;
-    let empData = await ServicePerson.findOne({ _id: empId }).session(session);
-    if (empData) {
-      refType = "ServicePerson";
-    } else {
-      empData = await SurveyPerson.findOne({ _id: empId }).session(session);
-      if (!empData) {
+    const boreFiles = req.files?.borePhoto || [];
+    if (state?.toLowerCase() === "Haryana") {
+      if (!boreFiles.length) {
         await session.abortTransaction();
         session.endSession();
         await deleteFiles(uploadedFilePaths);
         return res.status(400).json({
           success: false,
-          message: "EmpID Not Found In Database",
+          message: "borePhoto is mandatory for Haryana state",
         });
       }
-      refType = "SurveyPerson";
-    }
 
-    const newInstallationData = {
-      referenceType: refType,
-      farmerSaralId,
-      latitude,
-      longitude,
-      state,
-      pitPhoto: storedFileURLs.pitPhoto || [],
-      earthingFarmerPhoto: storedFileURLs.earthingFarmerPhoto || [],
-      antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto || [],
-      lightingArresterInstallationPhoto:
-        storedFileURLs.lightingArresterInstallationPhoto || [],
-      finalFoundationFarmerPhoto:
-        storedFileURLs.finalFoundationFarmerPhoto || [],
-      panelFarmerPhoto: storedFileURLs.panelFarmerPhoto || [],
-      controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto || [],
-      waterDischargeFarmerPhoto: storedFileURLs.waterDischargeFarmerPhoto || [],
-      installationVideo: storedFileURLs.installationVideo || [], // Added installationVideo
-      createdBy: empId,
-    };
+      if (boreFiles.length) {
+        storedFileURLs.borePhoto = [];
+        for (const file of boreFiles) {
+          const serverPath = path.join(
+            __dirname,
+            "../uploads/newInstallation",
+            file.filename
+          );
+          const urlPath = `/uploads/newInstallation/${file.filename}`;
 
-    const newInstallation = new NewSystemInstallation(newInstallationData);
-    console.log("New Installation Data:", newInstallationData);
-    const savedResponse = await newInstallation.save({ session });
-    console.log("Saved New Installation Response:", savedResponse);
-    const farmerActivity = await FarmerItemsActivity.findOne({
-      farmerSaralId,
-    }).session(session);
-    if (!farmerActivity) {
-      await session.abortTransaction();
-      session.endSession();
-      await deleteFiles(uploadedFilePaths);
-      return res.status(400).json({
-        success: false,
-        message: "Farmer Activity Not Found",
-      });
-    }
+          uploadedFilePaths.push(serverPath);
+          storedFileURLs.borePhoto.push(urlPath);
+        }
+      }
+      console.log("storedFileURLs:", storedFileURLs);
 
-    const empAccount = await EmpInstallationAccount.findOne({
-      empId: farmerActivity.empId,
-    })
-      .populate({
-        path: "itemsList.systemItemId",
-        select: "itemName",
-      })
-      .session(session);
+      if (!farmerSaralId || !latitude || !longitude || !empId || !state) {
+        await session.abortTransaction();
+        session.endSession();
+        await deleteFiles(uploadedFilePaths);
+        return res.status(400).json({
+          success: false,
+          message: "All fields are required.",
+        });
+      }
 
-    if (!empAccount) {
-      await session.abortTransaction();
-      session.endSession();
-      await deleteFiles(uploadedFilePaths);
-      return res.status(400).json({
-        success: false,
-        message: "Employee Account Not Found",
-      });
-    }
-
-    for (const item of farmerActivity.itemsList) {
-      const { systemItemId, quantity } = item;
-      const existingItem = empAccount.itemsList.find(
-        (i) => i.systemItemId._id.toString() === systemItemId.toString()
+      let refType;
+      let empData = await ServicePerson.findOne({ _id: empId }).session(
+        session
       );
-
-      if (!existingItem) {
-        await session.abortTransaction();
-        session.endSession();
-        await deleteFiles(uploadedFilePaths);
-        return res.status(404).json({
-          success: false,
-          message: "Item Not Found In Employee Account",
-        });
+      if (empData) {
+        refType = "ServicePerson";
+      } else {
+        empData = await SurveyPerson.findOne({ _id: empId }).session(session);
+        if (!empData) {
+          await session.abortTransaction();
+          session.endSession();
+          await deleteFiles(uploadedFilePaths);
+          return res.status(400).json({
+            success: false,
+            message: "EmpID Not Found In Database",
+          });
+        }
+        refType = "SurveyPerson";
       }
-      console.log("existingItem", existingItem);
-      if (parseInt(existingItem.quantity) < parseInt(quantity)) {
+
+      const newInstallationData = {
+        referenceType: refType,
+        farmerSaralId,
+        latitude,
+        longitude,
+        state,
+        pitPhoto: storedFileURLs.pitPhoto || [],
+        borePhoto: storedFileURLs.borePhoto || [],
+        earthingFarmerPhoto: storedFileURLs.earthingFarmerPhoto || [],
+        antiTheftNutBoltPhoto: storedFileURLs.antiTheftNutBoltPhoto || [],
+        lightingArresterInstallationPhoto:
+          storedFileURLs.lightingArresterInstallationPhoto || [],
+        finalFoundationFarmerPhoto:
+          storedFileURLs.finalFoundationFarmerPhoto || [],
+        panelFarmerPhoto: storedFileURLs.panelFarmerPhoto || [],
+        controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto || [],
+        waterDischargeFarmerPhoto:
+          storedFileURLs.waterDischargeFarmerPhoto || [],
+        installationVideo: storedFileURLs.installationVideo || [], // Added installationVideo
+        createdBy: empId,
+      };
+
+      const newInstallation = new NewSystemInstallation(newInstallationData);
+      console.log("New Installation Data:", newInstallationData);
+      const savedResponse = await newInstallation.save({ session });
+      console.log("Saved New Installation Response:", savedResponse);
+      const farmerActivity = await FarmerItemsActivity.findOne({
+        farmerSaralId,
+      }).session(session);
+      if (!farmerActivity) {
         await session.abortTransaction();
         session.endSession();
         await deleteFiles(uploadedFilePaths);
         return res.status(400).json({
           success: false,
-          message: "Insufficient Quantity in Employee Account",
+          message: "Farmer Activity Not Found",
         });
       }
 
-      existingItem.quantity =
-        parseInt(existingItem.quantity) - parseInt(quantity);
-    }
+      const empAccount = await EmpInstallationAccount.findOne({
+        empId: farmerActivity.empId,
+      })
+        .populate({
+          path: "itemsList.systemItemId",
+          select: "itemName",
+        })
+        .session(session);
 
-    if (
-      farmerActivity.extraItemsList &&
-      farmerActivity.extraItemsList.length > 0
-    ) {
-      for (const item of farmerActivity.extraItemsList) {
+      if (!empAccount) {
+        await session.abortTransaction();
+        session.endSession();
+        await deleteFiles(uploadedFilePaths);
+        return res.status(400).json({
+          success: false,
+          message: "Employee Account Not Found",
+        });
+      }
+
+      for (const item of farmerActivity.itemsList) {
         const { systemItemId, quantity } = item;
         const existingItem = empAccount.itemsList.find(
           (i) => i.systemItemId._id.toString() === systemItemId.toString()
@@ -589,7 +567,7 @@ const newSystemInstallation = async (req, res) => {
             message: "Item Not Found In Employee Account",
           });
         }
-
+        console.log("existingItem", existingItem);
         if (parseInt(existingItem.quantity) < parseInt(quantity)) {
           await session.abortTransaction();
           session.endSession();
@@ -603,25 +581,61 @@ const newSystemInstallation = async (req, res) => {
         existingItem.quantity =
           parseInt(existingItem.quantity) - parseInt(quantity);
       }
+
+      if (
+        farmerActivity.extraItemsList &&
+        farmerActivity.extraItemsList.length > 0
+      ) {
+        for (const item of farmerActivity.extraItemsList) {
+          const { systemItemId, quantity } = item;
+          const existingItem = empAccount.itemsList.find(
+            (i) => i.systemItemId._id.toString() === systemItemId.toString()
+          );
+
+          if (!existingItem) {
+            await session.abortTransaction();
+            session.endSession();
+            await deleteFiles(uploadedFilePaths);
+            return res.status(404).json({
+              success: false,
+              message: "Item Not Found In Employee Account",
+            });
+          }
+
+          if (parseInt(existingItem.quantity) < parseInt(quantity)) {
+            await session.abortTransaction();
+            session.endSession();
+            await deleteFiles(uploadedFilePaths);
+            return res.status(400).json({
+              success: false,
+              message: "Insufficient Quantity in Employee Account",
+            });
+          }
+
+          existingItem.quantity =
+            parseInt(existingItem.quantity) - parseInt(quantity);
+        }
+      }
+
+      empAccount.updatedAt = new Date();
+      empAccount.updatedBy = empId;
+      await empAccount.save({ session });
+
+      farmerActivity.installationDone = true;
+      farmerActivity.updatedAt = new Date();
+      farmerActivity.updatedBy = empId;
+      await farmerActivity.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Installation Data & Farmer Activity Saved/Updated Successfully",
+        data: "Installation Data & Farmer Activity Saved/Updated Successfully",
+      });
     }
-
-    empAccount.updatedAt = new Date();
-    empAccount.updatedBy = empId;
-    await empAccount.save({ session });
-
-    farmerActivity.installationDone = true;
-    farmerActivity.updatedAt = new Date();
-    farmerActivity.updatedBy = empId;
-    await farmerActivity.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    return res.status(200).json({
-      success: true,
-      message: "Installation Data & Farmer Activity Saved/Updated Successfully",
-      data: "Installation Data & Farmer Activity Saved/Updated Successfully",
-    });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();

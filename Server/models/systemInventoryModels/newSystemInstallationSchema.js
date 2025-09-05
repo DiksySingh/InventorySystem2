@@ -21,6 +21,10 @@ const newSystemInstallationSchema = new Schema ({
         type: [String],
        // required: true
     },
+    borePhoto: {
+        type: [String],
+       // required: true
+    },
     earthingFarmerPhoto: {
         type: [String],
     },

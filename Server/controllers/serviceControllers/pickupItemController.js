@@ -10,6 +10,7 @@ const IncomingItemDetails = require("../../models/serviceInventoryModels/incomin
 const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
+const { default: mongoose } = require("mongoose");
 
 //***************************** Admin Access **************************//
 module.exports.allOrderDetails = async (req, res) => {
@@ -1240,7 +1241,7 @@ module.exports.updateServicePersonHoldingItems = async (req, res) => {
 module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
   try {
     // Fetch Data Where incoming = true and status = null
-    const pickupItems = await PickupItem.find({ incoming: true, status: null })
+    const pickupItems = await PickupItem.find({servicePerson: new mongoose.Types.ObjectId("677b72bd6e82ff02aca58830"), incoming: true})
       .populate("servicePerson", "name contact") // Populate servicePerson
       .lean();
 
@@ -1277,10 +1278,11 @@ module.exports.exportIncomingPickupItemsToExcel = async (req, res) => {
 
         return {
           ServicePerson_Name: item.servicePerson ? item.servicePerson.name : "N/A",
+          FarmerSaralId: item.farmerSaralId || "N/A",
           FarmerName: farmerName,
           FarmerContact: farmerContact,
           To_Warehouse: item.warehouse,
-          Status: "Not Approved By Warehouse",
+          Status: item.status === true ? "Received By Warehouse" : "Not Received By Warehouse",
           Items_Quantity: item.items.map(i => `${i.itemName} (${i.quantity})`).join(", "), // Format items list
           Transaction_Date: item.pickupDate ? item.pickupDate.toISOString().split('T')[0] : ""
         };

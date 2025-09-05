@@ -42,6 +42,7 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // max 50MB per file
 }).fields([
   { name: 'pitPhoto', maxCount: 5 },
+  { name: 'borePhoto', maxCount: 5 },
   { name: 'earthingFarmerPhoto', maxCount: 5 },
   { name: 'antiTheftNutBoltPhoto', maxCount: 5 },
   { name: 'lightingArresterInstallationPhoto', maxCount: 5 },
@@ -85,7 +86,6 @@ const uploadHandler = (req, res, next) => {
         });
       }
     }
-
     next();
   });
 };
