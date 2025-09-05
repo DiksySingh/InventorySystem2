@@ -4380,7 +4380,7 @@ module.exports.checkSerialNumber = async (req, res) => {
     if (!existsSerial && !existsInFarmerActivity) {
       return res.status(404).json({
         success: false,
-        message: "Serial Number not found for this product type",
+        message: `Serial Number not found for this product type for ${state}`,
       });
     }
 
