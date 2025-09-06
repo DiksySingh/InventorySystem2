@@ -341,7 +341,7 @@ module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
     // const { email, password, role } = req.body;
-    
+    cnsole.log(req.body);
     const options = {
       withCredentials: true,
       httpOnly: true,
@@ -364,7 +364,7 @@ module.exports.Login = async (req, res) => {
       await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}).populate('warehouse') ||
       await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}) ||
       await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')});
-
+    console.log(user);
     if (!user) {
       return res.status(401).json({
         success: false,
