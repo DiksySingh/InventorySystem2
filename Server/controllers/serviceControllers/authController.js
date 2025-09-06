@@ -341,7 +341,7 @@ module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
     // const { email, password, role } = req.body;
-    cnsole.log(req.body);
+    console.log(req.body);
     const options = {
       withCredentials: true,
       httpOnly: true,
