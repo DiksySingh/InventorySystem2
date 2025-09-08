@@ -359,7 +359,8 @@ module.exports.Login = async (req, res) => {
     //   await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }).populate('warehouse') ||
     //   await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }) ||
     //   await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role });
-
+    const data = await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}).populate('warehouse');
+    console.log(data);
        let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')})||
       await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}).populate('warehouse') ||
       await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}) ||
