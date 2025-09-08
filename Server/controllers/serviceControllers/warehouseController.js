@@ -2068,7 +2068,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       if (!systemItemData) {
         throw new Error("SystemItem Not Found");
       }
-     
+
       const systemItemName = systemItemData.itemName || "";
       console.log("Processing item:", systemItemName, "Qty:", quantity);
       const inventoryItems = await InstallationInventory.find({ warehouseId })
@@ -2152,11 +2152,15 @@ module.exports.addNewInstallationData = async (req, res) => {
       // }
 
       if (
-        (state === "Haryana" && systemItemName === "MOTOR 10HP AC 440V") ||
-        systemItemName.startsWith("PUMP 10HP AC") ||
-        systemItemName === "Controller - RMU - 10HP AC GALO"
+        state === "Haryana" &&
+        (systemItemName === "MOTOR 10HP AC 440V" ||
+          systemItemName.toUpperCase().startsWith("PUMP") ||
+          systemItemName === "Controller - RMU - 10HP AC GALO")
       ) {
-        console.log("Applying Haryana-specific warehouse deduction for:", systemItemName);
+        console.log(
+          "Applying Haryana-specific warehouse deduction for:",
+          systemItemName
+        );
         let matchItemName;
 
         // 🔹 Motor logic
