@@ -2096,7 +2096,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       await inventoryItem.save({ session });
 
       // ✅ Extra Haryana-specific logic
-      if (state === "Haryana") {
+      if (state === "Haryana" && systemItemName === "MOTOR 10HP AC 440V" || systemItemName.startsWith("PUMP 10HP AC") || systemItemName === "Controller - RMU - 10HP AC GALO") {
         let existingItemData;
 
         // MOTOR logic
