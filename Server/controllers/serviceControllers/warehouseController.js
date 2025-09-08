@@ -2150,7 +2150,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       //       parseInt(existingItemData.newStock) - parseInt(quantity);
       //   }
       // }
-
+console.log("Condition check:", { state, systemItemName });
       if (
         state === "Haryana" &&
         (systemItemName === "MOTOR 10HP AC 440V" ||
