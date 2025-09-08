@@ -2156,6 +2156,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         systemItemName.startsWith("PUMP 10HP AC") ||
         systemItemName === "Controller - RMU - 10HP AC GALO"
       ) {
+        console.log("Applying Haryana-specific warehouse deduction for:", systemItemName);
         let matchItemName;
 
         // 🔹 Motor logic
