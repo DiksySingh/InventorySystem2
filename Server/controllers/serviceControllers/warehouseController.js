@@ -2187,34 +2187,35 @@ module.exports.addNewInstallationData = async (req, res) => {
         }
 
         // 🔹 Perform atomic stock decrement
-        const warehouseDoc = await WarehouseItems.findOne(
+        const updateResult = await WarehouseItems.updateOne(
           {
             _id: warehouseItemsData._id,
-            items: {
-              $elemMatch: {
-                itemName: matchItemName,
-                newStock: { $gte: parseInt(quantity) },
-              },
-            },
+            "items.itemName": matchItemName,
+            "items.newStock": { $gte: parseInt(quantity) },
           },
-          { "items.$": 1 } // only return the matched item in the items array
-        ).session(session);
-        console.log("Fetched warehouseDoc for update:", warehouseDoc);
-        if (!warehouseDoc || !warehouseDoc.items?.length) {
+          {
+            $inc: { "items.$.newStock": -parseInt(quantity) },
+          },
+          { session }
+        );
+
+        if (updateResult.modifiedCount === 0) {
           throw new Error(
             `Insufficient stock or item "${systemItemName}" not found in warehouse`
           );
         }
 
-        const matchedItem = warehouseDoc.items[0];
-        console.log("Matched Item before update:", matchedItem);
+        // Step 2: Fetch the updated single item
+        const updatedDoc = await WarehouseItems.findOne(
+          {
+            _id: warehouseItemsData._id,
+            "items.itemName": matchItemName,
+          },
+          { "items.$": 1 } // return only the matched item
+        ).session(session);
 
-        // Step 2: Update its stock
-        matchedItem.newStock -= parseInt(quantity);
-
-        // Step 3: Save back
-        await warehouseDoc.save({ session });
-        console.log("Updated Item:", matchedItem);
+        const updatedItem = updatedDoc?.items?.[0];
+        console.log("Updated Item:", updatedItem);
       }
     }
 
