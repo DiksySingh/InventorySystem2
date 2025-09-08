@@ -2068,8 +2068,9 @@ module.exports.addNewInstallationData = async (req, res) => {
       if (!systemItemData) {
         throw new Error("SystemItem Not Found");
       }
-
+     
       const systemItemName = systemItemData.itemName || "";
+      console.log("Processing item:", systemItemName, "Qty:", quantity);
       const inventoryItems = await InstallationInventory.find({ warehouseId })
         .populate({ path: "systemItemId", select: { itemName: 1 } })
         .session(session);
