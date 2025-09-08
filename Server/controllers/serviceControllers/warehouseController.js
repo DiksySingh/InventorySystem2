@@ -2181,19 +2181,19 @@ module.exports.addNewInstallationData = async (req, res) => {
         }
 
         // 🔹 Perform atomic stock decrement
-        const result = await WarehouseItems.updateOne(
+        const result = await WarehouseItems.findOneAndUpdate(
           {
             _id: warehouseItemsData._id,
             "items.itemName": matchItemName,
-            "items.newStock": { $gte: parseInt(quantity) }, // ensure enough stock
+            "items.newStock": { $gte: parseInt(quantity) },
           },
           {
             $inc: { "items.$.newStock": -parseInt(quantity) },
-          }
-          ,{ session }
+          },
+          { session, new: true }
         );
-
-        if (result.modifiedCount === 0) {
+        console.log(`Updated WarehouseItems for ${systemItemName}:`, result);
+        if (!result) {
           throw new Error(
             `Insufficient stock or item "${systemItemName}" not found in warehouse`
           );
