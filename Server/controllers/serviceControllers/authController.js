@@ -34,11 +34,11 @@ module.exports.adminSignup = async (req, res) => {
       Admin.findOne({ email: email }),
       WarehousePerson.findOne({ email: email }),
       ServicePerson.findOne({ email: email }),
-      SurveyPerson.findOne({ email: email })
+      SurveyPerson.findOne({ email: email }),
     ]);
 
     // If any user exists in any collection, return an error
-    if (existingEmployee.some(emp => emp)) {
+    if (existingEmployee.some((emp) => emp)) {
       return res.status(400).json({
         success: false,
         message: "Employee Already Exists In Database",
@@ -46,9 +46,14 @@ module.exports.adminSignup = async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new Admin({ email: normalizedEmail, password: hashedPassword, createdAt, role });
+    const newUser = new Admin({
+      email: normalizedEmail,
+      password: hashedPassword,
+      createdAt,
+      role,
+    });
     await newUser.save();
     res.status(201).json({
       success: true,
@@ -65,7 +70,8 @@ module.exports.adminSignup = async (req, res) => {
 };
 
 module.exports.warehousePersonSignup = async (req, res) => {
-  const { name, email, warehouse, contact, password, role, createdAt } = req.body;
+  const { name, email, warehouse, contact, password, role, createdAt } =
+    req.body;
   if (!name || !email || !warehouse || !contact || !password) {
     return res.status(400).json({
       success: false,
@@ -78,22 +84,24 @@ module.exports.warehousePersonSignup = async (req, res) => {
       Admin.findOne({ $or: [{ email }, { contact }] }),
       WarehousePerson.findOne({ $or: [{ email }, { contact }] }),
       ServicePerson.findOne({ $or: [{ email }, { contact }] }),
-      SurveyPerson.findOne({ $or: [{ email }, { contact }] })
+      SurveyPerson.findOne({ $or: [{ email }, { contact }] }),
     ]);
 
     // If any user exists in any collection, return an error
-    if (existingEmployee.some(emp => emp)) {
+    if (existingEmployee.some((emp) => emp)) {
       return res.status(400).json({
         success: false,
         message: "Employee Already Exists In Database",
       });
     }
 
-    const existingWarehouse = await Warehouse.findOne({ warehouseName: warehouse });
+    const existingWarehouse = await Warehouse.findOne({
+      warehouseName: warehouse,
+    });
     if (!existingWarehouse) {
       return res.status(404).json({
         success: false,
-        message: "Warehouse Not Found"
+        message: "Warehouse Not Found",
       });
     }
     const normalizedEmail = email.toLowerCase().trim();
@@ -128,13 +136,25 @@ module.exports.warehousePersonSignup = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
 module.exports.servicePersonSignup = async (req, res) => {
-  const { name, email, contact, password, createdAt, role, longitude, latitude, state, district, block } = req.body;
+  const {
+    name,
+    email,
+    contact,
+    password,
+    createdAt,
+    role,
+    longitude,
+    latitude,
+    state,
+    district,
+    block,
+  } = req.body;
   if (!name || !email || !contact || !password) {
     return res.status(400).json({
       success: false,
@@ -147,11 +167,11 @@ module.exports.servicePersonSignup = async (req, res) => {
       Admin.findOne({ $or: [{ email }, { contact }] }),
       WarehousePerson.findOne({ $or: [{ email }, { contact }] }),
       ServicePerson.findOne({ $or: [{ email }, { contact }] }),
-      SurveyPerson.findOne({ $or: [{ email }, { contact }] })
+      SurveyPerson.findOne({ $or: [{ email }, { contact }] }),
     ]);
 
     // If any user exists in any collection, return an error
-    if (existingEmployee.some(emp => emp)) {
+    if (existingEmployee.some((emp) => emp)) {
       return res.status(400).json({
         success: false,
         message: "Employee Already Exists In Database",
@@ -209,7 +229,19 @@ module.exports.servicePersonSignup = async (req, res) => {
 };
 
 module.exports.surveyPersonSignup = async (req, res) => {
-  const { name, email, contact, password, role, longitude, latitude, state, district, block, createdAt } = req.body;
+  const {
+    name,
+    email,
+    contact,
+    password,
+    role,
+    longitude,
+    latitude,
+    state,
+    district,
+    block,
+    createdAt,
+  } = req.body;
   if (!name || !email || !contact || !password) {
     return res.status(400).json({
       success: false,
@@ -221,11 +253,11 @@ module.exports.surveyPersonSignup = async (req, res) => {
       Admin.findOne({ $or: [{ email }, { contact }] }),
       WarehousePerson.findOne({ $or: [{ email }, { contact }] }),
       ServicePerson.findOne({ $or: [{ email }, { contact }] }),
-      SurveyPerson.findOne({ $or: [{ email }, { contact }] })
+      SurveyPerson.findOne({ $or: [{ email }, { contact }] }),
     ]);
 
     // If any user exists in any collection, return an error
-    if (existingEmployee.some(emp => emp)) {
+    if (existingEmployee.some((emp) => emp)) {
       return res.status(400).json({
         success: false,
         message: "Employee Already Exists In Database",
@@ -273,19 +305,29 @@ module.exports.surveyPersonSignup = async (req, res) => {
         block: newSurveyPerson.block,
       },
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
 module.exports.updateServicePerson = async (req, res) => {
   try {
-    const { servicePersonId, name, email, contact, state, district, block, longitude, latitude, updatedAt } = req.body;
+    const {
+      servicePersonId,
+      name,
+      email,
+      contact,
+      state,
+      district,
+      block,
+      longitude,
+      latitude,
+      updatedAt,
+    } = req.body;
 
     if (!servicePersonId) {
       return res.status(400).json({
@@ -295,7 +337,9 @@ module.exports.updateServicePerson = async (req, res) => {
     }
 
     // Find the service person by ID
-    const servicePersonData = await ServicePerson.findOne({ _id: servicePersonId });
+    const servicePersonData = await ServicePerson.findOne({
+      _id: servicePersonId,
+    });
     if (!servicePersonData) {
       return res.status(404).json({
         success: false,
@@ -341,7 +385,7 @@ module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
     // const { email, password, role } = req.body;
-    console.log(req.body);
+
     const options = {
       withCredentials: true,
       httpOnly: true,
@@ -354,18 +398,26 @@ module.exports.Login = async (req, res) => {
         message: "All fields are required",
       });
     }
-    const normalizedEmail = email.toLowerCase().trim()
+    const normalizedEmail = email.toLowerCase().trim();
     // let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role })||
     //   await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }).populate('warehouse') ||
     //   await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role }) ||
     //   await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i'), role });
-    const data = await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}).populate('warehouse');
-    console.log(data);
-       let user = await Admin.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')})||
-      await WarehousePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}).populate('warehouse') ||
-      await ServicePerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')}) ||
-      await SurveyPerson.findOne({ email: new RegExp(`^${normalizedEmail}$`, 'i')});
-    console.log(user);
+
+    let user =
+      (await Admin.findOne({
+        email: new RegExp(`^${normalizedEmail}$`, "i"),
+      })) ||
+      (await WarehousePerson.findOne({
+        email: new RegExp(`^${normalizedEmail}$`, "i"),
+      }).populate("warehouse")) ||
+      (await ServicePerson.findOne({
+        email: new RegExp(`^${normalizedEmail}$`, "i"),
+      })) ||
+      (await SurveyPerson.findOne({
+        email: new RegExp(`^${normalizedEmail}$`, "i"),
+      }));
+  
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -373,12 +425,12 @@ module.exports.Login = async (req, res) => {
       });
     }
     // Check if the account is active
-      if (!user.isActive) {
-        return res.status(403).json({
-          success: false,
-          message: "Your account has been deactivated. Please contact support.",
-        });
-      }
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact support.",
+      });
+    }
 
     // Compare password
     const auth = await bcrypt.compare(password, user.password);
@@ -396,11 +448,11 @@ module.exports.Login = async (req, res) => {
     // Update the refreshToken in the database
     if (user.constructor.modelName === "Admin") {
       await Admin.findByIdAndUpdate(user._id, {
-        refreshToken: refreshToken
+        refreshToken: refreshToken,
       });
     } else if (user.constructor.modelName === "WarehousePerson") {
       await WarehousePerson.findByIdAndUpdate(user._id, {
-        refreshToken: refreshToken
+        refreshToken: refreshToken,
       });
     } else if (user.constructor.modelName === "ServicePerson") {
       await ServicePerson.findByIdAndUpdate(user._id, {
@@ -456,7 +508,7 @@ module.exports.Logout = async (req, res) => {
       });
     } else {
       await Admin.findByIdAndUpdate(userID, {
-        $set: { refreshToken: null }
+        $set: { refreshToken: null },
       });
     }
 
@@ -522,30 +574,29 @@ module.exports.addIsActiveField = async (req, res) => {
     const allWarehousePersons = await WarehousePerson.find();
     const allServicePersons = await ServicePerson.find();
 
-    for ( let emp of allServicePersons) {
+    for (let emp of allServicePersons) {
       emp.isActive = true;
       emp.updatedBy = "67446a4296f7ef394e784136";
       await emp.save();
     }
 
-    for ( let emp of allWarehousePersons) {
+    for (let emp of allWarehousePersons) {
       emp.isActive = true;
       emp.updatedBy = "67446a4296f7ef394e784136";
       await emp.save();
     }
     return res.status(200).json({
       success: true,
-      message: "isActive Added successfully"
+      message: "isActive Added successfully",
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
-
 
 module.exports.validateRefreshToken = async (req, res) => {
   const refreshToken = req.body.refreshToken;
@@ -555,7 +606,9 @@ module.exports.validateRefreshToken = async (req, res) => {
   };
 
   if (!refreshToken) {
-    return res.status(401).json({ success: false, message: 'Refresh token required' });
+    return res
+      .status(401)
+      .json({ success: false, message: "Refresh token required" });
   }
 
   try {
@@ -566,22 +619,24 @@ module.exports.validateRefreshToken = async (req, res) => {
 
     // Try to find user in Admin
     user = await Admin.findById(decoded.id);
-    if (user && user.refreshToken === refreshToken) role = 'admin';
+    if (user && user.refreshToken === refreshToken) role = "admin";
 
     // If not Admin, check ServicePerson
     if (!user || user.refreshToken !== refreshToken) {
       user = await ServicePerson.findById(decoded.id);
-      if (user && user.refreshToken === refreshToken) role = 'serviceperson';
+      if (user && user.refreshToken === refreshToken) role = "serviceperson";
     }
 
     // If still not found, check SurveyPerson
     if (!user || user.refreshToken !== refreshToken) {
       user = await SurveyPerson.findById(decoded.id);
-      if (user && user.refreshToken === refreshToken) role = 'surveyperson';
+      if (user && user.refreshToken === refreshToken) role = "surveyperson";
     }
 
     if (!user || user.refreshToken !== refreshToken) {
-      return res.status(403).json({ success: false, message: 'Invalid refresh token' });
+      return res
+        .status(403)
+        .json({ success: false, message: "Invalid refresh token" });
     }
 
     // Generate new tokens
@@ -595,18 +650,17 @@ module.exports.validateRefreshToken = async (req, res) => {
     // Set cookies
     return res
       .status(201)
-      .cookie('accessToken', newAccessToken, options)
-      .cookie('refreshToken', newRefreshToken, options)
+      .cookie("accessToken", newAccessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
       .json({
         success: true,
         message: `Welcome back ${user.name}!`,
         role,
       });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
     });
   }
