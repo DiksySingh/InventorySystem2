@@ -2150,7 +2150,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       //       parseInt(existingItemData.newStock) - parseInt(quantity);
       //   }
       // }
-console.log("Condition check:", { state, systemItemName });
+      console.log("Condition check:", { state, systemItemName });
       if (
         state === "Haryana" &&
         (systemItemName === "MOTOR 10HP AC 440V" ||
@@ -2187,23 +2187,34 @@ console.log("Condition check:", { state, systemItemName });
         }
 
         // 🔹 Perform atomic stock decrement
-        const result = await WarehouseItems.findOneAndUpdate(
+        const warehouseDoc = await WarehouseItems.findOne(
           {
             _id: warehouseItemsData._id,
-            "items.itemName": matchItemName,
-            "items.newStock": { $gte: parseInt(quantity) },
+            items: {
+              $elemMatch: {
+                itemName: matchItemName,
+                newStock: { $gte: parseInt(quantity) },
+              },
+            },
           },
-          {
-            $inc: { "items.$.newStock": -parseInt(quantity) },
-          },
-          { session, new: true }
-        );
-        console.log(`Updated WarehouseItems for ${systemItemName}:`, result);
-        if (!result) {
+          { "items.$": 1 } // only return the matched item in the items array
+        ).session(session);
+        console.log("Fetched warehouseDoc for update:", warehouseDoc);
+        if (!warehouseDoc || !warehouseDoc.items?.length) {
           throw new Error(
             `Insufficient stock or item "${systemItemName}" not found in warehouse`
           );
         }
+
+        const matchedItem = warehouseDoc.items[0];
+        console.log("Matched Item before update:", matchedItem);
+
+        // Step 2: Update its stock
+        matchedItem.newStock -= parseInt(quantity);
+
+        // Step 3: Save back
+        await warehouseDoc.save({ session });
+        console.log("Updated Item:", matchedItem);
       }
     }
 
