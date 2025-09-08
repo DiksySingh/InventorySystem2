@@ -1988,7 +1988,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     } else if (whName === "Korba Chhattisgarh") {
       state = "Chhattisgarh";
     }
-
+    console.log("Determined state:", state);
     // ✅ Basic Validations
     if (
       !farmerSaralId ||
@@ -2053,7 +2053,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     // ✅ Process inventory updates
     let warehouseItemsData;
     if (state === "Haryana") {
-      warehouseItemsData = await WarehouseItems.findById(warehouseId).session(
+      warehouseItemsData = await WarehouseItems.findOne({warehouse: warehouseId}).session(
         session
       );
       if (!warehouseItemsData) {
