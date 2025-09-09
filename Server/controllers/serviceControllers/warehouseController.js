@@ -2096,60 +2096,6 @@ module.exports.addNewInstallationData = async (req, res) => {
       inventoryItem.updatedBy = warehousePersonId;
       await inventoryItem.save({ session });
 
-      // ✅ Extra Haryana-specific logic
-      //   if (state === "Haryana" && systemItemName === "MOTOR 10HP AC 440V" || systemItemName.startsWith("PUMP 10HP AC") || systemItemName === "Controller - RMU - 10HP AC GALO") {
-      //     let existingItemData;
-
-      //     // MOTOR logic
-      //     if (systemItemName === "MOTOR 10HP AC 440V") {
-      //       existingItemData = warehouseItemsData.items.find(
-      //         (item) => item.itemName === systemItemName
-      //       );
-      //     }
-
-      //     // PUMP logic
-      //     if (
-      //       [
-      //         "PUMP 10HP AC 30MTR",
-      //         "PUMP 10HP AC 50MTR",
-      //         "PUMP 10HP AC 70MTR",
-      //         "PUMP 10HP AC 100MTR",
-      //       ].includes(systemItemName)
-      //     ) {
-      //       const normalizeWords = (str) =>
-      //         (str || "").toLowerCase().split(/\s+/);
-      //       const haveCommonBase = (name1, name2, minCommonWords = 3) => {
-      //         const words1 = normalizeWords(name1);
-      //         const words2 = normalizeWords(name2);
-      //         const common = words1.filter((word) => words2.includes(word));
-      //         return common.length >= minCommonWords;
-      //       };
-
-      //       existingItemData = warehouseItemsData.items.find((item) =>
-      //         haveCommonBase(item.itemName, systemItemName)
-      //       );
-      //     }
-
-      //     // Controller logic
-      //     if (systemItemName === "Controller - RMU - 10HP AC GALO") {
-      //       existingItemData = warehouseItemsData.items.find(
-      //         (item) => item.itemName === "CONTROLLER 10HP AC GALO"
-      //       );
-      //     }
-
-      //     if (!existingItemData) {
-      //       throw new Error(`Item "${systemItemName}" Not Found In Warehouse`);
-      //     }
-
-      //     if (existingItemData.newStock < quantity) {
-      //       throw new Error(`Insufficient stock for the ${systemItemName}`);
-      //     }
-
-      //     // ✅ Deduct from WarehouseItems (Haryana only)
-      //     existingItemData.newStock =
-      //       parseInt(existingItemData.newStock) - parseInt(quantity);
-      //   }
-      // }
       console.log("Condition check:", { state, systemItemName });
       // 🔹 Normalize helper for pump matching
       const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
@@ -2264,6 +2210,7 @@ module.exports.addNewInstallationData = async (req, res) => {
 
         console.log("Updated Controller Item:", updatedDoc?.items?.[0]);
       }
+    }
 
       // ✅ Save Farmer Activity
       const farmerActivity = new FarmerItemsActivity({
@@ -2379,7 +2326,6 @@ module.exports.addNewInstallationData = async (req, res) => {
         success: true,
         message: "Data Saved Successfully & Serial Numbers Marked as Used",
       });
-    }
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
