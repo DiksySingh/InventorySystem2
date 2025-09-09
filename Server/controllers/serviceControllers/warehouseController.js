@@ -2151,46 +2151,20 @@ module.exports.addNewInstallationData = async (req, res) => {
       //   }
       // }
       console.log("Condition check:", { state, systemItemName });
-      if (
-        state === "Haryana" &&
-        (systemItemName === "MOTOR 10HP AC 440V" ||
-          systemItemName.toUpperCase().startsWith("PUMP") ||
-          systemItemName === "Controller - RMU - 10HP AC GALO")
-      ) {
+      // 🔹 Normalize helper for pump matching
+      const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+
+      // 🔹 Motor condition
+      if (state === "Haryana" && systemItemName === "MOTOR 10HP AC 440V") {
         console.log(
-          "Applying Haryana-specific warehouse deduction for:",
+          "Applying Haryana-specific warehouse deduction for Motor:",
           systemItemName
         );
-        let matchItemName;
 
-        // 🔹 Motor logic
-        if (systemItemName === "MOTOR 10HP AC 440V") {
-          matchItemName = systemItemName;
-        }
-
-        // 🔹 Pump logic
-        if (systemItemName.toUpperCase().startsWith("PUMP")) {
-          const normalizeWords = (str) =>
-            (str || "").toLowerCase().split(/\s+/);
-
-          const mustHaveWords = normalizeWords(systemItemName);
-          // e.g. "PUMP 10HP AC 30MTR" -> ["pump","10hp","ac","30mtr"]
-
-          // Create regex with all words required
-          const regexParts = mustHaveWords.map((w) => `(?=.*${w})`);
-          matchItemName = { $regex: new RegExp(regexParts.join(""), "i") };
-        }
-
-        // 🔹 Controller logic
-        if (systemItemName === "Controller - RMU - 10HP AC GALO") {
-          matchItemName = "CONTROLLER 10HP AC GALO"; // normalized name in DB
-        }
-
-        // 🔹 Perform atomic stock decrement
         const updateResult = await WarehouseItems.updateOne(
           {
             _id: warehouseItemsData._id,
-            "items.itemName": matchItemName,
+            "items.itemName": systemItemName,
             "items.newStock": { $gte: parseInt(quantity) },
           },
           {
@@ -2205,134 +2179,207 @@ module.exports.addNewInstallationData = async (req, res) => {
           );
         }
 
-        // Step 2: Fetch the updated single item
         const updatedDoc = await WarehouseItems.findOne(
+          { _id: warehouseItemsData._id, "items.itemName": systemItemName },
+          { "items.$": 1 }
+        ).session(session);
+
+        console.log("Updated Motor Item:", updatedDoc?.items?.[0]);
+      }
+
+      // 🔹 Pump condition
+      if (
+        state === "Haryana" &&
+        systemItemName.toUpperCase().startsWith("PUMP")
+      ) {
+        console.log(
+          "Applying Haryana-specific warehouse deduction for Pump:",
+          systemItemName
+        );
+
+        const mustHaveWords = normalizeWords(systemItemName);
+        const regexParts = mustHaveWords.map((w) => `(?=.*${w})`);
+        const matchItemName = { $regex: new RegExp(regexParts.join(""), "i") };
+
+        const updateResult = await WarehouseItems.updateOne(
           {
             _id: warehouseItemsData._id,
             "items.itemName": matchItemName,
+            "items.newStock": { $gte: parseInt(quantity) },
           },
-          { "items.$": 1 } // return only the matched item
+          {
+            $inc: { "items.$.newStock": -parseInt(quantity) },
+          },
+          { session }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+          throw new Error(
+            `Insufficient stock or Pump "${systemItemName}" not found in warehouse`
+          );
+        }
+
+        const updatedDoc = await WarehouseItems.findOne(
+          { _id: warehouseItemsData._id, "items.itemName": matchItemName },
+          { "items.$": 1 }
         ).session(session);
 
-        const updatedItem = updatedDoc?.items?.[0];
-        console.log("Updated Item:", updatedItem);
+        console.log("Updated Pump Item:", updatedDoc?.items?.[0]);
       }
-    }
 
-    // ✅ Save Farmer Activity
-    const farmerActivity = new FarmerItemsActivity({
-      warehouseId,
-      referenceType: refType,
-      farmerSaralId,
-      empId,
-      systemId,
-      itemsList,
-      extraItemsList: extraItemsList || [],
-      extraPanelNumbers: extraPanelNumbers || [],
-      panelNumbers,
-      pumpNumber: pumpNumber.trim().toUpperCase(),
-      motorNumber: motorNumber.trim().toUpperCase(),
-      controllerNumber: controllerNumber.trim().toUpperCase(),
-      rmuNumber: rmuNumber.trim().toUpperCase(),
-      state,
-      createdBy: warehousePersonId,
-    });
+      // 🔹 Controller condition
+      if (
+        state === "Haryana" &&
+        systemItemName === "Controller - RMU - 10HP AC GALO"
+      ) {
+        console.log(
+          "Applying Haryana-specific warehouse deduction for Controller:",
+          systemItemName
+        );
 
-    await farmerActivity.save({ session });
+        const normalizedName = "CONTROLLER 10HP AC GALO";
 
-    // ✅ Save Installation Assignment
-    const empAccountData = new InstallationAssignEmp({
-      warehouseId,
-      referenceType: refType,
-      empId,
-      farmerSaralId,
-      systemId,
-      itemsList,
-      extraItemsList,
-      createdBy: warehousePersonId,
-    });
-
-    await empAccountData.save({ session });
-
-    // ✅ Mark serial numbers as used (inside transaction)
-    const updates = [];
-
-    // Panel Numbers (multiple)
-    if (Array.isArray(panelNumbers)) {
-      panelNumbers.forEach((sn) => {
-        updates.push({
-          updateOne: {
-            filter: {
-              productType: "panel",
-              serialNumber: sn.toUpperCase(),
-              state,
-            },
-            update: { $set: { isUsed: true } },
+        const updateResult = await WarehouseItems.updateOne(
+          {
+            _id: warehouseItemsData._id,
+            "items.itemName": normalizedName,
+            "items.newStock": { $gte: parseInt(quantity) },
           },
+          {
+            $inc: { "items.$.newStock": -parseInt(quantity) },
+          },
+          { session }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+          throw new Error(
+            `Insufficient stock or Controller "${systemItemName}" not found in warehouse`
+          );
+        }
+
+        const updatedDoc = await WarehouseItems.findOne(
+          { _id: warehouseItemsData._id, "items.itemName": normalizedName },
+          { "items.$": 1 }
+        ).session(session);
+
+        console.log("Updated Controller Item:", updatedDoc?.items?.[0]);
+      }
+
+      // ✅ Save Farmer Activity
+      const farmerActivity = new FarmerItemsActivity({
+        warehouseId,
+        referenceType: refType,
+        farmerSaralId,
+        empId,
+        systemId,
+        itemsList,
+        extraItemsList: extraItemsList || [],
+        extraPanelNumbers: extraPanelNumbers || [],
+        panelNumbers,
+        pumpNumber: pumpNumber.trim().toUpperCase(),
+        motorNumber: motorNumber.trim().toUpperCase(),
+        controllerNumber: controllerNumber.trim().toUpperCase(),
+        rmuNumber: rmuNumber.trim().toUpperCase(),
+        state,
+        createdBy: warehousePersonId,
+      });
+
+      await farmerActivity.save({ session });
+
+      // ✅ Save Installation Assignment
+      const empAccountData = new InstallationAssignEmp({
+        warehouseId,
+        referenceType: refType,
+        empId,
+        farmerSaralId,
+        systemId,
+        itemsList,
+        extraItemsList,
+        createdBy: warehousePersonId,
+      });
+
+      await empAccountData.save({ session });
+
+      // ✅ Mark serial numbers as used (inside transaction)
+      const updates = [];
+
+      // Panel Numbers (multiple)
+      if (Array.isArray(panelNumbers)) {
+        panelNumbers.forEach((sn) => {
+          updates.push({
+            updateOne: {
+              filter: {
+                productType: "panel",
+                serialNumber: sn.toUpperCase(),
+                state,
+              },
+              update: { $set: { isUsed: true } },
+            },
+          });
         });
+      }
+
+      // Pump
+      updates.push({
+        updateOne: {
+          filter: {
+            productType: "pump",
+            serialNumber: pumpNumber.toUpperCase(),
+            state,
+          },
+          update: { $set: { isUsed: true } },
+        },
+      });
+
+      // Motor
+      updates.push({
+        updateOne: {
+          filter: {
+            productType: "motor",
+            serialNumber: motorNumber.toUpperCase(),
+            state,
+          },
+          update: { $set: { isUsed: true } },
+        },
+      });
+
+      // Controller
+      updates.push({
+        updateOne: {
+          filter: {
+            productType: "controller",
+            serialNumber: controllerNumber.toUpperCase(),
+            state,
+          },
+          update: { $set: { isUsed: true } },
+        },
+      });
+
+      // RMU
+      updates.push({
+        updateOne: {
+          filter: {
+            productType: "rmu",
+            serialNumber: rmuNumber.toUpperCase(),
+            state,
+          },
+          update: { $set: { isUsed: true } },
+        },
+      });
+
+      if (updates.length > 0) {
+        await SerialNumber.bulkWrite(updates, { session });
+      }
+
+      // ✅ Commit transaction
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json({
+        success: true,
+        message: "Data Saved Successfully & Serial Numbers Marked as Used",
       });
     }
-
-    // Pump
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "pump",
-          serialNumber: pumpNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
-
-    // Motor
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "motor",
-          serialNumber: motorNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
-
-    // Controller
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "controller",
-          serialNumber: controllerNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
-
-    // RMU
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "rmu",
-          serialNumber: rmuNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
-
-    if (updates.length > 0) {
-      await SerialNumber.bulkWrite(updates, { session });
-    }
-
-    // ✅ Commit transaction
-    await session.commitTransaction();
-    session.endSession();
-
-    return res.status(200).json({
-      success: true,
-      message: "Data Saved Successfully & Serial Numbers Marked as Used",
-    });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
