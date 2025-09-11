@@ -2071,6 +2071,7 @@ module.exports.addNewInstallationData = async (req, res) => {
 
       const systemItemName = systemItemData.itemName || "";
       console.log("Processing item:", systemItemName, "Qty:", quantity);
+
       const inventoryItems = await InstallationInventory.find({ warehouseId })
         .populate({ path: "systemItemId", select: { itemName: 1 } })
         .session(session);
@@ -2097,7 +2098,8 @@ module.exports.addNewInstallationData = async (req, res) => {
       await inventoryItem.save({ session });
 
       console.log("Condition check:", { state, systemItemName });
-      // 🔹 Normalize helper for pump matching
+
+      // 🔹 Normalize helper
       const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
 
       // 🔹 Motor condition
@@ -2107,27 +2109,31 @@ module.exports.addNewInstallationData = async (req, res) => {
           systemItemName
         );
 
+        const motorNameNormalized = systemItemName.trim().toUpperCase();
         const updateResult = await WarehouseItems.updateOne(
+          { _id: warehouseItemsData._id },
+          { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
           {
-            _id: warehouseItemsData._id,
-            "items.itemName": systemItemName,
-            "items.newStock": { $gte: parseInt(quantity) },
-          },
-          {
-            $inc: { "items.$.newStock": -parseInt(quantity) },
-          },
-          { session }
+            arrayFilters: [
+              {
+                "elem.itemName": motorNameNormalized,
+                "elem.newStock": { $gte: parseInt(quantity, 10) },
+              },
+            ],
+            session,
+          }
         );
 
+        console.log("Motor updateResult:", updateResult);
         if (updateResult.modifiedCount === 0) {
           throw new Error(
-            `Insufficient stock or item "${systemItemName}" not found in warehouse`
+            `Motor update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check itemName/stock for "${motorNameNormalized}"`
           );
         }
 
         const updatedDoc = await WarehouseItems.findOne(
-          { _id: warehouseItemsData._id, "items.itemName": systemItemName },
-          { "items.$": 1 }
+          { _id: warehouseItemsData._id },
+          { items: { $elemMatch: { itemName: motorNameNormalized } } }
         ).session(session);
 
         console.log("Updated Motor Item:", updatedDoc?.items?.[0]);
@@ -2144,30 +2150,46 @@ module.exports.addNewInstallationData = async (req, res) => {
         );
 
         const mustHaveWords = normalizeWords(systemItemName);
-        const regexParts = mustHaveWords.map((w) => `(?=.*${w})`);
-        const matchItemName = { $regex: new RegExp(regexParts.join(""), "i") };
-
-        const updateResult = await WarehouseItems.updateOne(
-          {
-            _id: warehouseItemsData._id,
-            "items.itemName": matchItemName,
-            "items.newStock": { $gte: parseInt(quantity) },
-          },
-          {
-            $inc: { "items.$.newStock": -parseInt(quantity) },
-          },
-          { session }
+        const regex = new RegExp(
+          mustHaveWords.map((w) => `(?=.*${w})`).join(""),
+          "i"
         );
 
+        // Find actual pump name from warehouse data
+        const matchedPump = warehouseItemsData.items.find((it) =>
+          regex.test(it.itemName)
+        );
+        if (!matchedPump) {
+          throw new Error(
+            `Pump "${systemItemName}" not found in warehouse items`
+          );
+        }
+        const pumpItemName = matchedPump.itemName;
+
+        const updateResult = await WarehouseItems.updateOne(
+          { _id: warehouseItemsData._id },
+          { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
+          {
+            arrayFilters: [
+              {
+                "elem.itemName": pumpItemName,
+                "elem.newStock": { $gte: parseInt(quantity, 10) },
+              },
+            ],
+            session,
+          }
+        );
+
+        console.log("Pump updateResult:", updateResult);
         if (updateResult.modifiedCount === 0) {
           throw new Error(
-            `Insufficient stock or Pump "${systemItemName}" not found in warehouse`
+            `Pump update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check "${pumpItemName}" and stock`
           );
         }
 
         const updatedDoc = await WarehouseItems.findOne(
-          { _id: warehouseItemsData._id, "items.itemName": matchItemName },
-          { "items.$": 1 }
+          { _id: warehouseItemsData._id },
+          { items: { $elemMatch: { itemName: pumpItemName } } }
         ).session(session);
 
         console.log("Updated Pump Item:", updatedDoc?.items?.[0]);
@@ -2186,146 +2208,149 @@ module.exports.addNewInstallationData = async (req, res) => {
         const normalizedName = "CONTROLLER 10HP AC GALO";
 
         const updateResult = await WarehouseItems.updateOne(
+          { _id: warehouseItemsData._id },
+          { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
           {
-            _id: warehouseItemsData._id,
-            "items.itemName": normalizedName,
-            "items.newStock": { $gte: parseInt(quantity) },
-          },
-          {
-            $inc: { "items.$.newStock": -parseInt(quantity) },
-          },
-          { session }
+            arrayFilters: [
+              {
+                "elem.itemName": normalizedName,
+                "elem.newStock": { $gte: parseInt(quantity, 10) },
+              },
+            ],
+            session,
+          }
         );
 
+        console.log("Controller updateResult:", updateResult);
         if (updateResult.modifiedCount === 0) {
           throw new Error(
-            `Insufficient stock or Controller "${systemItemName}" not found in warehouse`
+            `Controller update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount})`
           );
         }
 
         const updatedDoc = await WarehouseItems.findOne(
-          { _id: warehouseItemsData._id, "items.itemName": normalizedName },
-          { "items.$": 1 }
+          { _id: warehouseItemsData._id },
+          { items: { $elemMatch: { itemName: normalizedName } } }
         ).session(session);
 
         console.log("Updated Controller Item:", updatedDoc?.items?.[0]);
       }
     }
 
-      // ✅ Save Farmer Activity
-      const farmerActivity = new FarmerItemsActivity({
-        warehouseId,
-        referenceType: refType,
-        farmerSaralId,
-        empId,
-        systemId,
-        itemsList,
-        extraItemsList: extraItemsList || [],
-        extraPanelNumbers: extraPanelNumbers || [],
-        panelNumbers,
-        pumpNumber: pumpNumber.trim().toUpperCase(),
-        motorNumber: motorNumber.trim().toUpperCase(),
-        controllerNumber: controllerNumber.trim().toUpperCase(),
-        rmuNumber: rmuNumber.trim().toUpperCase(),
-        state,
-        createdBy: warehousePersonId,
-      });
+    // ✅ Save Farmer Activity
+    const farmerActivity = new FarmerItemsActivity({
+      warehouseId,
+      referenceType: refType,
+      farmerSaralId,
+      empId,
+      systemId,
+      itemsList,
+      extraItemsList: extraItemsList || [],
+      extraPanelNumbers: extraPanelNumbers || [],
+      panelNumbers,
+      pumpNumber: pumpNumber.trim().toUpperCase(),
+      motorNumber: motorNumber.trim().toUpperCase(),
+      controllerNumber: controllerNumber.trim().toUpperCase(),
+      rmuNumber: rmuNumber.trim().toUpperCase(),
+      state,
+      createdBy: warehousePersonId,
+    });
 
-      await farmerActivity.save({ session });
+    await farmerActivity.save({ session });
 
-      // ✅ Save Installation Assignment
-      const empAccountData = new InstallationAssignEmp({
-        warehouseId,
-        referenceType: refType,
-        empId,
-        farmerSaralId,
-        systemId,
-        itemsList,
-        extraItemsList,
-        createdBy: warehousePersonId,
-      });
+    // ✅ Save Installation Assignment
+    const empAccountData = new InstallationAssignEmp({
+      warehouseId,
+      referenceType: refType,
+      empId,
+      farmerSaralId,
+      systemId,
+      itemsList,
+      extraItemsList,
+      createdBy: warehousePersonId,
+    });
 
-      await empAccountData.save({ session });
+    await empAccountData.save({ session });
 
-      // ✅ Mark serial numbers as used (inside transaction)
-      const updates = [];
+    // ✅ Mark serial numbers as used (inside transaction)
+    const updates = [];
 
-      // Panel Numbers (multiple)
-      if (Array.isArray(panelNumbers)) {
-        panelNumbers.forEach((sn) => {
-          updates.push({
-            updateOne: {
-              filter: {
-                productType: "panel",
-                serialNumber: sn.toUpperCase(),
-                state,
-              },
-              update: { $set: { isUsed: true } },
+    // Panel Numbers (multiple)
+    if (Array.isArray(panelNumbers)) {
+      panelNumbers.forEach((sn) => {
+        updates.push({
+          updateOne: {
+            filter: {
+              productType: "panel",
+              serialNumber: sn.toUpperCase(),
+              state,
             },
-          });
+            update: { $set: { isUsed: true } },
+          },
         });
-      }
+      });
+    }
 
-      // Pump
-      updates.push({
-        updateOne: {
-          filter: {
-            productType: "pump",
-            serialNumber: pumpNumber.toUpperCase(),
-            state,
-          },
-          update: { $set: { isUsed: true } },
+    // Pump
+    updates.push({
+      updateOne: {
+        filter: {
+          productType: "pump",
+          serialNumber: pumpNumber.toUpperCase(),
+          state,
         },
-      });
+        update: { $set: { isUsed: true } },
+      },
+    });
 
-      // Motor
-      updates.push({
-        updateOne: {
-          filter: {
-            productType: "motor",
-            serialNumber: motorNumber.toUpperCase(),
-            state,
-          },
-          update: { $set: { isUsed: true } },
+    // Motor
+    updates.push({
+      updateOne: {
+        filter: {
+          productType: "motor",
+          serialNumber: motorNumber.toUpperCase(),
+          state,
         },
-      });
+        update: { $set: { isUsed: true } },
+      },
+    });
 
-      // Controller
-      updates.push({
-        updateOne: {
-          filter: {
-            productType: "controller",
-            serialNumber: controllerNumber.toUpperCase(),
-            state,
-          },
-          update: { $set: { isUsed: true } },
+    // Controller
+    updates.push({
+      updateOne: {
+        filter: {
+          productType: "controller",
+          serialNumber: controllerNumber.toUpperCase(),
+          state,
         },
-      });
+        update: { $set: { isUsed: true } },
+      },
+    });
 
-      // RMU
-      updates.push({
-        updateOne: {
-          filter: {
-            productType: "rmu",
-            serialNumber: rmuNumber.toUpperCase(),
-            state,
-          },
-          update: { $set: { isUsed: true } },
+    // RMU
+    updates.push({
+      updateOne: {
+        filter: {
+          productType: "rmu",
+          serialNumber: rmuNumber.toUpperCase(),
+          state,
         },
-      });
+        update: { $set: { isUsed: true } },
+      },
+    });
 
-      if (updates.length > 0) {
-        await SerialNumber.bulkWrite(updates, { session });
-      }
+    if (updates.length > 0) {
+      await SerialNumber.bulkWrite(updates, { session });
+    }
 
-      // ✅ Commit transaction
-      await session.commitTransaction();
-      session.endSession();
+    // ✅ Commit transaction
+    await session.commitTransaction();
+    session.endSession();
 
-      return res.status(200).json({
-        success: true,
-        message: "Data Saved Successfully & Serial Numbers Marked as Used",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Data Saved Successfully & Serial Numbers Marked as Used",
+    });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
