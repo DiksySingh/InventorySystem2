@@ -462,7 +462,8 @@ const newSystemInstallation = async (req, res) => {
           storedFileURLs.borePhoto.push(urlPath);
         }
       }
-      console.log("storedFileURLs:", storedFileURLs);
+    }
+    console.log("storedFileURLs:", storedFileURLs);
 
       if (!farmerSaralId || !latitude || !longitude || !empId || !state) {
         await session.abortTransaction();
@@ -635,7 +636,6 @@ const newSystemInstallation = async (req, res) => {
           "Installation Data & Farmer Activity Saved/Updated Successfully",
         data: "Installation Data & Farmer Activity Saved/Updated Successfully",
       });
-    }
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
