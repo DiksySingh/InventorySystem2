@@ -16,6 +16,7 @@ const servicePersonOrderDetails = new Schema(
         quantity: {
           type: Number,
         },
+        _id: false
       },
     ],
   },

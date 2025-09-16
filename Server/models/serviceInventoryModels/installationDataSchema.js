@@ -31,7 +31,8 @@ const installationSchema = new Schema({
             quantity: {
                 type: Number,
                 required: true
-            }
+            },
+            _id: false
         }
     ],
     serialNumber: {

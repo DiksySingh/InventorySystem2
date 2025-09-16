@@ -16,6 +16,7 @@ const outgoingItemTotalSchema = new Schema(
         quantity: {
           type: Number,
         },
+        _id: false
       },
     ],
   },

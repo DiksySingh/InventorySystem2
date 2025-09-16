@@ -33,7 +33,8 @@ const incomingItemSchema = new Schema(
           defective: {
             type: Number,
             default: 0
-          }
+          },
+          _id: false
       }
     ],
     // defectiveItem: {
