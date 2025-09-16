@@ -209,17 +209,21 @@ module.exports.outgoingItemsData = async (req, res) => {
       });
     }
 
-    const existingPickupData = await PickupItem.findOne({
-      farmerComplaintId,
+        // ✅ Check if same farmer already submitted today
+    const startOfDay = moment().startOf("day").toDate();
+    const endOfDay = moment().endOf("day").toDate();
+
+    const alreadySubmittedToday = await PickupItem.findOne({
       farmerSaralId,
-      items: { $size: items.length, $all: items.map(item => ({ itemName: item.itemName, quantity: item.quantity })) },
+      farmerContact,
+      pickupDate: { $gte: startOfDay, $lte: endOfDay },
       incoming: false
     });
 
-    if (existingPickupData) {
+    if (alreadySubmittedToday) {
       return res.status(400).json({
         success: false,
-        message: "You have already submitted the form.",
+        message: "You have already submitted data for this farmer today.",
       });
     }
 
@@ -757,17 +761,21 @@ module.exports.incomingItemsData = async (req, res) => {
       });
     }
 
-    const existingPickupData = await PickupItem.findOne({
-      farmerComplaintId,
+       // ✅ Check if same farmer already submitted today
+    const startOfDay = moment().startOf("day").toDate();
+    const endOfDay = moment().endOf("day").toDate();
+
+    const alreadySubmittedToday = await PickupItem.findOne({
       farmerSaralId,
-      items: { $size: items.length, $all: items.map(item => ({ itemName: item.itemName, quantity: item.quantity })) },
+      farmerContact,
+      pickupDate: { $gte: startOfDay, $lte: endOfDay },
       incoming: true
     });
-    console.log("existingPickupData", existingPickupData);
-    if (existingPickupData) {
+
+    if (alreadySubmittedToday) {
       return res.status(400).json({
         success: false,
-        message: "You have already submitted the form.",
+        message: "You have already submitted data for this farmer today.",
       });
     }
 
