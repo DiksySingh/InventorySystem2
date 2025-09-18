@@ -2878,48 +2878,43 @@ const addBOMByExcel = async (req, res) => {
       // Skip invalid rows
       if (!currentItemName || !rawMaterialName || quantity === 0) continue;
 
-      // Create or fetch Item (case-insensitive)
+      // ✅ Case-insensitive lookup for Item
       if (!itemId) {
         itemName = currentItemName;
 
-        let existingItem = await prisma.item.findFirst({
-          where: {
-            name: {
-              equals: itemName,
-              mode: "insensitive", // ✅ case-insensitive match
-            },
-          },
-        });
+        let existingItem = await prisma.$queryRaw`
+          SELECT * FROM Item WHERE LOWER(name) = LOWER(${itemName}) LIMIT 1;
+        `;
 
-        if (!existingItem) {
+        if (existingItem.length === 0) {
           existingItem = await prisma.item.create({
             data: { name: itemName },
           });
+        } else {
+          existingItem = existingItem[0];
         }
+
         itemId = existingItem.id;
       }
 
-      // Create or fetch Raw Material (case-insensitive)
-      let rawMaterial = await prisma.rawMaterial.findFirst({
-        where: {
-          name: {
-            equals: rawMaterialName,
-            mode: "insensitive", // ✅ case-insensitive match
-          },
-        },
-      });
+      // ✅ Case-insensitive lookup for Raw Material
+      let rawMaterial = await prisma.$queryRaw`
+        SELECT * FROM RawMaterial WHERE LOWER(name) = LOWER(${rawMaterialName}) LIMIT 1;
+      `;
 
-      if (!rawMaterial) {
+      if (rawMaterial.length === 0) {
         rawMaterial = await prisma.rawMaterial.create({
           data: {
-            name: rawMaterialName, // ✅ fixed field
-            quantity: 0,
+            name: rawMaterialName,
+            stock: 0,
             unit,
           },
         });
+      } else {
+        rawMaterial = rawMaterial[0];
       }
 
-      // Upsert into ItemRawMaterial
+      // ✅ Upsert into ItemRawMaterial
       await prisma.itemRawMaterial.upsert({
         where: {
           itemId_rawMaterialId: {
@@ -2952,6 +2947,7 @@ const addBOMByExcel = async (req, res) => {
     });
   }
 };
+
 
 
 const detachRawMaterialFromItem = async (req, res) => {
