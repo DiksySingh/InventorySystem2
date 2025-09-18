@@ -77,7 +77,7 @@ const login = async (req, res) => {
         const user = await prisma.user.findUnique({
             where: { email }
         });
-
+        console.log(user);
         if (user.isActive === false) {
             return res.status(400).json({
                 success: false,

@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const excelToJSONConvertor = require("../../util/Excel/excelToJSONConverter"); // or your actual utility path
 const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerItemsActivity");
-
+const ExcelJS = require("exceljs");
 const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSchema");
 const WarehousePerson = require("../../models/serviceInventoryModels/warehousePersonSchema");
 
@@ -353,6 +353,49 @@ const addStateFieldToOldDocuments = async (req, res) => {
     }
 };
 
+const exportActiveServicePersons = async (req, res) => {
+  try {
+    // Fetch only active service persons
+    const servicePersons = await ServicePerson.find({ isActive: true }).select(
+      "name contact block"
+    );
+
+    // Create a new workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Active Service Persons");
+
+    // Add header row
+    worksheet.columns = [
+      { header: "Name", key: "name", width: 25 },
+      { header: "Contact", key: "contact", width: 15 },
+      { header: "Blocks", key: "block", width: 50 },
+    ];
+
+    // Add rows
+    servicePersons.forEach((person) => {
+      worksheet.addRow({
+        name: person.name,
+        contact: person.contact,
+        block: person.block.join(", "), // Convert array to comma-separated string
+      });
+    });
+
+    // Set response headers for download
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", "attachment; filename=ActiveServicePersons.xlsx");
+
+    // Write to response
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error generating Excel:", error);
+    res.status(500).json({ message: "Failed to generate Excel" });
+  }
+};
+
 module.exports = {
     exportActiveUsers,
     W2W,
@@ -360,5 +403,6 @@ module.exports = {
     exportPickupItemsToExcel,
     excelToJSON,
     excelToJSFile,
-    addStateFieldToOldDocuments
+    addStateFieldToOldDocuments,
+    exportActiveServicePersons
 }

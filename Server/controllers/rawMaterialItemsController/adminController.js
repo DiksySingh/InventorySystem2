@@ -2875,34 +2875,36 @@ const addBOMByExcel = async (req, res) => {
       const quantity = parseFloat(row.getCell(3).value) || 0;
       const unit = row.getCell(4).value?.toString().trim();
 
+      // Skip invalid rows
       if (!currentItemName || !rawMaterialName || quantity === 0) continue;
 
+      // Create or fetch Item (case-insensitive)
       if (!itemId) {
         itemName = currentItemName;
+
         let existingItem = await prisma.item.findFirst({
           where: {
             name: {
               equals: itemName,
-              mode: "insensitive",
+              mode: "insensitive", // ✅ case-insensitive match
             },
           },
         });
 
         if (!existingItem) {
           existingItem = await prisma.item.create({
-            data: {
-              name: itemName,
-            },
+            data: { name: itemName },
           });
         }
         itemId = existingItem.id;
       }
 
+      // Create or fetch Raw Material (case-insensitive)
       let rawMaterial = await prisma.rawMaterial.findFirst({
         where: {
           name: {
             equals: rawMaterialName,
-            mode: "insensitive",
+            mode: "insensitive", // ✅ case-insensitive match
           },
         },
       });
@@ -2910,14 +2912,15 @@ const addBOMByExcel = async (req, res) => {
       if (!rawMaterial) {
         rawMaterial = await prisma.rawMaterial.create({
           data: {
-            name: rawMaterial,
+            name: rawMaterialName, // ✅ fixed field
             quantity: 0,
             unit,
           },
         });
       }
 
-      await prisma.itemRawMaterial.upset({
+      // Upsert into ItemRawMaterial
+      await prisma.itemRawMaterial.upsert({
         where: {
           itemId_rawMaterialId: {
             itemId,
@@ -2941,7 +2944,7 @@ const addBOMByExcel = async (req, res) => {
       message: "BOM uploaded successfully",
     });
   } catch (error) {
-    console.log("ERROR: ", error);
+    console.error("ERROR in addBOMByExcel:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -2949,6 +2952,7 @@ const addBOMByExcel = async (req, res) => {
     });
   }
 };
+
 
 const detachRawMaterialFromItem = async (req, res) => {
   try {

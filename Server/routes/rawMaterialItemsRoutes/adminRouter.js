@@ -4,6 +4,8 @@ const adminController = require("../../controllers/rawMaterialItemsController/ad
 const {generateRawMaterialStockPDF, generateServiceRecordPDF, generateDailyServiceRecordPDF} = require("../../helpers/rawMaterialItemsHelpers/generateReports");
 const {deleteRawMaterialReport} = require("../../helpers/rawMaterialItemsHelpers/deleteRawMaterialReports");
 const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/showEmployees", tokenVerification(['Admin']), adminController.showEmployees);
 router.put("/deactivateEmployee", tokenVerification(['Admin']), adminController.deactivateEmployee);
@@ -42,7 +44,7 @@ router.get("/generateDailyServiceRecordPDF", generateDailyServiceRecordPDF);
 router.delete("/deleteRawMaterialReport", deleteRawMaterialReport);
 
 router.post("/addBOM", adminController.addBOM);
-router.post("/addBOMByExcel", adminController.addBOMByExcel);
+router.post("/addBOMByExcel", upload.single("file"), adminController.addBOMByExcel);
 router.post("/updateBOM", adminController.updateBOM);
 router.post("/addStage", adminController.addStage);
 router.post("/addItemType", adminController.addItemType);

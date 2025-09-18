@@ -12,7 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@prisma/client": "^6.5.0",
+    "@prisma/client": "^6.16.2",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
@@ -40,6 +40,6 @@
     "cross-env": "^7.0.3",
     "dotenv-cli": "^8.0.0",
     "env-cmd": "^10.1.0",
-    "prisma": "^6.5.0"
+    "prisma": "^6.16.2"
   }
 }
