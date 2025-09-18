@@ -2948,8 +2948,6 @@ const addBOMByExcel = async (req, res) => {
   }
 };
 
-
-
 const detachRawMaterialFromItem = async (req, res) => {
   try {
     const { itemId, rawMaterialId } = req.body;

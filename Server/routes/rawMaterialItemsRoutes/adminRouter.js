@@ -46,6 +46,7 @@ router.delete("/deleteRawMaterialReport", deleteRawMaterialReport);
 router.post("/addBOM", adminController.addBOM);
 router.post("/addBOMByExcel", upload.single("file"), adminController.addBOMByExcel);
 router.post("/updateBOM", adminController.updateBOM);
+router.delete("/detachRawMaterialFromItem", adminController.detachRawMaterialFromItem);
 router.post("/addStage", adminController.addStage);
 router.post("/addItemType", adminController.addItemType);
 router.post("/attachItemTypeWithStage", adminController.attachItemTypeWithStage);
