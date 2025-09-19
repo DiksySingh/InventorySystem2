@@ -73,82 +73,151 @@ const rawMaterialForItemRequest = async (req, res) => {
   }
 };
 
+// const createPreProcessItemRequest = async (req, res) => {
+//   try {
+//     const { rawMaterialRequested, requestedTo } = req?.body;
+//     console.log("Req.body: ", req.body);
+//     const empId = req?.user?.id;
+//     console.log("EmpId: ", empId);
+//     if (
+//       !rawMaterialRequested ||
+//       !requestedTo ||
+//       rawMaterialRequested.length === 0
+//     ) {
+//       throw new Error("All fields are required");
+//     }
+
+//     const isStoreKeeper = await prisma.user.findFirst({
+//       where: {
+//         id: requestedTo
+//       },
+//       include: {
+//         role: {
+//           select: {
+//             name: true
+//           }
+//         }
+//       }
+//     });
+//     if(isStoreKeeper.role.name !== "Store") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "You can only request item to storekeeper"
+//       });
+//     }
+
+//     for (let rawMaterial of rawMaterialRequested) {
+//       const rawMaterialData = await prisma.rawMaterial.findFirst({
+//         where: {
+//           id: rawMaterial.rawMaterialId,
+//         },
+//         select: {
+//           id: true,
+//           name: true,
+//           stock: true,
+//           unit: true,
+//         },
+//       });
+
+//       if (!rawMaterialData) {
+//         throw new Error(`Raw material not found: ${rawMaterial.rawMaterialId}`);
+//       }
+
+//       if (rawMaterial.quantity > rawMaterialData.stock) {
+//         throw new Error(
+//           `Requested quantity for ${rawMaterialData.name} exceeds available stock`
+//         );
+//       }
+//     }
+
+//     const result = await prisma.$transaction(async (tx) => {
+//       const newRequest = await tx.itemRequestData.create({
+//         data: {
+//           rawMaterialRequested,
+//           requestedTo,
+//           requestedBy: empId,
+//           isProcessRequest: false,
+//         },
+//       });
+
+//       return newRequest;
+//     });
+//     console.log("Pre-process: ", result);
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Pre-process item request created successfully",
+//       data: result,
+//     });
+//   } catch (error) {
+//     console.error("ERROR: ", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+const validateStorekeeper = async (userId) => {
+  const user = await prisma.user.findFirst({
+    where: { id: userId },
+    include: { role: { select: { name: true } } }
+  });
+  if (!user || user.role.name !== "Store") {
+    throw new Error("You can only request item to storekeeper");
+  }
+  return user;
+};
+
+const validateRawMaterials = async (rawMaterialRequested) => {
+  for (let rawMaterial of rawMaterialRequested) {
+    const data = await prisma.rawMaterial.findFirst({
+      where: { id: rawMaterial.rawMaterialId },
+      select: { id: true, name: true, stock: true, unit: true }
+    });
+    if (!data) throw new Error(`Raw material not found: ${rawMaterial.rawMaterialId}`);
+    if (rawMaterial.quantity > data.stock) {
+      throw new Error(`Requested quantity for ${data.name} exceeds available stock`);
+    }
+  }
+};
+
+
 const createPreProcessItemRequest = async (req, res) => {
   try {
-    const { rawMaterialRequested, requestedTo } = req?.body;
-    console.log("Req.body: ", req.body);
-    const empId = req?.user?.id;
-    console.log("EmpId: ", empId);
-    if (
-      !rawMaterialRequested ||
-      !requestedTo ||
-      rawMaterialRequested.length === 0
-    ) {
-      throw new Error("All fields are required");
-    }
+    const { rawMaterialRequested, requestedTo } = req.body;
+    const empId = req.user?.id;
 
-    const isStoreKeeper = await prisma.user.findFirst({
-      where: {
-        id: requestedTo
-      },
-      include: {
-        role: {
-          select: {
-            name: true
-          }
-        }
-      }
-    });
-    if(isStoreKeeper.role.name !== "Store") {
+    if (!rawMaterialRequested || !requestedTo || rawMaterialRequested.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "You can only request item to storekeeper"
+        message: "All fields are required",
       });
     }
 
-    for (let rawMaterial of rawMaterialRequested) {
-      const rawMaterialData = await prisma.rawMaterial.findFirst({
-        where: {
-          id: rawMaterial.rawMaterialId,
-        },
-        select: {
-          id: true,
-          name: true,
-          stock: true,
-          unit: true,
-        },
-      });
+   // Validate storekeeper
+    await validateStorekeeper(requestedTo);
 
-      if (!rawMaterialData) {
-        throw new Error(`Raw material not found: ${rawMaterial.rawMaterialId}`);
-      }
+    // Validate raw materials
+    await validateRawMaterials(rawMaterialRequested);
 
-      if (rawMaterial.quantity > rawMaterialData.stock) {
-        throw new Error(
-          `Requested quantity for ${rawMaterialData.name} exceeds available stock`
-        );
-      }
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const newRequest = await tx.itemRequestData.create({
-        data: {
-          rawMaterialRequested,
-          requestedTo,
-          requestedBy: empId,
-          isProcessRequest: false,
-        },
-      });
-
-      return newRequest;
+    // Create request
+    const result = await prisma.itemRequestData.create({
+      data: {
+        rawMaterialRequested,
+        requestedTo,
+        requestedBy: empId,
+        isProcessRequest: false,
+      },
     });
-    console.log("Pre-process: ", result);
 
-    return res.status(200).json({
+    return res.status(201).json({
       success: true,
       message: "Pre-process item request created successfully",
       data: result,
     });
+
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
@@ -159,80 +228,122 @@ const createPreProcessItemRequest = async (req, res) => {
   }
 };
 
+// const createInProcessItemRequest = async (req, res) => {
+//   try {
+//     const { serviceProcessId, rawMaterialRequested, requestedTo } = req.body;
+//     const empId = req.user.id;
+//     if (
+//       !serviceProcessId ||
+//       !rawMaterialRequested ||
+//       !requestedTo ||
+//       rawMaterialRequested.length === 0
+//     ) {
+//       throw new Error("All fields are required");
+//     }
+
+//     const isStoreKeeper = await prisma.user.findFirst({
+//       where: {
+//         id: requestedTo
+//       },
+//       include: {
+//         role: {
+//           select: {
+//             name: true
+//           }
+//         }
+//       }
+//     });
+//     if(isStoreKeeper.role.name !== "Store") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "You can only request item to storekeeper"
+//       });
+//     }
+
+//     for (let rawMaterial of rawMaterialRequested) {
+//       const rawMaterialData = await prisma.rawMaterial.findFirst({
+//         where: {
+//           id: rawMaterial.rawMaterialId,
+//         },
+//         select: {
+//           id: true,
+//           name: true,
+//           stock: true,
+//           unit: true,
+//         },
+//       });
+
+//       if (!rawMaterialData) {
+//         throw new Error(`Raw material not found: ${rawMaterial.rawMaterialId}`);
+//       }
+
+//       if (rawMaterial.quantity > rawMaterialData.stock) {
+//         throw new Error(
+//           `Requested quantity for ${rawMaterialData.name} exceeds available stock`
+//         );
+//       }
+//     }
+
+//     const result = await prisma.$transaction(async (tx) => {
+//       const newRequest = await tx.itemRequestData.create({
+//         data: {
+//           serviceProcessId,
+//           rawMaterialRequested,
+//           requestedTo,
+//           requestedBy: empId,
+//           isProcessRequest: false,
+//         },
+//       });
+
+//       return newRequest;
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "In-process item request created successfully",
+//       data: result,
+//     });
+//   } catch (error) {
+//     console.error("ERROR: ", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
 const createInProcessItemRequest = async (req, res) => {
   try {
     const { serviceProcessId, rawMaterialRequested, requestedTo } = req.body;
     const empId = req.user.id;
-    if (
-      !serviceProcessId ||
-      !rawMaterialRequested ||
-      !requestedTo ||
-      rawMaterialRequested.length === 0
-    ) {
+
+    if (!serviceProcessId || !rawMaterialRequested?.length || !requestedTo) {
       throw new Error("All fields are required");
     }
 
-    const isStoreKeeper = await prisma.user.findFirst({
-      where: {
-        id: requestedTo
+    // Validate storekeeper
+    await validateStorekeeper(requestedTo);
+
+    // Validate raw materials
+    await validateRawMaterials(rawMaterialRequested);
+
+    // Create request
+    const newRequest = await prisma.itemRequestData.create({
+      data: {
+        serviceProcessId,
+        rawMaterialRequested,
+        requestedTo,
+        requestedBy: empId,
+        isProcessRequest: true, // 👈 different from pre-process
       },
-      include: {
-        role: {
-          select: {
-            name: true
-          }
-        }
-      }
-    });
-    if(isStoreKeeper.role.name !== "Store") {
-      return res.status(400).json({
-        success: false,
-        message: "You can only request item to storekeeper"
-      });
-    }
-
-    for (let rawMaterial of rawMaterialRequested) {
-      const rawMaterialData = await prisma.rawMaterial.findFirst({
-        where: {
-          id: rawMaterial.rawMaterialId,
-        },
-        select: {
-          id: true,
-          name: true,
-          stock: true,
-          unit: true,
-        },
-      });
-
-      if (!rawMaterialData) {
-        throw new Error(`Raw material not found: ${rawMaterial.rawMaterialId}`);
-      }
-
-      if (rawMaterial.quantity > rawMaterialData.stock) {
-        throw new Error(
-          `Requested quantity for ${rawMaterialData.name} exceeds available stock`
-        );
-      }
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const newRequest = await tx.itemRequestData.create({
-        data: {
-          serviceProcessId,
-          rawMaterialRequested,
-          requestedTo,
-          requestedBy: empId,
-          isProcessRequest: false,
-        },
-      });
-
-      return newRequest;
     });
 
     return res.status(200).json({
       success: true,
       message: "In-process item request created successfully",
-      data: result,
+      data: newRequest,
     });
   } catch (error) {
     console.error("ERROR: ", error);
