@@ -73,7 +73,6 @@ const rawMaterialForItemRequest = async (req, res) => {
   }
 };
 
-
 // const validateStorekeeper = async (userId) => {
 //   const user = await prisma.user.findFirst({
 //     where: { id: userId },
@@ -835,8 +834,6 @@ module.exports = {
   showStorePersons,
   rawMaterialForItemRequest,
   createItemRequest,
-  createPreProcessItemRequest,
-  createInProcessItemRequest,
   createServiceProcess,
   getProcessForUserStage,
   showUserItemStock,
