@@ -5,8 +5,8 @@ const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/to
 
 router.get("/showStorePersons", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.showStorePersons);
 router.get("/rawMaterialForItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.rawMaterialForItemRequest);
-router.post("/createPreProcessItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createPreProcessItemRequest);
-router.post("/createInProcessItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createInProcessItemRequest);
+router.post("/createItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createItemRequest);
+// router.post("/createInProcessItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createInProcessItemRequest);
 router.post("/createServiceProcess", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createServiceProcess); 
 router.get("/getProcessForUserStage", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.getProcessForUserStage);
 router.get("/showUserItemStock", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.showUserItemStock);
