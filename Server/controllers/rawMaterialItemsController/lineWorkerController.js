@@ -29,6 +29,7 @@ const showStorePersons = async (req, res) => {
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
+
       success: false,
       message: "Internal Server Error",
       error: error.message,
