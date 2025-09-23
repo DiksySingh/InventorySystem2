@@ -11,6 +11,7 @@ const {
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { refreshToken } = require("../../middlewares/authMiddlewares");
+const AppVersion = require("../../models/commonModels/appVersionSchema");
 
 module.exports.adminSignup = async (req, res) => {
   const { email, password, createdAt, role } = req.body;
@@ -463,7 +464,10 @@ module.exports.Login = async (req, res) => {
         refreshToken: refreshToken,
       });
     }
-
+    
+    const appVersionData = await AppVersion.find({});
+    console.log(appVersionData)
+    console.log(appVersionData[0].appVersion)
     // Set cookies for tokens
     // console.log(user.block);
     res
@@ -483,6 +487,8 @@ module.exports.Login = async (req, res) => {
         // accessToken,
         // refreshToken,
         role: user.role || null,
+        appVersion: appVersionData[0]?.appVersion,
+        appLink: appVersionData[0]?.link
       });
   } catch (error) {
     res.status(500).json({

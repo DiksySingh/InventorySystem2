@@ -25,6 +25,7 @@ const {exportPickupItemsToExcel} = require("../helpers/pdf/generateInOutItemsRep
 const router = require("express").Router();
 const multer = require("multer");
 const { excelToJSON , excelToJSFile, addStateFieldToOldDocuments} = require("../controllers/serviceControllers/test.controller");
+const commonController = require("../controllers/commonModelController/commonController");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -63,5 +64,5 @@ router.post("/export-excel", upload.single('file'), excelToJSFile);
 router.put("/addStateFieldToOldDocuments", addStateFieldToOldDocuments);
 router.get("/exportPickupItemsToExcel", exportPickupItemsToExcel);  
 
-
+router.post("/createAppVersion", commonController.createAppVersion);
 module.exports = router;
