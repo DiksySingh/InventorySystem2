@@ -489,7 +489,7 @@ module.exports.Login = async (req, res) => {
         role: user.role || null,
         appVersion: appVersionData[0]?.appVersion,
         appLink: appVersionData[0]?.link
-      });
+      });  
   } catch (error) {
     res.status(500).json({
       success: false,
