@@ -3,6 +3,30 @@ const fs = require("fs/promises");
 
 const getLineWorkerList = async (req, res) => {
   try {
+    const empId = req.user?.id;
+    if(!empId) {
+      return res.status(400).json({
+        success: false,
+        message: "EmpId Not Found"
+      });
+    }
+
+    const empData = await prisma.user.findFirst({
+      where: {
+        id: empId
+      },
+      include: {
+        role: true  
+      }
+    });
+    
+    if(empData?.role?.name !== "Store") {
+      return res.status(400).json({
+        success: false,
+        message: "Olny Store Keeper Have Access To The Line-Workers"
+      });
+    }
+
     const userData = await prisma.user.findMany({
       where: {
         role: {
@@ -49,10 +73,38 @@ const showIncomingItemRequest = async (req, res) => {
       throw new Error("Employee Id Not Found");
     }
 
+    const empData = await prisma.user.findFirst({
+      where: {
+        id: empId
+      },
+      include: {
+        role: true  
+      }
+    });
+    
+    if(empData?.role?.name !== "Store") {
+      return res.status(400).json({
+        success: false,
+        message: "Olny Store Keeper Have Access For Incoming Item Request"
+      });
+    }
+
     const incomingItemRequest = await prisma.itemRequestData.findMany({
       where: {
         requestedBy: empId,
         approved: null,
+      },
+      select: {
+        id: true,
+        serviceProcessId: true,
+        isProcessRequest: true,
+        rawMaterialRequested: true,
+        requestedBy: true,
+        requestedAt: true,
+        approved: true,
+        approvedBy: true,
+        approvedAt: true,
+        materialGiven: true
       },
       orderBy: {
         requestedAt: "desc",

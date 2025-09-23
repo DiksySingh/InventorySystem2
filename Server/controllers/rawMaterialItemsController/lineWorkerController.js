@@ -186,7 +186,7 @@ const rawMaterialForItemRequest = async (req, res) => {
 const createItemRequest = async (req, res) => {
   try {
     const { type, serviceProcessId, rawMaterialRequested, requestedTo } = req.body;
-    const empId = req.user?._id;
+    const empId = req.user?.id;
 
     if (!type || !rawMaterialRequested?.length || !requestedTo) {
       throw new Error("All fields are required");
