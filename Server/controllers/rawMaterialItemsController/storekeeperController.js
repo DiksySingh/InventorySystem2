@@ -92,7 +92,7 @@ const showIncomingItemRequest = async (req, res) => {
     const incomingItemRequest = await prisma.itemRequestData.findMany({
       where: {
         requestedBy: empId,
-        approved: null,
+       //approved: null,
       },
       select: {
         id: true,
