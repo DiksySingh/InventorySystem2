@@ -328,8 +328,8 @@ const getUserItemStock = async (req, res) => {
         },
       },
       select: {
-        id: true,
-        empId: true,
+        //id: true,
+        //empId: true,
         rawMaterial: {
           select: {
             id: true,
