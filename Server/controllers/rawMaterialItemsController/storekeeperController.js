@@ -445,7 +445,7 @@ const showProcessData = async (req, res) => {
           select: {
             id: true,
             name: true,
-          },
+          }, 
         },
         status: true,
         createdAt: true,
@@ -528,13 +528,13 @@ const updateStock = async (req, res) => {
       success: true,
       message: "Stock updated successfully",
       data: result,
-    });
+    }); 
   } catch (error) {
     console.log("ERROR: ", error);
     // Rollback is automatic with Prisma transactions, but cleanup files manually
-    if (uploadedFiles.length > 0) {
+    if (uploadFiles.length > 0) {
       await Promise.all(
-        uploadedFiles.map(async (filePath) => {
+        uploadFiles.map(async (filePath) => {
           try {
             await fs.unlink(filePath);
             console.log(`🗑 Deleted uploaded file: ${filePath}`);
