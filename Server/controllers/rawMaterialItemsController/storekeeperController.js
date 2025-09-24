@@ -4,26 +4,26 @@ const fs = require("fs/promises");
 const getLineWorkerList = async (req, res) => {
   try {
     const empId = req.user?.id;
-    if(!empId) {
+    if (!empId) {
       return res.status(400).json({
         success: false,
-        message: "EmpId Not Found"
+        message: "EmpId Not Found",
       });
     }
 
     const empData = await prisma.user.findFirst({
       where: {
-        id: empId
+        id: empId,
       },
       include: {
-        role: true  
-      }
+        role: true,
+      },
     });
-    
-    if(empData?.role?.name !== "Store") {
+
+    if (empData?.role?.name !== "Store") {
       return res.status(400).json({
         success: false,
-        message: "Only Store Keeper Have Access To The Line-Workers"
+        message: "Only Store Keeper Have Access To The Line-Workers",
       });
     }
 
@@ -75,17 +75,17 @@ const showIncomingItemRequest = async (req, res) => {
 
     const empData = await prisma.user.findFirst({
       where: {
-        id: req?.user?.id
+        id: req?.user?.id,
       },
       include: {
-        role: true  
-      }
+        role: true,
+      },
     });
-    
-    if(empData?.role?.name !== "Store") {
+
+    if (empData?.role?.name !== "Store") {
       return res.status(400).json({
         success: false,
-        message: "Only Store Keeper Have Access For Incoming Item Request"
+        message: "Only Store Keeper Have Access For Incoming Item Request",
       });
     }
 
@@ -104,17 +104,42 @@ const showIncomingItemRequest = async (req, res) => {
         approved: true,
         approvedBy: true,
         approvedAt: true,
-        materialGiven: true
+        materialGiven: true,
       },
       orderBy: {
         requestedAt: "desc",
       },
     });
-    console.log(incomingItemRequest);
-    return res.status(200).json({
+    const withNames = await Promise.all(
+      incomingItemRequest.map(async (req) => {
+        const materials = req.rawMaterialRequested || [];
+
+        // get all rawMaterialIds
+        const ids = materials.map((m) => m.rawMaterialId);
+
+        const rawMaterials = await prisma.rawMaterial.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, name: true, unit: true },
+        });
+
+        // attach names
+        const enriched = materials.map((m) => {
+          const match = rawMaterials.find((r) => r.id === m.rawMaterialId);
+          return {
+            ...m,
+            name: match?.name || "Unknown",
+            unit: match?.unit || null,
+          };
+        });
+
+        return { ...req, rawMaterialRequested: enriched };
+      })
+    );
+
+    res.json({
       success: true,
       message: "Data fetched successfully",
-      data: incomingItemRequest || [],
+      data: withNames,
     });
   } catch (error) {
     console.error("ERROR: ", error);
