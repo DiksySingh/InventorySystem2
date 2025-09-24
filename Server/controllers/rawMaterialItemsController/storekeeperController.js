@@ -23,7 +23,7 @@ const getLineWorkerList = async (req, res) => {
     if(empData?.role?.name !== "Store") {
       return res.status(400).json({
         success: false,
-        message: "Olny Store Keeper Have Access To The Line-Workers"
+        message: "Only Store Keeper Have Access To The Line-Workers"
       });
     }
 
@@ -75,7 +75,7 @@ const showIncomingItemRequest = async (req, res) => {
 
     const empData = await prisma.user.findFirst({
       where: {
-        id: empId
+        id: req?.user?.id
       },
       include: {
         role: true  
@@ -85,7 +85,7 @@ const showIncomingItemRequest = async (req, res) => {
     if(empData?.role?.name !== "Store") {
       return res.status(400).json({
         success: false,
-        message: "Olny Store Keeper Have Access For Incoming Item Request"
+        message: "Only Store Keeper Have Access For Incoming Item Request"
       });
     }
 
@@ -110,7 +110,7 @@ const showIncomingItemRequest = async (req, res) => {
         requestedAt: "desc",
       },
     });
-
+    console.log(incomingItemRequest);
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
