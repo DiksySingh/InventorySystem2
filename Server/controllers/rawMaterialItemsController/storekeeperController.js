@@ -92,7 +92,7 @@ const showIncomingItemRequest = async (req, res) => {
     const incomingItemRequest = await prisma.itemRequestData.findMany({
       where: {
         requestedBy: empId,
-       //approved: null,
+        //approved: null,
       },
       select: {
         id: true,
@@ -445,7 +445,7 @@ const showProcessData = async (req, res) => {
           select: {
             id: true,
             name: true,
-          }, 
+          },
         },
         status: true,
         createdAt: true,
@@ -476,11 +476,11 @@ const updateStock = async (req, res) => {
     if (!rawMaterialList || rawMaterialList.length === 0) {
       throw new Error("Data not found");
     }
-    if (!req.files || !req.files.billPhotos) {
+    if (!req.files || !req.files.billPhoto) {
       throw new Error("File not uploaded");
     }
 
-    const billPhotoUrl = req.files.billPhotos.map((file) => {
+    const billPhotoUrl = req.files.billPhoto.map((file) => {
       uploadFiles.push(file.path); // store path for cleanup if needed
       return `/uploads/rawMaterial/billPhoto/${file.filename}`;
     });
@@ -491,8 +491,16 @@ const updateStock = async (req, res) => {
           billPhotos: billPhotoUrl, // JSON array
         },
       });
-
-      for (const rawMaterial of rawMaterialList) {
+      const parsedRawMaterialList = JSON.parse(rawMaterialList);
+      for (const rawMaterial of parsedRawMaterialList) {
+        if (
+          !rawMaterial.rawMaterialId ||
+          typeof rawMaterial.quantity !== "number"
+        ) {
+          throw new Error(
+            "Invalid rawMaterial data: rawMaterialId and quantity are required"
+          );
+        }
         const existingRawMaterial = await tx.rawMaterial.findFirst({
           where: { id: rawMaterial.rawMaterialId },
         });
@@ -528,7 +536,7 @@ const updateStock = async (req, res) => {
       success: true,
       message: "Stock updated successfully",
       data: result,
-    }); 
+    });
   } catch (error) {
     console.log("ERROR: ", error);
     // Rollback is automatic with Prisma transactions, but cleanup files manually

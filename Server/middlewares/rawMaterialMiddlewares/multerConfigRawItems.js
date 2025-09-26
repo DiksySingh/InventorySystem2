@@ -6,7 +6,7 @@ const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadPath = path.join(
       __dirname,
-      "../../uploads/rawMaterial/newStockBillPhotos"
+      "../../uploads/rawMaterial/billPhoto"
     );
 
     try {
@@ -45,7 +45,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 },
-}).fields([{ name: "billPhotos", maxCount: 1 }]);
+}).fields([{ name: "billPhoto", maxCount: 1 }]);
 
 const uploadHandler = (req, res, next) => {
   upload(req, res, async (err) => {
@@ -59,17 +59,20 @@ const uploadHandler = (req, res, next) => {
       });
     }
 
-    const allFiles = Object.values(req.files).flat();
+    // ✅ Safely handle when no file is uploaded
+    const allFiles = req.files ? Object.values(req.files).flat() : [];
+
     for (const file of allFiles) {
       const ext = path.extname(file.originalname).toLowerCase();
+
       if (
         [".jpeg", ".jpg", ".png"].includes(ext) &&
         file.size > 2 * 1024 * 1024
       ) {
-        await Promise.all(allFiles.map((f) => fs.unlink(f.path))); // ✅ delete all
+        await Promise.all(allFiles.map((f) => fs.unlink(f.path)));
         return res.status(400).json({
           success: false,
-          message: `Image "${file.originalname}" exceeds 5MB limit.`,
+          message: `Image "${file.originalname}" exceeds 2MB limit.`,
         });
       }
 
@@ -84,6 +87,7 @@ const uploadHandler = (req, res, next) => {
         });
       }
     }
+
     next();
   });
 };
