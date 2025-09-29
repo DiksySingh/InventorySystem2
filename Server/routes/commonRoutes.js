@@ -26,6 +26,8 @@ const router = require("express").Router();
 const multer = require("multer");
 const { excelToJSON , excelToJSFile, addStateFieldToOldDocuments} = require("../controllers/serviceControllers/test.controller");
 const commonController = require("../controllers/commonModelController/commonController");
+const systemInstallationReport = require("../helpers/pdf/systemInstallationReport");
+const warehouseReports = require("../helpers/pdf/warehouseInOutReport");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -65,4 +67,7 @@ router.put("/addStateFieldToOldDocuments", addStateFieldToOldDocuments);
 router.get("/exportPickupItemsToExcel", exportPickupItemsToExcel);  
 
 router.post("/createAppVersion", commonController.createAppVersion);
+router.get("/installationInventoryStockReport", systemInstallationReport.installationInventoryStockReport);
+router.get("/systemSetReport", systemInstallationReport.systemSetReport);
+router.get("/generateJalnaReport", warehouseReports.generateJalnaReport)
 module.exports = router;

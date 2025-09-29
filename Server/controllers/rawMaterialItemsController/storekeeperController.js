@@ -493,14 +493,14 @@ const updateStock = async (req, res) => {
       });
       const parsedRawMaterialList = JSON.parse(rawMaterialList);
       for (const rawMaterial of parsedRawMaterialList) {
-        if (
-          !rawMaterial.rawMaterialId ||
-          typeof rawMaterial.quantity !== "number"
-        ) {
+        rawMaterial.quantity = Number(rawMaterial.quantity); // convert to number
+
+        if (!rawMaterial.rawMaterialId || isNaN(rawMaterial.quantity)) {
           throw new Error(
             "Invalid rawMaterial data: rawMaterialId and quantity are required"
           );
         }
+
         const existingRawMaterial = await tx.rawMaterial.findFirst({
           where: { id: rawMaterial.rawMaterialId },
         });
