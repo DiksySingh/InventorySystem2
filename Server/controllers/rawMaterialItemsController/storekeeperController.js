@@ -526,6 +526,7 @@ const updateStock = async (req, res) => {
       const addBillPhoto = await tx.stockMovementBatch.create({
         data: {
           billPhotos: billPhotoUrl, // JSON array
+          createdBy: empId
         },
       });
       const parsedRawMaterialList = JSON.parse(rawMaterialList);
@@ -616,12 +617,6 @@ const getStockMovementHistory = async (req, res) => {
             quantity: true,
             unit: true,
             type: true,
-            user: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
           },
         },
       },
