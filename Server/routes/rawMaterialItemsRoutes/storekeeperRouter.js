@@ -39,5 +39,6 @@ router.post(
 );
 
 router.get("/getRawMaterialList", tokenVerification(["Store"]), storekeeperController.getRawMaterialList);
+router.get("/getStockMovementHistory", tokenVerification(["Store"]), storekeeperController.getStockMovementHistory);
 
 module.exports = router;

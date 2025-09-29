@@ -598,6 +598,52 @@ const updateStock = async (req, res) => {
   }
 };
 
+const getStockMovementHistory = async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    const batches = await prisma.stockMovementBatch.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        stockMovement: {
+          select: {
+            rawMaterial: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            quantity: true,
+            unit: true,
+            type: true,
+          },
+        },
+      },
+    });
+
+    // Map billPhotos with full URLs
+    const formattedBatches = batches.map((batch) => ({
+      ...batch,
+      billPhotos: batch.billPhotos
+        ? batch.billPhotos.map((photo) => `${baseUrl}${photo}`)
+        : [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Stock movement history fetched successfully",
+      data: formattedBatches,
+    });
+  } catch (error) {
+    console.error("Error fetching stock movement history:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getLineWorkerList,
   getRawMaterialList,
@@ -607,4 +653,5 @@ module.exports = {
   getUserItemStock,
   showProcessData,
   updateStock,
+  getStockMovementHistory,
 };
