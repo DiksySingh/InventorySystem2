@@ -66,6 +66,43 @@ const getLineWorkerList = async (req, res) => {
   }
 };
 
+const getRawMaterialList = async (req, res) => {
+  try {
+    const allRawMaterial = await prisma.rawMaterial.findMany({
+      orderBy: {
+        stock: "asc"
+      },
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        unit: true
+      }
+    });
+
+    const filteredData = allRawMaterial.map((data) => ({
+      id: data.id,
+      name: data.name,
+      stock: data.stock,
+      unit: data.unit,
+      outOfStock: data.stock === 0 ? true : false
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: filteredData || []
+    });
+  } catch (error) {
+    console.log("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 const showIncomingItemRequest = async (req, res) => {
   try {
     const empId = req.query?.empId;
@@ -563,6 +600,7 @@ const updateStock = async (req, res) => {
 
 module.exports = {
   getLineWorkerList,
+  getRawMaterialList,
   showIncomingItemRequest,
   approveIncomingItemRequest,
   sanctionItemForRequest,

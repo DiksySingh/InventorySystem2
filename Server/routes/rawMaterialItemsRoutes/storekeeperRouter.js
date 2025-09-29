@@ -38,4 +38,6 @@ router.post(
   storekeeperController.updateStock
 );
 
+router.get("/getRawMaterialList", tokenVerification(["Store"]), storekeeperController.getRawMaterialList);
+
 module.exports = router;
