@@ -616,6 +616,12 @@ const getStockMovementHistory = async (req, res) => {
             quantity: true,
             unit: true,
             type: true,
+            user: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
           },
         },
       },

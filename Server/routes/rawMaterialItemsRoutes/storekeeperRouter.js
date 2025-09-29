@@ -30,10 +30,11 @@ router.post(
   storekeeperController.sanctionItemForRequest
 );
 
-router.get("/getUserItemStock", storekeeperController.getUserItemStock);
+router.get("/getUserItemStock", tokenVerification(["Store"]), storekeeperController.getUserItemStock);
 
 router.post(
   "/updateStock",
+  tokenVerification(["Store"]),
   uploadHandler,
   storekeeperController.updateStock
 );
