@@ -58,7 +58,8 @@ const {
   updateIncomingPickupItemSerial,
   updateOutogingItemFarmerDetails,
   addMotorNumbersFromExcel,
-  exportMotorNumbersExcel
+  exportMotorNumbersExcel,
+  importDispatchedSystemExcelData
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -314,4 +315,5 @@ router.put("/update-pickup-item-serial", userVerification(['warehouseAdmin']), u
 router.put("/update-outgoing-item-farmer-details", userVerification(['warehouseAdmin']), updateOutogingItemFarmerDetails);
 router.put("/update-motor-number", upload.single("file"), addMotorNumbersFromExcel);
 router.get("/get-motor-number", exportMotorNumbersExcel);
+router.post("/importDispatchedSystemExcelData", importDispatchedSystemExcelData);
 module.exports = router;

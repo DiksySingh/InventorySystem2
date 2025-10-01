@@ -396,6 +396,133 @@ const exportActiveServicePersons = async (req, res) => {
   }
 };
 
+const getItemRawMaterialExcel = async (req, res) => {
+   try {
+    // 1. Fetch only required data
+    const data = await prisma.itemRawMaterial.findMany({
+      include: {
+        item: true,
+        rawMaterial: true,
+      },
+    });
+
+    // 2. Create workbook & worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("ItemRawMaterial");
+
+    // 3. Define columns
+    worksheet.columns = [
+      { header: "Item Name", key: "itemName", width: 30 },
+      { header: "Raw Material Name", key: "rawMaterialName", width: 30 },
+      { header: "Quantity", key: "quantity", width: 15 },
+    ];
+
+    // 4. Add rows
+    data.forEach((row) => {
+      worksheet.addRow({
+        itemName: row.item ? row.item.name : null,
+        rawMaterialName: row.rawMaterial ? row.rawMaterial.name : null,
+        quantity: row.quantity,
+      });
+    });
+
+    // 5. Ensure uploads folder exists
+    const uploadDir = path.join(__dirname, "uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // 6. Save file inside uploads folder
+    const filePath = path.join(uploadDir, "ItemRawMaterial.xlsx");
+    await workbook.xlsx.writeFile(filePath);
+
+    console.log("✅ Excel file saved at:", filePath);
+  } catch (error) {
+    console.error("❌ Error exporting to Excel:", error);
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
+const getNotApprovedPickupData = async (req, res) => {
+  try {
+    // 1. Fetch data where incoming is null or false
+    const data = await PickupItem.find({
+      $or: [{ incoming: true }, { incoming: false }],
+      status: null,
+    }).lean();
+
+    // 2. Create workbook & worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Unapproved Pickup Items");
+
+    // 3. Define columns
+    worksheet.columns = [
+      { header: "Service Person Name", key: "servicePersonName", width: 25 },
+      { header: "Service Person Contact", key: "servicePerContact", width: 20 },
+      { header: "Farmer Name", key: "farmerName", width: 20 },
+      { header: "Farmer Contact", key: "farmerContact", width: 20 },
+      { header: "Farmer Village", key: "farmerVillage", width: 20 },
+      { header: "Farmer Saral ID", key: "farmerSaralId", width: 20 },
+      { header: "Warehouse", key: "warehouse", width: 20 },
+      { header: "Serial Number", key: "serialNumber", width: 20 },
+      { header: "Items", key: "items", width: 40 },
+      { header: "Incoming", key: "incoming", width: 20 },
+      { header: "Status", key: "status", width: 15 },
+      { header: "Pickup Date", key: "pickupDate", width: 20 },
+    ];
+
+    // 4. Add rows
+    data.forEach((row) => {
+      worksheet.addRow({
+        servicePersonName: row.servicePersonName,
+        servicePerContact: row.servicePerContact,
+        farmerName: row.farmerName,
+        farmerContact: row.farmerContact,
+        farmerVillage: row.farmerVillage,
+        farmerSaralId: row.farmerSaralId,
+        warehouse: row.warehouse,
+        serialNumber: row.serialNumber,
+        items: row.items
+          .map((i) => `${i.itemName} (x${i.quantity})`)
+          .join(", "),
+        incoming:
+          row.incoming === true ? "Yes" : "No",
+        status:
+          row.status === null
+            ? "Not Approved"
+            : row.status === false
+            ? "Declined"
+            : "Approved",
+        pickupDate: row.pickupDate
+          ? new Date(row.pickupDate).toLocaleDateString()
+          : "",
+      });
+    });
+
+    // 5. Ensure uploads folder exists
+    const uploadDir = path.join(__dirname, "../../uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // 6. Save file
+    const filePath = path.join(uploadDir, "Unapproved_PickupItems.xlsx");
+    await workbook.xlsx.writeFile(filePath);
+
+    // 7. Respond
+    res.status(200).json({
+      success: true,
+      message: "Excel file created successfully",
+      //filePath: `/uploads/Unapproved_PickupItems.xlsx`,
+    });
+  } catch (error) {
+    console.error("❌ Error generating Excel:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
 module.exports = {
     exportActiveUsers,
     W2W,
@@ -404,5 +531,7 @@ module.exports = {
     excelToJSON,
     excelToJSFile,
     addStateFieldToOldDocuments,
-    exportActiveServicePersons
+    exportActiveServicePersons,
+    getItemRawMaterialExcel,
+    getNotApprovedPickupData
 }

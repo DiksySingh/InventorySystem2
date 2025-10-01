@@ -1971,9 +1971,8 @@ module.exports.addNewInstallationData = async (req, res) => {
     const warehouseId = req.user.warehouse;
 
     // ✅ Fetch warehouse data
-    const warehouseData = await Warehouse.findById(warehouseId).session(
-      session
-    );
+    const warehouseData =
+      await Warehouse.findById(warehouseId).session(session);
     if (!warehouseData) {
       throw new Error("Warehouse Not Found");
     }
@@ -2062,9 +2061,8 @@ module.exports.addNewInstallationData = async (req, res) => {
     }
 
     for (const { systemItemId, quantity } of mergedItemList) {
-      const systemItemData = await SystemItem.findById(systemItemId).session(
-        session
-      );
+      const systemItemData =
+        await SystemItem.findById(systemItemId).session(session);
       if (!systemItemData) {
         throw new Error("SystemItem Not Found");
       }
@@ -3057,7 +3055,7 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
     // Fetch servicepersons with role = serviceperson OR fieldsales
     const servicePersons = await ServicePerson.find({
       ...filter,
-      role: { $in: ["serviceperson", "fieldsales"] }
+      role: { $in: ["serviceperson", "fieldsales"] },
     })
       .select(
         "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
@@ -3073,8 +3071,14 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
 
     // Merge both lists
     const allPersons = [
-      ...surveyPersons.map((person) => ({ ...person._doc, role: "surveyperson" })),
-      ...servicePersons.map((person) => ({ ...person._doc, role: person.role })) // keep actual role
+      ...surveyPersons.map((person) => ({
+        ...person._doc,
+        role: "surveyperson",
+      })),
+      ...servicePersons.map((person) => ({
+        ...person._doc,
+        role: person.role,
+      })), // keep actual role
     ];
 
     const cleanedData = allPersons.map((item) => ({
@@ -3315,9 +3319,8 @@ module.exports.showWarehousePersons = async (req, res) => {
     const id = req.query.id;
     const filter = {};
     if (id) filter._id = id;
-    const allWarehousePersons = await WarehousePerson.find(filter).select(
-      "_id name"
-    );
+    const allWarehousePersons =
+      await WarehousePerson.find(filter).select("_id name");
     return res.status(200).json({
       success: true,
       message: "Warehouse Persons Data Fetched Successfully",
@@ -5056,5 +5059,244 @@ module.exports.exportMotorNumbersExcel = async (req, res) => {
       message: "Error generating Excel file",
       error: error.message,
     });
+  }
+};
+
+module.exports.importDispatchedSystemExcelData = async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: "Please upload an Excel file" });
+    }
+
+    // Parse Excel
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    const farmerActivityDocs = [];
+    const employeeAssignedDocs = [];
+    const serialNumbersToUpdate = [];
+    const failedRows = [];
+
+    for (let row of rows) {
+      try {
+        // --- System check ---
+        const system = await System.findOne({ systemName: row.systemName });
+        console.log("System: ", system);
+        if (!system) {
+          failedRows.push({ ...row, reason: "System not found" });
+          continue;
+        }
+
+        // --- Employee check ---
+        const empData = await ServicePerson.findOne({
+          name: new RegExp(`${row.employeeName}`, "i"),
+          state: row.state,
+        });
+        console.log("EMP: ", empData);
+        if (!empData) {
+          failedRows.push({ ...row, reason: "Employee not found" });
+          continue;
+        }
+
+        // --- Mandatory numbers check ---
+        if (!row.pumpNumber || !row.controllerNumber || !row.rmuNumber) {
+          failedRows.push({
+            ...row,
+            reason: "Missing pump/controller/rmu number",
+          });
+          continue;
+        }
+
+        const existingActivity = await FarmerItemsActivity.findOne({
+          farmerSaralId: row.farmerSaralId,
+          state: row.state,
+        });
+        console.log("Exist Farmer Activity: ", existingActivity);
+        if (existingActivity) {
+          failedRows.push({
+            ...row,
+            reason: `FarmerSaralId ${row.farmerSaralId} already exists in FarmerItemsActivity`,
+          });
+          continue;
+        }
+
+        // --- Collect serial numbers (panels flexible) ---
+        const panelNumbers = ["panel1", "panel2", "panel3"]
+          .map((p) => row[p]?.toString().trim().toUpperCase())
+          .filter(Boolean);
+
+        const pumpNumber = row.pumpNumber.toString().trim().toUpperCase();
+        const controllerNumber = row.controllerNumber
+          .toString()
+          .trim()
+          .toUpperCase();
+        const rmuNumber = row.rmuNumber.toString().trim().toUpperCase();
+
+        const serialNumbers = [
+          ...panelNumbers,
+          pumpNumber,
+          controllerNumber,
+          rmuNumber,
+        ];
+        console.log("SerialNumbers: ", serialNumbers);
+        // --- Validate serial numbers ---
+        const existingSerials = await SerialNumber.find({
+          serialNumber: { $in: serialNumbers },
+          state: row.state,
+        })
+          .select("serialNumber")
+          .lean();
+
+        const existingSet = new Set(existingSerials.map((s) => s.serialNumber));
+        const missingSerials = serialNumbers.filter(
+          (sn) => !existingSet.has(sn)
+        );
+
+        if (missingSerials.length > 0) {
+          failedRows.push({
+            ...row,
+            reason: `Missing serial numbers: ${missingSerials.join(", ")}`,
+          });
+          continue;
+        }
+
+        // --- Build items list ---
+        const systemItems = await SystemItemMap.find({
+          systemId: system._id,
+        }).populate("systemItemId");
+        let itemsList = [];
+
+        for (let si of systemItems) {
+          const isPump = si.systemItemId?.itemName
+            .toLowerCase()
+            .includes("pump");
+
+          if (isPump) {
+            // Only include correct pump variant
+            if (si.systemItemId?.itemName.includes(row.pumpHead)) {
+              console.log("Pump Data: ", si.systemItemId?.itemName);
+              itemsList.push({
+                systemItemId: si.systemItemId._id,
+                quantity: si.quantity,
+              });
+
+              // Fetch sub-items for this pump
+              const components = await ItemComponentMap.find({
+                systemId: system._id,
+                systemItemId: si.systemItemId._id,
+              }).populate("systemItemId");
+              console.log(components);
+              for (let comp of components) {
+                itemsList.push({
+                  systemItemId: comp.subItemId,
+                  quantity: comp.quantity,
+                });
+              }
+            }
+          } else {
+            itemsList.push({
+              systemItemId: si.systemItemId._id,
+              quantity: si.quantity,
+            });
+          }
+        }
+
+        // --- Prepare documents ---
+        farmerActivityDocs.push({
+          referenceType: "ServicePerson",
+          warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
+          farmerSaralId: row.farmerSaralId,
+          empId: row.employeeId,
+          systemId: system._id,
+          itemsList,
+          extraItemsList: [],
+          panelNumbers,
+          extraPanelNumbers: [],
+          pumpNumber,
+          motorNumber: "",
+          controllerNumber,
+          rmuNumber,
+          state: row.state,
+          accepted: false,
+          installationDone: false,
+          createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
+          sendingDate: new Date(),
+          createdAt: new Date(),
+        });
+
+        employeeAssignedDocs.push({
+          referenceType: "ServicePerson",
+          warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
+          empId: row.employeeId,
+          farmerSaralId: row.farmerSaralId,
+          systemId: system._id,
+          itemsList,
+          extraItemsList: [],
+          createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
+          createdAt: new Date(),
+        });
+
+        // --- Collect serials for update ---
+        serialNumbers.forEach((sn) =>
+          serialNumbersToUpdate.push({ serialNumber: sn, state: row.state })
+        );
+      } catch (innerErr) {
+        failedRows.push({
+          ...row,
+          reason: `Unexpected error: ${innerErr.message}`,
+        });
+      }
+    }
+    console.log(farmerActivityDocs.length);
+    console.log(employeeAssignedDocs.length);
+    // --- Insert valid rows ---
+    if (farmerActivityDocs.length > 0) {
+      await FarmerItemsActivity.insertMany(farmerActivityDocs);
+    }
+    if (employeeAssignedDocs.length > 0) {
+      await InstallationAssignEmp.insertMany(employeeAssignedDocs);
+    }
+
+    // --- Mark serial numbers as used ---
+    if (serialNumbersToUpdate.length > 0) {
+      const bulkOps = serialNumbersToUpdate.map((sn) => ({
+        updateOne: {
+          filter: { serialNumber: sn.serialNumber, state: sn.state },
+          update: { $set: { isUsed: true } },
+          upsert: false,
+        },
+      }));
+      await SerialNumber.bulkWrite(bulkOps);
+    }
+
+    // --- If any rows failed, return an Excel ---
+    if (failedRows.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(failedRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "FailedRows");
+      const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=Failed_Rows.xlsx"
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      return res.send(excelBuffer);
+    }
+
+    return res.status(200).json({
+      sucess: true,
+      message: "Excel data imported successfully",
+      recordsProcessed: farmerActivityDocs.length,
+    });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ status: false, message: "Server error", error: err.message });
   }
 };

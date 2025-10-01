@@ -109,6 +109,7 @@ model StageRawMaterial {
 
   stage       Stage?       @relation(fields: [stageId], references: [id])
   rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+
   @@unique([stageId, rawMaterialId])
 }
 
@@ -116,9 +117,9 @@ model StockMovementBatch {
   id         String    @id @default(uuid())
   billPhotos Json? // Array of URLs stored as JSON
   createdAt  DateTime? @default(now())
-  createdBy  String? 
+  createdBy  String?
 
-  user  User? @relation(fields: [createdBy], references: [id])
+  user          User?           @relation(fields: [createdBy], references: [id])
   stockMovement StockMovement[]
 }
 

@@ -7,5 +7,7 @@ router.get("/exportActiveUsers", test.exportActiveUsers);
 router.get("/servicePersonThroughState", test.getServicePersonForStates);
 router.get("/exportPickupItemsToExcel", test.exportPickupItemsToExcel);
 router.get("/exportActiveServicePersons", test.exportActiveServicePersons);
+router.get("/getItemRawMaterialExcel", test.getItemRawMaterialExcel);
+router.get("/getNotApprovedPickupData", test.getNotApprovedPickupData);
 
 module.exports = router;
