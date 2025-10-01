@@ -2983,111 +2983,51 @@ module.exports.outgoingWToWSystemItemsHistory = async (req, res) => {
 };
 
 //Service Team Access
-module.exports.allServiceSurveyPersons = async (req, res) => {
-  try {
-    const { state } = req.query;
-    console.log("State:", state);
-    const filter = { isActive: true };
-    if (state) {
-      filter.state = state;
-    }
-    const [servicePersons, surveyPersons] = await Promise.all([
-      ServicePerson.find(filter)
-        .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
-        )
-        .sort({ state: 1, district: 1 }),
-      SurveyPerson.find(filter)
-        .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
-        )
-        .sort({ state: 1, district: 1 }),
-    ]);
-
-    const filterServicePerson = servicePersons.filter((person) => {
-      return person.role === "serviceperson";
-      //|| person.role === 'fieldsales';
-    });
-
-    const allPersons = [
-      ...surveyPersons.map((person) => ({ ...person, role: "surveyperson" })),
-      ...filterServicePerson.map((person) => ({
-        ...person,
-        role: "serviceperson",
-      })),
-    ];
-
-    const cleanedData = allPersons.map((item) => ({
-      _id: item._doc._id,
-      name: item._doc.name,
-      role: item.role,
-      email: item._doc.email,
-      contact: item._doc.contact,
-      state: item._doc.state,
-      district: item._doc.district,
-      block: item._doc.block,
-      latitude: item._doc.latitude,
-      longitude: item._doc.longitude,
-    }));
-
-    return res.status(200).json({
-      success: true,
-      message: "Data Fetched Successfully",
-      data: cleanedData || [],
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
 // module.exports.allServiceSurveyPersons = async (req, res) => {
 //   try {
 //     const { state } = req.query;
 //     console.log("State:", state);
-
 //     const filter = { isActive: true };
 //     if (state) {
 //       filter.state = state;
 //     }
+//     const [servicePersons, surveyPersons] = await Promise.all([
+//       ServicePerson.find(filter)
+//         .select(
+//           "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+//         )
+//         .sort({ state: 1, district: 1 }),
+//       SurveyPerson.find(filter)
+//         .select(
+//           "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+//         )
+//         .sort({ state: 1, district: 1 }),
+//     ]);
 
-//     // Fetch servicepersons with role = serviceperson OR fieldsales
-//     const servicePersons = await ServicePerson.find({
-//       ...filter,
-//       role: { $in: ["serviceperson", "fieldsales"] }
-//     })
-//       .select(
-//         "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
-//       )
-//       .sort({ state: 1, district: 1 });
+//     const filterServicePerson = servicePersons.filter((person) => {
+//       return person.role === "serviceperson";
+//       //|| person.role === 'fieldsales';
+//     });
 
-//     // Fetch survey persons
-//     const surveyPersons = await SurveyPerson.find(filter)
-//       .select(
-//         "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
-//       )
-//       .sort({ state: 1, district: 1 });
-
-//     // Merge both lists
 //     const allPersons = [
-//       ...surveyPersons.map((person) => ({ ...person._doc, role: "surveyperson" })),
-//       ...servicePersons.map((person) => ({ ...person._doc, role: person.role })) // keep actual role
+//       ...surveyPersons.map((person) => ({ ...person, role: "surveyperson" })),
+//       ...filterServicePerson.map((person) => ({
+//         ...person,
+//         role: "serviceperson",
+//       })),
 //     ];
 
 //     const cleanedData = allPersons.map((item) => ({
-//       _id: item._id,
-//       name: item.name,
+//       _id: item._doc._id,
+//       name: item._doc.name,
 //       role: item.role,
-//       email: item.email,
-//       contact: item.contact,
-//       state: item.state,
-//       district: item.district,
-//       block: item.block,
-//       latitude: item.latitude,
-//       longitude: item.longitude,
+//       email: item._doc.email,
+//       contact: item._doc.contact,
+//       state: item._doc.state,
+//       district: item._doc.district,
+//       block: item._doc.block,
+//       latitude: item._doc.latitude,
+//       longitude: item._doc.longitude,
 //     }));
 
 //     return res.status(200).json({
@@ -3103,6 +3043,66 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
 //     });
 //   }
 // };
+
+module.exports.allServiceSurveyPersons = async (req, res) => {
+  try {
+    const { state } = req.query;
+    console.log("State:", state);
+
+    const filter = { isActive: true };
+    if (state) {
+      filter.state = state;
+    }
+
+    // Fetch servicepersons with role = serviceperson OR fieldsales
+    const servicePersons = await ServicePerson.find({
+      ...filter,
+      role: { $in: ["serviceperson", "fieldsales"] }
+    })
+      .select(
+        "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+      )
+      .sort({ state: 1, district: 1 });
+
+    // Fetch survey persons
+    const surveyPersons = await SurveyPerson.find(filter)
+      .select(
+        "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+      )
+      .sort({ state: 1, district: 1 });
+
+    // Merge both lists
+    const allPersons = [
+      ...surveyPersons.map((person) => ({ ...person._doc, role: "surveyperson" })),
+      ...servicePersons.map((person) => ({ ...person._doc, role: person.role })) // keep actual role
+    ];
+
+    const cleanedData = allPersons.map((item) => ({
+      _id: item._id,
+      name: item.name,
+      role: item.role,
+      email: item.email,
+      contact: item.contact,
+      state: item.state,
+      district: item.district,
+      block: item.block,
+      latitude: item.latitude,
+      longitude: item.longitude,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      data: cleanedData || [],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports.fieldWorkerList = async (req, res) => {
   try {
