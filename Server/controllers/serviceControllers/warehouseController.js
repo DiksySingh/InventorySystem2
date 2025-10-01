@@ -2087,9 +2087,9 @@ module.exports.addNewInstallationData = async (req, res) => {
         );
       }
 
-      if (inventoryItem.quantity < quantity) {
-        throw new Error(`Insufficient stock for item "${systemItemName}"`);
-      }
+      // if (inventoryItem.quantity < quantity) {
+      //   throw new Error(`Insufficient stock for item "${systemItemName}"`);
+      // }
 
       // ✅ Deduct from InstallationInventory (always)
       inventoryItem.quantity -= quantity;
