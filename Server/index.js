@@ -25,12 +25,12 @@ const storekeeperRouter = require("./routes/rawMaterialItemsRoutes/storekeeperRo
 const testRouter = require("./routes/test");
 
 // Load environment variables
-// const MONGODB_URL = process.env.MONGODB_URL;
-const MONGO_URL = process.env.MONGO_URL;
+const MONGODB_URL = process.env.MONGODB_URL;
+// const MONGO_URL = process.env.MONGO_URL;
 const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
-mongoose.connect(MONGO_URL, {
+mongoose.connect(MONGODB_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
@@ -76,7 +76,7 @@ app.use("/service-team", serviceTeamRoute);
 app.use("/auth", authRouter);
 app.use("/admin", adminRouter);
 app.use("/common", commonRouter);
-app.use("/line-worker", lineWorkerRouter);
+app.use("/line-worker", lineWorkerRouter); 
 app.use("/store-keeper", storekeeperRouter);
 app.use("/test", testRouter);
 
