@@ -761,6 +761,15 @@ module.exports.incomingItemsData = async (req, res) => {
       });
     }
 
+    for(const item of items) {
+      if(item.quantity > 1) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid Data for ${item.itemName} - Quantity is greater than 1`
+        });
+      }
+    }
+
        // ✅ Check if same farmer already submitted today
     const startOfDay = moment().startOf("day").toDate();
     const endOfDay = moment().endOf("day").toDate();
