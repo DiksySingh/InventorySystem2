@@ -7,6 +7,8 @@ const imageHandlerWithPath = require("../../middlewares/imageHandlerWithPath");
 const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerItemsActivity");
 const NewSystemInstallation = require("../../models/systemInventoryModels/newSystemInstallationSchema");
 const EmpInstallationAccount = require("../../models/systemInventoryModels/empInstallationItemAccount");
+const SerialNumber = require("../../models/systemInventoryModels/serialNumberSchema");
+const SerialNumberHistory = require("../../models/systemInventoryModels/serialNumberHistorySchema");
 const ExcelJS = require("exceljs");
 const mongoose = require("mongoose");
 const fs = require("fs/promises");
@@ -1023,6 +1025,196 @@ const pickupItemsByServicePerson = async (req, res) => {
   }
 };
 
+const updateFarmerActivitySerialNumbers = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      farmerSaralId,
+      empId, // user who updates
+      panelNumbers,
+      pumpNumber,
+      controllerNumber,
+      rmuNumber,
+      motorNumber,
+    } = req.body;
+
+    if (!farmerSaralId) {
+      return res.status(400).json({ message: "farmerSaralId is required" });
+    }
+
+    // -----------------------------
+    // Fetch farmer activity
+    // -----------------------------
+    const farmerActivity = await FarmerItemsActivity.findOne({ farmerSaralId }).session(session);
+    if (!farmerActivity) {
+      return res.status(404).json({ message: "Farmer activity not found" });
+    }
+
+    const updateFields = {};
+    const historyLogs = [];
+    const state = farmerActivity.state;
+
+    // -----------------------------
+    // Helper: validate serial
+    // -----------------------------
+    const validateSerial = async (serial) => {
+      if (!serial) return;
+
+      const exists = await SerialNumber.findOne({ serialNumber: serial, state }).session(session);
+      if (!exists) throw new Error(`Serial number ${serial} not found in database`);
+
+      const usedElsewhere = await FarmerItemsActivity.findOne({
+        $or: [
+          { panelNumbers: serial },
+          { pumpNumber: serial },
+          { controllerNumber: serial },
+          { rmuNumber: serial },
+          { motorNumber: serial },
+        ],
+        farmerSaralId: { $ne: farmerSaralId },
+      }).session(session);
+
+      if (usedElsewhere) throw new Error(`Serial number ${serial} already assigned to another farmer`);
+    };
+
+    // =========================
+    // PANEL NUMBERS UPDATE
+    // =========================
+    if (panelNumbers && Array.isArray(panelNumbers)) {
+      const oldPanels = farmerActivity.panelNumbers || [];
+      const newPanels = panelNumbers.map(p => p.trim().toUpperCase());
+
+      // Validate all new panels
+      for (const pn of newPanels) await validateSerial(pn);
+
+      // Mark old panels as unused & log only removed ones
+      for (const oldPn of oldPanels) {
+        await SerialNumber.updateOne({ serialNumber: oldPn, state }, { $set: { isUsed: false } }, { session });
+
+        if (!newPanels.includes(oldPn)) {
+          historyLogs.push({
+            farmerSaralId,
+            serialNumber: oldPn,
+            fieldType: "panelNumber",
+            oldValue: oldPn,
+            newValue: null,
+            state,
+            changedBy: empId,
+          });
+        }
+      }
+
+      // Mark new panels as used & log only added or changed
+      for (const newPn of newPanels) {
+        await SerialNumber.updateOne({ serialNumber: newPn, state }, { $set: { isUsed: true } }, { session });
+
+        const wasOld = oldPanels.includes(newPn) ? newPn : null;
+        if (wasOld !== newPn) {
+          historyLogs.push({
+            farmerSaralId,
+            serialNumber: newPn,
+            fieldType: "panelNumber",
+            oldValue: wasOld,
+            newValue: newPn,
+            state,
+            changedBy: empId,
+          });
+        }
+      }
+
+      updateFields.panelNumbers = newPanels;
+    }
+
+    // =========================
+    // SINGLE SERIAL FIELDS
+    // =========================
+    const serialFields = [
+      { key: "pumpNumber", value: pumpNumber },
+      { key: "controllerNumber", value: controllerNumber },
+      { key: "rmuNumber", value: rmuNumber },
+      { key: "motorNumber", value: motorNumber },
+    ];
+
+    for (const { key, value } of serialFields) {
+      if (!value) continue;
+
+      const newSerial = value.trim().toUpperCase();
+      const oldSerial = farmerActivity[key];
+
+      await validateSerial(newSerial);
+
+      // Mark old serial unused & log only if changed
+      if (oldSerial && oldSerial !== newSerial) {
+        await SerialNumber.updateOne({ serialNumber: oldSerial, state }, { $set: { isUsed: false } }, { session });
+        historyLogs.push({
+          farmerSaralId,
+          serialNumber: oldSerial,
+          fieldType: key,
+          oldValue: oldSerial,
+          newValue: null,
+          state,
+          changedBy: empId,
+        });
+      }
+
+      // Mark new serial used & log only if changed
+      if (!oldSerial || oldSerial !== newSerial) {
+        await SerialNumber.updateOne({ serialNumber: newSerial, state }, { $set: { isUsed: true } }, { session });
+        historyLogs.push({
+          farmerSaralId,
+          serialNumber: newSerial,
+          fieldType: key,
+          oldValue: oldSerial || null,
+          newValue: newSerial,
+          state,
+          changedBy: empId,
+        });
+      }
+
+      updateFields[key] = newSerial;
+    }
+
+    // =========================
+    // Update Farmer Activity
+    // =========================
+    const updatedActivity = await FarmerItemsActivity.findOneAndUpdate(
+      { farmerSaralId },
+      { $set: { ...updateFields, updatedAt: new Date(), updatedBy: empId } },
+      { new: true, session }
+    );
+
+    // =========================
+    // Insert Audit Trail Logs
+    // =========================
+    if (historyLogs.length > 0) {
+      await SerialNumberHistory.insertMany(historyLogs, { session });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      success: true,
+      message: "Farmer serial numbers updated successfully with audit trail",
+      updatedActivity,
+      changesLogged: historyLogs.length,
+    });
+
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Transaction failed:", err.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update serial numbers",
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   updateLatitudeLongitude,
   addServicePersonState,
@@ -1034,4 +1226,5 @@ module.exports = {
   getInstallationDataWithImages,
   updateInstallationDataWithFiles,
   pickupItemsByServicePerson,
+  updateFarmerActivitySerialNumbers
 };

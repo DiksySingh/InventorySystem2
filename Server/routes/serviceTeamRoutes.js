@@ -22,7 +22,8 @@ const {
     newSystemInstallation,
     getInstallationDataWithImages,
     empDashboard,
-    updateInstallationDataWithFiles
+    updateInstallationDataWithFiles,
+    updateFarmerActivitySerialNumbers,
 } = require("../controllers/serviceControllers/servicePersonController");
 const { generateInstallationPDF } = require("../helpers/pdf/generateInstallationPDF");
 const router = require("express").Router();
@@ -49,5 +50,6 @@ router.post("/new-system-installation", uploadHandler, newSystemInstallation);
 router.get("/get-new-installation-data", getInstallationDataWithImages);
 router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);
 router.get("/show-emp-dashboard", empDashboard);
+router.post("/update-farmer-activity-serial-numbers", updateFarmerActivitySerialNumbers)
 
 module.exports = router;
