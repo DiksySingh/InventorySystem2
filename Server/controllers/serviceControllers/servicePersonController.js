@@ -1198,7 +1198,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Farmer serial numbers updated successfully with audit trail",
-      updatedActivity,
+      data: updatedActivity,
       changesLogged: historyLogs.length,
     });
 
