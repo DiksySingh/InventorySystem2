@@ -33,7 +33,7 @@ const serialNumberHistorySchema = new Schema({
     type: String,
   },
   changedBy: {
-    type: Schema.Types.ObjectId,
+    type: String,
     required: true,
   },
   changedAt: {

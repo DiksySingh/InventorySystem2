@@ -1027,7 +1027,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
   try {
     const {
       farmerSaralId,
-      empId, // user who updates
+      empName, // user who updates
       panelNumbers,
       pumpNumber,
       controllerNumber,
@@ -1109,7 +1109,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
             oldValue: oldPn,
             newValue: null,
             state,
-            changedBy: empId,
+            changedBy: empName,
           });
         }
       }
@@ -1131,7 +1131,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
             oldValue: wasOld,
             newValue: newPn,
             state,
-            changedBy: empId,
+            changedBy: empName,
           });
         }
       }
@@ -1171,7 +1171,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
           oldValue: oldSerial,
           newValue: null,
           state,
-          changedBy: empId,
+          changedBy: empName,
         });
       }
 
@@ -1189,7 +1189,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
           oldValue: oldSerial || null,
           newValue: newSerial,
           state,
-          changedBy: empId,
+          changedBy: empName,
         });
       }
 
@@ -1201,7 +1201,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
     // =========================
     const updatedActivity = await FarmerItemsActivity.findOneAndUpdate(
       { farmerSaralId },
-      { $set: { ...updateFields, updatedAt: new Date(), updatedBy: empId } },
+      { $set: { ...updateFields, updatedAt: new Date(), updatedBy: empName } },
       { new: true, session }
     );
 

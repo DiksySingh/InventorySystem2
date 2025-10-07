@@ -115,8 +115,7 @@ const farmerItemsActivitySchema = new Schema({
         required: true
     },
     updatedBy: {
-        type: Schema.Types.ObjectId,
-        refPath: "referenceType",
+        type: String,
     }
 }, {collection: "inFarmerItemsActivities"});
 
