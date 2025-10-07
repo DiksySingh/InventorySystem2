@@ -1041,7 +1041,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
     } = req.body;
 
     if (!farmerSaralId) {
-      return res.status(400).json({ message: "farmerSaralId is required" });
+      return res.status(400).json({ message: "FarmerSaralId is required" });
     }
 
     // -----------------------------
@@ -1063,7 +1063,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
       if (!serial) return;
 
       const exists = await SerialNumber.findOne({ serialNumber: serial, state }).session(session);
-      if (!exists) throw new Error(`Serial number ${serial} not found in database`);
+      if (!exists) return res.status(404).json({ message: `Serial number ${serial} not found in database` });
 
       const usedElsewhere = await FarmerItemsActivity.findOne({
         $or: [
@@ -1076,7 +1076,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
         farmerSaralId: { $ne: farmerSaralId },
       }).session(session);
 
-      if (usedElsewhere) throw new Error(`Serial number ${serial} already assigned to another farmer`);
+      if (usedElsewhere) return res.status(400).json({ message: `Serial number ${serial} already assigned to another farmer` });
     };
 
     // =========================
