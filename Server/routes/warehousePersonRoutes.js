@@ -76,6 +76,7 @@ const router = require("express").Router();
 const { userVerification } = require("../middlewares/authMiddlewares");
 
 const multer = require("multer");
+const fileHandler = require("../middlewares/installationMiddlewares/uploadConfig");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
@@ -255,7 +256,7 @@ router.get(
 );
 router.post(
   "/add-new-installation",
-  userVerification(["warehouseAdmin"]),
+  userVerification(["warehouseAdmin"]), fileHandler,
   addNewInstallationData
 );
 // router.get("/all-service-survey-person", userVerification(['warehouseAdmin']), allServiceSurveyPerson);
