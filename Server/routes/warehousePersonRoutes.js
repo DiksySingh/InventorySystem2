@@ -60,7 +60,7 @@ const {
   addMotorNumbersFromExcel,
   exportMotorNumbersExcel,
   importDispatchedSystemExcelData,
-  getInstallerData
+  getInstallerData,
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -310,14 +310,50 @@ router.get(
 router.put("/update-systemId", updateSystemId);
 router.post("/add-serial-number", addSerialNumber);
 router.get("/get-serial-number", getSerialNumber);
-router.post("/check-serial-number", userVerification(['warehouseAdmin']), checkSerialNumber);
-router.post("/upload-serial-number", upload.single("file"), uploadSerialNumbers);
-router.put("/update-serial-number", upload.single('file'), updateSerialNumbersAsUsed);
-router.post("/check-rmu-number", userVerification(["warehouseAdmin"]), checkRMUNumber);
-router.put("/update-pickup-item-serial", userVerification(['warehouseAdmin']), updateIncomingPickupItemSerial);
-router.put("/update-outgoing-item-farmer-details", userVerification(['warehouseAdmin']), updateOutogingItemFarmerDetails);
-router.put("/update-motor-number", upload.single("file"), addMotorNumbersFromExcel);
+router.post(
+  "/check-serial-number",
+  userVerification(["warehouseAdmin"]),
+  checkSerialNumber
+);
+router.post(
+  "/upload-serial-number",
+  upload.single("file"),
+  uploadSerialNumbers
+);
+router.put(
+  "/update-serial-number",
+  upload.single("file"),
+  updateSerialNumbersAsUsed
+);
+router.post(
+  "/check-rmu-number",
+  userVerification(["warehouseAdmin"]),
+  checkRMUNumber
+);
+router.put(
+  "/update-pickup-item-serial",
+  userVerification(["warehouseAdmin"]),
+  updateIncomingPickupItemSerial
+);
+router.put(
+  "/update-outgoing-item-farmer-details",
+  userVerification(["warehouseAdmin"]),
+  updateOutogingItemFarmerDetails
+);
+router.put(
+  "/update-motor-number",
+  upload.single("file"),
+  addMotorNumbersFromExcel
+);
 router.get("/get-motor-number", exportMotorNumbersExcel);
-router.post("/importDispatchedSystemExcelData", upload.single("file"), importDispatchedSystemExcelData);
-router.get("/get-installer-data", userVerification(["warehouseAdmin"]), getInstallerData);
+router.post(
+  "/importDispatchedSystemExcelData",
+  upload.single("file"),
+  importDispatchedSystemExcelData
+);
+router.get(
+  "/get-installer-data",
+  userVerification(["warehouseAdmin"]),
+  getInstallerData
+);
 module.exports = router;

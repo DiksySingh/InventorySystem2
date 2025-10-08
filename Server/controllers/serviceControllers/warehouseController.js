@@ -2145,9 +2145,9 @@ module.exports.addNewInstallationData = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Installation data added successfully",
-      farmerActivityData: farmerActivities,
-      assignedEmpData: assignedEmps,
+      message: `${farmerActivities.length} System Set Dispatched Successfully`,
+      farmerActivityData: farmerActivities.length,
+      assignedEmpData: assignedEmps.length,
     });
   } catch (error) {
     await session.abortTransaction();
