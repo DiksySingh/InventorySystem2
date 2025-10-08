@@ -522,6 +522,126 @@ const getNotApprovedPickupData = async (req, res) => {
   }
 };
 
+const exportFarmerSaralIdsToExcel = async (req, res) => {
+  try {
+    // 1️⃣ Fetch data
+    const data = await FarmerItemsActivity.find({}, { farmerSaralId: 1, _id: 0 });
+
+    if (!data.length) {
+      return res.status(404).json({ message: "No records found" });
+    }
+
+    // 2️⃣ Prepare Excel data
+    const excelData = data.map((record, index) => ({
+      "S.No": index + 1,
+      "Farmer Saral ID": record.farmerSaralId,
+    }));
+
+    // 3️⃣ Create workbook and sheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "FarmerSaralIds");
+
+    // 4️⃣ Define path and ensure folder exists
+    const uploadDir = path.join(__dirname, "../../uploads/farmerSaralIds");
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const fileName = `FarmerSaralIds_${Date.now()}.xlsx`;
+    const filePath = path.join(uploadDir, fileName);
+
+    // 5️⃣ Write Excel file
+    XLSX.writeFile(workbook, filePath);
+
+    // 6️⃣ Return success
+    res.status(200).json({
+      message: "Farmer Saral IDs exported successfully",
+      filePath: `/uploads/farmerSaralIds/${fileName}`, // relative path for frontend
+    });
+  } catch (error) {
+    console.error("Error exporting data:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const exportFarmerItemsActivityToExcel = async (req, res) => {
+  try {
+    // Fetch all records with nested population
+    const activities = await FarmerItemsActivity.find()
+      .populate("empId") // employee info
+      .populate("systemId") // system info
+      .populate({
+        path: "itemsList.systemItemId", // populate items inside itemsList
+        select: "itemName", // only need itemName
+      });
+
+    if (!activities || activities.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No farmer activity records found",
+      });
+    }
+
+    // Prepare rows for Excel
+    const excelData = activities.map((activity) => {
+      // Find the pump item from itemsList
+      const pumpItem = activity.itemsList?.find((item) =>
+        item.systemItemId?.itemName?.toUpperCase().includes("PUMP")
+      );
+
+      const row = {
+        farmerSaralId: activity.farmerSaralId || "",
+        employeeName: activity.empId?.name || "",
+        systemName: activity.systemId?.systemName || "",
+        pumpHead: pumpItem ? pumpItem.systemItemId.itemName : "", // Use pump item name
+        pumpNumber: activity.pumpNumber || "",
+        controllerNumber: activity.controllerNumber || "",
+        rmuNumber: activity.rmuNumber || "",
+        motorNumber: activity.motorNumber || "",
+        state: activity.state || "",
+      };
+
+      // Dynamically add panel1, panel2, ...
+      (activity.panelNumbers || []).forEach((panel, index) => {
+        row[`panel${index + 1}`] = panel;
+      });
+
+      return row;
+    });
+
+    // Create a new workbook and sheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    XLSX.utils.book_append_sheet(wb, ws, "FarmerActivities");
+
+    // Convert workbook to buffer
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    // Send the Excel file
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=FarmerItemsActivity.xlsx"
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    return res.send(buffer);
+  } catch (error) {
+    console.error("Error exporting farmer activity data:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export farmer activity data",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
     exportActiveUsers,
@@ -533,5 +653,7 @@ module.exports = {
     addStateFieldToOldDocuments,
     exportActiveServicePersons,
     getItemRawMaterialExcel,
-    getNotApprovedPickupData
+    getNotApprovedPickupData,
+    exportFarmerSaralIdsToExcel,
+    exportFarmerItemsActivityToExcel
 }

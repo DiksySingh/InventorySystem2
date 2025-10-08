@@ -320,10 +320,10 @@ const updateRawMaterialStockByExcel = async (req, res) => {
         const name = row.name || row.Name;
         const quantity = parseFloat(row.quantity || row.Quantity);
   
-        if (!name || isNaN(quantity)) {
-          failedUpdates.push(row);
-          continue;
-        }
+        // if (!name || isNaN(quantity)) {
+        //   failedUpdates.push(row);
+        //   continue;
+        // }
   
         const updated = await prisma.rawMaterial.updateMany({
           where: { name },

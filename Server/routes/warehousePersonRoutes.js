@@ -59,7 +59,8 @@ const {
   updateOutogingItemFarmerDetails,
   addMotorNumbersFromExcel,
   exportMotorNumbersExcel,
-  importDispatchedSystemExcelData
+  importDispatchedSystemExcelData,
+  getInstallerData
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -304,6 +305,8 @@ router.get(
   outgoingWToWSystemItemsHistory
 );
 
+// router.get("/get-pump-data", getPumpSetBySystemId);
+
 router.put("/update-systemId", updateSystemId);
 router.post("/add-serial-number", addSerialNumber);
 router.get("/get-serial-number", getSerialNumber);
@@ -315,5 +318,6 @@ router.put("/update-pickup-item-serial", userVerification(['warehouseAdmin']), u
 router.put("/update-outgoing-item-farmer-details", userVerification(['warehouseAdmin']), updateOutogingItemFarmerDetails);
 router.put("/update-motor-number", upload.single("file"), addMotorNumbersFromExcel);
 router.get("/get-motor-number", exportMotorNumbersExcel);
-router.post("/importDispatchedSystemExcelData", importDispatchedSystemExcelData);
+router.post("/importDispatchedSystemExcelData", upload.single("file"), importDispatchedSystemExcelData);
+router.get("/get-installer-data", userVerification(["warehouseAdmin"]), getInstallerData);
 module.exports = router;

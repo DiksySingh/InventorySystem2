@@ -3,7 +3,7 @@ const ExcelJS = require("exceljs");
 
 const getDateRange = () => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), 3, 1); // April is index 3
+  const start = new Date(now.getFullYear(), 8, 1); // April is index 3
   const end = new Date();
   end.setHours(23, 59, 59, 999); 
   return { start, end };
@@ -11,11 +11,11 @@ const getDateRange = () => {
 
 const exportPickupItemsToExcel = async (req, res) => {
   try {
-    //const { start, end } = getDateRange();
+    const { start, end } = getDateRange();
 
     const pickupItems = await PickupItem.find({
-      //pickupDate: { $gte: start, $lte: end }
-      status: null
+      pickupDate: { $gte: start, $lte: end }
+      //status: null
     }).populate("servicePerson");
 
     const workbook = new ExcelJS.Workbook();

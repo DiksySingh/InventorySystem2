@@ -1,7 +1,7 @@
 const {incomingItemsData, pickupItemOfServicePerson, servicePersonDashboard, showWarehouseItems, updateOrderStatus, showServicePersonRepairedHoldingItems, updateServicePersonHoldingItems} = require("../controllers/serviceControllers/pickupItemController");
 const {showWarehouses, viewApprovedOrderHistory} = require("../controllers/serviceControllers/warehouseController");
 const {getPickupItemData, createInstallationData, sendOtp, verifyOtp, resendOtp, getServicePersonInstallationData, checkServicePersonLatLong} = require("../controllers/serviceControllers/installationDataController");
-const {empDashboard, showNewInstallationDataToInstaller, updateStatusOfIncomingItems, showAcceptedInstallationData, newSystemInstallation, pickupItemsByServicePerson} = require("../controllers/serviceControllers/servicePersonController");
+const {empDashboard, showNewInstallationDataToInstaller, updateStatusOfIncomingItems, showAcceptedInstallationData, newSystemInstallation, pickupItemsByServicePerson, updateFarmerActivitySerialNumbers} = require("../controllers/serviceControllers/servicePersonController");
 const {uploadHandler} = require("../middlewares/multerConfig");
 const { userVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
@@ -32,6 +32,7 @@ router.get("/show-new-install-data", userVerification(['serviceperson', 'surveyp
 router.post("/update-incoming-item-status",userVerification(['serviceperson', 'surveyperson','installer']), updateStatusOfIncomingItems);
 router.get("/accepted-installation-data", userVerification(['serviceperson', 'surveyperson', 'installer']), showAcceptedInstallationData);
 router.post("/new-system-installation", userVerification(['serviceperson', 'surveyperson', 'installer']), uploadHandler, newSystemInstallation);
+// router.post("/update-farmer-acitvity-serial-numbers", userVerification(['serviceperson', 'surveyperson', 'installer']), updateFarmerActivitySerialNumbers)
 
 router.get("/pickupItemsByServicePerson", pickupItemsByServicePerson);
 

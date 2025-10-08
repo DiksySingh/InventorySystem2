@@ -51,7 +51,7 @@ const farmerItemsActivitySchema = new Schema({
     ],
     panelNumbers: {
         type: [String],
-        required: true,
+        //required: true,
         uppercase: true,
         trim: true
     },
@@ -62,7 +62,7 @@ const farmerItemsActivitySchema = new Schema({
     },
     pumpNumber: {
         type: String,
-        required: true,
+        //required: true,
         uppercase: true,
         trim: true
     },
@@ -73,14 +73,14 @@ const farmerItemsActivitySchema = new Schema({
     },
     controllerNumber: {
         type: String,
-        required: true,
+        //required: true,
          uppercase: true,
         trim: true
     },
     rmuNumber: {
         type:String,
-        required: true,
-        minlength: 15,
+        //required: true,
+        //minlength: 15,
         uppercase: true,
         trim: true
     },

@@ -1948,411 +1948,210 @@ module.exports.updateItemQuantity = async (req, res) => {
 //   }
 // };
 
+function validateKeys(arr, requiredKeys) {
+  for (let i = 0; i < arr.length; i++) {
+    const obj = arr[i];
+
+    for (const key of requiredKeys) {
+      if (!obj.hasOwnProperty(key)) {
+        return {
+          success: false,
+          message: `Missing ${key} in the data`,
+        };
+      }
+    }
+  }
+
+  return {
+    success: true,
+    message: "Data validated successfully",
+  };
+}
+
 module.exports.addNewInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const {
-      farmerSaralId,
-      empId,
-      systemId,
-      itemsList,
-      extraItemsList,
-      extraPanelNumbers,
-      panelNumbers,
-      pumpNumber,
-      motorNumber,
-      controllerNumber,
-      rmuNumber,
-    } = req.body;
-    console.log(req.body);
-    const warehousePersonId = req.user._id;
-    const warehouseId = req.user.warehouse;
-
-    // ✅ Fetch warehouse data
-    const warehouseData =
-      await Warehouse.findById(warehouseId).session(session);
-    if (!warehouseData) {
-      throw new Error("Warehouse Not Found");
-    }
-
-    // ✅ Determine State
-    let state;
-    const whName = warehouseData.warehouseName;
-    if (["Bhiwani", "Jind", "Hisar", "Sirsa"].includes(whName)) {
-      state = "Haryana";
-    } else if (whName === "Jalna Warehouse") {
-      state = "Maharashtra";
-    } else if (whName === "Korba Chhattisgarh") {
-      state = "Chhattisgarh";
-    }
-    console.log("Determined state:", state);
-    // ✅ Basic Validations
-    if (
-      !farmerSaralId ||
-      !empId ||
-      !systemId ||
-      !itemsList ||
-      !panelNumbers ||
-      !pumpNumber ||
-      !controllerNumber ||
-      !rmuNumber ||
-      !motorNumber
-    ) {
-      throw new Error("All fields are required");
-    }
-
-    if (!Array.isArray(itemsList) || itemsList.length === 0) {
-      throw new Error("ItemsList is empty");
-    }
-
-    // ✅ Check if farmer activity already exists
-    const existingFarmerActivity = await FarmerItemsActivity.findOne({
-      farmerSaralId,
-      systemId,
-    }).session(session);
-    if (existingFarmerActivity) {
-      throw new Error("Farmer activity for this system already exists");
-    }
-
-    // ✅ Determine Reference Type
-    let refType;
-    let empData = await ServicePerson.findById(empId).session(session);
-    if (empData) {
-      refType = "ServicePerson";
-    } else {
-      empData = await SurveyPerson.findById(empId).session(session);
-      if (!empData) {
-        throw new Error("EmpID Not Found In Database");
-      }
-      refType = "SurveyPerson";
-    }
-
-    // ✅ Merge itemsList + extraItemsList
-    const combinedItemsMap = new Map();
-    const accumulateItems = (list = []) => {
-      for (const { systemItemId, quantity } of list) {
-        if (!systemItemId || !quantity) continue;
-        const key = systemItemId.toString();
-        const prevQty = combinedItemsMap.get(key) || 0;
-        combinedItemsMap.set(key, prevQty + parseInt(quantity));
-      }
-    };
-    accumulateItems(itemsList);
-    accumulateItems(extraItemsList);
-
-    const mergedItemList = Array.from(combinedItemsMap.entries()).map(
-      ([systemItemId, quantity]) => ({
-        systemItemId,
-        quantity,
-      })
-    );
-
-    // ✅ Process inventory updates
-    let warehouseItemsData;
-    if (state === "Haryana") {
-      warehouseItemsData = await WarehouseItems.findOne({
-        warehouse: warehouseId,
-      }).session(session);
-      if (!warehouseItemsData) {
-        throw new Error("Warehouse Data Not Found");
-      }
-    }
-
-    for (const { systemItemId, quantity } of mergedItemList) {
-      const systemItemData =
-        await SystemItem.findById(systemItemId).session(session);
-      if (!systemItemData) {
-        throw new Error("SystemItem Not Found");
-      }
-
-      const systemItemName = systemItemData.itemName || "";
-      console.log("Processing item:", systemItemName, "Qty:", quantity);
-
-      const inventoryItems = await InstallationInventory.find({ warehouseId })
-        .populate({ path: "systemItemId", select: { itemName: 1 } })
-        .session(session);
-
-      const inventoryItem = inventoryItems.find(
-        (inv) =>
-          inv.systemItemId?.itemName?.toLowerCase() ===
-          systemItemName.toLowerCase()
-      );
-      if (!inventoryItem) {
-        throw new Error(
-          `SubItem "${systemItemName}" not found in warehouse inventory`
-        );
-      }
-
-      // if (inventoryItem.quantity < quantity) {
-      //   throw new Error(`Insufficient stock for item "${systemItemName}"`);
-      // }
-
-      // ✅ Deduct from InstallationInventory (always)
-      inventoryItem.quantity -= quantity;
-      inventoryItem.updatedAt = new Date();
-      inventoryItem.updatedBy = warehousePersonId;
-      await inventoryItem.save({ session });
-
-      console.log("Condition check:", { state, systemItemName });
-
-      // 🔹 Normalize helper
-      const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
-
-      // 🔹 Motor condition
-      if (state === "Haryana" && systemItemName === "MOTOR 10HP AC 440V") {
-        console.log(
-          "Applying Haryana-specific warehouse deduction for Motor:",
-          systemItemName
-        );
-
-        const motorNameNormalized = systemItemName.trim().toUpperCase();
-        const updateResult = await WarehouseItems.updateOne(
-          { _id: warehouseItemsData._id },
-          { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
-          {
-            arrayFilters: [
-              {
-                "elem.itemName": motorNameNormalized,
-                "elem.newStock": { $gte: parseInt(quantity, 10) },
-              },
-            ],
-            session,
-          }
-        );
-
-        console.log("Motor updateResult:", updateResult);
-        if (updateResult.modifiedCount === 0) {
-          throw new Error(
-            `Motor update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check itemName/stock for "${motorNameNormalized}"`
-          );
-        }
-
-        const updatedDoc = await WarehouseItems.findOne(
-          { _id: warehouseItemsData._id },
-          { items: { $elemMatch: { itemName: motorNameNormalized } } }
-        ).session(session);
-
-        console.log("Updated Motor Item:", updatedDoc?.items?.[0]);
-      }
-
-      // 🔹 Pump condition
-      if (
-        state === "Haryana" &&
-        systemItemName.toUpperCase().startsWith("PUMP")
-      ) {
-        console.log(
-          "Applying Haryana-specific warehouse deduction for Pump:",
-          systemItemName
-        );
-
-        const mustHaveWords = normalizeWords(systemItemName);
-        const regex = new RegExp(
-          mustHaveWords.map((w) => `(?=.*${w})`).join(""),
-          "i"
-        );
-
-        // Find actual pump name from warehouse data
-        const matchedPump = warehouseItemsData.items.find((it) =>
-          regex.test(it.itemName)
-        );
-        if (!matchedPump) {
-          throw new Error(
-            `Pump "${systemItemName}" not found in warehouse items`
-          );
-        }
-        const pumpItemName = matchedPump.itemName;
-
-        const updateResult = await WarehouseItems.updateOne(
-          { _id: warehouseItemsData._id },
-          { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
-          {
-            arrayFilters: [
-              {
-                "elem.itemName": pumpItemName,
-                "elem.newStock": { $gte: parseInt(quantity, 10) },
-              },
-            ],
-            session,
-          }
-        );
-
-        console.log("Pump updateResult:", updateResult);
-        if (updateResult.modifiedCount === 0) {
-          throw new Error(
-            `Pump update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check "${pumpItemName}" and stock`
-          );
-        }
-
-        const updatedDoc = await WarehouseItems.findOne(
-          { _id: warehouseItemsData._id },
-          { items: { $elemMatch: { itemName: pumpItemName } } }
-        ).session(session);
-
-        console.log("Updated Pump Item:", updatedDoc?.items?.[0]);
-      }
-
-      // 🔹 Controller condition
-      if (
-        state === "Haryana" &&
-        systemItemName === "Controller - RMU - 10HP AC GALO"
-      ) {
-        console.log(
-          "Applying Haryana-specific warehouse deduction for Controller:",
-          systemItemName
-        );
-
-        const normalizedName = "CONTROLLER 10HP AC GALO";
-
-        const updateResult = await WarehouseItems.updateOne(
-          { _id: warehouseItemsData._id },
-          { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
-          {
-            arrayFilters: [
-              {
-                "elem.itemName": normalizedName,
-                "elem.newStock": { $gte: parseInt(quantity, 10) },
-              },
-            ],
-            session,
-          }
-        );
-
-        console.log("Controller updateResult:", updateResult);
-        if (updateResult.modifiedCount === 0) {
-          throw new Error(
-            `Controller update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount})`
-          );
-        }
-
-        const updatedDoc = await WarehouseItems.findOne(
-          { _id: warehouseItemsData._id },
-          { items: { $elemMatch: { itemName: normalizedName } } }
-        ).session(session);
-
-        console.log("Updated Controller Item:", updatedDoc?.items?.[0]);
-      }
-    }
-
-    // ✅ Save Farmer Activity
-    const farmerActivity = new FarmerItemsActivity({
-      warehouseId,
-      referenceType: refType,
-      farmerSaralId,
-      empId,
-      systemId,
-      itemsList,
-      extraItemsList: extraItemsList || [],
-      extraPanelNumbers: extraPanelNumbers || [],
-      panelNumbers,
-      pumpNumber: pumpNumber.trim().toUpperCase(),
-      motorNumber: motorNumber.trim().toUpperCase(),
-      controllerNumber: controllerNumber.trim().toUpperCase(),
-      rmuNumber: rmuNumber.trim().toUpperCase(),
-      state,
-      createdBy: warehousePersonId,
-    });
-
-    await farmerActivity.save({ session });
-
-    // ✅ Save Installation Assignment
-    const empAccountData = new InstallationAssignEmp({
-      warehouseId,
-      referenceType: refType,
-      empId,
-      farmerSaralId,
-      systemId,
-      itemsList,
-      extraItemsList,
-      createdBy: warehousePersonId,
-    });
-
-    await empAccountData.save({ session });
-
-    // ✅ Mark serial numbers as used (inside transaction)
-    const updates = [];
-
-    // Panel Numbers (multiple)
-    if (Array.isArray(panelNumbers)) {
-      panelNumbers.forEach((sn) => {
-        updates.push({
-          updateOne: {
-            filter: {
-              productType: "panel",
-              serialNumber: sn.toUpperCase(),
-              state,
-            },
-            update: { $set: { isUsed: true } },
-          },
-        });
+    const dispatchedSystem = req.body?.dispatchedSystem;
+    if (!dispatchedSystem || dispatchedSystem.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
       });
     }
 
-    // Pump
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "pump",
-          serialNumber: pumpNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
+    const requiredKeys = ["installerId", "farmerSaralId", "systemId", "pumpId"];
+    const result = validateKeys(dispatchedSystem, requiredKeys);
+    if (!result.success) return res.status(400).json(result);
 
-    // Motor
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "motor",
-          serialNumber: motorNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
+    const warehousePersonId = req.user?._id;
+    const warehouseId = req.user?.warehouse;
 
-    // Controller
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "controller",
-          serialNumber: controllerNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
+    const warehouseData = await Warehouse.findById(warehouseId).session(session);
+    if (!warehouseData) throw new Error("Warehouse Not Found");
 
-    // RMU
-    updates.push({
-      updateOne: {
-        filter: {
-          productType: "rmu",
-          serialNumber: rmuNumber.toUpperCase(),
-          state,
-        },
-        update: { $set: { isUsed: true } },
-      },
-    });
+    let state;
+    const whName = warehouseData.warehouseName;
+    if (whName === "Bhiwani") state = "Haryana";
+    else if (whName === "Jalna Warehouse") state = "Maharashtra";
+    else if (whName === "Korba Chhattisgarh") state = "Chhattisgarh";
 
-    if (updates.length > 0) {
-      await SerialNumber.bulkWrite(updates, { session });
+    const farmerActivities = [];
+    const assignedEmps = [];
+
+    for (const system of dispatchedSystem) {
+      // 1️⃣ Prevent duplicate
+      const existingActivity = await FarmerItemsActivity.findOne({
+        farmerSaralId: system.farmerSaralId,
+      }).session(session);
+      if (existingActivity)
+        throw new Error(
+          `Farmer ${system.farmerSaralId} system already dispatched`
+        );
+
+      // 2️⃣ Determine Reference Type
+      let empData = await ServicePerson.findById(system.installerId).session(
+        session
+      );
+      let refType = "ServicePerson";
+      if (!empData) {
+        empData = await SurveyPerson.findById(system.installerId).session(session);
+        if (!empData) throw new Error("EmpID Not Found In Database");
+        refType = "SurveyPerson";
+      }
+
+      // 3️⃣ Fetch all items in system
+      const systemItems = await SystemItemMap.find({
+        systemId: system.systemId,
+      })
+        .populate("systemItemId", "itemName")
+        .session(session);
+
+      if (!systemItems.length)
+        throw new Error(`No system items found for systemId: ${system.systemId}`);
+
+      // 4️⃣ Identify all pump items
+      const pumpItems = systemItems.filter((item) =>
+        item.systemItemId?.itemName?.toLowerCase().includes("pump")
+      );
+
+      // 5️⃣ Match correct pump
+      const matchingPump = pumpItems.find(
+        (item) => item.systemItemId._id.toString() === system.pumpId.toString()
+      );
+      if (!matchingPump)
+        throw new Error(`Pump with ID ${system.pumpId} not found in system`);
+
+      // 6️⃣ Exclude all other pumps
+      const filteredSystemItems = systemItems.filter((item) => {
+        const isPump = pumpItems.some(
+          (pump) =>
+            pump.systemItemId._id.toString() === item.systemItemId._id.toString()
+        );
+        if (!isPump) return true; // keep non-pump items
+        return item.systemItemId._id.toString() === system.pumpId.toString();
+      });
+
+      // 7️⃣ Fetch pump sub-items
+      const pumpComponents = await ItemComponentMap.find({
+        systemId: system.systemId,
+        systemItemId: system.pumpId,
+      }).session(session);
+
+      // 8️⃣ Combine all items
+      const itemsList = [
+        ...filteredSystemItems.map((item) => ({
+          systemItemId: item.systemItemId._id,
+          quantity: item.quantity,
+        })),
+        ...pumpComponents.map((comp) => ({
+          systemItemId: comp.subItemId,
+          quantity: comp.quantity,
+        })),
+      ];
+
+      // 🔁 Remove duplicate items
+      const uniqueItemsMap = new Map();
+      for (const item of itemsList) {
+        const key = item.systemItemId.toString();
+        if (!uniqueItemsMap.has(key)) uniqueItemsMap.set(key, item);
+      }
+      const finalItemsList = Array.from(uniqueItemsMap.values());
+
+      // 9️⃣ Deduct stock for each item before insertion
+      for (const item of finalItemsList) {
+        const stockDoc = await InstallationInventory.findOne({
+          warehouseId,
+          systemItemId: item.systemItemId,
+        }).populate("systemItemId").session(session);
+
+        if (!stockDoc)
+          throw new Error(
+            `Item ${stockDoc.systemItemId?.itemName} not found in installation inventory`
+          );
+
+        if (stockDoc.quantity < item.quantity) {
+          throw new Error(
+            `Insufficient stock for item ${stockDoc.systemItemId?.itemName}. Available: ${stockDoc.quantity}, Required: ${item.quantity}`
+          );
+        }
+
+        // Deduct stock
+        stockDoc.quantity -= item.quantity;
+        stockDoc.updatedAt = new Date();
+        stockDoc.updatedBy = warehousePersonId;
+        await stockDoc.save({ session });
+      }
+
+      // 🔟 Create FarmerItemsActivity
+      const farmerActivity = new FarmerItemsActivity({
+        referenceType: refType,
+        warehouseId,
+        farmerSaralId: system.farmerSaralId,
+        empId: system.installerId,
+        systemId: system.systemId,
+        itemsList: finalItemsList,
+        panelNumbers: [],
+        pumpNumber: "",
+        controllerNumber: "",
+        rmuNumber: "",
+        motorNumber: "",
+        state,
+        createdBy: warehousePersonId,
+      });
+
+      // 11️⃣ Create InstallationAssignEmp
+      const assignedEmp = new InstallationAssignEmp({
+        referenceType: refType,
+        warehouseId,
+        empId: system.installerId,
+        farmerSaralId: system.farmerSaralId,
+        systemId: system.systemId,
+        itemsList: finalItemsList,
+        extraItemsList: [],
+        createdBy: warehousePersonId,
+      });
+
+      await farmerActivity.save({ session });
+      await assignedEmp.save({ session });
+
+      farmerActivities.push(farmerActivity);
+      assignedEmps.push(assignedEmp);
     }
 
-    // ✅ Commit transaction
     await session.commitTransaction();
     session.endSession();
 
     return res.status(200).json({
       success: true,
-      message: "Data Saved Successfully & Serial Numbers Marked as Used",
+      message: "Installation data added successfully",
+      farmerActivityData: farmerActivities,
+      assignedEmpData: assignedEmps,
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error("Error in addNewInstallationData:", error.message);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -2360,6 +2159,419 @@ module.exports.addNewInstallationData = async (req, res) => {
     });
   }
 };
+
+// module.exports.addNewInstallationData = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const {
+//       farmerSaralId,
+//       empId,
+//       systemId,
+//       itemsList,
+//       extraItemsList,
+//       extraPanelNumbers,
+//       panelNumbers,
+//       pumpNumber,
+//       motorNumber,
+//       controllerNumber,
+//       rmuNumber,
+//     } = req.body;
+//     console.log(req.body);
+//     const warehousePersonId = req.user._id;
+//     const warehouseId = req.user.warehouse;
+
+//     // ✅ Fetch warehouse data
+//     const warehouseData =
+//       await Warehouse.findById(warehouseId).session(session);
+//     if (!warehouseData) {
+//       throw new Error("Warehouse Not Found");
+//     }
+
+//     // ✅ Determine State
+//     let state;
+//     const whName = warehouseData.warehouseName;
+//     if (["Bhiwani", "Jind", "Hisar", "Sirsa"].includes(whName)) {
+//       state = "Haryana";
+//     } else if (whName === "Jalna Warehouse") {
+//       state = "Maharashtra";
+//     } else if (whName === "Korba Chhattisgarh") {
+//       state = "Chhattisgarh";
+//     }
+//     console.log("Determined state:", state);
+//     // ✅ Basic Validations
+//     if (
+//       !farmerSaralId ||
+//       !empId ||
+//       !systemId ||
+//       !itemsList ||
+//       !panelNumbers ||
+//       !pumpNumber ||
+//       !controllerNumber ||
+//       !rmuNumber ||
+//       !motorNumber
+//     ) {
+//       throw new Error("All fields are required");
+//     }
+
+//     if (!Array.isArray(itemsList) || itemsList.length === 0) {
+//       throw new Error("ItemsList is empty");
+//     }
+
+//     // ✅ Check if farmer activity already exists
+//     const existingFarmerActivity = await FarmerItemsActivity.findOne({
+//       farmerSaralId,
+//       systemId,
+//     }).session(session);
+//     if (existingFarmerActivity) {
+//       throw new Error("Farmer activity for this system already exists");
+//     }
+
+//     // ✅ Determine Reference Type
+//     let refType;
+//     let empData = await ServicePerson.findById(empId).session(session);
+//     if (empData) {
+//       refType = "ServicePerson";
+//     } else {
+//       empData = await SurveyPerson.findById(empId).session(session);
+//       if (!empData) {
+//         throw new Error("EmpID Not Found In Database");
+//       }
+//       refType = "SurveyPerson";
+//     }
+
+//     // ✅ Merge itemsList + extraItemsList
+//     const combinedItemsMap = new Map();
+//     const accumulateItems = (list = []) => {
+//       for (const { systemItemId, quantity } of list) {
+//         if (!systemItemId || !quantity) continue;
+//         const key = systemItemId.toString();
+//         const prevQty = combinedItemsMap.get(key) || 0;
+//         combinedItemsMap.set(key, prevQty + parseInt(quantity));
+//       }
+//     };
+//     accumulateItems(itemsList);
+//     accumulateItems(extraItemsList);
+
+//     const mergedItemList = Array.from(combinedItemsMap.entries()).map(
+//       ([systemItemId, quantity]) => ({
+//         systemItemId,
+//         quantity,
+//       })
+//     );
+
+//     // ✅ Process inventory updates
+//     let warehouseItemsData;
+//     if (state === "Haryana") {
+//       warehouseItemsData = await WarehouseItems.findOne({
+//         warehouse: warehouseId,
+//       }).session(session);
+//       if (!warehouseItemsData) {
+//         throw new Error("Warehouse Data Not Found");
+//       }
+//     }
+
+//     for (const { systemItemId, quantity } of mergedItemList) {
+//       const systemItemData =
+//         await SystemItem.findById(systemItemId).session(session);
+//       if (!systemItemData) {
+//         throw new Error("SystemItem Not Found");
+//       }
+
+//       const systemItemName = systemItemData.itemName || "";
+//       console.log("Processing item:", systemItemName, "Qty:", quantity);
+
+//       const inventoryItems = await InstallationInventory.find({ warehouseId })
+//         .populate({ path: "systemItemId", select: { itemName: 1 } })
+//         .session(session);
+
+//       const inventoryItem = inventoryItems.find(
+//         (inv) =>
+//           inv.systemItemId?.itemName?.toLowerCase() ===
+//           systemItemName.toLowerCase()
+//       );
+//       if (!inventoryItem) {
+//         throw new Error(
+//           `SubItem "${systemItemName}" not found in warehouse inventory`
+//         );
+//       }
+
+//       // if (inventoryItem.quantity < quantity) {
+//       //   throw new Error(`Insufficient stock for item "${systemItemName}"`);
+//       // }
+
+//       // ✅ Deduct from InstallationInventory (always)
+//       inventoryItem.quantity -= quantity;
+//       inventoryItem.updatedAt = new Date();
+//       inventoryItem.updatedBy = warehousePersonId;
+//       await inventoryItem.save({ session });
+
+//       console.log("Condition check:", { state, systemItemName });
+
+//       // 🔹 Normalize helper
+//       const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+
+//       // 🔹 Motor condition
+//       if (state === "Haryana" && systemItemName === "MOTOR 10HP AC 440V") {
+//         console.log(
+//           "Applying Haryana-specific warehouse deduction for Motor:",
+//           systemItemName
+//         );
+
+//         const motorNameNormalized = systemItemName.trim().toUpperCase();
+//         const updateResult = await WarehouseItems.updateOne(
+//           { _id: warehouseItemsData._id },
+//           { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
+//           {
+//             arrayFilters: [
+//               {
+//                 "elem.itemName": motorNameNormalized,
+//                 "elem.newStock": { $gte: parseInt(quantity, 10) },
+//               },
+//             ],
+//             session,
+//           }
+//         );
+
+//         console.log("Motor updateResult:", updateResult);
+//         if (updateResult.modifiedCount === 0) {
+//           throw new Error(
+//             `Motor update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check itemName/stock for "${motorNameNormalized}"`
+//           );
+//         }
+
+//         const updatedDoc = await WarehouseItems.findOne(
+//           { _id: warehouseItemsData._id },
+//           { items: { $elemMatch: { itemName: motorNameNormalized } } }
+//         ).session(session);
+
+//         console.log("Updated Motor Item:", updatedDoc?.items?.[0]);
+//       }
+
+//       // 🔹 Pump condition
+//       if (
+//         state === "Haryana" &&
+//         systemItemName.toUpperCase().startsWith("PUMP")
+//       ) {
+//         console.log(
+//           "Applying Haryana-specific warehouse deduction for Pump:",
+//           systemItemName
+//         );
+
+//         const mustHaveWords = normalizeWords(systemItemName);
+//         const regex = new RegExp(
+//           mustHaveWords.map((w) => `(?=.*${w})`).join(""),
+//           "i"
+//         );
+
+//         // Find actual pump name from warehouse data
+//         const matchedPump = warehouseItemsData.items.find((it) =>
+//           regex.test(it.itemName)
+//         );
+//         if (!matchedPump) {
+//           throw new Error(
+//             `Pump "${systemItemName}" not found in warehouse items`
+//           );
+//         }
+//         const pumpItemName = matchedPump.itemName;
+
+//         const updateResult = await WarehouseItems.updateOne(
+//           { _id: warehouseItemsData._id },
+//           { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
+//           {
+//             arrayFilters: [
+//               {
+//                 "elem.itemName": pumpItemName,
+//                 "elem.newStock": { $gte: parseInt(quantity, 10) },
+//               },
+//             ],
+//             session,
+//           }
+//         );
+
+//         console.log("Pump updateResult:", updateResult);
+//         if (updateResult.modifiedCount === 0) {
+//           throw new Error(
+//             `Pump update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check "${pumpItemName}" and stock`
+//           );
+//         }
+
+//         const updatedDoc = await WarehouseItems.findOne(
+//           { _id: warehouseItemsData._id },
+//           { items: { $elemMatch: { itemName: pumpItemName } } }
+//         ).session(session);
+
+//         console.log("Updated Pump Item:", updatedDoc?.items?.[0]);
+//       }
+
+//       // 🔹 Controller condition
+//       if (
+//         state === "Haryana" &&
+//         systemItemName === "Controller - RMU - 10HP AC GALO"
+//       ) {
+//         console.log(
+//           "Applying Haryana-specific warehouse deduction for Controller:",
+//           systemItemName
+//         );
+
+//         const normalizedName = "CONTROLLER 10HP AC GALO";
+
+//         const updateResult = await WarehouseItems.updateOne(
+//           { _id: warehouseItemsData._id },
+//           { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
+//           {
+//             arrayFilters: [
+//               {
+//                 "elem.itemName": normalizedName,
+//                 "elem.newStock": { $gte: parseInt(quantity, 10) },
+//               },
+//             ],
+//             session,
+//           }
+//         );
+
+//         console.log("Controller updateResult:", updateResult);
+//         if (updateResult.modifiedCount === 0) {
+//           throw new Error(
+//             `Controller update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount})`
+//           );
+//         }
+
+//         const updatedDoc = await WarehouseItems.findOne(
+//           { _id: warehouseItemsData._id },
+//           { items: { $elemMatch: { itemName: normalizedName } } }
+//         ).session(session);
+
+//         console.log("Updated Controller Item:", updatedDoc?.items?.[0]);
+//       }
+//     }
+
+//     // ✅ Save Farmer Activity
+//     const farmerActivity = new FarmerItemsActivity({
+//       warehouseId,
+//       referenceType: refType,
+//       farmerSaralId,
+//       empId,
+//       systemId,
+//       itemsList,
+//       extraItemsList: extraItemsList || [],
+//       extraPanelNumbers: extraPanelNumbers || [],
+//       panelNumbers,
+//       pumpNumber: pumpNumber.trim().toUpperCase(),
+//       motorNumber: motorNumber.trim().toUpperCase(),
+//       controllerNumber: controllerNumber.trim().toUpperCase(),
+//       rmuNumber: rmuNumber.trim().toUpperCase(),
+//       state,
+//       createdBy: warehousePersonId,
+//     });
+
+//     await farmerActivity.save({ session });
+
+//     // ✅ Save Installation Assignment
+//     const empAccountData = new InstallationAssignEmp({
+//       warehouseId,
+//       referenceType: refType,
+//       empId,
+//       farmerSaralId,
+//       systemId,
+//       itemsList,
+//       extraItemsList,
+//       createdBy: warehousePersonId,
+//     });
+
+//     await empAccountData.save({ session });
+
+//     // ✅ Mark serial numbers as used (inside transaction)
+//     const updates = [];
+
+//     // Panel Numbers (multiple)
+//     if (Array.isArray(panelNumbers)) {
+//       panelNumbers.forEach((sn) => {
+//         updates.push({
+//           updateOne: {
+//             filter: {
+//               productType: "panel",
+//               serialNumber: sn.toUpperCase(),
+//               state,
+//             },
+//             update: { $set: { isUsed: true } },
+//           },
+//         });
+//       });
+//     }
+
+//     // Pump
+//     updates.push({
+//       updateOne: {
+//         filter: {
+//           productType: "pump",
+//           serialNumber: pumpNumber.toUpperCase(),
+//           state,
+//         },
+//         update: { $set: { isUsed: true } },
+//       },
+//     });
+
+//     // Motor
+//     updates.push({
+//       updateOne: {
+//         filter: {
+//           productType: "motor",
+//           serialNumber: motorNumber.toUpperCase(),
+//           state,
+//         },
+//         update: { $set: { isUsed: true } },
+//       },
+//     });
+
+//     // Controller
+//     updates.push({
+//       updateOne: {
+//         filter: {
+//           productType: "controller",
+//           serialNumber: controllerNumber.toUpperCase(),
+//           state,
+//         },
+//         update: { $set: { isUsed: true } },
+//       },
+//     });
+
+//     // RMU
+//     updates.push({
+//       updateOne: {
+//         filter: {
+//           productType: "rmu",
+//           serialNumber: rmuNumber.toUpperCase(),
+//           state,
+//         },
+//         update: { $set: { isUsed: true } },
+//       },
+//     });
+
+//     if (updates.length > 0) {
+//       await SerialNumber.bulkWrite(updates, { session });
+//     }
+
+//     // ✅ Commit transaction
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Data Saved Successfully & Serial Numbers Marked as Used",
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     console.error("Error in addNewInstallationData:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
   try {
@@ -4083,10 +4295,24 @@ module.exports.getSystemItemsFromItemComponentMap = async (req, res) => {
 
     const uniqueItems = Array.from(uniqueItemsMap.values());
 
+    // ✅ Custom sort for pumps (like "PUMP 3HP DC 30M")
+    const sortedItems = uniqueItems.sort((a, b) => {
+      const extractPumpInfo = (name) => {
+        const match = name.match(/PUMP\s*(\d+)HP.*?(\d+)M/i);
+        return match ? { hp: +match[1], head: +match[2] } : { hp: 0, head: 0 };
+      };
+
+      const aInfo = extractPumpInfo(a.itemName);
+      const bInfo = extractPumpInfo(b.itemName);
+
+      if (aInfo.hp !== bInfo.hp) return aInfo.hp - bInfo.hp; // Sort by HP first
+      return aInfo.head - bInfo.head; // Then by Head (M)
+    });
+
     res.status(200).json({
       success: true,
-      message: "Unique system items fetched successfully",
-      data: uniqueItems,
+      message: "Unique system items fetched and sorted successfully",
+      data: sortedItems,
     });
   } catch (error) {
     console.error("Error fetching items by systemId:", error);
@@ -4097,6 +4323,7 @@ module.exports.getSystemItemsFromItemComponentMap = async (req, res) => {
     });
   }
 };
+
 
 module.exports.updateInstallationInventoryFromExcel = async (req, res) => {
   try {
@@ -4669,7 +4896,7 @@ module.exports.uploadSerialNumbers = async (req, res) => {
       const filePath = path.join(__dirname, "../../uploads/duplicates.xlsx");
       XLSX.writeFile(newWB, filePath);
 
-      return res.download(filePath, "duplicate_serials.xlsx", (err) => {
+      return res.download(filePath, "Duplicates_SerialNumber.xlsx", (err) => {
         if (err) {
           console.error("Download error:", err);
         }
@@ -5062,6 +5289,270 @@ module.exports.exportMotorNumbersExcel = async (req, res) => {
   }
 };
 
+// module.exports.importDispatchedSystemExcelData = async (req, res) => {
+//   try {
+//     if (!req.file || !req.file.buffer) {
+//       return res.status(400).json({ message: "Please upload an Excel file" });
+//     }
+
+//     // Parse Excel
+//     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+//     const sheetName = workbook.SheetNames[0];
+//     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+//     const farmerActivityDocs = [];
+//     const employeeAssignedDocs = [];
+//     const serialNumbersToUpdate = [];
+//     const failedRows = [];
+
+//     for (let row of rows) {
+//       try {
+//         // --- System check ---
+//         const system = await System.findOne({ systemName: row.systemName });
+//         console.log("System: ", system);
+//         if (!system) {
+//           failedRows.push({ ...row, reason: "System not found" });
+//           continue;
+//         }
+
+//         // --- Employee check ---
+//         console.log("Employee Name", row.employeeName);
+//         const empData = await ServicePerson.findOne({
+//           name: new RegExp("^" + row.employeeName.trim() + "$", "i"),
+//           state: new RegExp("^" + row.state.trim() + "$", "i"),
+//         });
+
+//         console.log("EMP: ", empData);
+//         if (!empData) {
+//           failedRows.push({ ...row, reason: "Employee not found" });
+//           continue;
+//         }
+
+//         // --- Mandatory numbers check ---
+//         if (!row.pumpNumber || !row.controllerNumber || !row.rmuNumber) {
+//           failedRows.push({
+//             ...row,
+//             reason: "Missing pump/controller/rmu number",
+//           });
+//           continue;
+//         }
+
+//         const existingActivity = await FarmerItemsActivity.findOne({
+//           farmerSaralId: row.farmerSaralId,
+//           state: row.state,
+//         });
+//         console.log("Exist Farmer Activity: ", existingActivity);
+//         if (existingActivity) {
+//           failedRows.push({
+//             ...row,
+//             reason: `FarmerSaralId ${row.farmerSaralId} already exists in FarmerItemsActivity`,
+//           });
+//           continue;
+//         }
+
+//         // --- Collect serial numbers (panels flexible) ---
+//         const panelNumbers = ["panel1", "panel2", "panel3", "panel4", "panel5", "panel6", "panel7", "panel8", "panel9", "panel10", "panel11", "panel12", "panel13"]
+//           .map((p) => row[p]?.toString().trim().toUpperCase())
+//           .filter(Boolean);
+
+//         const pumpNumber = row.pumpNumber.toString().trim().toUpperCase();
+//         const controllerNumber = row.controllerNumber
+//           .toString()
+//           .trim()
+//           .toUpperCase();
+//         const rmuNumber = row.rmuNumber.toString().trim().toUpperCase();
+
+//         const serialNumbers = [
+//           ...panelNumbers,
+//           pumpNumber,
+//           controllerNumber,
+//           rmuNumber,
+//         ];
+//         console.log("SerialNumbers: ", serialNumbers);
+//         // --- Validate serial numbers ---
+//         const existingSerials = await SerialNumber.find({
+//           serialNumber: { $in: serialNumbers },
+//           state: row.state,
+//         })
+//           .select("serialNumber")
+//           .lean();
+
+//         const existingSet = new Set(existingSerials.map((s) => s.serialNumber));
+//         const missingSerials = serialNumbers.filter(
+//           (sn) => !existingSet.has(sn)
+//         );
+
+//         if (missingSerials.length > 0) {
+//           failedRows.push({
+//             ...row,
+//             reason: `Missing serial numbers: ${missingSerials.join(", ")}`,
+//           });
+//           continue;
+//         }
+
+//         // --- Check serialNumbers already used in FarmerItemsActivity ---
+//         const serialsAlreadyUsed = await FarmerItemsActivity.findOne({
+//           $or: [
+//             { pumpNumber: { $in: serialNumbers } },
+//             { controllerNumber: { $in: serialNumbers } },
+//             { rmuNumber: { $in: serialNumbers } },
+//             { panelNumbers: { $in: serialNumbers } },
+//           ],
+//           state: row.state,
+//         });
+
+//         if (serialsAlreadyUsed) {
+//           failedRows.push({
+//             ...row,
+//             reason: `Some serial numbers already used in FarmerItemsActivity: ${serialsAlreadyUsed.farmerSaralId}`,
+//           });
+//           continue;
+//         }
+
+//         // --- Build items list ---
+//         const systemItems = await SystemItemMap.find({
+//           systemId: system._id,
+//         }).populate("systemItemId");
+//         let itemsList = [];
+
+//         for (let si of systemItems) {
+//           const isPump = si.systemItemId?.itemName
+//             .toLowerCase()
+//             .includes("pump");
+//             console.log("isPump: ", isPump);
+
+//           if (isPump) {
+//             // Only include correct pump variant
+//             if (si.systemItemId?.itemName === row.pumpHead) {
+//               console.log("Pump Data: ", si.systemItemId?.itemName);
+//               itemsList.push({
+//                 systemItemId: si.systemItemId._id,
+//                 quantity: si.quantity,
+//               });
+
+//               // Fetch sub-items for this pump
+//               const components = await ItemComponentMap.find({
+//                 systemId: system._id,
+//                 systemItemId: si.systemItemId._id,
+//               }).populate("systemItemId");
+//               console.log(components);
+//               for (let comp of components) {
+//                 itemsList.push({
+//                   systemItemId: comp.subItemId,
+//                   quantity: comp.quantity,
+//                 });
+//               }
+//             }
+//           } else {
+//             itemsList.push({
+//               systemItemId: si.systemItemId._id,
+//               quantity: si.quantity,
+//             });
+//           }
+//         }
+//         console.log("systemId: ", system._id);
+//         console.log("itemsList: ", itemsList);
+//         // --- Prepare documents ---
+//         farmerActivityDocs.push({
+//           referenceType: "ServicePerson",
+//           warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
+//           farmerSaralId: row.farmerSaralId,
+//           empId: empData._id,
+//           systemId: system._id,
+//           itemsList,
+//           extraItemsList: [],
+//           panelNumbers,
+//           extraPanelNumbers: [],
+//           pumpNumber,
+//           motorNumber: "",
+//           controllerNumber,
+//           rmuNumber,
+//           state: row.state,
+//           accepted: false,
+//           installationDone: false,
+//           createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
+//           sendingDate: new Date(),
+//           createdAt: new Date(),
+//         });
+
+//         employeeAssignedDocs.push({
+//           referenceType: "ServicePerson",
+//           warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
+//           empId: empData._id,
+//           farmerSaralId: row.farmerSaralId,
+//           systemId: system._id,
+//           itemsList,
+//           extraItemsList: [],
+//           createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
+//           createdAt: new Date(),
+//         });
+
+//         // --- Collect serials for update ---
+//         serialNumbers.forEach((sn) =>
+//           serialNumbersToUpdate.push({ serialNumber: sn, state: row.state })
+//         );
+//       } catch (innerErr) {
+//         failedRows.push({
+//           ...row,
+//           reason: `Unexpected error: ${innerErr.message}`,
+//         });
+//       }
+//     }
+//     console.log("Farmer Activity Length: ", farmerActivityDocs.length);
+//     console.log("Installation Assign Emp: ", employeeAssignedDocs.length);
+//     console.log("New Farmer Activittes: ", farmerActivityDocs);
+//     console.log("New Assigned Emp: ", employeeAssignedDocs);
+//     // --- Insert valid rows ---
+//     if (farmerActivityDocs.length > 0) {
+//       await FarmerItemsActivity.insertMany(farmerActivityDocs);
+//     }
+//     if (employeeAssignedDocs.length > 0) {
+//       await InstallationAssignEmp.insertMany(employeeAssignedDocs);
+//     }
+
+//     // --- Mark serial numbers as used ---
+//     if (serialNumbersToUpdate.length > 0) {
+//       const bulkOps = serialNumbersToUpdate.map((sn) => ({
+//         updateOne: {
+//           filter: { serialNumber: sn.serialNumber, state: sn.state },
+//           update: { $set: { isUsed: true } },
+//           upsert: false,
+//         },
+//       }));
+//       await SerialNumber.bulkWrite(bulkOps);
+//     }
+
+//     // --- If any rows failed, return an Excel ---
+//     if (failedRows.length > 0) {
+//       const ws = XLSX.utils.json_to_sheet(failedRows);
+//       const wb = XLSX.utils.book_new();
+//       XLSX.utils.book_append_sheet(wb, ws, "FailedRows");
+//       const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+//       res.setHeader(
+//         "Content-Disposition",
+//         "attachment; filename=Failed_Rows.xlsx"
+//       );
+//       res.setHeader(
+//         "Content-Type",
+//         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+//       );
+//       return res.send(excelBuffer);
+//     }
+
+//     return res.status(200).json({
+//       sucess: true,
+//       message: "Excel data imported successfully",
+//       recordsProcessed: farmerActivityDocs.length,
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     return res
+//       .status(500)
+//       .json({ status: false, message: "Server error", error: err.message });
+//   }
+// };
+
 module.exports.importDispatchedSystemExcelData = async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
@@ -5082,7 +5573,6 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
       try {
         // --- System check ---
         const system = await System.findOne({ systemName: row.systemName });
-        console.log("System: ", system);
         if (!system) {
           failedRows.push({ ...row, reason: "System not found" });
           continue;
@@ -5090,10 +5580,9 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
 
         // --- Employee check ---
         const empData = await ServicePerson.findOne({
-          name: new RegExp(`${row.employeeName}`, "i"),
-          state: row.state,
+          name: new RegExp("^" + row.employeeName.trim() + "$", "i"),
+          state: new RegExp("^" + row.state.trim() + "$", "i"),
         });
-        console.log("EMP: ", empData);
         if (!empData) {
           failedRows.push({ ...row, reason: "Employee not found" });
           continue;
@@ -5108,74 +5597,51 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
           continue;
         }
 
-        const existingActivity = await FarmerItemsActivity.findOne({
-          farmerSaralId: row.farmerSaralId,
-          state: row.state,
-        });
-        console.log("Exist Farmer Activity: ", existingActivity);
-        if (existingActivity) {
-          failedRows.push({
-            ...row,
-            reason: `FarmerSaralId ${row.farmerSaralId} already exists in FarmerItemsActivity`,
-          });
-          continue;
-        }
-
-        // --- Collect serial numbers (panels flexible) ---
-        const panelNumbers = ["panel1", "panel2", "panel3"]
+        // --- Collect serial numbers (panels flexible up to 13) ---
+        const panelNumbers = Array.from({ length: 13 }, (_, i) => "panel" + (i + 1))
           .map((p) => row[p]?.toString().trim().toUpperCase())
           .filter(Boolean);
 
-        const pumpNumber = row.pumpNumber.toString().trim().toUpperCase();
-        const controllerNumber = row.controllerNumber
-          .toString()
-          .trim()
-          .toUpperCase();
-        const rmuNumber = row.rmuNumber.toString().trim().toUpperCase();
+        const pumpNumber = row.pumpNumber?.toString().trim().toUpperCase();
+        const controllerNumber = row.controllerNumber?.toString().trim().toUpperCase();
+        const rmuNumber = row.rmuNumber?.toString().trim().toUpperCase();
 
         const serialNumbers = [
           ...panelNumbers,
           pumpNumber,
           controllerNumber,
           rmuNumber,
-        ];
-        console.log("SerialNumbers: ", serialNumbers);
-        // --- Validate serial numbers ---
-        const existingSerials = await SerialNumber.find({
-          serialNumber: { $in: serialNumbers },
-          state: row.state,
-        })
-          .select("serialNumber")
-          .lean();
+        ].filter(Boolean);
 
-        const existingSet = new Set(existingSerials.map((s) => s.serialNumber));
-        const missingSerials = serialNumbers.filter(
-          (sn) => !existingSet.has(sn)
-        );
+        // --- Insert missing serials into SerialNumber ---
+        for (let sn of serialNumbers) {
+          const found = await SerialNumber.findOne({ serialNumber: sn, state: row.state });
+          if (!found) {
+            let productType = "panel";
+            if (sn === pumpNumber) productType = "pump";
+            if (sn === controllerNumber) productType = "controller";
+            if (sn === rmuNumber) productType = "rmu";
 
-        if (missingSerials.length > 0) {
-          failedRows.push({
-            ...row,
-            reason: `Missing serial numbers: ${missingSerials.join(", ")}`,
-          });
-          continue;
+            await SerialNumber.create({
+              serialNumber: sn,
+              state: row.state,
+              productType,
+              isUsed: false,
+            });
+          }
         }
 
         // --- Build items list ---
-        const systemItems = await SystemItemMap.find({
-          systemId: system._id,
-        }).populate("systemItemId");
+        const systemItems = await SystemItemMap.find({ systemId: system._id })
+          .populate("systemItemId");
         let itemsList = [];
 
         for (let si of systemItems) {
-          const isPump = si.systemItemId?.itemName
-            .toLowerCase()
-            .includes("pump");
+          const isPump = si.systemItemId?.itemName.toLowerCase().includes("pump");
 
           if (isPump) {
             // Only include correct pump variant
-            if (si.systemItemId?.itemName.includes(row.pumpHead)) {
-              console.log("Pump Data: ", si.systemItemId?.itemName);
+            if (si.systemItemId?.itemName === row.pumpHead) {
               itemsList.push({
                 systemItemId: si.systemItemId._id,
                 quantity: si.quantity,
@@ -5186,7 +5652,7 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
                 systemId: system._id,
                 systemItemId: si.systemItemId._id,
               }).populate("systemItemId");
-              console.log(components);
+
               for (let comp of components) {
                 itemsList.push({
                   systemItemId: comp.subItemId,
@@ -5202,40 +5668,62 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
           }
         }
 
-        // --- Prepare documents ---
-        farmerActivityDocs.push({
-          referenceType: "ServicePerson",
-          warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
-          farmerSaralId: row.farmerSaralId,
-          empId: row.employeeId,
-          systemId: system._id,
-          itemsList,
-          extraItemsList: [],
-          panelNumbers,
-          extraPanelNumbers: [],
-          pumpNumber,
-          motorNumber: "",
-          controllerNumber,
-          rmuNumber,
+        // --- Check if FarmerActivity already exists ---
+        let existingActivity = await FarmerItemsActivity.findOne({
+          farmerSaralId: new RegExp(`${row.farmerSaralId}`, "i"),
           state: row.state,
-          accepted: false,
-          installationDone: false,
-          createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
-          sendingDate: new Date(),
-          createdAt: new Date(),
         });
 
-        employeeAssignedDocs.push({
-          referenceType: "ServicePerson",
-          warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
-          empId: row.employeeId,
-          farmerSaralId: row.farmerSaralId,
-          systemId: system._id,
-          itemsList,
-          extraItemsList: [],
-          createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
-          createdAt: new Date(),
-        });
+        if (existingActivity) {
+          // Update existing FarmerActivity with new serials
+          await FarmerItemsActivity.updateOne(
+            { _id: existingActivity._id },
+            {
+              $set: {
+                panelNumbers,
+                pumpNumber,
+                controllerNumber,
+                rmuNumber,
+                updatedAt: new Date(),
+              },
+            }
+          );
+        } else {
+          // --- Prepare new documents ---
+          farmerActivityDocs.push({
+            referenceType: "ServicePerson",
+            warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
+            farmerSaralId: row.farmerSaralId,
+            empId: empData._id,
+            systemId: system._id,
+            itemsList,
+            extraItemsList: [],
+            panelNumbers,
+            extraPanelNumbers: [],
+            pumpNumber,
+            motorNumber: "",
+            controllerNumber,
+            rmuNumber,
+            state: row.state,
+            accepted: false,
+            installationDone: false,
+            createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
+            sendingDate: new Date(),
+            createdAt: new Date(),
+          });
+
+          employeeAssignedDocs.push({
+            referenceType: "ServicePerson",
+            warehouseId: new mongoose.Types.ObjectId("67beef9e2fffc2145da032f3"),
+            empId: empData._id,
+            farmerSaralId: row.farmerSaralId,
+            systemId: system._id,
+            itemsList,
+            extraItemsList: [],
+            createdBy: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
+            createdAt: new Date(),
+          });
+        }
 
         // --- Collect serials for update ---
         serialNumbers.forEach((sn) =>
@@ -5248,9 +5736,8 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
         });
       }
     }
-    console.log(farmerActivityDocs.length);
-    console.log(employeeAssignedDocs.length);
-    // --- Insert valid rows ---
+
+    // --- Insert valid new rows ---
     if (farmerActivityDocs.length > 0) {
       await FarmerItemsActivity.insertMany(farmerActivityDocs);
     }
@@ -5289,7 +5776,7 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
     }
 
     return res.status(200).json({
-      sucess: true,
+      success: true,
       message: "Excel data imported successfully",
       recordsProcessed: farmerActivityDocs.length,
     });
@@ -5298,5 +5785,44 @@ module.exports.importDispatchedSystemExcelData = async (req, res) => {
     return res
       .status(500)
       .json({ status: false, message: "Server error", error: err.message });
+  }
+};
+
+module.exports.getInstallerData = async (req, res) => {
+  try {
+    const warehouseId = req.user?.warehouse;
+    if(!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse Invalid User"
+      });
+    }
+
+    const warehouseData = await Warehouse.findById(warehouseId);
+    let state = null;
+    if(warehouseData?.warehouseName === "Bhiwani") {
+      state = "Haryana"
+    } else if (warehouseData?.warehouseName === "Jalna Warehouse") {
+      state = "Maharashtra"
+    }
+    
+    const installerData = await ServicePerson.find({
+      role: "installer",
+      state,
+      isActive: true
+    }).select("_id name").lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      data: installerData || []
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
   }
 };
