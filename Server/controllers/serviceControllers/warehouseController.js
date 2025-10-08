@@ -2154,7 +2154,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     session.endSession();
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: error.message || "Internal Server Error",
       error: error.message,
     });
   }
