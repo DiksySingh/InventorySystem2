@@ -19,10 +19,6 @@ const dispatchDetailsSchema = new Schema({
         trim: true,
         upperCase: true
     },
-    billPhoto: {
-        type: String,
-        required: true,
-    },
     dispatchedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "WarehousePerson",
