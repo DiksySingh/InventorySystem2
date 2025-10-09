@@ -1,5 +1,6 @@
+const { default: mongoose } = require("mongoose");
 const prisma = require("../../config/prismaClient");
-
+const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const showStorePersons = async (req, res) => {
   try {
     const storeUsers = await prisma.user.findMany({
@@ -29,7 +30,6 @@ const showStorePersons = async (req, res) => {
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
-
       success: false,
       message: "Internal Server Error",
       error: error.message,
@@ -41,14 +41,14 @@ const rawMaterialForItemRequest = async (req, res) => {
   try {
     const allRawMaterial = await prisma.rawMaterial.findMany({
       orderBy: {
-        stock: "asc"
+        stock: "asc",
       },
       select: {
         id: true,
         name: true,
         stock: true,
-        unit: true
-      }
+        unit: true,
+      },
     });
 
     const filteredData = allRawMaterial.map((data) => ({
@@ -56,20 +56,20 @@ const rawMaterialForItemRequest = async (req, res) => {
       name: data.name,
       stock: data.stock,
       unit: data.unit,
-      outOfStock: data.stock === 0 ? true : false
+      outOfStock: data.stock === 0 ? true : false,
     }));
 
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: filteredData || []
+      data: filteredData || [],
     });
   } catch (error) {
     console.log("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -185,7 +185,8 @@ const rawMaterialForItemRequest = async (req, res) => {
 
 const createItemRequest = async (req, res) => {
   try {
-    const { type, serviceProcessId, rawMaterialRequested, requestedTo } = req.body;
+    const { type, serviceProcessId, rawMaterialRequested, requestedTo } =
+      req.body;
     const empId = req.user?.id;
 
     if (!type || !rawMaterialRequested?.length || !requestedTo) {
@@ -211,17 +212,20 @@ const createItemRequest = async (req, res) => {
     }
 
     // ✅ Validate raw materials in batch
-    const rawMaterialIds = rawMaterialRequested.map(r => r.rawMaterialId);
+    const rawMaterialIds = rawMaterialRequested.map((r) => r.rawMaterialId);
     const rawMaterials = await prisma.rawMaterial.findMany({
       where: { id: { in: rawMaterialIds } },
       select: { id: true, name: true, stock: true, unit: true },
     });
 
     for (let rawMaterial of rawMaterialRequested) {
-      const data = rawMaterials.find(r => r.id === rawMaterial.rawMaterialId);
-      if (!data) throw new Error(`Raw material not found: ${rawMaterial.rawMaterialId}`);
+      const data = rawMaterials.find((r) => r.id === rawMaterial.rawMaterialId);
+      if (!data)
+        throw new Error(`Raw material not found: ${rawMaterial.rawMaterialId}`);
       if (rawMaterial.quantity > data.stock) {
-        throw new Error(`Requested quantity for ${data.name} exceeds available stock`);
+        throw new Error(
+          `Requested quantity for ${data.name} exceeds available stock`
+        );
       }
     }
 
@@ -241,7 +245,6 @@ const createItemRequest = async (req, res) => {
       message: `${type === "IN" ? "In-process" : "Pre-process"} item request created successfully`,
       data: newRequest,
     });
-
   } catch (error) {
     console.error("ERROR: ", error);
     return res.status(500).json({
@@ -339,7 +342,7 @@ const createServiceProcess = async (req, res) => {
       error: error.message,
     });
   }
-}; 
+};
 
 const getProcessForUserStage = async (req, res) => {
   try {
@@ -843,6 +846,17 @@ const updateStageAndMoveNext = async (req, res) => {
       });
     }
 
+    const warehouseItemsData = await WarehouseItems.findOne({
+      warehouse: mongoose.Types.ObjectId("67446a8b27dae6f7f4d985dd"),
+    });
+
+    if (!warehouseItemsData) {
+      return res.status(404).json({
+        success: false,
+        message: "WarehouseItems Data Not Found",
+      });
+    }
+
     const processData = await prisma.service_Process_Record.findFirst({
       where: { id: serviceProcessId },
       include: {
@@ -867,7 +881,9 @@ const updateStageAndMoveNext = async (req, res) => {
       });
 
       if (!redirectStage)
-        throw new Error(`Failure redirect stage not found for reason: ${reason}`);
+        throw new Error(
+          `Failure redirect stage not found for reason: ${reason}`
+        );
 
       await tx.service_Process_Record.update({
         where: { id: serviceProcessId },
@@ -933,7 +949,11 @@ const updateStageAndMoveNext = async (req, res) => {
     const result = await prisma.$transaction(async (tx) => {
       // Fetch current stage activity safely
       const currentActivity = await tx.stageActivity.findFirst({
-        where: { serviceProcessId, stageId: processData.stage.id, isCurrent: true },
+        where: {
+          serviceProcessId,
+          stageId: processData.stage.id,
+          isCurrent: true,
+        },
       });
 
       if (!currentActivity)
@@ -975,6 +995,22 @@ const updateStageAndMoveNext = async (req, res) => {
           await handleFailureRedirect(tx, updatedActivity, failureReason);
         } else if (status === "COMPLETED") {
           // TODO: Add stock update logic for testing stage completion
+          const subItem = serviceProcess.subItem;
+
+          const existingItem = warehouseItemsData.items.find(
+            (item) => item.itemName === subItem
+          );
+
+          if (!existingItem) {
+            throw new Error(`Item "${subItem}" not found in Warehouse`);
+          }
+
+          if (itemTypeName === "SERVICE") {
+            existingItem.quantity = Number(existingItem.quantity) + 1;
+          } else if (itemTypeName === "NEW") {
+            existingItem.newStock = Number(existingItem.newStock) + 1;
+          }
+          await warehouseItemsData.save();
         }
       } else {
         // Handle non-testing stages
@@ -988,7 +1024,7 @@ const updateStageAndMoveNext = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Stage updated successfully",
+      message: `Stage ${result.stage.name} updated successfully`,
       data: result,
     });
   } catch (error) {
