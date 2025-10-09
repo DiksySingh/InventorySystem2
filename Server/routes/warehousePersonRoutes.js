@@ -30,6 +30,7 @@ const {
   showItemsWithStockStatus,
   updateItemQuantity,
   addNewInstallationData,
+  getDispatchHistory,
   showInstallationDataToWarehouse,
   itemComingToWarehouse,
   showIncomingItemToWarehouse,
@@ -259,7 +260,7 @@ router.post(
   userVerification(["warehouseAdmin"]), fileHandler,
   addNewInstallationData
 );
-// router.get("/all-service-survey-person", userVerification(['warehouseAdmin']), allServiceSurveyPerson);
+router.get("/get-dispatch-history", userVerification(['warehouseAdmin']), getDispatchHistory);
 router.get(
   "/new-installation-data",
   userVerification(["warehouseAdmin"]),
