@@ -33,12 +33,10 @@ const dispatchDetailsSchema = new Schema({
         ref: "Warehouse",
         required: true
     },
-    dispatchedSystems: [
-      {
+    dispatchedSystems: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "FarmerItemsActivity",
-      },
-    ],
+    }],
 },{timestamps: true, collection: "inDispatchDetails"});
 
 const DispatchDetails = mongoose.model("DispatchDetails", dispatchDetailsSchema);
