@@ -1981,15 +1981,16 @@ module.exports.addNewInstallationData = async (req, res) => {
     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
       return res.status(400).json({ success: false, message: "No dispatched systems provided" });
 
-    // Map uploaded files dynamically by index from fieldname: dispatchBillPhoto1, dispatchBillPhoto2, ...
+    // Map uploaded files dynamically by fieldname: dispatchBillPhoto1, dispatchBillPhoto2, ...
     const billPhotosMap = {};
-    if (!req.files || req.files.length === 0)
+    const uploadedFiles = Object.values(req.files || {}).flat();
+    if (uploadedFiles.length === 0)
       return res.status(400).json({ success: false, message: "No bill photos uploaded" });
 
-    for (const file of req.files) {
+    uploadedFiles.forEach((file) => {
       const match = file.fieldname.match(/dispatchBillPhoto(\d+)/);
       if (match) billPhotosMap[parseInt(match[1], 10) - 1] = file;
-    }
+    });
 
     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
       return res.status(400).json({
@@ -2023,7 +2024,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     };
     const state = stateMap[warehouseData.warehouseName] || "";
 
-    // Create dispatch record first (without systems)
+    // Create dispatch record first
     const dispatchDetails = new DispatchDetails({
       driverName,
       driverContact,
@@ -2037,12 +2038,13 @@ module.exports.addNewInstallationData = async (req, res) => {
     const farmerActivities = [];
     const assignedEmps = [];
 
+    // Iterate each dispatched system
     for (let i = 0; i < dispatchedSystems.length; i++) {
       const system = dispatchedSystems[i];
       const billPhotoFile = billPhotosMap[i];
       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
 
-      // Check if farmer already has activity
+      // Check existing activity
       const existingActivity = await FarmerItemsActivity.findOne({ farmerSaralId: system.farmerSaralId }).session(session);
       if (existingActivity) throw new Error(`Farmer ${system.farmerSaralId} system already dispatched`);
 
@@ -2093,8 +2095,7 @@ module.exports.addNewInstallationData = async (req, res) => {
           .populate("systemItemId")
           .session(session);
         if (!stockDoc) throw new Error(`Item not found in inventory`);
-        if (stockDoc.quantity < item.quantity)
-          throw new Error(`Insufficient stock for item ${stockDoc.systemItemId.itemName}`);
+        if (stockDoc.quantity < item.quantity) throw new Error(`Insufficient stock for item ${stockDoc.systemItemId.itemName}`);
         stockDoc.quantity -= item.quantity;
         stockDoc.updatedAt = new Date();
         stockDoc.updatedBy = warehousePersonId;
@@ -2158,11 +2159,14 @@ module.exports.addNewInstallationData = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
 
-    // Cleanup uploaded files
+    // Cleanup uploaded files safely using callback-based fs
     if (req.files) {
-      await Promise.all(req.files.map((f) =>
-        fs.unlink(f.path).catch((err) => console.error("Cleanup failed:", err.message))
-      ));
+      const allFiles = Object.values(req.files).flat();
+      allFiles.forEach((file) => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error("Cleanup failed:", err.message);
+        });
+      });
     }
 
     return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
