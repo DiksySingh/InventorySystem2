@@ -338,6 +338,7 @@ model Service_Process_Record {
   subItem              String?
   itemTypeId           String?
   serialNumber         String?
+  quantity             Float?
   stageId              String?
   initialStageId       String? // NEW - where it originally started
   restartedFromStageId String? // NEW - where it restarted from
