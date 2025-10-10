@@ -255,61 +255,211 @@ const createItemRequest = async (req, res) => {
   }
 };
 
+// const createServiceProcess = async (req, res) => {
+//   try {
+//     let { item, subItem, serialNumber, quantity } = req.body;
+//     const empId = req?.user?.id;
+//     const empRole = req?.user?.role?.name;
+
+//     if (!item || !subItem || !serialNumber) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Item, subItem, and serialNumber are required",
+//       });
+//     }
+
+//     serialNumber = serialNumber.trim().toUpperCase();
+
+//     // --- Prevent duplicates for today ---
+//     const startOfToday = new Date();
+//     startOfToday.setHours(0, 0, 0, 0);
+
+//     const endOfToday = new Date();
+//     endOfToday.setHours(23, 59, 59, 999);
+
+//     const existingProcess = await prisma.service_Process_Record.findFirst({
+//       where: {
+//         OR: [
+//           { serialNumber },
+//           { AND: [{ item }, { subItem }] },
+//         ],
+//         createdAt: {
+//           gte: startOfToday,
+//           lte: endOfToday,
+//         },
+//       },
+//     });
+
+//     if (existingProcess) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Service process already created today for this item, subItem, or serialNumber`,
+//       });
+//     }
+
+//     // --- Determine itemTypeId & initialStageId based on role ---
+//     let itemTypeId, initialStageId;
+
+//     if (empRole === "Disassemble") {
+//       const itemTypeData = await prisma.itemType.findFirst({
+//         where: { name: "SERVICE" },
+//         select: { id: true },
+//       });
+//       const initialStageData = await prisma.stage.findFirst({
+//         where: { name: "Disassemble" },
+//         select: { id: true },
+//       });
+//       if (!itemTypeData || !initialStageData)
+//         throw new Error("ItemType or Initial stage not found");
+
+//       itemTypeId = itemTypeData.id;
+//       initialStageId = initialStageData.id;
+
+//     } else if (empRole === "MPC Work") {
+//       const itemTypeData = await prisma.itemType.findFirst({
+//         where: { name: "NEW" },
+//         select: { id: true },
+//       });
+//       const initialStageData = await prisma.stage.findFirst({
+//         where: { name: "MPC Work" },
+//         select: { id: true },
+//       });
+//       if (!itemTypeData || !initialStageData)
+//         throw new Error("ItemType or Initial stage not found");
+
+//       itemTypeId = itemTypeData.id;
+//       initialStageId = initialStageData.id;
+
+//     } else {
+//       return res.status(403).json({
+//         success: false,
+//         message: "You are not allowed to create service process",
+//       });
+//     }
+
+//     // --- Create Service Process and Initial Stage Activity ---
+//     const newProcess = await prisma.$transaction(async (tx) => {
+//       const process = await tx.service_Process_Record.create({
+//         data: {
+//           item,
+//           subItem,
+//           serialNumber,
+//           itemTypeId,
+//           quantity,
+//           stageId: initialStageId,
+//           initialStageId,
+//           status: "IN_PROGRESS",
+//           createdBy: empId,
+//         },
+//       });
+
+//       await tx.stageActivity.create({
+//         data: {
+//           serviceProcessId: process.id,
+//           stageId: initialStageId,
+//           status: "IN_PROGRESS",
+//           isCurrent: true,
+//         },
+//       });
+
+//       return process;
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Service process created with initial stage activity",
+//       data: newProcess,
+//     });
+
+//   } catch (error) {
+//     console.error("ERROR: ", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const createServiceProcess = async (req, res) => {
   try {
-    const { item, subItem, serialNumber } = req.body;
-
-    let itemTypeId, initialStageId;
-    const empId = req?.user?.id;
-    const empRole = req?.user?.role?.name;
+    let { item, subItem, serialNumber, quantity } = req.body;
+    const empId = req.user?.id;
+    const empRole = req.user?.role?.name;
 
     if (!item || !subItem || !serialNumber) {
       throw new Error("All fields are required");
     }
+
+    serialNumber = serialNumber.trim().toUpperCase();
+
+    // Check if a process already exists for today with same item/subItem/serialNumber
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const existingProcess = await prisma.service_Process_Record.findFirst({
+      where: {
+        serialNumber,
+        item,
+        subItem,
+        createdAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      },
+    });
+
+    if (existingProcess) {
+      return res.status(400).json({
+        success: false,
+        message: `Service Process already created today for ${serialNumber}`,
+      });
+    }
+
+    let itemTypeId, initialStageId;
 
     if (empRole === "Disassemble") {
       const itemTypeData = await prisma.itemType.findFirst({
         where: { name: "SERVICE" },
         select: { id: true },
       });
-
-      if (!itemTypeData) throw new Error("ItemType not found");
-      itemTypeId = itemTypeData.id;
-
-      const initialStageData = await prisma.stage.findFirst({
+      const stageData = await prisma.stage.findFirst({
         where: { name: "Disassemble" },
         select: { id: true },
       });
-
-      if (!initialStageData) throw new Error("Initial stage not found");
-      initialStageId = initialStageData.id;
+      if (!itemTypeData || !stageData)
+        throw new Error("ItemType or Stage not found");
+      itemTypeId = itemTypeData.id;
+      initialStageId = stageData.id;
     } else if (empRole === "MPC Work") {
       const itemTypeData = await prisma.itemType.findFirst({
         where: { name: "NEW" },
         select: { id: true },
       });
-
-      if (!itemTypeData) throw new Error("ItemType not found");
-      itemTypeId = itemTypeData.id;
-
-      const initialStageData = await prisma.stage.findFirst({
+      const stageData = await prisma.stage.findFirst({
         where: { name: "MPC Work" },
         select: { id: true },
       });
-
-      if (!initialStageData) throw new Error("Initial stage not found");
-      initialStageId = initialStageData.id;
+      if (!itemTypeData || !stageData)
+        throw new Error("ItemType or Stage not found");
+      itemTypeId = itemTypeData.id;
+      initialStageId = stageData.id;
     } else {
       throw new Error("You are not allowed to create service process");
     }
 
+    // --- Transaction: Create Service Process + Initial Stage Activity ---
     const newProcess = await prisma.$transaction(async (tx) => {
       const process = await tx.service_Process_Record.create({
         data: {
           item,
           subItem,
-          itemTypeId,
           serialNumber,
+          itemTypeId,
+          quantity,
           stageId: initialStageId,
           initialStageId,
           status: "IN_PROGRESS",
@@ -317,11 +467,12 @@ const createServiceProcess = async (req, res) => {
         },
       });
 
+      // Create initial stage activity, leave empId null so user can accept
       await tx.stageActivity.create({
         data: {
           serviceProcessId: process.id,
           stageId: initialStageId,
-          status: "IN_PROGRESS",
+          status: "PENDING", // Pending until accepted
           isCurrent: true,
         },
       });
@@ -331,11 +482,11 @@ const createServiceProcess = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Service process created with initial stage activity",
+      message: "Service process created and initial stage activity assigned",
       data: newProcess,
     });
   } catch (error) {
-    console.error("ERROR: ", error);
+    console.error("❌ Error in createServiceProcess:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -344,59 +495,156 @@ const createServiceProcess = async (req, res) => {
   }
 };
 
-const getProcessForUserStage = async (req, res) => {
+const getPendingActivitiesForUserStage = async (req, res) => {
   try {
-    const userRole = req?.user?.role?.name;
-    if (!userRole) {
-      throw new Error("User Role Not Found");
-    }
+    const { role } = req.user;
+    const empId = req.user?.id;
 
-    const stageData = await prisma.stage.findFirst({
+    if (!role?.name) throw new Error("User role not found");
+
+    const stage = await prisma.stage.findFirst({ where: { name: role.name } });
+    if (!stage) throw new Error("Stage not found for this role");
+
+    const pendingActivities = await prisma.stageActivity.findMany({
       where: {
-        name: userRole,
-      },
-    });
-
-    if (!stageData) {
-      throw new Error("Stage Not Found");
-    }
-
-    const serviceProcessData = await prisma.service_Process_Record.findMany({
-      where: {
-        stage: stageData.id,
+        stageId: stage.id,
+        status: "PENDING",
+        empId: null, // unassigned
       },
       include: {
-        itemType: true,
-        stage: true,
-        stageActivity: {
-          where: {
-            isCurrent: true,
-          },
-          include: {
-            stage: true,
-            user: true,
+        serviceProcess: {
+          select: {
+            id: true,
+            item: true,
+            subItem: true,
+            serialNumber: true,
+            itemType: {
+              select: { id: true, name: true },
+            },
           },
         },
+        stage: { select: { id: true, name: true } },
       },
-      orderBy: {
-        updatedAt: "desc",
-      },
+      orderBy: { createdAt: "asc" },
     });
+
+    // Optional: Transform for frontend-friendly format
+    const response = pendingActivities.map((activity) => ({
+      activityId: activity.id,
+      serviceProcessId: activity.serviceProcess.id,
+      item: activity.serviceProcess.item,
+      subItem: activity.serviceProcess.subItem,
+      serialNumber: activity.serviceProcess.serialNumber,
+      itemType: activity.serviceProcess.itemType.name,
+      stage: activity.stage.name,
+      createdAt: activity.createdAt,
+    }));
 
     return res.status(200).json({
       success: true,
-      message: "Processes fetched successfully",
-      data: serviceProcessData,
+      message: "Pending activities fetched successfully",
+      data: response,
     });
   } catch (error) {
-    console.error("ERROR: ", error);
+    console.error("❌ Error in getPendingActivitiesForUserStage:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: error.message,
+      message: error.message || "Internal Server Error",
     });
   }
 };
+
+const acceptServiceProcess = async (req, res) => {
+  try {
+    const empId = req.user?.id;
+    const { serviceProcessId } = req.body;
+
+    if (!serviceProcessId) {
+      return res.status(400).json({ success: false, message: "Service process ID is required" });
+    }
+
+    // Fetch current stage activity for this service process
+    const activity = await prisma.stageActivity.findFirst({
+      where: { serviceProcessId, isCurrent: true },
+      include: { serviceProcess: true, stage: true, user: true },
+    });
+
+    if (!activity) {
+      return res.status(404).json({ success: false, message: "No current stage activity found" });
+    }
+
+    if (activity.status !== "PENDING") {
+      return res.status(400).json({ success: false, message: `Cannot accept because status is ${activity.status}` });
+    }
+
+    if (activity.empId) {
+      return res.status(400).json({ success: false, message: "Already accepted by another employee" });
+    }
+
+    const serviceProcess = activity.serviceProcess;
+    if (["COMPLETED"].includes(serviceProcess.status)) {
+      return res.status(400).json({ success: false, message: `Cannot accept because process is ${serviceProcess.status}` });
+    }
+
+    // Accept the stage
+    const updatedActivity = await prisma.stageActivity.update({
+      where: { id: activity.id },
+      data: { empId, status: "IN_PROGRESS", acceptedAt: new Date() },
+      include: { serviceProcess: true, stage: true, user: true },
+    });
+
+    return res.status(200).json({ success: true, message: "Service process accepted successfully", data: updatedActivity });
+  } catch (error) {
+    console.error("❌ Error in acceptServiceProcess:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+  }
+};
+
+const startServiceProcess = async (req, res) => {
+  try {
+    const empId = req.user?.id;
+    const { serviceProcessId } = req.body;
+
+    if (!serviceProcessId) {
+      return res.status(400).json({ success: false, message: "Service process ID is required" });
+    }
+
+    // Fetch current stage activity assigned to this employee
+    const activity = await prisma.stageActivity.findFirst({
+      where: { serviceProcessId, isCurrent: true, empId },
+      include: { serviceProcess: true, stage: true },
+    });
+
+    if (!activity) {
+      return res.status(404).json({ success: false, message: "No stage activity found for this employee" });
+    }
+
+    if(activity.empId !== empId) {
+      return res.status(400).json({ success: false, message: "You are not allowed to access these stage"})
+    }
+
+    if (activity.status !== "IN_PROGRESS") {
+      return res.status(400).json({ success: false, message: "Process must be accepted before starting" });
+    }
+
+    if (activity.startedAt) {
+      return res.status(400).json({ success: false, message: "Process has already been started" });
+    }
+
+    // Start the stage
+    const updatedActivity = await prisma.stageActivity.update({
+      where: { id: activity.id },
+      data: { startedAt: new Date() },
+      include: { serviceProcess: true, stage: true, user: true },
+    });
+
+    return res.status(200).json({ success: true, message: "Service process started successfully", data: updatedActivity });
+  } catch (error) {
+    console.error("❌ Error in startServiceProcess:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+  }
+};
+
 
 const showUserItemStock = async (req, res) => {
   try {
@@ -834,7 +1082,7 @@ const createItemUsageLog = async (req, res) => {
 //   }
 // };
 
-const updateStageAndMoveNext = async (req, res) => {
+const completeServiceProcess = async (req, res) => {
   try {
     const { serviceProcessId, status, failureReason, remarks } = req.body;
     const empId = req.user?.id;
@@ -842,7 +1090,7 @@ const updateStageAndMoveNext = async (req, res) => {
     if (!serviceProcessId || !status || !remarks) {
       return res.status(400).json({
         success: false,
-        message: "Service process ID, status and remarks are required",
+        message: "Service process ID, status, and remarks are required",
       });
     }
 
@@ -859,31 +1107,20 @@ const updateStageAndMoveNext = async (req, res) => {
 
     const processData = await prisma.service_Process_Record.findFirst({
       where: { id: serviceProcessId },
-      include: {
-        stage: true,
-        itemType: true,
-      },
+      include: { stage: true, itemType: true },
     });
 
     if (!processData) {
-      return res.status(404).json({
-        success: false,
-        message: "Service process not found",
-      });
+      return res.status(404).json({ success: false, message: "Service process not found" });
     }
 
-    // --- Helper Function: Handle Failure Redirection ---
     const handleFailureRedirect = async (tx, updatedActivity, reason) => {
       const itemTypeId = updatedActivity.serviceProcess.itemType.id;
-
       const redirectStage = await tx.failureRedirect.findFirst({
         where: { itemTypeId, failureReason: reason },
       });
 
-      if (!redirectStage)
-        throw new Error(
-          `Failure redirect stage not found for reason: ${reason}`
-        );
+      if (!redirectStage) throw new Error(`Failure redirect stage not found for reason: ${reason}`);
 
       await tx.service_Process_Record.update({
         where: { id: serviceProcessId },
@@ -904,18 +1141,13 @@ const updateStageAndMoveNext = async (req, res) => {
       });
     };
 
-    // --- Helper Function: Move to Next Stage ---
     const moveToNextStage = async (tx, updatedActivity) => {
       const { serviceProcess, stage } = updatedActivity;
       const stageFlow = await tx.stageFlow.findFirst({
-        where: {
-          itemTypeId: serviceProcess.itemType.id,
-          currentStageId: stage.id,
-        },
+        where: { itemTypeId: serviceProcess.itemType.id, currentStageId: stage.id },
       });
 
       if (!stageFlow) {
-        // If no next stage, mark process completed
         await tx.service_Process_Record.update({
           where: { id: serviceProcess.id },
           data: { status: "COMPLETED" },
@@ -923,16 +1155,11 @@ const updateStageAndMoveNext = async (req, res) => {
         return null;
       }
 
-      // Update process with next stage
       await tx.service_Process_Record.update({
         where: { id: serviceProcess.id },
-        data: {
-          stageId: stageFlow.nextStageId,
-          status: "IN_PROGRESS",
-        },
+        data: { stageId: stageFlow.nextStageId, status: "IN_PROGRESS" },
       });
 
-      // Create next stage activity
       await tx.stageActivity.create({
         data: {
           serviceProcessId: serviceProcess.id,
@@ -945,90 +1172,60 @@ const updateStageAndMoveNext = async (req, res) => {
       return stageFlow.nextStageId;
     };
 
-    // --- Transaction Begins ---
     const result = await prisma.$transaction(async (tx) => {
-      // Fetch current stage activity safely
       const currentActivity = await tx.stageActivity.findFirst({
-        where: {
-          serviceProcessId,
-          stageId: processData.stage.id,
-          isCurrent: true,
-        },
+        where: { serviceProcessId, stageId: processData.stage.id, isCurrent: true },
       });
 
-      if (!currentActivity)
-        throw new Error("Current stage activity not found or already updated");
+      if (!currentActivity) throw new Error("Current stage activity not found");
 
-      // Update current stage activity atomically
-      const updatedCurrentActivity = await tx.stageActivity.updateMany({
-        where: { id: currentActivity.id, isCurrent: true },
+      const updatedCurrentActivity = await tx.stageActivity.update({
+        where: { id: currentActivity.id },
         data: {
           empId,
           status,
           failureReason: status === "FAILED" ? failureReason : null,
           remarks,
           isCurrent: false,
+          completedAt: new Date(),
         },
+        include: { stage: true, serviceProcess: { include: { itemType: true } } },
       });
 
-      if (updatedCurrentActivity.count === 0) {
-        throw new Error("Stage already updated by another user");
-      }
-
-      // Fetch updated activity with relations
-      const updatedActivity = await tx.stageActivity.findUnique({
-        where: { id: currentActivity.id },
-        include: {
-          stage: true,
-          serviceProcess: { include: { itemType: true } },
-        },
-      });
-
-      // --- Handle logic based on Stage & Item Type ---
-      const { stage, serviceProcess } = updatedActivity;
+      const { stage, serviceProcess } = updatedCurrentActivity;
       const itemTypeName = serviceProcess.itemType.name;
       const stageName = stage.name;
 
-      // Handle Testing Stage Logic
+      // --- Testing stage logic ---
       if (stageName === "Testing") {
         if (status === "FAILED" && failureReason) {
-          await handleFailureRedirect(tx, updatedActivity, failureReason);
+          await handleFailureRedirect(tx, updatedCurrentActivity, failureReason);
         } else if (status === "COMPLETED") {
-          // TODO: Add stock update logic for testing stage completion
           const subItem = serviceProcess.subItem;
+          const existingItem = warehouseItemsData.items.find((item) => item.itemName === subItem);
+          if (!existingItem) throw new Error(`Item "${subItem}" not found in Warehouse`);
 
-          const existingItem = warehouseItemsData.items.find(
-            (item) => item.itemName === subItem
-          );
+          if (itemTypeName === "SERVICE") existingItem.quantity = Number(existingItem.quantity) + 1;
+          else if (itemTypeName === "NEW") existingItem.newStock = Number(existingItem.newStock) + 1;
 
-          if (!existingItem) {
-            throw new Error(`Item "${subItem}" not found in Warehouse`);
-          }
-
-          if (itemTypeName === "SERVICE") {
-            existingItem.quantity = Number(existingItem.quantity) + 1;
-          } else if (itemTypeName === "NEW") {
-            existingItem.newStock = Number(existingItem.newStock) + 1;
-          }
           await warehouseItemsData.save();
+          await moveToNextStage(tx, updatedCurrentActivity);
         }
       } else {
-        // Handle non-testing stages
-        if (status === "COMPLETED") {
-          await moveToNextStage(tx, updatedActivity);
-        }
+        // --- Non-testing stages ---
+        if (status === "COMPLETED") await moveToNextStage(tx, updatedCurrentActivity);
       }
 
-      return updatedActivity;
+      return updatedCurrentActivity;
     });
 
     return res.status(200).json({
       success: true,
-      message: `Stage ${result.stage.name} updated successfully`,
-      data: result,
+      message: "Stage completed - process moved to next stage",
+      data: { activity: result, processId: serviceProcessId },
     });
   } catch (error) {
-    console.error("❌ Error in updateStageAndMoveNext:", error);
+    console.error("❌ Error in completeServiceProcess:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
@@ -1036,13 +1233,16 @@ const updateStageAndMoveNext = async (req, res) => {
   }
 };
 
+
 module.exports = {
   showStorePersons,
   rawMaterialForItemRequest,
   createItemRequest,
   createServiceProcess,
-  getProcessForUserStage,
+  getPendingActivitiesForUserStage,
+  acceptServiceProcess,
+  startServiceProcess,
+  completeServiceProcess,
   showUserItemStock,
   createItemUsageLog,
-  updateStageAndMoveNext,
 };

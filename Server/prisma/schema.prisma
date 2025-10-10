@@ -277,6 +277,10 @@ model StageActivity {
   isCurrent        Boolean        @default(false)
   failureReason    FailureReason?
   remarks          String?
+  outcome          String?
+  acceptedAt       DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -343,7 +347,10 @@ model Service_Process_Record {
   initialStageId       String? // NEW - where it originally started
   restartedFromStageId String? // NEW - where it restarted from
   status               ProcessStatus @default(PENDING)
+  finalStatus          String?       // REPAIRED, REJECTED, PRODUCED, FAILED
+  isClosed             Boolean       @default(false)
   isRepaired           Boolean?
+  finalRemarks         String?
   createdAt            DateTime      @default(now())
   createdBy            String?
   updatedAt            DateTime      @updatedAt
