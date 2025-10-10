@@ -1,10 +1,11 @@
 module.exports = {
-    app: [
-        {
-            name: "auto-restart-all",
-            script: "pm2 restart all",
-            cron_restart: "0 3 * * *", //every day at 3 AM
-            autorestart: false, //don't restart this script itelf
-        },
-    ],
+  apps: [
+    {
+      name: "pm2-daily-restart",
+      script: "pm2",
+      args: "restart all",     // this command restarts ALL processes
+      cron_restart: "0 0 * * *", // every day at midnight (00:00)
+      autorestart: false,        // don’t auto-restart this scheduler
+    },
+  ],
 };
