@@ -566,9 +566,9 @@ const acceptServiceProcess = async (req, res) => {
     // Fetch current stage activity for this service process
     const activity = await prisma.stageActivity.findFirst({
       where: { serviceProcessId, isCurrent: true },
-      include: { serviceProcess: true, stage: true, user: true },
+      include: { serviceProcess: true, stage: true,},
     });
-
+    console.log(activity);
     if (!activity) {
       return res.status(404).json({ success: false, message: "No current stage activity found" });
     }
@@ -586,10 +586,13 @@ const acceptServiceProcess = async (req, res) => {
       return res.status(400).json({ success: false, message: `Cannot accept because process is ${serviceProcess.status}` });
     }
 
-    // Accept the stage
     const updatedActivity = await prisma.stageActivity.update({
       where: { id: activity.id },
-      data: { empId, status: "IN_PROGRESS", acceptedAt: new Date() },
+      data: {
+        user: { connect: { id: empId } }, // ✅ correct way
+        status: "IN_PROGRESS",
+        acceptedAt: new Date(),
+      },
       include: { serviceProcess: true, stage: true, user: true },
     });
 
