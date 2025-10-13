@@ -362,8 +362,8 @@ const updateRawMaterialStockByExcel = async (req, res) => {
 };
 
 const migrateServiceRecordJSON = async (req, res) => {
-  try {
-    // 1️⃣ Fetch all ServiceRecord rows
+ try {
+    // 1️⃣ Fetch all ServiceRecord rows where either field is non-null
     const records = await prisma.serviceRecord.findMany({
       where: {
         OR: [
@@ -376,30 +376,35 @@ const migrateServiceRecordJSON = async (req, res) => {
     console.log(`Found ${records.length} records to check.`);
 
     for (const record of records) {
-      let updateData = {};
       const { id, faultAnalysis, initialRCA } = record;
+      let updateData = {};
 
-      // Clean and wrap faultAnalysis
-      if (faultAnalysis) {
+      // ✅ faultAnalysis
+      if (faultAnalysis !== null) {
         try {
           JSON.parse(faultAnalysis); // already valid JSON?
         } catch {
-          // not valid JSON, clean it
-          const cleaned = `[\"${faultAnalysis.replace(/[\n\r]+/g, ' ').replace(/"/g, '\\"')}\"]`;
+          // Not valid JSON → clean and wrap as array
+          const cleaned = `[\"${faultAnalysis
+            .replace(/[\n\r]+/g, ' ')
+            .replace(/"/g, '\\"')}"]`;
           updateData.faultAnalysis = cleaned;
         }
       }
 
-      // Clean and wrap initialRCA
-      if (initialRCA) {
+      // ✅ initialRCA
+      if (initialRCA !== null) {
         try {
           JSON.parse(initialRCA);
         } catch {
-          const cleaned = `[\"${initialRCA.replace(/[\n\r]+/g, ' ').replace(/"/g, '\\"')}\"]`;
+          const cleaned = `[\"${initialRCA
+            .replace(/[\n\r]+/g, ' ')
+            .replace(/"/g, '\\"')}"]`;
           updateData.initialRCA = cleaned;
         }
       }
 
+      // Update only if any changes needed
       if (Object.keys(updateData).length > 0) {
         await prisma.serviceRecord.update({
           where: { id },
@@ -408,12 +413,9 @@ const migrateServiceRecordJSON = async (req, res) => {
         console.log(`Updated record: ${id}`);
       }
     }
+
+    console.log("✅ Migration complete. All strings converted to JSON arrays, nulls preserved.");
     return res.status(200).json({
-        success: true,
-        message: "Success"
-    });
-    console.log("✅ Migration complete. All strings converted to JSON arrays.");
-     return res.status(200).json({
         success: true,
         message: "Success"
     });

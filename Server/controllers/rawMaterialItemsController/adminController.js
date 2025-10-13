@@ -1232,7 +1232,7 @@ const getRawMaterialsByItemId = async (req, res) => {
 // };
 
 const addServiceRecord = async (req, res) => {
-   try {
+  try {
     const {
       item,
       subItem,
@@ -1253,7 +1253,7 @@ const addServiceRecord = async (req, res) => {
       !subItem ||
       !quantity ||
       !serialNumber ||
-      !faultAnalysis ||
+      !Array.isArray(faultAnalysis) ||
       !repairedRejectedBy ||
       !remarks ||
       !Array.isArray(repairedParts) ||
@@ -1345,8 +1345,16 @@ const addServiceRecord = async (req, res) => {
           subItem,
           quantity,
           serialNumber,
-          initialRCA: initialRCA || null,
-          faultAnalysis,
+          initialRCA: initialRCA
+            ? Array.isArray(initialRCA)
+              ? initialRCA
+              : [initialRCA]
+            : null,
+          faultAnalysis: faultAnalysis
+            ? Array.isArray(faultAnalysis)
+              ? faultAnalysis
+              : [faultAnalysis]
+            : null,
           isRepaired,
           repairedRejectedBy,
           remarks,
