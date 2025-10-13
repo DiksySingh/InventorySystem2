@@ -9,6 +9,7 @@ const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerIt
 const ExcelJS = require("exceljs");
 const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSchema");
 const WarehousePerson = require("../../models/serviceInventoryModels/warehousePersonSchema");
+const bulkMessage = require("../../helpers/whatsapp/bulkMessageEng");
 
 const exportActiveUsers = async (req, res) => {
   try {
@@ -643,6 +644,29 @@ const exportFarmerItemsActivityToExcel = async (req, res) => {
   }
 };
 
+const sendWhatsAppMessage = async (req, res) => {
+  try {
+    const {contactNumber, message} = req.body;
+    if(!contactNumber || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      });
+    }
+
+    const result = await bulkMessage(contactNumber, message);
+    console.log(result);
+    return;
+  } catch (error) {
+    console.error("Error sending message:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+  
+    });
+  }
+}
+
 module.exports = {
     exportActiveUsers,
     W2W,
@@ -655,5 +679,6 @@ module.exports = {
     getItemRawMaterialExcel,
     getNotApprovedPickupData,
     exportFarmerSaralIdsToExcel,
-    exportFarmerItemsActivityToExcel
+    exportFarmerItemsActivityToExcel,
+    sendWhatsAppMessage
 }
