@@ -361,6 +361,69 @@ const updateRawMaterialStockByExcel = async (req, res) => {
     }
 };
 
+const migrateServiceRecordJSON = async (req, res) => {
+  try {
+    // 1️⃣ Fetch all ServiceRecord rows
+    const records = await prisma.serviceRecord.findMany({
+      where: {
+        OR: [
+          { faultAnalysis: { not: null } },
+          { initialRCA: { not: null } }
+        ]
+      }
+    });
+
+    console.log(`Found ${records.length} records to check.`);
+
+    for (const record of records) {
+      let updateData = {};
+      const { id, faultAnalysis, initialRCA } = record;
+
+      // Clean and wrap faultAnalysis
+      if (faultAnalysis) {
+        try {
+          JSON.parse(faultAnalysis); // already valid JSON?
+        } catch {
+          // not valid JSON, clean it
+          const cleaned = `[\"${faultAnalysis.replace(/[\n\r]+/g, ' ').replace(/"/g, '\\"')}\"]`;
+          updateData.faultAnalysis = cleaned;
+        }
+      }
+
+      // Clean and wrap initialRCA
+      if (initialRCA) {
+        try {
+          JSON.parse(initialRCA);
+        } catch {
+          const cleaned = `[\"${initialRCA.replace(/[\n\r]+/g, ' ').replace(/"/g, '\\"')}\"]`;
+          updateData.initialRCA = cleaned;
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await prisma.serviceRecord.update({
+          where: { id },
+          data: updateData,
+        });
+        console.log(`Updated record: ${id}`);
+      }
+    }
+    return res.status(200).json({
+        success: true,
+        message: "Success"
+    });
+    console.log("✅ Migration complete. All strings converted to JSON arrays.");
+     return res.status(200).json({
+        success: true,
+        message: "Success"
+    });
+  } catch (error) {
+    console.error("Error migrating ServiceRecord JSON:", error);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 
 module.exports = {
     addRole,
@@ -371,5 +434,6 @@ module.exports = {
     updateRawMaterialsUnitByExcel,
     importRawMaterialsByExcel,
     updateRawMaterialStockByExcel,
-    upload 
+    upload,
+    migrateServiceRecordJSON
 };

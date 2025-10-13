@@ -174,12 +174,12 @@ model ServiceRecord {
   subItem            String? // Sub-item (e.g., capacitor, fuse) //MOTOR 10HP AC 380V
   quantity           Float? // Quantity of items handled    //1
   serialNumber       String? // Serial number of the serviced item //ABCB1234
-  faultAnalysis      String? // Description of the fault or issue found  //Stamp Damaged
+  faultAnalysis      Json? // Description of the fault or issue found  //Stamp Damaged
   isRepaired         Boolean? // Whether the main item was fixed //true
   repairedRejectedBy String? // Name of the technician //Shiv
   remarks            String? // Additional repair notes // Defective Items
   repairedParts      Json? // Array of objects: [{ rawMaterialId: "123", quantity: 2 }]
-  initialRCA         String?
+  initialRCA         Json?
 
   userId String // User who created the record (foreign key)
   user   User   @relation(fields: [userId], references: [id]) // Relationship to User model

@@ -10,6 +10,7 @@ router.delete("/deleteItemRawMaterialFromExcel", commonController.upload.single(
 router.post("/updateRawMaterialsUnitByExcel", commonController.upload.single('file'), commonController.updateRawMaterialsUnitByExcel);
 router.post("/importRawMaterialsByExcel", commonController.upload.single('file'), commonController.importRawMaterialsByExcel);
 router.post("/updateRawMaterialStockByExcel", commonController.upload.single('file'), commonController.updateRawMaterialStockByExcel);
+router.post("/migrateServiceRecordJSON", commonController.migrateServiceRecordJSON);
 
 
 module.exports = router;
