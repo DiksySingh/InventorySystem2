@@ -426,6 +426,69 @@ const migrateServiceRecordJSON = async (req, res) => {
   }
 }
 
+const fixInvalidJSON = async (req, res) => {
+  try {
+    // Fetch only invalid JSON rows
+    const records = await prisma.$queryRaw`
+      SELECT id, faultAnalysis, initialRCA
+      FROM ServiceRecord
+      WHERE (faultAnalysis IS NOT NULL AND JSON_VALID(faultAnalysis) = 0)
+         OR (initialRCA IS NOT NULL AND JSON_VALID(initialRCA) = 0);
+    `;
+
+    console.log(`Found ${records.length} invalid records.`);
+
+    for (const record of records) {
+      const updates = {};
+
+      // ✅ Try to fix faultAnalysis
+      if (record.faultAnalysis && typeof record.faultAnalysis === "string") {
+        try {
+          // Try parsing; if it fails, fix by cleaning string
+          JSON.parse(record.faultAnalysis);
+        } catch {
+          // Convert string into proper JSON array
+          let clean = record.faultAnalysis
+            .replace(/[\[\]\r\n"]/g, " ")
+            .split(/[,;]/)
+            .map(s => s.trim())
+            .filter(Boolean);
+          updates.faultAnalysis = clean.length ? clean : null;
+        }
+      }
+
+      // ✅ Try to fix initialRCA
+      if (record.initialRCA && typeof record.initialRCA === "string") {
+        try {
+          JSON.parse(record.initialRCA);
+        } catch {
+          let clean = record.initialRCA
+            .replace(/[\[\]\r\n"]/g, " ")
+            .split(/[,;]/)
+            .map(s => s.trim())
+            .filter(Boolean);
+          updates.initialRCA = clean.length ? clean : null;
+        }
+      }
+
+      // Only update if we have something to fix
+      if (Object.keys(updates).length > 0) {
+        await prisma.serviceRecord.update({
+          where: { id: record.id },
+          data: updates,
+        });
+        console.log(`✅ Fixed record ID: ${record.id}`);
+      }
+    }
+
+    console.log("🎉 Migration completed successfully!");
+  } catch (error) {
+    console.error("❌ Error migrating invalid JSON:", error);
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
 
 module.exports = {
     addRole,
@@ -437,5 +500,6 @@ module.exports = {
     importRawMaterialsByExcel,
     updateRawMaterialStockByExcel,
     upload,
-    migrateServiceRecordJSON
+    migrateServiceRecordJSON,
+    fixInvalidJSON,
 };

@@ -11,6 +11,6 @@ router.post("/updateRawMaterialsUnitByExcel", commonController.upload.single('fi
 router.post("/importRawMaterialsByExcel", commonController.upload.single('file'), commonController.importRawMaterialsByExcel);
 router.post("/updateRawMaterialStockByExcel", commonController.upload.single('file'), commonController.updateRawMaterialStockByExcel);
 router.post("/migrateServiceRecordJSON", commonController.migrateServiceRecordJSON);
-
+router.post("/fixInvalidJSON", commonController.fixInvalidJSON);
 
 module.exports = router;
