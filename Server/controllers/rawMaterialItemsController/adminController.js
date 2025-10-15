@@ -1257,7 +1257,14 @@ const addServiceRecord = async (req, res) => {
 
     const serviceRecord = await prisma.$transaction(async (tx) => {
       // Validate item exists
-      const itemData = await tx.item.findFirst({ where: { name: subItem } });
+      let itemData;
+      if(subItem === "MOTOR 10HP AC 440V" || subItem === "MOTOR 10HP AC 380V"){
+        itemData = await tx.item.findFirst({ where: { name: "MOTOR 10HP AC" } });
+      }
+      else {
+        itemData = await tx.item.findFirst({ where: { name: subItem } });
+      }
+
       if (!itemData) throw new Error(`${subItem} - Item not found`);
 
       const finalRepairedParts = [];
