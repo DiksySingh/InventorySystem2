@@ -1018,165 +1018,165 @@ const getRawMaterialsByItemId = async (req, res) => {
   }
 };
 
-// const addServiceRecord = async (req, res) => {
-//   try {
-//     const {
-//       item,
-//       subItem,
-//       quantity,
-//       serialNumber,
-//       faultAnalysis,
-//       initialRCA,
-//       isRepaired,
-//       repairedRejectedBy,
-//       remarks,
-//       repairedParts, // Array of objects: [{ rawMaterialId: "123", quantity: 2, unit: "pcs" }]
-//       //farmerSaralId,
-//       userId,
-//     } = req.body;
+const addServiceRecord = async (req, res) => {
+  try {
+    const {
+      item,
+      subItem,
+      quantity,
+      serialNumber,
+      faultAnalysis,
+      initialRCA,
+      isRepaired,
+      repairedRejectedBy,
+      remarks,
+      repairedParts, // Array of objects: [{ rawMaterialId: "123", quantity: 2, unit: "pcs" }]
+      //farmerSaralId,
+      userId,
+    } = req.body;
 
-//     // ✅ Basic validation
-//     if (
-//       !item ||
-//       !subItem ||
-//       !quantity ||
-//       !serialNumber ||
-//       !faultAnalysis ||
-//       !repairedRejectedBy ||
-//       !remarks ||
-//       !Array.isArray(repairedParts) ||
-//       repairedParts.length === 0 ||
-//       !userId
-//     ) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "All fields are required",
-//       });
-//     }
+    // ✅ Basic validation
+    if (
+      !item ||
+      !subItem ||
+      !quantity ||
+      !serialNumber ||
+      !faultAnalysis ||
+      !repairedRejectedBy ||
+      !remarks ||
+      !Array.isArray(repairedParts) ||
+      repairedParts.length === 0 ||
+      !userId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
 
-//     const rawMaterialMap = {};
-//     const insufficientStock = [];
+    const rawMaterialMap = {};
+    const insufficientStock = [];
 
-//     // ✅ Check unit and stock for all raw materials before proceeding
-//     for (const part of repairedParts) {
-//       const { rawMaterialId, quantity, unit } = part;
+    // ✅ Check unit and stock for all raw materials before proceeding
+    for (const part of repairedParts) {
+      const { rawMaterialId, quantity, unit } = part;
 
-//       if (!rawMaterialMap[rawMaterialId]) {
-//         const rawMaterial = await prisma.rawMaterial.findUnique({
-//           where: { id: rawMaterialId },
-//         });
+      if (!rawMaterialMap[rawMaterialId]) {
+        const rawMaterial = await prisma.rawMaterial.findUnique({
+          where: { id: rawMaterialId },
+        });
 
-//         if (!rawMaterial) {
-//           return res.status(404).json({
-//             success: false,
-//             message: `Raw Material with ID ${rawMaterialId} not found`,
-//           });
-//         }
+        if (!rawMaterial) {
+          return res.status(404).json({
+            success: false,
+            message: `Raw Material with ID ${rawMaterialId} not found`,
+          });
+        }
 
-//         rawMaterialMap[rawMaterialId] = rawMaterial;
-//       }
+        rawMaterialMap[rawMaterialId] = rawMaterial;
+      }
 
-//       const rawMaterial = rawMaterialMap[rawMaterialId];
+      const rawMaterial = rawMaterialMap[rawMaterialId];
 
-//       // ✅ Unit check
-//       if (rawMaterial.unit !== unit) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Unit mismatch for ${rawMaterial.name}. Expected: ${rawMaterial.unit}, Provided: ${unit}`,
-//         });
-//       }
+      // ✅ Unit check
+      if (rawMaterial.unit !== unit) {
+        return res.status(400).json({
+          success: false,
+          message: `Unit mismatch for ${rawMaterial.name}. Expected: ${rawMaterial.unit}, Provided: ${unit}`,
+        });
+      }
 
-//       // ✅ Stock check (only if item is being repaired)
-//       if (isRepaired && rawMaterial.stock < quantity) {
-//         insufficientStock.push({
-//           name: rawMaterial.name,
-//           available: rawMaterial.stock,
-//           required: quantity,
-//         });
-//       }
-//     }
+      // ✅ Stock check (only if item is being repaired)
+      if (isRepaired && rawMaterial.stock < quantity) {
+        insufficientStock.push({
+          name: rawMaterial.name,
+          available: rawMaterial.stock,
+          required: quantity,
+        });
+      }
+    }
 
-//     // ✅ If any stock is insufficient, abort and notify
-//     if (insufficientStock.length > 0) {
-//       console.error("Insufficient stock for raw materials:", insufficientStock);
-//       return res.status(400).json({
-//         success: false,
-//         message: `Insufficient stock for one or more raw materials. Details: ${insufficientStock} `,
-//         insufficientStock,
-//       });
-//     }
+    // ✅ If any stock is insufficient, abort and notify
+    if (insufficientStock.length > 0) {
+      console.error("Insufficient stock for raw materials:", insufficientStock);
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient stock for one or more raw materials. Details: ${insufficientStock} `,
+        insufficientStock,
+      });
+    }
 
-//     // ✅ Proceed to create service record
-//     const serviceRecord = await prisma.serviceRecord.create({
-//       data: {
-//         item,
-//         subItem,
-//         quantity,
-//         serialNumber,
-//         initialRCA: initialRCA || null,
-//         faultAnalysis,
-//         isRepaired,
-//         repairedRejectedBy,
-//         remarks,
-//         //farmerSaralId,
-//         repairedParts,
-//         userId,
-//       },
-//     });
+    // ✅ Proceed to create service record
+    const serviceRecord = await prisma.serviceRecord.create({
+      data: {
+        item,
+        subItem,
+        quantity,
+        serialNumber,
+        initialRCA: initialRCA || null,
+        faultAnalysis,
+        isRepaired,
+        repairedRejectedBy,
+        remarks,
+        //farmerSaralId,
+        repairedParts,
+        userId,
+      },
+    });
 
-//     // ✅ Update stock and log service usage
-//     for (const part of repairedParts) {
-//       const { rawMaterialId, quantity, unit } = part;
-//       const rawMaterial = rawMaterialMap[rawMaterialId];
+    // ✅ Update stock and log service usage
+    for (const part of repairedParts) {
+      const { rawMaterialId, quantity, unit } = part;
+      const rawMaterial = rawMaterialMap[rawMaterialId];
 
-//       let updatedStock = rawMaterial.stock;
+      let updatedStock = rawMaterial.stock;
 
-//       if (isRepaired) {
-//         updatedStock = rawMaterial.stock - quantity;
-//       } else {
-//         updatedStock = rawMaterial.stock + quantity;
-//       }
+      if (isRepaired) {
+        updatedStock = rawMaterial.stock - quantity;
+      } else {
+        updatedStock = rawMaterial.stock + quantity;
+      }
 
-//       await prisma.rawMaterial.update({
-//         where: { id: rawMaterialId },
-//         data: { stock: updatedStock },
-//       });
+      await prisma.rawMaterial.update({
+        where: { id: rawMaterialId },
+        data: { stock: updatedStock },
+      });
 
-//       await prisma.serviceUsage.create({
-//         data: {
-//           serviceId: serviceRecord.id,
-//           rawMaterialId,
-//           quantityUsed: quantity,
-//           unit: unit,
-//         },
-//       });
-//     }
+      await prisma.serviceUsage.create({
+        data: {
+          serviceId: serviceRecord.id,
+          rawMaterialId,
+          quantityUsed: quantity,
+          unit: unit,
+        },
+      });
+    }
 
-//     // ✅ Call external API (non-blocking, errors handled)
-//     try {
-//       const response = await axios.post(
-//         `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`
-//       );
-//       console.log("API Response:", response.data);
-//     } catch (apiError) {
-//       console.error("Error calling defective stock API:", apiError.message);
-//     }
+    // ✅ Call external API (non-blocking, errors handled)
+    try {
+      const response = await axios.post(
+        `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`
+      );
+      console.log("API Response:", response.data);
+    } catch (apiError) {
+      console.error("Error calling defective stock API:", apiError.message);
+    }
 
-//     // ✅ Final success response
-//     return res.status(201).json({
-//       success: true,
-//       message: "Service record created successfully!",
-//       serviceRecord,
-//     });
-//   } catch (error) {
-//     console.error("Error adding service record:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to create service record",
-//       error: error.message,
-//     });
-//   }
-// };
+    // ✅ Final success response
+    return res.status(201).json({
+      success: true,
+      message: "Service record created successfully!",
+      serviceRecord,
+    });
+  } catch (error) {
+    console.error("Error adding service record:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create service record",
+      error: error.message,
+    });
+  }
+};
 
 // const getItemRawMaterials = async (req, res) => {
 //     const { subItem } = req.query;
@@ -1231,126 +1231,126 @@ const getRawMaterialsByItemId = async (req, res) => {
 //     }
 // };
 
-const addServiceRecord = async (req, res) => {
-  try {
-    const {
-      item,
-      subItem,
-      quantity,
-      serialNumber,
-      initialRCA,
-      faultAnalysis,
-      isRepaired,
-      repairedRejectedBy,
-      remarks,
-      repairedParts,
-      userId
-    } = req.body;
-    console.log("Req Body: ", req.body);
-    if (
-      !item || !subItem || !quantity || !serialNumber ||
-      !repairedParts || repairedParts.length === 0 ||
-      !repairedRejectedBy || !remarks || !userId
-    ) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
-    }
+// const addServiceRecord = async (req, res) => {
+//   try {
+//     const {
+//       item,
+//       subItem,
+//       quantity,
+//       serialNumber,
+//       initialRCA,
+//       faultAnalysis,
+//       isRepaired,
+//       repairedRejectedBy,
+//       remarks,
+//       repairedParts,
+//       userId
+//     } = req.body;
+//     console.log("Req Body: ", req.body);
+//     if (
+//       !item || !subItem || !quantity || !serialNumber ||
+//       !repairedParts || repairedParts.length === 0 ||
+//       !repairedRejectedBy || !remarks || !userId
+//     ) {
+//       return res.status(400).json({ success: false, message: "All fields are required" });
+//     }
 
-    const serviceRecord = await prisma.$transaction(async (tx) => {
-      // Validate item exists
-      let itemData;
-      if(subItem === "MOTOR 10HP AC 440V" || subItem === "MOTOR 10HP AC 380V"){
-        itemData = await tx.item.findFirst({ where: { name: "MOTOR 10HP AC" } });
-      }
-      else {
-        itemData = await tx.item.findFirst({ where: { name: subItem } });
-      }
+//     const serviceRecord = await prisma.$transaction(async (tx) => {
+//       // Validate item exists
+//       let itemData;
+//       if(subItem === "MOTOR 10HP AC 440V" || subItem === "MOTOR 10HP AC 380V"){
+//         itemData = await tx.item.findFirst({ where: { name: "MOTOR 10HP AC" } });
+//       }
+//       else if ( subItem === "PUMP 10HP AC ") {
+//         itemData = await tx.item.findFirst({ where: { name: subItem } });
+//       }
 
-      if (!itemData) throw new Error(`${subItem} - Item not found`);
+//       if (!itemData) throw new Error(`${subItem} - Item not found`);
 
-      const finalRepairedParts = [];
-      const rawMaterialData = [];
-      const insufficientStock = [];
+//       const finalRepairedParts = [];
+//       const rawMaterialData = [];
+//       const insufficientStock = [];
 
-      // Process repaired parts
-      for (const { rawMaterialId } of repairedParts) {
-        const itemRawMaterial = await tx.itemRawMaterial.findUnique({
-          where: { itemId_rawMaterialId: { itemId: itemData.id, rawMaterialId } },
-          include: { rawMaterial: true }
-        });
+//       // Process repaired parts
+//       for (const { rawMaterialId } of repairedParts) {
+//         const itemRawMaterial = await tx.itemRawMaterial.findUnique({
+//           where: { itemId_rawMaterialId: { itemId: itemData.id, rawMaterialId } },
+//           include: { rawMaterial: true }
+//         });
 
-        if (!itemRawMaterial) throw new Error(`No mapping found for item: ${subItem} & rawMaterialId: ${rawMaterialId}`);
+//         if (!itemRawMaterial) throw new Error(`No mapping found for item: ${subItem} & rawMaterialId: ${rawMaterialId}`);
 
-        const { rawMaterial, quantity: requiredQty } = itemRawMaterial;
-        if (!rawMaterial) throw new Error(`Raw Material with ID ${rawMaterialId} not found`);
+//         const { rawMaterial, quantity: requiredQty } = itemRawMaterial;
+//         if (!rawMaterial) throw new Error(`Raw Material with ID ${rawMaterialId} not found`);
 
-        if (isRepaired && rawMaterial.stock < requiredQty) {
-          insufficientStock.push({ name: rawMaterial.name, available: rawMaterial.stock, required: requiredQty });
-        }
+//         if (isRepaired && rawMaterial.stock < requiredQty) {
+//           insufficientStock.push({ name: rawMaterial.name, available: rawMaterial.stock, required: requiredQty });
+//         }
 
-        finalRepairedParts.push({ rawMaterialId, quantity: requiredQty, unit: rawMaterial.unit });
-        rawMaterialData.push({ rawMaterialId, stock: rawMaterial.stock, requiredQty, unit: rawMaterial.unit });
-      }
+//         finalRepairedParts.push({ rawMaterialId, quantity: requiredQty, unit: rawMaterial.unit });
+//         rawMaterialData.push({ rawMaterialId, stock: rawMaterial.stock, requiredQty, unit: rawMaterial.unit });
+//       }
 
-      if (insufficientStock.length > 0) {
-        throw new Error(`Insufficient stock: ${JSON.stringify(insufficientStock)}`);
-      }
+//       if (insufficientStock.length > 0) {
+//         throw new Error(`Insufficient stock: ${JSON.stringify(insufficientStock)}`);
+//       }
 
-      // Create the service record
-      const record = await tx.serviceRecord.create({
-        data: {
-          item,
-          subItem,
-          quantity,
-          serialNumber,
-          initialRCA: initialRCA || null,       // Store JSON directly
-          faultAnalysis: faultAnalysis || null, // Store JSON directly
-          isRepaired,
-          repairedRejectedBy,
-          remarks,
-          repairedParts: finalRepairedParts,    // JSON array
-          userId
-        }
-      });
+//       // Create the service record
+//       const record = await tx.serviceRecord.create({
+//         data: {
+//           item,
+//           subItem,
+//           quantity,
+//           serialNumber,
+//           initialRCA: initialRCA || null,       // Store JSON directly
+//           faultAnalysis: faultAnalysis || null, // Store JSON directly
+//           isRepaired,
+//           repairedRejectedBy,
+//           remarks,
+//           repairedParts: finalRepairedParts,    // JSON array
+//           userId
+//         }
+//       });
 
-      // Update stock + log usage
-      for (const part of rawMaterialData) {
-        const updatedStock = isRepaired ? part.stock - part.requiredQty : part.stock + part.requiredQty;
+//       // Update stock + log usage
+//       for (const part of rawMaterialData) {
+//         const updatedStock = isRepaired ? part.stock - part.requiredQty : part.stock + part.requiredQty;
 
-        await tx.rawMaterial.update({
-          where: { id: part.rawMaterialId },
-          data: { stock: updatedStock }
-        });
+//         await tx.rawMaterial.update({
+//           where: { id: part.rawMaterialId },
+//           data: { stock: updatedStock }
+//         });
 
-        await tx.serviceUsage.create({
-          data: {
-            serviceId: record.id,
-            rawMaterialId: part.rawMaterialId,
-            quantityUsed: part.requiredQty,
-            unit: part.unit
-          }
-        });
-      }
+//         await tx.serviceUsage.create({
+//           data: {
+//             serviceId: record.id,
+//             rawMaterialId: part.rawMaterialId,
+//             quantityUsed: part.requiredQty,
+//             unit: part.unit
+//           }
+//         });
+//       }
 
-      return record;
-    });
+//       return record;
+//     });
 
-    // Optional: call external API
-    try {
-      const response = await axios.post(
-        `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`
-      );
-      console.log("API Response:", response.data);
-    } catch (apiError) {
-      console.error("External API error:", apiError.message);
-    }
+//     // Optional: call external API
+//     try {
+//       const response = await axios.post(
+//         `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`
+//       );
+//       console.log("API Response:", response.data);
+//     } catch (apiError) {
+//       console.error("External API error:", apiError.message);
+//     }
 
-    return res.status(201).json({ success: true, message: "Service record created successfully!", serviceRecord });
+//     return res.status(201).json({ success: true, message: "Service record created successfully!", serviceRecord });
 
-  } catch (error) {
-    console.error("Error adding service record:", error);
-    return res.status(500).json({ success: false, message: "Failed to create service record", error: error.message });
-  }
-};
+//   } catch (error) {
+//     console.error("Error adding service record:", error);
+//     return res.status(500).json({ success: false, message: "Failed to create service record", error: error.message });
+//   }
+// };
 
 const getItemRawMaterials = async (req, res) => {
   const { subItem } = req.query;
