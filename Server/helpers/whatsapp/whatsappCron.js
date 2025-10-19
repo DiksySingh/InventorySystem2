@@ -3,10 +3,10 @@ const bulkMessage = require("../../helpers/whatsapp/bulkMessageEng");
 
 // Schedule: Every day at 12:00 AM IST
 cron.schedule(
-  "56 22 * * *", // minute hour day month weekday
+  "0 0 * * *", // minute hour day month weekday
   async () => {
     try {
-      const numbers = ["+919266817734", "+919519999769"]; // ✅ Add both numbers
+      const numbers = ["+919266817734", "+919455447031"]; // ✅ Add both numbers
       const message = "Happy Diwali to you and your wonderful family! 🪔✨ May this festival of lights fill your home with love, joy, and togetherness. Just as the diyas illuminate every corner, may happiness, health, and prosperity brighten every moment of your lives. Wishing you all a truly sparkling and unforgettable Diwali! ❤️";
 
       console.log("🕛 Triggering WhatsApp messages at 12:00 AM...");
