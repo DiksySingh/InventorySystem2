@@ -3,7 +3,7 @@ const { bulkMessage } = require("../../helpers/whatsapp/bulkMessageEng");
 
 // Schedule: Every day at 10:05 PM IST
 cron.schedule(
-  "5 22 * * *", // minute hour day month weekday
+  "8fi 22 * * *", // minute hour day month weekday
   async () => {
     try {
       const contactNumber = "+919266817734"; // ✅ Update if needed
