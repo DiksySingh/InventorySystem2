@@ -1,5 +1,5 @@
 const cron = require("node-cron");
-const { bulkMessage } = require("../../helpers/whatsapp/bulkMessageEng");
+const bulkMessage = require("../../helpers/whatsapp/bulkMessageEng");
 
 // Schedule: Every day at 10:05 PM IST
 cron.schedule(
