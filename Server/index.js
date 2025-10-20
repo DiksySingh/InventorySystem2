@@ -79,7 +79,7 @@ app.use("/common", commonRouter);
 app.use("/line-worker", lineWorkerRouter); 
 app.use("/store-keeper", storekeeperRouter);
 app.use("/test", testRouter);
-require("./helpers/whatsapp/whatsappCron");
+// require("./helpers/whatsapp/whatsappCron");
 
 // Start the server
 app.listen(PORT, () => {
