@@ -8,13 +8,16 @@ const storage = multer.diskStorage({
       __dirname,
       "../../uploads/dispatchedSystems/dispatchBillPhoto"
     );
+
     try {
       await fs.mkdir(uploadPath, { recursive: true });
     } catch (err) {
       return cb(err);
     }
+
     cb(null, uploadPath);
   },
+
   filename: (req, file, cb) => {
     const timestamp = Date.now().toString();
     const ext = path.extname(file.originalname).toLowerCase();
@@ -23,25 +26,20 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|mp4|mov|avi|mkv/;
+  const allowedTypes = /jpeg|jpg|png|pdf/;
   const extValid = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimeValid = allowedTypes.test(file.mimetype);
+  const mimeValid = allowedTypes.test(file.mimetype.toLowerCase());
+
   if (extValid && mimeValid) cb(null, true);
-  else
-    cb(
-      new Error(
-        "Only image (.jpeg, .jpg, .png) and video (.mp4, .mov, .avi, .mkv) files are allowed!"
-      )
-    );
+  else cb(new Error("Only image (.jpeg, .jpg, .png) or PDF (.pdf) files are allowed!"));
 };
 
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // Max 50MB per file
-}).any(); // Accept any field name
+  limits: { fileSize: 50 * 1024 * 1024 },
+}).any();
 
-// Middleware to validate files
 const fileHandler = async (req, res, next) => {
   upload(req, res, async (err) => {
     if (err) {
@@ -55,13 +53,23 @@ const fileHandler = async (req, res, next) => {
     }
 
     const allFiles = req.files || [];
+
     for (const file of allFiles) {
       const ext = path.extname(file.originalname).toLowerCase();
+
       if ([".jpeg", ".jpg", ".png"].includes(ext) && file.size > 2 * 1024 * 1024) {
         await Promise.all(allFiles.map((f) => fs.unlink(f.path)));
         return res.status(400).json({
           success: false,
           message: `Image "${file.originalname}" exceeds 2MB limit.`,
+        });
+      }
+
+      if (ext === ".pdf" && file.size > 10 * 1024 * 1024) {
+        await Promise.all(allFiles.map((f) => fs.unlink(f.path)));
+        return res.status(400).json({
+          success: false,
+          message: `PDF "${file.originalname}" exceeds 10MB limit.`,
         });
       }
     }
