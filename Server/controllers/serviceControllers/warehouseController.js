@@ -2143,7 +2143,20 @@ module.exports.addNewInstallationData = async (req, res) => {
           throw new Error(
             `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
           );
-        stockDoc.quantity -= item.quantity;
+        // ✅ Decimal-safe rounding logic here
+        const roundTo = (num, digits = 2) =>
+          Math.round(num * Math.pow(10, digits)) / Math.pow(10, digits);
+
+        console.log(
+          `Deducting ${item.quantity} from ${stockDoc.systemItemId.itemName} (Old Qty: ${stockDoc.quantity})`
+        );
+
+        // perform the decimal-safe subtraction
+        stockDoc.quantity = roundTo(stockDoc.quantity - item.quantity, 2);
+
+        console.log(
+          `New Qty for ${stockDoc.systemItemId.itemName}: ${stockDoc.quantity}`
+        );
         stockDoc.updatedAt = new Date();
         stockDoc.updatedBy = warehousePersonId;
         await stockDoc.save({ session });
@@ -2301,7 +2314,12 @@ module.exports.getDispatchHistory = async (req, res) => {
                                         $filter: {
                                           input: "$systemItems",
                                           as: "si",
-                                          cond: { $eq: ["$$si._id", "$$it.systemItemId"] },
+                                          cond: {
+                                            $eq: [
+                                              "$$si._id",
+                                              "$$it.systemItemId",
+                                            ],
+                                          },
                                         },
                                       },
                                     },
@@ -2311,7 +2329,12 @@ module.exports.getDispatchHistory = async (req, res) => {
                             },
                           },
                           as: "item",
-                          cond: { $regexMatch: { input: "$$item.systemItemId.itemName", regex: /pump/i } },
+                          cond: {
+                            $regexMatch: {
+                              input: "$$item.systemItemId.itemName",
+                              regex: /pump/i,
+                            },
+                          },
                         },
                       },
                       as: "matched",
@@ -2354,7 +2377,9 @@ module.exports.getDispatchHistory = async (req, res) => {
     ]);
 
     if (!history.length)
-      return res.status(404).json({ success: false, message: "No dispatch history found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "No dispatch history found" });
 
     return res.status(200).json({
       success: true,
@@ -2363,10 +2388,14 @@ module.exports.getDispatchHistory = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: error.message || "Internal Server Error",
+      });
   }
 };
-
 
 // module.exports.addNewInstallationData = async (req, res) => {
 //   const session = await mongoose.startSession();
