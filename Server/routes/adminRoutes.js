@@ -47,8 +47,8 @@ router.post("/add-subItem", userVerification(['admin']), addSystemSubItem);
 router.get("/show-system-item", userVerification(['admin']), showSystemItems);
 
 router.post("/system-item-excel", userVerification(['admin']), upload.single("file"), uploadSystemItemsFromExcel);
-router.post("/add-subItems-by-excel", userVerification(['admin']), upload.single("file"), uploadSystemSubItemsFromExcel);
-router.post("/add-item-component-by-excel", userVerification(['admin']), upload.single("file"), attachItemComponentMapByExcel);
+router.post("/system-item-map", userVerification(['admin']), upload.single("file"), uploadSystemSubItemsFromExcel);
+router.post("/item-component-map", userVerification(['admin']), upload.single("file"), attachItemComponentMapByExcel);
 router.post("/upload-inventory-stock", upload.single("file"), updateInstallationInventoryFromExcel);
 
 module.exports = router;

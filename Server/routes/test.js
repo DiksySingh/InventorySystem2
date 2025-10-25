@@ -12,5 +12,6 @@ router.get("/getNotApprovedPickupData", test.getNotApprovedPickupData);
 router.get("/exportFarmerSaralIdsToExcel", test.exportFarmerSaralIdsToExcel);
 router.get("/exportFarmerItemsActivityToExcel", test.exportFarmerItemsActivityToExcel);
 router.post("/sendWhatsAppMessage", test.sendWhatsAppMessage);
+router.post("/match-system-items", test.matchSystemItemsFromExcel);
 
 module.exports = router;

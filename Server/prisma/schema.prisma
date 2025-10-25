@@ -347,7 +347,7 @@ model Service_Process_Record {
   initialStageId       String? // NEW - where it originally started
   restartedFromStageId String? // NEW - where it restarted from
   status               ProcessStatus @default(PENDING)
-  finalStatus          String?       // REPAIRED, REJECTED, PRODUCED, FAILED
+  finalStatus          String? // REPAIRED, REJECTED, PRODUCED, FAILED
   isClosed             Boolean       @default(false)
   isRepaired           Boolean?
   finalRemarks         String?
@@ -440,3 +440,90 @@ model BOMEntry {
   rawMaterialId String?
   quantity      Float?
 }
+
+// /**
+//  * ----------------------------- COMPANY -----------------------------
+//  */
+// model Company {
+//   id            String   @id @default(uuid())
+//   name          String
+//   gstNumber     String?
+//   address       String?
+//   city          String?
+//   contactNumber String?
+//   email         String?
+//   logoUrl       String?
+//   createdBy     String 
+//   createdAt     DateTime @default(now())
+//   updatedAt     DateTime @updatedAt
+
+//   purchaseOrders PurchaseOrder[]
+//   bankAccounts  BankDetail[]
+//   user           User            @relation(fields: [createdBy], references: [id])
+// }
+
+// /**
+//  * ----------------------------- VENDOR -----------------------------
+//  */
+
+// model Vendor {
+//   id            String  @id @default(uuid())
+//   name          String
+//   contactPerson String?
+//   phone         String?
+//   email String?
+//   gstNumber String?
+//   address String?
+//   bankDetails Json?
+//   createdBy String
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   purchaseOrders PurchaseOrder[]
+//   bankAccounts  BankDetail[]
+//   user User @relation(fields: [createdBy], references: [id])
+// }
+
+// /*----------------- BANK DETAILS ----------------------*/
+// model BankDetail {
+//   id String @id @default(uuid())
+//   accountHolder String
+//   bankName String
+//   branchName String? 
+//   accountNumber String
+//   ifscCode String
+//   accountType String? @default("Current")
+//   isPrimary Boolean @default(false)
+//   vendorId String?
+//   companyId String?
+//   createdBy String?
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   vendor Vendor? @relation(fields: [vendorId], references: [id])
+//   company Company? @relation(fields: [companyId], references: [id])
+//   user User? @relation(fields: [createdBy], references: [id])
+// }
+
+// /*------------- COUNTER -----------------*/
+// model Counter {
+//   id String  @id @default(uuid())
+//   name String @unique
+//   seq Int @default(0)
+// }
+
+// /*------------------ PURCHASE ORDER -------------------*/
+// model PurchaseOrder {
+//   is String @id @default(uuid())
+//   poNumber  String @unique
+//   companyId String
+//   vendorId String
+//   bankDetailId String?
+//   createdBy String?
+//   approvedBy String?
+//   poDate DateTime @default(now())
+//   gstType GstType
+//   subTotal Decimal? @db.Decimal(12, 2)
+
+// }
+
