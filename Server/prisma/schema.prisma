@@ -63,6 +63,7 @@ model Item {
   rawMaterials       ItemRawMaterial[]
   manufacturingUsage ManufacturingUsage[]
   productionLogs     ProductionLog[]
+  productItemMap Product_Item_Map[]
 }
 
 model RawMaterial {
@@ -441,6 +442,39 @@ model BOMEntry {
   quantity      Float?
 }
 
+model Product {
+  id          String   @id @default(uuid())
+  productName String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prouductItemMap Product_Item_Map[]
+}
+
+model Product_Item_Map {
+  id String @id @default(uuid())
+  productId String?
+  itemId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product? @relation(fields: [productId], references: [id])
+  item Item? @relation(fields: [itemId], references: [id])
+  @@unique([productId, itemId], name: "unique_product_item")
+}
+
+model PanelMaster {
+  id String @id @default(uuid())
+  panelType String?
+  moduleType String?
+  dcrType String?
+  wattage  String?
+  hsnCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
 // /**
 //  * ----------------------------- COMPANY -----------------------------
 //  */
@@ -451,8 +485,8 @@ model BOMEntry {
 //   address       String?
 //   city          String?
 //   contactNumber String?
+//   alternateNumber  String?
 //   email         String?
-//   logoUrl       String?
 //   createdBy     String 
 //   createdAt     DateTime @default(now())
 //   updatedAt     DateTime @updatedAt
@@ -469,8 +503,8 @@ model BOMEntry {
 // model Vendor {
 //   id            String  @id @default(uuid())
 //   name          String
-//   contactPerson String?
-//   phone         String?
+//   comtactNumber         String?
+//   alternateNumber  String?
 //   email String?
 //   gstNumber String?
 //   address String?
@@ -526,4 +560,3 @@ model BOMEntry {
 //   subTotal Decimal? @db.Decimal(12, 2)
 
 // }
-

@@ -70,4 +70,5 @@ router.post("/createAppVersion", commonController.createAppVersion);
 router.get("/installationInventoryStockReport", systemInstallationReport.installationInventoryStockReport);
 router.get("/systemSetReport", systemInstallationReport.systemSetReport);
 router.get("/generateJalnaReport", warehouseReports.generateJalnaReport)
+router.post("/updateInstallationInventory", upload.single('file'), commonController.updateInstallationInventoryFromExcel);
 module.exports = router;

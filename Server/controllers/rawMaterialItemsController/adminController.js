@@ -3601,6 +3601,187 @@ const showStockUpdateHistory = async (req, res) => {
   }
 };
 
+const addProduct = async (req, res) => {
+  try {
+    const {productName} = req?.body;
+    if(!productName) {
+      return res.status(400).json({
+        success: false,
+        message: "Product name is required"
+      });
+    }
+    const trimmedProductName = productName.trim();
+    const existingProduct = await prisma.product.findUnique({
+      where: {
+        productName: trimmedProductName
+      }
+    });
+
+    if(existingProduct) {
+      return res.status(400).json({
+        success: false,
+        message: "Product already exists"
+      });
+    }
+
+    const addProduct = await prisma.product.create({
+      data: {
+        productName: trimmedProductName
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Product added successfully",
+      data: addProduct
+    });
+    
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+const deleteProduct = async (req, res) => {
+  try {
+    const productId = req.query?.productId;
+    if(!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Incomplete Data"
+      });
+    }
+
+    const existingProduct = await prisma.product.findUnique({
+      where: {
+        id: productId
+      }
+    });
+
+    if(!existingProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found"
+      });
+    }
+
+    const deletedProduct = await prisma.product.delete({
+      where: {
+        id: productId
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Product removed successfully"
+    });
+    
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+}
+
+const addProductItemMap = async (req, res) => {
+  try {
+    const { productId, itemId } = req.body;
+
+    if (!productId || !itemId) {
+      return res.status(400).json({
+        success: false,
+        message: "Both productId and itemId are required.",
+      });
+    }
+
+    const existingMap = await prisma.product_Item_Map.findUnique({
+      where: {
+        unique_product_item: {
+          productId,
+          itemId,
+        },
+      },
+    });
+
+    if (existingMap) {
+      return res.status(200).json({
+        success: true,
+        message: "This product-item mapping already exists.",
+        data: existingMap,
+      });
+    }
+
+    const newMap = await prisma.product_Item_Map.create({
+      data: {
+        productId,
+        itemId,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Product-item mapping created successfully.",
+      data: newMap,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+const deleteProductItemMap = async (req, res) => {
+    try {
+    const { productId, itemId } = req.body;
+
+    if (!productId || !itemId) {
+      return res.status(400).json({
+        success: false,
+        message: "Both productId and itemId are required.",
+      });
+    }
+
+    const existingMap = await prisma.product_Item_Map.findUnique({
+      where: {
+        unique_product_item: {
+          productId,
+          itemId,
+        },
+      },
+    });
+
+    if (!existingMap) {
+      return res.status(404).json({
+        success: false,
+        message: "No mapping found for the given product and item.",
+      });
+    }
+
+    await prisma.product_Item_Map.delete({
+      where: {
+        unique_product_item: {
+          productId,
+          itemId,
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Product-item mapping deleted successfully.",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 module.exports = {
   showEmployees,
   deactivateEmployee,
@@ -3650,4 +3831,8 @@ module.exports = {
   showStockUpdateHistory,
   detachRawMaterialFromItem,
   detachRawMaterialFromStage,
+  addProduct,
+  deleteProduct,
+  addProductItemMap,
+  deleteProductItemMap
 };

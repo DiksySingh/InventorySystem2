@@ -7,7 +7,7 @@ router.get("/showStorePersons", tokenVerification(["Disassemble", "Stamping", "M
 router.get("/rawMaterialForItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble"]), lineWorkerController.rawMaterialForItemRequest);
 router.post("/createItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble"]), lineWorkerController.createItemRequest);
 // router.post("/createInProcessItemRequest", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createInProcessItemRequest);
-router.post("/createServiceProcess", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createServiceProcess); 
+router.post("/createServiceProcess", tokenVerification(["Disassemble", "MPC Work"]), lineWorkerController.createServiceProcess); 
 router.get("/getPendingActivitiesForUserStage", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.getPendingActivitiesForUserStage);
 router.put("/acceptServiceProcess", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.acceptServiceProcess);
 router.get("/showUserItemStock", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.showUserItemStock);

@@ -60,4 +60,7 @@ router.get("/showFailureRedirectStage", adminController.showFailureRedirectStage
 
 router.get("/showStockUpdateHistory", adminController.showStockUpdateHistory);
 
+router.post("/addProduct", adminController.addProduct);
+router.delete("/deleteProduct", adminController.deleteProduct);
+router.post("/addProductItemMap", adminController.addProductItemMap);
 module.exports = router;
