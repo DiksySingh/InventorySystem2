@@ -2235,167 +2235,167 @@ module.exports.addNewInstallationData = async (req, res) => {
   }
 };
 
-module.exports.getDispatchHistory = async (req, res) => {
-  try {
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+// module.exports.getDispatchHistory = async (req, res) => {
+//   try {
+//     const baseUrl = `${req.protocol}://${req.get("host")}`;
+//     const warehouseId = req.user?.warehouse;
+//     const history = await DispatchDetails.aggregate([
+//       { $sort: { createdAt: -1 } },
+//       {
+//         $lookup: {
+//           from: "inFarmerItemsActivities",
+//           localField: "dispatchedSystems",
+//           foreignField: "_id",
+//           as: "farmerActivities",
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "inSystems",
+//           localField: "farmerActivities.systemId",
+//           foreignField: "_id",
+//           as: "systemsInfo",
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "inDispatchBillPhotos",
+//           localField: "farmerActivities._id",
+//           foreignField: "farmerActivityId",
+//           as: "billPhotos",
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "inSystemItems",
+//           localField: "farmerActivities.itemsList.systemItemId",
+//           foreignField: "_id",
+//           as: "systemItems",
+//         },
+//       },
+//       {
+//         $addFields: {
+//           farmers: {
+//             $map: {
+//               input: "$farmerActivities",
+//               as: "fa",
+//               in: {
+//                 farmerSaralId: "$$fa.farmerSaralId",
+//                 systemName: {
+//                   $first: {
+//                     $map: {
+//                       input: {
+//                         $filter: {
+//                           input: "$systemsInfo",
+//                           as: "s",
+//                           cond: { $eq: ["$$s._id", "$$fa.systemId"] },
+//                         },
+//                       },
+//                       as: "matched",
+//                       in: "$$matched.systemName",
+//                     },
+//                   },
+//                 },
+//                 pumpData: {
+//                   $first: {
+//                     $map: {
+//                       input: {
+//                         $filter: {
+//                           input: {
+//                             $map: {
+//                               input: "$$fa.itemsList",
+//                               as: "it",
+//                               in: {
+//                                 $mergeObjects: [
+//                                   "$$it",
+//                                   {
+//                                     systemItemId: {
+//                                       $first: {
+//                                         $filter: {
+//                                           input: "$systemItems",
+//                                           as: "si",
+//                                           cond: {
+//                                             $eq: [
+//                                               "$$si._id",
+//                                               "$$it.systemItemId",
+//                                             ],
+//                                           },
+//                                         },
+//                                       },
+//                                     },
+//                                   },
+//                                 ],
+//                               },
+//                             },
+//                           },
+//                           as: "item",
+//                           cond: {
+//                             $regexMatch: {
+//                               input: "$$item.systemItemId.itemName",
+//                               regex: /pump/i,
+//                             },
+//                           },
+//                         },
+//                       },
+//                       as: "matched",
+//                       in: {
+//                         name: "$$matched.systemItemId.itemName",
+//                       },
+//                     },
+//                   },
+//                 },
+//                 billPhoto: {
+//                   $first: {
+//                     $map: {
+//                       input: {
+//                         $filter: {
+//                           input: "$billPhotos",
+//                           as: "bp",
+//                           cond: { $eq: ["$$bp.farmerActivityId", "$$fa._id"] },
+//                         },
+//                       },
+//                       as: "matched",
+//                       in: { $concat: [baseUrl, "$$matched.billPhoto"] }, // prepend full URL
+//                     },
+//                   },
+//                 },
+//               },
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $project: {
+//           _id: 0,
+//           dispatchDate: "$createdAt",
+//           driverName: 1,
+//           driverContact: 1,
+//           vehicleNumber: 1,
+//           farmers: 1,
+//         },
+//       },
+//     ]);
 
-    const history = await DispatchDetails.aggregate([
-      { $sort: { createdAt: -1 } },
-      {
-        $lookup: {
-          from: "inFarmerItemsActivities",
-          localField: "dispatchedSystems",
-          foreignField: "_id",
-          as: "farmerActivities",
-        },
-      },
-      {
-        $lookup: {
-          from: "inSystems",
-          localField: "farmerActivities.systemId",
-          foreignField: "_id",
-          as: "systemsInfo",
-        },
-      },
-      {
-        $lookup: {
-          from: "inDispatchBillPhotos",
-          localField: "farmerActivities._id",
-          foreignField: "farmerActivityId",
-          as: "billPhotos",
-        },
-      },
-      {
-        $lookup: {
-          from: "inSystemItems",
-          localField: "farmerActivities.itemsList.systemItemId",
-          foreignField: "_id",
-          as: "systemItems",
-        },
-      },
-      {
-        $addFields: {
-          farmers: {
-            $map: {
-              input: "$farmerActivities",
-              as: "fa",
-              in: {
-                farmerSaralId: "$$fa.farmerSaralId",
-                systemName: {
-                  $first: {
-                    $map: {
-                      input: {
-                        $filter: {
-                          input: "$systemsInfo",
-                          as: "s",
-                          cond: { $eq: ["$$s._id", "$$fa.systemId"] },
-                        },
-                      },
-                      as: "matched",
-                      in: "$$matched.systemName",
-                    },
-                  },
-                },
-                pumpData: {
-                  $first: {
-                    $map: {
-                      input: {
-                        $filter: {
-                          input: {
-                            $map: {
-                              input: "$$fa.itemsList",
-                              as: "it",
-                              in: {
-                                $mergeObjects: [
-                                  "$$it",
-                                  {
-                                    systemItemId: {
-                                      $first: {
-                                        $filter: {
-                                          input: "$systemItems",
-                                          as: "si",
-                                          cond: {
-                                            $eq: [
-                                              "$$si._id",
-                                              "$$it.systemItemId",
-                                            ],
-                                          },
-                                        },
-                                      },
-                                    },
-                                  },
-                                ],
-                              },
-                            },
-                          },
-                          as: "item",
-                          cond: {
-                            $regexMatch: {
-                              input: "$$item.systemItemId.itemName",
-                              regex: /pump/i,
-                            },
-                          },
-                        },
-                      },
-                      as: "matched",
-                      in: {
-                        name: "$$matched.systemItemId.itemName",
-                      },
-                    },
-                  },
-                },
-                billPhoto: {
-                  $first: {
-                    $map: {
-                      input: {
-                        $filter: {
-                          input: "$billPhotos",
-                          as: "bp",
-                          cond: { $eq: ["$$bp.farmerActivityId", "$$fa._id"] },
-                        },
-                      },
-                      as: "matched",
-                      in: { $concat: [baseUrl, "$$matched.billPhoto"] }, // prepend full URL
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          dispatchDate: "$createdAt",
-          driverName: 1,
-          driverContact: 1,
-          vehicleNumber: 1,
-          farmers: 1,
-        },
-      },
-    ]);
+//     if (!history.length)
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "No dispatch history found" });
 
-    if (!history.length)
-      return res
-        .status(404)
-        .json({ success: false, message: "No dispatch history found" });
-
-    return res.status(200).json({
-      success: true,
-      message: "Dispatch history fetched successfully",
-      data: history,
-    });
-  } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message || "Internal Server Error",
-      });
-  }
-};
+//     return res.status(200).json({
+//       success: true,
+//       message: "Dispatch history fetched successfully",
+//       data: history,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     return res
+//       .status(500)
+//       .json({
+//         success: false,
+//         message: error.message || "Internal Server Error",
+//       });
+//   }
+// };
 
 // module.exports.addNewInstallationData = async (req, res) => {
 //   const session = await mongoose.startSession();
@@ -2809,6 +2809,183 @@ module.exports.getDispatchHistory = async (req, res) => {
 //     });
 //   }
 // };
+
+module.exports.getDispatchHistory = async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const warehouseId = req.user?.warehouse;
+
+    const history = await DispatchDetails.aggregate([
+      // ✅ Filter by warehouseId (convert to ObjectId)
+      {
+        $match: {
+          warehouseId: new mongoose.Types.ObjectId(warehouseId),
+        },
+      },
+
+      // Sort by newest first
+      { $sort: { createdAt: -1 } },
+
+      // Lookups
+      {
+        $lookup: {
+          from: "inFarmerItemsActivities",
+          localField: "dispatchedSystems",
+          foreignField: "_id",
+          as: "farmerActivities",
+        },
+      },
+      {
+        $lookup: {
+          from: "inSystems",
+          localField: "farmerActivities.systemId",
+          foreignField: "_id",
+          as: "systemsInfo",
+        },
+      },
+      {
+        $lookup: {
+          from: "inDispatchBillPhotos",
+          localField: "farmerActivities._id",
+          foreignField: "farmerActivityId",
+          as: "billPhotos",
+        },
+      },
+      {
+        $lookup: {
+          from: "inSystemItems",
+          localField: "farmerActivities.itemsList.systemItemId",
+          foreignField: "_id",
+          as: "systemItems",
+        },
+      },
+
+      // Add combined farmer and item info
+      {
+        $addFields: {
+          farmers: {
+            $map: {
+              input: "$farmerActivities",
+              as: "fa",
+              in: {
+                farmerSaralId: "$$fa.farmerSaralId",
+                systemName: {
+                  $first: {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: "$systemsInfo",
+                          as: "s",
+                          cond: { $eq: ["$$s._id", "$$fa.systemId"] },
+                        },
+                      },
+                      as: "matched",
+                      in: "$$matched.systemName",
+                    },
+                  },
+                },
+                pumpData: {
+                  $first: {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: {
+                            $map: {
+                              input: "$$fa.itemsList",
+                              as: "it",
+                              in: {
+                                $mergeObjects: [
+                                  "$$it",
+                                  {
+                                    systemItemId: {
+                                      $first: {
+                                        $filter: {
+                                          input: "$systemItems",
+                                          as: "si",
+                                          cond: {
+                                            $eq: [
+                                              "$$si._id",
+                                              "$$it.systemItemId",
+                                            ],
+                                          },
+                                        },
+                                      },
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                          as: "item",
+                          cond: {
+                            $regexMatch: {
+                              input: "$$item.systemItemId.itemName",
+                              regex: /pump/i,
+                            },
+                          },
+                        },
+                      },
+                      as: "matched",
+                      in: {
+                        name: "$$matched.systemItemId.itemName",
+                      },
+                    },
+                  },
+                },
+                billPhoto: {
+                  $first: {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: "$billPhotos",
+                          as: "bp",
+                          cond: { $eq: ["$$bp.farmerActivityId", "$$fa._id"] },
+                        },
+                      },
+                      as: "matched",
+                      in: { $concat: [baseUrl, "$$matched.billPhoto"] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // Only show the necessary fields
+      {
+        $project: {
+          _id: 0,
+          dispatchDate: "$createdAt",
+          driverName: 1,
+          driverContact: 1,
+          vehicleNumber: 1,
+          farmers: 1,
+        },
+      },
+    ]);
+
+    if (!history.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No dispatch history found for this warehouse",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Dispatch history fetched successfully",
+      data: history,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
   try {
