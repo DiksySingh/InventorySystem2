@@ -62,6 +62,7 @@ const {
   exportMotorNumbersExcel,
   importDispatchedSystemExcelData,
   getInstallerData,
+  getControllerData,
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -235,6 +236,7 @@ router.get(
   userVerification(["warehouseAdmin", "admin"]),
   getSystemItemsFromItemComponentMap
 );
+router.get("/show-controller-data", getControllerData);
 router.get(
   "/show-inventory-items",
   userVerification(["warehouseAdmin"]),

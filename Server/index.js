@@ -22,15 +22,16 @@ const adminRouter = require("./routes/rawMaterialItemsRoutes/adminRouter");
 const commonRouter = require("./routes/rawMaterialItemsRoutes/commonRouter");
 const lineWorkerRouter = require("./routes/rawMaterialItemsRoutes/lineWorkerRouter");
 const storekeeperRouter = require("./routes/rawMaterialItemsRoutes/storekeeperRouter");
+const purchaseRouter = require("./routes/rawMaterialItemsRoutes/purchaseRouter");
 const testRouter = require("./routes/test");
 
 // Load environment variables
-const MONGODB_URL = process.env.MONGODB_URL;
-// const MONGO_URL = process.env.MONGO_URL;
+// const MONGODB_URL = process.env.MONGODB_URL;
+const MONGO_URL = process.env.MONGO_URL;
 const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
-mongoose.connect(MONGODB_URL, {
+mongoose.connect(MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
@@ -78,6 +79,7 @@ app.use("/admin", adminRouter);
 app.use("/common", commonRouter);
 app.use("/line-worker", lineWorkerRouter); 
 app.use("/store-keeper", storekeeperRouter);
+app.use("/purchase", purchaseRouter);
 app.use("/test", testRouter);
 // require("./helpers/whatsapp/whatsappCron");
 
