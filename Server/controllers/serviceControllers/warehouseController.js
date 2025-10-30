@@ -2088,13 +2088,16 @@ function validateKeys(arr, requiredKeys) {
 
 module.exports.getControllerData = async (req, res) => {
   try {
-    const systemName = req.query?.systemName?.trim();
-    if (!systemName) {
+    const systemId = req.query?.systemId?.trim();
+    if (!systemId) {
       return res.status(400).json({
         success: false,
-        message: "systemName is required",
+        message: "SystemId is required",
       });
     }
+    const systemData = await System.findById(systemId).select("systemName");
+    console.log(systemData);
+    const systemName = systemData?.systemName;
 
     // 🧠 Example: "7.5HP DC System" → ["7.5HP", "DC"]
     const parts = systemName.split(" ").filter(Boolean);
