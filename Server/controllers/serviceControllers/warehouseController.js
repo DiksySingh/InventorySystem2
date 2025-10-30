@@ -1678,11 +1678,20 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
         ? inv.systemItemId
         : { _id: id, itemName: "Unknown Item" };
 
+     // result.push({
+//         systemItemId: systemItemData,
+//         quantity,
+//         requiredQuantity,
+//         stockLow: quantity < requiredQuantity,
+//         materialShort,
+//       });
+//     }
+
       result.push({
         systemItemId: systemItemData,
-        availableQuantity: availableQty,
-        requiredPerSystem,
-        possibleSystems,
+        quantity: availableQty,
+        requiredQuantity: requiredPerSystem,
+        materialShort: possibleSystems,
         stockLow: availableQty < requiredPerSystem * systemCount,
       });
     }
