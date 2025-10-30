@@ -1593,9 +1593,9 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 
 module.exports.showItemsWithStockStatus = async (req, res) => {
   try {
-    const warehouseId = req.user.warehouse;
+    const warehouseId = req.user?.warehouse;
     const systemId = req.query.systemId;
-    const systemCount = 25; // assumed number of systems you want to plan for
+    const systemCount = 25; // target systems to plan
 
     if (!systemId) {
       return res.status(400).json({
@@ -1604,7 +1604,7 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
       });
     }
 
-    // Step 1: Fetch required items and quantities for the system
+    // Step 1: Get required components & quantities for the system
     const [systemItemMaps, subItemMaps] = await Promise.all([
       SystemItemMap.find({ systemId }).select("systemItemId quantity").lean(),
       ItemComponentMap.find({ systemId }).select("subItemId quantity").lean(),
@@ -1627,7 +1627,7 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
 
     const itemIds = Array.from(itemIdSet);
 
-    // Step 2: Fetch inventory for these item IDs in the warehouse
+    // Step 2: Fetch inventory in warehouse for these items
     const inventoryItems = await InstallationInventory.find({
       warehouseId,
       systemItemId: { $in: itemIds },
@@ -1641,30 +1641,26 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
 
     const inventoryMap = new Map();
 
-    for (const item of inventoryItems) {
+    inventoryItems.forEach((item) => {
       const id = item.systemItemId._id.toString();
       if (!inventoryMap.has(id)) {
         inventoryMap.set(id, {
-          systemItemId: {
-            _id: item.systemItemId._id,
-            itemName: item.systemItemId.itemName,
-          },
+          systemItemId: item.systemItemId,
           quantity: 0,
         });
       }
       inventoryMap.get(id).quantity += item.quantity;
-    }
+    });
 
-    // Step 3: Construct final result array + calculate dispatchable systems
+    // Step 3: Build response
     const result = [];
-    let minPossibleSystems = Infinity; // will hold how many full systems can be built
+    let minPossibleSystems = Infinity;
 
     for (const id of itemIds) {
       const requiredPerSystem = requiredQtyMap.get(id) || 0;
       const inv = inventoryMap.get(id);
-      const availableQty = inv ? inv.quantity : 0;
+      const availableQty = inv?.quantity || 0;
 
-      // Calculate how many full systems can be made with this item
       const possibleSystems =
         requiredPerSystem > 0
           ? Math.floor(availableQty / requiredPerSystem)
@@ -1674,34 +1670,33 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
         minPossibleSystems = possibleSystems;
       }
 
-      const systemItemData = inv
-        ? inv.systemItemId
-        : { _id: id, itemName: "Unknown Item" };
+      const itemData =
+        inv?.systemItemId || { _id: id, itemName: "Unknown Item" };
 
-     // result.push({
-//         systemItemId: systemItemData,
-//         quantity,
-//         requiredQuantity,
-//         stockLow: quantity < requiredQuantity,
-//         materialShort,
-//       });
-//     }
+      const shortageUnits =
+        requiredPerSystem > 0
+          ? Math.max(0, requiredPerSystem * systemCount - availableQty)
+          : 0;
+
+      const materialShortSystems =
+        possibleSystems === Infinity
+          ? 0
+          : Math.max(0, systemCount - possibleSystems);
 
       result.push({
-        systemItemId: systemItemData,
+        systemItemId: itemData,
         quantity: availableQty,
         requiredQuantity: requiredPerSystem,
-        materialShort: possibleSystems,
+        materialShort: shortageUnits,
         stockLow: availableQty < requiredPerSystem * systemCount,
       });
     }
 
     if (minPossibleSystems === Infinity) minPossibleSystems = 0;
 
-    // Step 4: Sort by available quantity ascending
-    result.sort((a, b) => a.availableQuantity - b.availableQuantity);
+    // ✅ Sort by available stock (ascending)
+    result.sort((a, b) => a.quantity - b.quantity);
 
-    // Step 5: Return response
     return res.status(200).json({
       success: true,
       message: "Inventory fetched with stock status",
@@ -1716,6 +1711,7 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
     });
   }
 };
+
 
 
 module.exports.updateItemQuantity = async (req, res) => {
