@@ -1670,8 +1670,10 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
         minPossibleSystems = possibleSystems;
       }
 
-      const itemData =
-        inv?.systemItemId || { _id: id, itemName: "Unknown Item" };
+      const itemData = inv?.systemItemId || {
+        _id: id,
+        itemName: "Unknown Item",
+      };
 
       const shortageUnits =
         requiredPerSystem > 0
@@ -1711,8 +1713,6 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
     });
   }
 };
-
-
 
 module.exports.updateItemQuantity = async (req, res) => {
   try {
@@ -2432,13 +2432,13 @@ module.exports.getControllerData = async (req, res) => {
 //   }
 // };
 
-
 module.exports.addNewInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { dispatchedSystem, driverName, driverContact, vehicleNumber } = req.body;
+    const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
+      req.body;
 
     // Parse the array if sent as JSON string (for form-data)
     const dispatchedSystems =
@@ -2447,11 +2447,15 @@ module.exports.addNewInstallationData = async (req, res) => {
         : dispatchedSystem;
 
     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
-      return res.status(400).json({ success: false, message: "No dispatched systems provided" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No dispatched systems provided" });
 
     const uploadedFiles = req.files || [];
     if (uploadedFiles.length === 0)
-      return res.status(400).json({ success: false, message: "No bill photos uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No bill photos uploaded" });
 
     const billPhotosMap = {};
     uploadedFiles.forEach((file) => {
@@ -2471,13 +2475,20 @@ module.exports.addNewInstallationData = async (req, res) => {
         message: "Driver name, contact, and vehicle number are required",
       });
 
-    const requiredKeys = ["installerId", "farmerSaralId", "systemId", "pumpId", "controllerId"];
+    const requiredKeys = [
+      "installerId",
+      "farmerSaralId",
+      "systemId",
+      "pumpId",
+      "controllerId",
+    ];
     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
     if (!keyValidation.success) return res.status(400).json(keyValidation);
 
     const warehousePersonId = req.user._id;
     const warehouseId = req.user.warehouse;
-    const warehouseData = await Warehouse.findById(warehouseId).session(session);
+    const warehouseData =
+      await Warehouse.findById(warehouseId).session(session);
     if (!warehouseData) throw new Error("Warehouse not found");
 
     const stateMap = {
@@ -2510,13 +2521,19 @@ module.exports.addNewInstallationData = async (req, res) => {
         farmerSaralId: system.farmerSaralId,
       }).session(session);
       if (existingActivity)
-        throw new Error(`Farmer ${system.farmerSaralId} system already dispatched`);
+        throw new Error(
+          `Farmer ${system.farmerSaralId} system already dispatched`
+        );
 
       // Identify installer
-      let empData = await ServicePerson.findById(system.installerId).session(session);
+      let empData = await ServicePerson.findById(system.installerId).session(
+        session
+      );
       let refType = "ServicePerson";
       if (!empData) {
-        empData = await SurveyPerson.findById(system.installerId).session(session);
+        empData = await SurveyPerson.findById(system.installerId).session(
+          session
+        );
         if (!empData) throw new Error("Installer not found");
         refType = "SurveyPerson";
       }
@@ -2524,12 +2541,16 @@ module.exports.addNewInstallationData = async (req, res) => {
       // ------------------------------
       // 1️⃣ Fetch system items
       // ------------------------------
-      const systemItems = await SystemItemMap.find({ systemId: system.systemId })
+      const systemItems = await SystemItemMap.find({
+        systemId: system.systemId,
+      })
         .populate("systemItemId", "itemName")
         .session(session);
 
       if (!systemItems.length)
-        throw new Error(`No system items found for systemId: ${system.systemId}`);
+        throw new Error(
+          `No system items found for systemId: ${system.systemId}`
+        );
 
       // ------------------------------
       // 2️⃣ Keep only selected pump, remove others and controllers
@@ -2538,7 +2559,10 @@ module.exports.addNewInstallationData = async (req, res) => {
         const name = item.systemItemId?.itemName?.toLowerCase() || "";
 
         if (name.includes("controller")) return false; // ❌ Remove controllers
-        if (name.includes("pump") && item.systemItemId._id.toString() !== system.pumpId.toString())
+        if (
+          name.includes("pump") &&
+          item.systemItemId._id.toString() !== system.pumpId.toString()
+        )
           return false; // ❌ Remove pumps other than selected
 
         return true;
@@ -2548,7 +2572,8 @@ module.exports.addNewInstallationData = async (req, res) => {
       const selectedPump = systemItems.find(
         (item) => item.systemItemId._id.toString() === system.pumpId.toString()
       );
-      if (!selectedPump) throw new Error(`Pump with ID ${system.pumpId} not found`);
+      if (!selectedPump)
+        throw new Error(`Pump with ID ${system.pumpId} not found`);
 
       // ------------------------------
       // 3️⃣ Fetch pump components excluding controllers
@@ -2592,7 +2617,9 @@ module.exports.addNewInstallationData = async (req, res) => {
       // 6️⃣ Add the controller from frontend
       // ------------------------------
       if (system.controllerId) {
-        const controllerItem = await SystemItem.findById(system.controllerId).session(session);
+        const controllerItem = await SystemItem.findById(
+          system.controllerId
+        ).session(session);
         if (!controllerItem) throw new Error("Controller not found");
         itemsList.push({
           systemItemId: controllerItem._id,
@@ -2604,6 +2631,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       // 7️⃣ Deduplicate items
       // ------------------------------
       const uniqueItemsMap = new Map();
+
       for (const item of itemsList) {
         const id = item.systemItemId.toString();
         if (uniqueItemsMap.has(id)) {
@@ -2612,6 +2640,15 @@ module.exports.addNewInstallationData = async (req, res) => {
           uniqueItemsMap.set(id, { ...item });
         }
       }
+
+      // ✅ Add pump only if not already merged above
+      if (!uniqueItemsMap.has(system.pumpId.toString())) {
+        uniqueItemsMap.set(system.pumpId.toString(), {
+          systemItemId: system.pumpId,
+          quantity: selectedPump.quantity,
+        });
+      }
+
       const finalItemsList = Array.from(uniqueItemsMap.values());
 
       // ------------------------------
@@ -2629,7 +2666,9 @@ module.exports.addNewInstallationData = async (req, res) => {
           throw new Error(`Item not found in inventory: ${item.systemItemId}`);
 
         if (stockDoc.quantity < item.quantity)
-          throw new Error(`Insufficient stock for item ${stockDoc.systemItemId.itemName}`);
+          throw new Error(
+            `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
+          );
 
         const roundTo = (num, digits = 2) =>
           Math.round(num * Math.pow(10, digits)) / Math.pow(10, digits);
@@ -2717,8 +2756,6 @@ module.exports.addNewInstallationData = async (req, res) => {
     });
   }
 };
-
-
 
 // module.exports.getDispatchHistory = async (req, res) => {
 //   try {
@@ -3697,7 +3734,6 @@ module.exports.getDispatchHistory = async (req, res) => {
     });
   }
 };
-
 
 module.exports.showInstallationDataToWarehouse = async (req, res) => {
   try {
