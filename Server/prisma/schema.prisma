@@ -637,7 +637,9 @@ model PurchaseOrder {
   poNumber          String    @unique
   financialYear     String?
   companyId         String
+  companyName       String?
   vendorId          String
+  vendorName        String?
   bankDetailId      String?
   createdBy         String?
   poDate            DateTime  @default(now())
