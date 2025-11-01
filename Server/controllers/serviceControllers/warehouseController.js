@@ -2432,30 +2432,347 @@ module.exports.getControllerData = async (req, res) => {
 //   }
 // };
 
+// module.exports.addNewInstallationData = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
+//       req.body;
+
+//     // Parse the array if sent as JSON string (for form-data)
+//     const dispatchedSystems =
+//       typeof dispatchedSystem === "string"
+//         ? JSON.parse(dispatchedSystem)
+//         : dispatchedSystem;
+
+//     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "No dispatched systems provided" });
+
+//     const uploadedFiles = req.files || [];
+//     if (uploadedFiles.length === 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "No bill photos uploaded" });
+
+//     const billPhotosMap = {};
+//     uploadedFiles.forEach((file) => {
+//       const match = file.fieldname.match(/dispatchBillPhoto(\d+)/);
+//       if (match) billPhotosMap[parseInt(match[1], 10) - 1] = file;
+//     });
+
+//     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
+//       return res.status(400).json({
+//         success: false,
+//         message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
+//       });
+
+//     if (!driverName || !driverContact || !vehicleNumber)
+//       return res.status(400).json({
+//         success: false,
+//         message: "Driver name, contact, and vehicle number are required",
+//       });
+
+//     const requiredKeys = [
+//       "installerId",
+//       "farmerSaralId",
+//       "systemId",
+//       "pumpId",
+//       "controllerId",
+//     ];
+//     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
+//     if (!keyValidation.success) return res.status(400).json(keyValidation);
+
+//     const warehousePersonId = req.user._id;
+//     const warehouseId = req.user.warehouse;
+//     const warehouseData =
+//       await Warehouse.findById(warehouseId).session(session);
+//     if (!warehouseData) throw new Error("Warehouse not found");
+
+//     const stateMap = {
+//       Bhiwani: "Haryana",
+//       "Jalna Warehouse": "Maharashtra",
+//       "Korba Chhattisgarh": "Chhattisgarh",
+//     };
+//     const state = stateMap[warehouseData.warehouseName] || "";
+
+//     const dispatchDetails = new DispatchDetails({
+//       driverName,
+//       driverContact,
+//       vehicleNumber,
+//       dispatchedBy: warehousePersonId,
+//       warehouseId,
+//       dispatchedSystems: [],
+//     });
+//     await dispatchDetails.save({ session });
+
+//     const farmerActivities = [];
+//     const assignedEmps = [];
+
+//     for (let i = 0; i < dispatchedSystems.length; i++) {
+//       const system = dispatchedSystems[i];
+//       const billPhotoFile = billPhotosMap[i];
+//       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
+
+//       // Ensure farmer not already dispatched
+//       const existingActivity = await FarmerItemsActivity.findOne({
+//         farmerSaralId: system.farmerSaralId,
+//       }).session(session);
+//       if (existingActivity)
+//         throw new Error(
+//           `Farmer ${system.farmerSaralId} system already dispatched`
+//         );
+
+//       // Identify installer
+//       let empData = await ServicePerson.findById(system.installerId).session(
+//         session
+//       );
+//       let refType = "ServicePerson";
+//       if (!empData) {
+//         empData = await SurveyPerson.findById(system.installerId).session(
+//           session
+//         );
+//         if (!empData) throw new Error("Installer not found");
+//         refType = "SurveyPerson";
+//       }
+
+//       // ------------------------------
+//       // 1️⃣ Fetch system items
+//       // ------------------------------
+//       const systemItems = await SystemItemMap.find({
+//         systemId: system.systemId,
+//       })
+//         .populate("systemItemId", "itemName")
+//         .session(session);
+
+//       if (!systemItems.length)
+//         throw new Error(
+//           `No system items found for systemId: ${system.systemId}`
+//         );
+
+//       // ------------------------------
+//       // 2️⃣ Keep only selected pump, remove others and controllers
+//       // ------------------------------
+//       const filteredSystemItems = systemItems.filter((item) => {
+//         const name = item.systemItemId?.itemName?.toLowerCase() || "";
+
+//         if (name.includes("controller")) return false; // ❌ Remove controllers
+//         if (
+//           name.includes("pump") &&
+//           item.systemItemId._id.toString() !== system.pumpId.toString()
+//         )
+//           return false; // ❌ Remove pumps other than selected
+
+//         return true;
+//       });
+
+//       // Ensure selected pump actually exists
+//       const selectedPump = systemItems.find(
+//         (item) => item.systemItemId._id.toString() === system.pumpId.toString()
+//       );
+//       if (!selectedPump)
+//         throw new Error(`Pump with ID ${system.pumpId} not found`);
+
+//       // ------------------------------
+//       // 3️⃣ Fetch pump components excluding controllers
+//       // ------------------------------
+//       const pumpComponents = await ItemComponentMap.find({
+//         systemId: system.systemId,
+//         systemItemId: system.pumpId,
+//       })
+//         .populate("subItemId", "itemName")
+//         .session(session);
+
+//       const filteredPumpComponents = pumpComponents.filter((comp) => {
+//         const name = comp.subItemId?.itemName?.toLowerCase() || "";
+//         if (name.includes("controller") || name.includes("rmu")) return false; // ❌ Remove controllers/RMUs
+//         return true;
+//       });
+
+//       // ------------------------------
+//       // 4️⃣ Merge lists
+//       // ------------------------------
+//       const itemsList = [
+//         ...filteredSystemItems.map((item) => ({
+//           systemItemId: item.systemItemId._id,
+//           quantity: item.quantity,
+//         })),
+//         ...filteredPumpComponents.map((comp) => ({
+//           systemItemId: comp.subItemId._id,
+//           quantity: comp.quantity,
+//         })),
+//       ];
+
+//       // ------------------------------
+//       // 5️⃣ Add the selected pump
+//       // ------------------------------
+//       itemsList.push({
+//         systemItemId: selectedPump.systemItemId._id,
+//         quantity: selectedPump.quantity,
+//       });
+
+//       // ------------------------------
+//       // 6️⃣ Add the controller from frontend
+//       // ------------------------------
+//       if (system.controllerId) {
+//         const controllerItem = await SystemItem.findById(
+//           system.controllerId
+//         ).session(session);
+//         if (!controllerItem) throw new Error("Controller not found");
+//         itemsList.push({
+//           systemItemId: controllerItem._id,
+//           quantity: 1,
+//         });
+//       }
+
+//       // ------------------------------
+//       // 7️⃣ Deduplicate items
+//       // ------------------------------
+//       const uniqueItemsMap = new Map();
+
+//       for (const item of itemsList) {
+//         const id = item.systemItemId.toString();
+//         if (uniqueItemsMap.has(id)) {
+//           uniqueItemsMap.get(id).quantity += item.quantity;
+//         } else {
+//           uniqueItemsMap.set(id, { ...item });
+//         }
+//       }
+
+//       // ✅ Add pump only if not already merged above
+//       if (!uniqueItemsMap.has(system.pumpId.toString())) {
+//         uniqueItemsMap.set(system.pumpId.toString(), {
+//           systemItemId: system.pumpId,
+//           quantity: selectedPump.quantity,
+//         });
+//       }
+
+//       const finalItemsList = Array.from(uniqueItemsMap.values());
+//       console.log("Final Items List: ", finalItemsList);
+//       // ------------------------------
+//       // 8️⃣ Deduct stock
+//       // ------------------------------
+//       for (const item of finalItemsList) {
+//         const stockDoc = await InstallationInventory.findOne({
+//           warehouseId,
+//           systemItemId: item.systemItemId,
+//         })
+//           .populate("systemItemId")
+//           .session(session);
+
+//         if (!stockDoc)
+//           throw new Error(`Item not found in inventory: ${item.systemItemId}`);
+
+//         if (stockDoc.quantity < item.quantity)
+//           throw new Error(
+//             `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
+//           );
+
+//         const roundTo = (num, digits = 2) =>
+//           Math.round(num * Math.pow(10, digits)) / Math.pow(10, digits);
+
+//         stockDoc.quantity = roundTo(stockDoc.quantity - item.quantity, 2);
+//         stockDoc.updatedAt = new Date();
+//         stockDoc.updatedBy = warehousePersonId;
+//         await stockDoc.save({ session });
+//       }
+
+//       // ------------------------------
+//       // 9️⃣ Save farmer activity
+//       // ------------------------------
+//       const farmerActivity = new FarmerItemsActivity({
+//         referenceType: refType,
+//         warehouseId,
+//         farmerSaralId: system.farmerSaralId,
+//         empId: system.installerId,
+//         systemId: system.systemId,
+//         itemsList: finalItemsList,
+//         panelNumbers: [],
+//         pumpNumber: "",
+//         controllerNumber: "",
+//         rmuNumber: "",
+//         motorNumber: "",
+//         state,
+//         createdBy: warehousePersonId,
+//       });
+//       await farmerActivity.save({ session });
+
+//       // ------------------------------
+//       // 🔟 Save assigned emp
+//       // ------------------------------
+//       const assignedEmp = new InstallationAssignEmp({
+//         referenceType: refType,
+//         warehouseId,
+//         empId: system.installerId,
+//         farmerSaralId: system.farmerSaralId,
+//         systemId: system.systemId,
+//         itemsList: finalItemsList,
+//         extraItemsList: [],
+//         createdBy: warehousePersonId,
+//       });
+//       await assignedEmp.save({ session });
+
+//       // ------------------------------
+//       // 11️⃣ Save bill photo
+//       // ------------------------------
+//       const dispatchBillPhoto = new DispatchBillPhoto({
+//         dispatchId: dispatchDetails._id,
+//         farmerActivityId: farmerActivity._id,
+//         billPhoto: billPhotoPath,
+//       });
+//       await dispatchBillPhoto.save({ session });
+
+//       farmerActivities.push(farmerActivity);
+//       assignedEmps.push(assignedEmp);
+//       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
+//     }
+
+//     await dispatchDetails.save({ session });
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: `${farmerActivities.length} systems dispatched successfully`,
+//       data: { dispatchDetails },
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+
+//     if (req.files) {
+//       req.files.forEach((file) => {
+//         fs.unlink(file.path, (err) => {
+//           if (err) console.error("File cleanup failed:", err.message);
+//         });
+//       });
+//     }
+
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal Server Error",
+//     });
+//   }
+// };
+
+// ✅ Updated addNewInstallationData with fixed pump duplication
 module.exports.addNewInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
-      req.body;
+    const { dispatchedSystem, driverName, driverContact, vehicleNumber } = req.body;
 
-    // Parse the array if sent as JSON string (for form-data)
-    const dispatchedSystems =
-      typeof dispatchedSystem === "string"
-        ? JSON.parse(dispatchedSystem)
-        : dispatchedSystem;
+    const dispatchedSystems = typeof dispatchedSystem === "string" ? JSON.parse(dispatchedSystem) : dispatchedSystem;
 
     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
-      return res
-        .status(400)
-        .json({ success: false, message: "No dispatched systems provided" });
+      return res.status(400).json({ success: false, message: "No dispatched systems provided" });
 
     const uploadedFiles = req.files || [];
     if (uploadedFiles.length === 0)
-      return res
-        .status(400)
-        .json({ success: false, message: "No bill photos uploaded" });
+      return res.status(400).json({ success: false, message: "No bill photos uploaded" });
 
     const billPhotosMap = {};
     uploadedFiles.forEach((file) => {
@@ -2464,48 +2781,24 @@ module.exports.addNewInstallationData = async (req, res) => {
     });
 
     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
-      return res.status(400).json({
-        success: false,
-        message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
-      });
+      return res.status(400).json({ success: false, message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})` });
 
     if (!driverName || !driverContact || !vehicleNumber)
-      return res.status(400).json({
-        success: false,
-        message: "Driver name, contact, and vehicle number are required",
-      });
+      return res.status(400).json({ success: false, message: "Driver name, contact, and vehicle number are required" });
 
-    const requiredKeys = [
-      "installerId",
-      "farmerSaralId",
-      "systemId",
-      "pumpId",
-      "controllerId",
-    ];
+    const requiredKeys = ["installerId", "farmerSaralId", "systemId", "pumpId", "controllerId"];
     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
     if (!keyValidation.success) return res.status(400).json(keyValidation);
 
     const warehousePersonId = req.user._id;
     const warehouseId = req.user.warehouse;
-    const warehouseData =
-      await Warehouse.findById(warehouseId).session(session);
+    const warehouseData = await Warehouse.findById(warehouseId).session(session);
     if (!warehouseData) throw new Error("Warehouse not found");
 
-    const stateMap = {
-      Bhiwani: "Haryana",
-      "Jalna Warehouse": "Maharashtra",
-      "Korba Chhattisgarh": "Chhattisgarh",
-    };
+    const stateMap = { Bhiwani: "Haryana", "Jalna Warehouse": "Maharashtra", "Korba Chhattisgarh": "Chhattisgarh" };
     const state = stateMap[warehouseData.warehouseName] || "";
 
-    const dispatchDetails = new DispatchDetails({
-      driverName,
-      driverContact,
-      vehicleNumber,
-      dispatchedBy: warehousePersonId,
-      warehouseId,
-      dispatchedSystems: [],
-    });
+    const dispatchDetails = new DispatchDetails({ driverName, driverContact, vehicleNumber, dispatchedBy: warehousePersonId, warehouseId, dispatchedSystems: [] });
     await dispatchDetails.save({ session });
 
     const farmerActivities = [];
@@ -2516,212 +2809,85 @@ module.exports.addNewInstallationData = async (req, res) => {
       const billPhotoFile = billPhotosMap[i];
       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
 
-      // Ensure farmer not already dispatched
-      const existingActivity = await FarmerItemsActivity.findOne({
-        farmerSaralId: system.farmerSaralId,
-      }).session(session);
-      if (existingActivity)
-        throw new Error(
-          `Farmer ${system.farmerSaralId} system already dispatched`
-        );
+      const existingActivity = await FarmerItemsActivity.findOne({ farmerSaralId: system.farmerSaralId }).session(session);
+      if (existingActivity) throw new Error(`Farmer ${system.farmerSaralId} system already dispatched`);
 
-      // Identify installer
-      let empData = await ServicePerson.findById(system.installerId).session(
-        session
-      );
+      let empData = await ServicePerson.findById(system.installerId).session(session);
       let refType = "ServicePerson";
+
       if (!empData) {
-        empData = await SurveyPerson.findById(system.installerId).session(
-          session
-        );
+        empData = await SurveyPerson.findById(system.installerId).session(session);
         if (!empData) throw new Error("Installer not found");
         refType = "SurveyPerson";
       }
 
-      // ------------------------------
-      // 1️⃣ Fetch system items
-      // ------------------------------
-      const systemItems = await SystemItemMap.find({
-        systemId: system.systemId,
-      })
-        .populate("systemItemId", "itemName")
-        .session(session);
+      const systemItems = await SystemItemMap.find({ systemId: system.systemId }).populate("systemItemId", "itemName").session(session);
+      if (!systemItems.length) throw new Error(`No system items found for systemId: ${system.systemId}`);
 
-      if (!systemItems.length)
-        throw new Error(
-          `No system items found for systemId: ${system.systemId}`
-        );
-
-      // ------------------------------
-      // 2️⃣ Keep only selected pump, remove others and controllers
-      // ------------------------------
       const filteredSystemItems = systemItems.filter((item) => {
         const name = item.systemItemId?.itemName?.toLowerCase() || "";
-
-        if (name.includes("controller")) return false; // ❌ Remove controllers
-        if (
-          name.includes("pump") &&
-          item.systemItemId._id.toString() !== system.pumpId.toString()
-        )
-          return false; // ❌ Remove pumps other than selected
-
+        if (name.includes("controller")) return false;
+        if (name.includes("pump") && item.systemItemId._id.toString() !== system.pumpId.toString()) return false;
         return true;
       });
 
-      // Ensure selected pump actually exists
-      const selectedPump = systemItems.find(
-        (item) => item.systemItemId._id.toString() === system.pumpId.toString()
-      );
-      if (!selectedPump)
-        throw new Error(`Pump with ID ${system.pumpId} not found`);
+      const selectedPump = systemItems.find((item) => item.systemItemId._id.toString() === system.pumpId.toString());
+      if (!selectedPump) throw new Error(`Pump with ID ${system.pumpId} not found`);
 
-      // ------------------------------
-      // 3️⃣ Fetch pump components excluding controllers
-      // ------------------------------
-      const pumpComponents = await ItemComponentMap.find({
-        systemId: system.systemId,
-        systemItemId: system.pumpId,
-      })
-        .populate("subItemId", "itemName")
-        .session(session);
-
+      const pumpComponents = await ItemComponentMap.find({ systemId: system.systemId, systemItemId: system.pumpId }).populate("subItemId", "itemName").session(session);
       const filteredPumpComponents = pumpComponents.filter((comp) => {
         const name = comp.subItemId?.itemName?.toLowerCase() || "";
-        if (name.includes("controller") || name.includes("rmu")) return false; // ❌ Remove controllers/RMUs
+        if (name.includes("controller") || name.includes("rmu")) return false;
         return true;
       });
 
-      // ------------------------------
-      // 4️⃣ Merge lists
-      // ------------------------------
       const itemsList = [
-        ...filteredSystemItems.map((item) => ({
-          systemItemId: item.systemItemId._id,
-          quantity: item.quantity,
-        })),
-        ...filteredPumpComponents.map((comp) => ({
-          systemItemId: comp.subItemId._id,
-          quantity: comp.quantity,
-        })),
+        ...filteredSystemItems.map((item) => ({ systemItemId: item.systemItemId._id, quantity: item.quantity })),
+        ...filteredPumpComponents.map((comp) => ({ systemItemId: comp.subItemId._id, quantity: comp.quantity })),
       ];
 
-      // ------------------------------
-      // 5️⃣ Add the selected pump
-      // ------------------------------
-      itemsList.push({
-        systemItemId: selectedPump.systemItemId._id,
-        quantity: selectedPump.quantity,
-      });
-
-      // ------------------------------
-      // 6️⃣ Add the controller from frontend
-      // ------------------------------
+      // ✅ Controller add only once
       if (system.controllerId) {
-        const controllerItem = await SystemItem.findById(
-          system.controllerId
-        ).session(session);
+        const controllerItem = await SystemItem.findById(system.controllerId).session(session);
         if (!controllerItem) throw new Error("Controller not found");
-        itemsList.push({
-          systemItemId: controllerItem._id,
-          quantity: 1,
-        });
+        itemsList.push({ systemItemId: controllerItem._id, quantity: 1 });
       }
 
-      // ------------------------------
-      // 7️⃣ Deduplicate items
-      // ------------------------------
+      // ✅ Deduplicate
       const uniqueItemsMap = new Map();
-
       for (const item of itemsList) {
         const id = item.systemItemId.toString();
-        if (uniqueItemsMap.has(id)) {
-          uniqueItemsMap.get(id).quantity += item.quantity;
-        } else {
-          uniqueItemsMap.set(id, { ...item });
-        }
+        uniqueItemsMap.set(id, uniqueItemsMap.has(id) ? { ...item, quantity: uniqueItemsMap.get(id).quantity + item.quantity } : { ...item });
       }
 
-      // ✅ Add pump only if not already merged above
+      // ✅ Ensure pump exists only once
       if (!uniqueItemsMap.has(system.pumpId.toString())) {
-        uniqueItemsMap.set(system.pumpId.toString(), {
-          systemItemId: system.pumpId,
-          quantity: selectedPump.quantity,
-        });
+        uniqueItemsMap.set(system.pumpId.toString(), { systemItemId: system.pumpId, quantity: selectedPump.quantity });
       }
 
       const finalItemsList = Array.from(uniqueItemsMap.values());
+      console.log("Final Items List: ", finalItemsList);
 
-      // ------------------------------
-      // 8️⃣ Deduct stock
-      // ------------------------------
       for (const item of finalItemsList) {
-        const stockDoc = await InstallationInventory.findOne({
-          warehouseId,
-          systemItemId: item.systemItemId,
-        })
-          .populate("systemItemId")
-          .session(session);
+        const stockDoc = await InstallationInventory.findOne({ warehouseId, systemItemId: item.systemItemId }).populate("systemItemId").session(session);
 
-        if (!stockDoc)
-          throw new Error(`Item not found in inventory: ${item.systemItemId}`);
-
+        if (!stockDoc) throw new Error(`Item not found in inventory: ${item.systemItemId}`);
         if (stockDoc.quantity < item.quantity)
-          throw new Error(
-            `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
-          );
+          throw new Error(`Insufficient stock for item ${stockDoc.systemItemId.itemName}`);
 
-        const roundTo = (num, digits = 2) =>
-          Math.round(num * Math.pow(10, digits)) / Math.pow(10, digits);
-
-        stockDoc.quantity = roundTo(stockDoc.quantity - item.quantity, 2);
+        stockDoc.quantity = Math.round((stockDoc.quantity - item.quantity) * 100) / 100;
         stockDoc.updatedAt = new Date();
         stockDoc.updatedBy = warehousePersonId;
         await stockDoc.save({ session });
       }
 
-      // ------------------------------
-      // 9️⃣ Save farmer activity
-      // ------------------------------
-      const farmerActivity = new FarmerItemsActivity({
-        referenceType: refType,
-        warehouseId,
-        farmerSaralId: system.farmerSaralId,
-        empId: system.installerId,
-        systemId: system.systemId,
-        itemsList: finalItemsList,
-        panelNumbers: [],
-        pumpNumber: "",
-        controllerNumber: "",
-        rmuNumber: "",
-        motorNumber: "",
-        state,
-        createdBy: warehousePersonId,
-      });
+      const farmerActivity = new FarmerItemsActivity({ referenceType: refType, warehouseId, farmerSaralId: system.farmerSaralId, empId: system.installerId, systemId: system.systemId, itemsList: finalItemsList, panelNumbers: [], pumpNumber: "", controllerNumber: "", rmuNumber: "", motorNumber: "", state, createdBy: warehousePersonId });
       await farmerActivity.save({ session });
 
-      // ------------------------------
-      // 🔟 Save assigned emp
-      // ------------------------------
-      const assignedEmp = new InstallationAssignEmp({
-        referenceType: refType,
-        warehouseId,
-        empId: system.installerId,
-        farmerSaralId: system.farmerSaralId,
-        systemId: system.systemId,
-        itemsList: finalItemsList,
-        extraItemsList: [],
-        createdBy: warehousePersonId,
-      });
+      const assignedEmp = new InstallationAssignEmp({ referenceType: refType, warehouseId, empId: system.installerId, farmerSaralId: system.farmerSaralId, systemId: system.systemId, itemsList: finalItemsList, extraItemsList: [], createdBy: warehousePersonId });
       await assignedEmp.save({ session });
 
-      // ------------------------------
-      // 11️⃣ Save bill photo
-      // ------------------------------
-      const dispatchBillPhoto = new DispatchBillPhoto({
-        dispatchId: dispatchDetails._id,
-        farmerActivityId: farmerActivity._id,
-        billPhoto: billPhotoPath,
-      });
+      const dispatchBillPhoto = new DispatchBillPhoto({ dispatchId: dispatchDetails._id, farmerActivityId: farmerActivity._id, billPhoto: billPhotoPath });
       await dispatchBillPhoto.save({ session });
 
       farmerActivities.push(farmerActivity);
@@ -2733,29 +2899,21 @@ module.exports.addNewInstallationData = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(200).json({
-      success: true,
-      message: `${farmerActivities.length} systems dispatched successfully`,
-      data: { dispatchDetails },
-    });
+    return res.status(200).json({ success: true, message: `${farmerActivities.length} systems dispatched successfully`, data: { dispatchDetails } });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
 
     if (req.files) {
       req.files.forEach((file) => {
-        fs.unlink(file.path, (err) => {
-          if (err) console.error("File cleanup failed:", err.message);
-        });
+        fs.unlink(file.path, () => {});
       });
     }
 
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error",
-    });
+    return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
   }
 };
+
 
 // module.exports.getDispatchHistory = async (req, res) => {
 //   try {
