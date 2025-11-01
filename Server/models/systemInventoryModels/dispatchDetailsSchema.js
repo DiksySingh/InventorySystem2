@@ -33,6 +33,15 @@ const dispatchDetailsSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "FarmerItemsActivity",
     }],
+    dispatchedPanels: {
+        type: [String],
+    },
+    dispatchedPumps: {
+        type: [String]
+    },
+    dispatchedControllers: {
+        type: [String]
+    }
 },{timestamps: true, collection: "inDispatchDetails"});
 
 const DispatchDetails = mongoose.model("DispatchDetails", dispatchDetailsSchema);

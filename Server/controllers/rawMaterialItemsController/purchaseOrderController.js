@@ -1,7 +1,10 @@
 const prisma = require("../../config/prismaClient");
 const Decimal = require("decimal.js");
+const fs = require("fs");
+const path = require("path");
+const nodemailer = require("nodemailer");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
-const { where } = require("../../models/serviceInventoryModels/warehouseSchema");
+const generatePO = require("../../util/generatePO");
 
 function getISTDate() {
   const now = new Date();
@@ -21,19 +24,20 @@ function getFinancialYear(date = getISTDate()) {
 function getStateCode(stateName) {
   if (!stateName) return "XX";
   const s = stateName.toLowerCase();
-  if (s.includes("Haryana")) return "HR";
-  if (s.includes("Maharashtra")) return "MH";
-  if (s.includes("Uttarakhand") || s.includes("Haridwar") || s.includes("UK"))
+  if (s.includes("haryana")) return "HR";
+  if (s.includes("maharashtra")) return "MH";
+  if (s.includes("uttarakhand") || s.includes("haridwar") || s.includes("uk"))
     return "UK";
-  if (s.includes("Gujarat")) return "GJ";
-  if (s.includes("Rajasthan")) return "RJ";
-  if (s.includes("Delhi")) return "DL";
+  if (s.includes("gujarat")) return "GJ";
+  if (s.includes("rajasthan")) return "RJ";
+  if (s.includes("delhi")) return "DL";
   return s.substring(0, 2).toUpperCase();
 }
 
 async function generatePONumber(company) {
   const fy = getFinancialYear();
   const stateCode = getStateCode(company.state);
+  console.log(stateCode);
   const prefix = `${company.companyCode}${stateCode}`;
   const counterKey = `${company.id}_${fy}`;
 
@@ -82,7 +86,7 @@ const createCompany = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Company name and createdBy are required.",
+        message: "Company name, code, gstNumber, address, contact number, email are required.",
       });
     }
 
@@ -214,9 +218,9 @@ const createVendor = async (req, res) => {
       });
     }
 
-    const upperCaseName = name.toUpperCase().trim();
+    const upperCaseName = name.trim();
     const upperCaseGST = gstNumber.toUpperCase().trim();
-    const upperCaseAddress = address.toUpperCase().trim();
+    const upperCaseAddress = address.trim();
     const lowerCaseEmail = email.toLowerCase().trim();
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -303,7 +307,7 @@ const createVendor = async (req, res) => {
   }
 };
 
-const getAllCompanies = async (req, res) => {
+const getCompaniesList = async (req, res) => {
   try {
     const companies = await prisma.company.findMany({
       select: {
@@ -318,7 +322,7 @@ const getAllCompanies = async (req, res) => {
 
     const formattedCompanies = companies.map((company) => ({
       id: company.id,
-      displayName: `${company.name}${company.state ? `, ${company.state}` : ""}`,
+      companyName: `${company.name}${company.state ? `, ${company.state}` : ""}`,
     }));
 
     return res.status(200).json({
@@ -334,7 +338,7 @@ const getAllCompanies = async (req, res) => {
   }
 };
 
-const getAllVendors = async (req, res) => {
+const getVendorsList = async (req, res) => {
   try {
     const vendors = await prisma.vendor.findMany({
       select: {
@@ -365,7 +369,7 @@ const getAllVendors = async (req, res) => {
   }
 };
 
-const getAllItems = async (req, res) => {
+const getItemsList = async (req, res) => {
   try {
     const mysqlItems = await prisma.rawMaterial.findMany({
       select: {
@@ -466,10 +470,10 @@ const createPurchaseOrder = async (req, res) => {
         .json({ success: false, message: "Items are required" });
 
     for (const item of items) {
-      if (!item.id || !item.source || !item.name) {
+      if (!item.id || !item.source || !item.name || !item.unit || !item.itemGSTType) {
         return res.status(400).json({
           success: false,
-          message: "Each item must include id, source, and name.",
+          message: "Each item must include id, source, name, unit, itemGSTType",
         });
       }
 
@@ -578,7 +582,9 @@ const createPurchaseOrder = async (req, res) => {
           poNumber,
           financialYear: getFinancialYear(),
           companyId,
+          companyName: company.name,
           vendorId,
+          vendorName: vendor.name,
           gstType,
           subTotal,
           totalCGST,
@@ -979,219 +985,507 @@ const getPurchaseOrderDetails = async (req, res) => {
 
 //------------ Download PO Pdf -------------------//
 
-function addWatermark(doc) {
-  try {
-    const logoPath = path.join(__dirname, "../../assets/galo.png");
-    doc.save();
-    doc.opacity(0.1).image(logoPath, 120, 180, { width: 350 });
-    doc.opacity(1);
-    doc.restore();
-  } catch (err) {
-    console.log("Logo missing");
-  }
-}
-
-function drawTableHeader(doc, y = doc.y) {
-  doc.fontSize(10).font("Helvetica-Bold");
-  doc.text("Item", 20, y);
-  doc.text("HSN", 180, y);
-  doc.text("Qty", 250, y);
-  doc.text("Rate", 290, y);
-  doc.text("GST%", 340, y);
-  doc.text("Total", 390, y);
-  doc.moveDown(0.5);
-  doc.font("Helvetica");
-}
-
-function getFirstTwoWords(str) {
-  if (!str) return "";
-  const words = str.trim().split(/\s+/);
-  if (words.length <= 1) {
-    return words[0] || "";
-  }
-  return words.slice(0, 2).join(" ");
-}
-
 const downloadPOPDF = async (req, res) => {
   try {
-    const { poId } = req.params;
+    const { poId } = req.query;
     const userId = req.user?.id;
-    if(userId) {
-      return res.status(404).json({
+
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        message: "UserId not found."
+        message: "Unauthorized: User not found.",
       });
     }
 
-    const userData = await prisma.user.findUnique({
-      where: {
-        id: userId
-      },
-      include: {
-        role: {
-          select: {
-            name: true
-          }
-        }
-      }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
     });
 
-    if(!userData) {
-       return res.status(404).json({
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
         success: false,
-        message: "User not found."
-      });
-    }
-
-    if(userData.role?.name !== "Purchase") {
-      return res.status(404).json({
-        success: false,
-        message: "Only Purchase Department can download the PO file."
+        message: "Access Denied: Only Purchase Department can generate PO.",
       });
     }
 
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: poId },
-      include: { company: true, vendor: true, items: true, user: true },
+      include: {
+        company: true,
+        vendor: true,
+        items: true,
+      },
     });
 
     if (!po) {
-      return res.status(404).json({ success: false, message: "PO not found" });
+      return res.status(404).json({
+        success: false,
+        message: "PO not found.",
+      });
     }
 
-    const doc = new PDFDocument({ size: "A4", margin: 20 });
-    const vendorName = getFirstTwoWords(po?.vendor?.name);
-    const fileName = `${vendorName}-PO-${po.poNumber}.pdf`;
-    const folderPath = path.join(__dirname, "../../uploads/purchaseOrder/");
-    const filePath = path.join(folderPath, fileName);
+    // ✅ Prepare Items Array
+    const items = po.items.map(it => ({
+      itemName: it.itemName,
+      hsnCode: it.hsnCode || "-",
+      quantity: Number(it.quantity),
+      unit: it.unit || "Nos",
+      rate: Number(it.rate),
+      total: Number(it.total),
+    }));
 
-    fs.mkdirSync(folderPath, { recursive: true });
+    // ✅ Generate PDF
+    const filePath = await generatePO(po, items);
 
-    const stream = fs.createWriteStream(filePath);
-    doc.pipe(stream);
+    const fileName = path.basename(filePath);
+    const relativePath = `/uploads/purchaseOrderFolder/${fileName}`;
 
-    /* ---- PDF CONTENT ---- */
+    // ✅ Save PDF Metadata In DB
+    await prisma.purchaseOrder.update({
+      where: { id: poId },
+      data: {
+        pdfUrl: relativePath,
+        pdfName: fileName,
+        pdfGeneratedAt: new Date(),
+        pdfGeneratedBy: userId,
+      },
+    });
 
-    addWatermark(doc);
+    return res.status(200).json({
+      success: true,
+      message: "PO PDF generated successfully.",
+      pdfUrl: relativePath,
+      fileName,
+    });
 
-    // Header
-    doc.fontSize(14).text(po.company.name, { align: "center" });
-    doc.fontSize(10).text(po.company.address, { align: "center" });
-    doc.text(`GST: ${po.company.gstNumber}`, { align: "center" });
-    doc.moveDown();
-    doc
-      .fontSize(12)
-      .text("PURCHASE ORDER", { align: "center", underline: true });
-    doc.moveDown(1);
+  } catch (err) {
+    console.error("Error generating PO PDF:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server Error while generating PO PDF",
+      error: err.message,
+    });
+  }
+};
 
-    doc.fontSize(10);
-    doc.text(`PO No: ${po.poNumber}`);
-    doc.text(`PO Date: ${new Date(po.createdAt).toLocaleDateString()}`);
-    doc.text(`Vendor: ${po.vendor.name}`);
-    doc.text(`Vendor GST: ${po.vendor.gstNumber}`);
-    doc.text(`Vendor Address: ${po.vendor.address}`);
-    doc.moveDown();
+//----------------- Send PO -------------------//
+// const sendPO = async (req, res) => {
+//   try {
+//     const { poId } = req.query;
+//     const userId = req?.user?.id;
+//     if (!poId) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "PO-Id is required",
+//       });
+//     }
+//     const userData = await prisma.user.findUnique({
+//       where: {
+//         id: userId,
+//       },
+//       include: {
+//         role: {
+//           select: {
+//             name: true,
+//           },
+//         },
+//       },
+//     });
 
-    // Table
-    drawTableHeader(doc);
+//     if (!userData) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found",
+//       });
+//     }
 
-    let y = doc.y;
+//     if (userData.role?.name !== "Purchase") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Only purchase department is allowed to send mail.",
+//       });
+//     }
 
-    for (const item of po.items) {
-      if (y > 720) {
-        doc.addPage();
-        addWatermark(doc);
-        drawTableHeader(doc, 20);
-        y = doc.y;
-      }
+//     const po = await prisma.purchaseOrder.findUnique({
+//       where: { id: poId },
+//       include: { vendor: true, company: true },
+//     });
 
-      doc.fontSize(9);
-      doc.text(item.itemName, 20, y, { width: 150 });
-      doc.text(item.hsnCode || "-", 180, y);
-      doc.text(item.quantity.toString(), 250, y);
-      doc.text(item.rate.toFixed(2), 290, y);
-      doc.text(item.gstRate.toString(), 340, y);
-      doc.text(item.total.toFixed(2), 390, y);
+//     if (!po)
+//       return res.status(404).json({ success: false, message: "PO not found" });
+//     if (!po.vendor.email)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Vendor email missing" });
+//     if (!po.pdfName || !po.pdfUrl) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "PDF not generated yet" });
+//     }
 
-      y += 18;
-      doc
-        .moveTo(20, y - 5)
-        .lineTo(550, y - 5)
-        .strokeColor("#e6e6e6")
-        .stroke();
+//     const pdfPath = path.join(
+//       __dirname,
+//       "../../uploads/purchaseOrder",
+//       po.pdfName
+//     );
+//     if (!fs.existsSync(pdfPath)) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "PDF file missing on server" });
+//     }
+
+//     // ✅ Prepare email transporter
+//     const transporter = nodemailer.createTransport({
+//       service: "gmail",
+//       auth: {
+//         user: process.env.EMAIL_USER,
+//         pass: process.env.EMAIL_PASSWORD,
+//       },
+//     });
+
+//     const mailOptions = {
+//       from: process.env.EMAIL_USER,
+//       to: po.vendor.email,
+//       subject: `Purchase Order - ${po.poNumber}`,
+//       text: `Dear ${po.vendor.name},
+
+// Please find the attached Purchase Order.
+
+// Regards,
+// ${req.user?.name || "Team"}
+// ${po.company.name}
+// ${po.company.address}
+//       `,
+//       attachments: [{ filename: po.pdfName, path: pdfPath }],
+//     };
+
+//     // ✅ Send Email First (outside transaction)
+//     const emailResponse = await transporter.sendMail(mailOptions);
+
+//     if (!emailResponse.accepted || emailResponse.accepted.length === 0) {
+//       throw new Error("Email not accepted by SMTP server");
+//     }
+//     console.log("Email sent:", emailResponse.messageId);
+//     // ✅ Transaction — only runs if email was successful
+//     await prisma.$transaction(async (tx) => {
+//       await tx.purchaseOrder.update({
+//         where: { id: poId },
+//         data: {
+//           status: "Sent",
+//           emailSentAt: new Date(),
+//           emailSentBy: req.user?.id || null,
+//         },
+//       });
+
+//       await tx.auditLog.create({
+//         data: {
+//           entityType: "PurchaseOrder",
+//           entityId: poId,
+//           action: "EMAIL_SENT",
+//           performedBy: req.user?.id || null,
+//           oldValue: { status: po.status },
+//           newValue: { status: "Sent", emailTo: po.vendor.email },
+//         },
+//       });
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "PO emailed successfully & status updated.",
+//     });
+//   } catch (err) {
+//     console.error("Email/DB Error:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to email PO",
+//       error: err.message,
+//     });
+//   }
+// };
+
+// const resendPO = async (req, res) => {
+//   try {
+//     const { poId } = req.query;
+//     const userId = req?.user?.id;
+//     if (!poId) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "PO-Id is required",
+//       });
+//     }
+//     const userData = await prisma.user.findUnique({
+//       where: {
+//         id: userId,
+//       },
+//       include: {
+//         role: {
+//           select: {
+//             name: true,
+//           },
+//         },
+//       },
+//     });
+
+//     if (!userData) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found",
+//       });
+//     }
+
+//     if (userData.role?.name !== "Purchase") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Only purchase department is allowed to send mail.",
+//       });
+//     }
+
+//     const po = await prisma.purchaseOrder.findUnique({
+//       where: { id: poId },
+//       include: { vendor: true, company: true },
+//     });
+
+//     if (!po)
+//       return res.status(404).json({ success: false, message: "PO not found" });
+//     if (!po.vendor.email)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Vendor email missing" });
+//     if (!po.pdfName || !po.pdfUrl) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "PDF not generated yet" });
+//     }
+
+//     const pdfPath = path.join(
+//       __dirname,
+//       "../../uploads/purchaseOrder",
+//       po.pdfName
+//     );
+//     if (!fs.existsSync(pdfPath)) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "PDF file missing on server" });
+//     }
+
+//     // ✅ Email transporter
+//     const transporter = nodemailer.createTransport({
+//       service: "gmail",
+//       auth: {
+//         user: process.env.EMAIL_USER,
+//         pass: process.env.EMAIL_PASS,
+//       },
+//     });
+
+//     const mailOptions = {
+//       from: process.env.EMAIL_USER,
+//       to: po.vendor.email,
+//       subject: `RESEND: Purchase Order - ${po.poNumber}`,
+//       text: `Dear ${po.vendor.name},
+
+// This is a re-sent copy of the Purchase Order.
+
+// Regards,
+// ${req.user?.name || "Team"}
+// ${po.company.name}
+// ${po.company.state}, ${po.company.pincode}`,
+//       attachments: [{ filename: po.pdfName, path: pdfPath }],
+//     };
+
+//     // ✅ Send email first
+//     const emailResponse = await transporter.sendMail(mailOptions);
+
+//     if (!emailResponse.accepted || emailResponse.accepted.length === 0) {
+//       throw new Error("Email not accepted by SMTP server");
+//     }
+//     console.log("Email sent:", emailResponse.messageId);
+
+//     // ✅ TX only after email success
+//     await prisma.$transaction(async (tx) => {
+//       await tx.purchaseOrder.update({
+//         where: { id: poId },
+//         data: {
+//           emailResentCount: { increment: 1 },
+//           emailLastResentAt: new Date(),
+//         },
+//       });
+
+//       await tx.auditLog.create({
+//         data: {
+//           entityType: "PurchaseOrder",
+//           entityId: poId,
+//           action: "EMAIL_RESENT",
+//           performedBy: req.user?.id || null,
+//           oldValue: { resentCount: po.emailResentCount },
+//           newValue: { resentCount: po.emailResentCount + 1 },
+//         },
+//       });
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "PO resent successfully.",
+//     });
+//   } catch (err) {
+//     console.error("Email Resend Error:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to resend PO",
+//       error: err.message,
+//     });
+//   }
+// };
+
+const sendOrResendPO = async (req, res) => {
+  try {
+    const { poId } = req.query;
+    const userId = req?.user?.id;
+
+    if (!poId) {
+      return res.status(404).json({ success: false, message: "PO-Id is required" });
     }
 
-    doc.moveDown(2);
-    doc.font("Helvetica-Bold").fontSize(10);
-    doc.text("SUMMARY", 20, doc.y, { underline: true });
+    const userData = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: { select: { name: true } },
+      },
+    });
 
-    const line = (label, amount) =>
-      doc.text(`${label.padEnd(20)} ₹ ${Number(amount).toFixed(2)}`);
+    if (!userData) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
-    line("Sub Total", po.subTotal);
-    line("CGST", po.totalCGST);
-    line("SGST", po.totalSGST);
-    line("IGST", po.totalIGST);
-    line("Total GST", po.totalGST);
-    line("Grand Total", po.grandTotal);
+    if (userData.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only purchase department is allowed to send mail.",
+      });
+    }
 
-    doc.moveDown(2);
-    doc.fontSize(9).text(`Prepared By: ${po.user?.name}`);
-    doc.text(`Contact: ${po.contactPerson || ""} (${po.cellNo || ""})`);
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { vendor: true, company: true },
+    });
 
-    doc.end();
+    if (!po) return res.status(404).json({ success: false, message: "PO not found" });
+    if (!po.vendor.email)
+      return res.status(400).json({ success: false, message: "Vendor email missing" });
+    if (!po.pdfName || !po.pdfUrl) {
+      return res.status(400).json({ success: false, message: "PDF not generated yet" });
+    }
 
-    /* --------- On file finish --------- */
-    stream.on("finish", async () => {
-      try {
-        const relativePath = `uploads/purchaseOrder/${fileName}`;
+    const pdfPath = path.join(__dirname, "../../uploads/purchaseOrder", po.pdfName);
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({ success: false, message: "PDF file missing on server" });
+    }
 
-        await prisma.purchaseOrder.update({
+    // ✅ Determine action (Send or Resend)
+    const isResend = po.status === "Sent";
+
+    // ✅ Prepare email transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: po.vendor.email,
+      subject: `${isResend ? "RESEND:" : ""} Purchase Order - ${po.poNumber}`,
+      text: `Dear ${po.vendor.name},
+
+${isResend ? "Resending the" : "Please find the attached"} Purchase Order.
+
+Regards,
+${po.company.name}
+${po.company.state}, ${po.company.pincode}
+Contact: ${po.company.contactNumber}
+      `,
+      attachments: [{ filename: po.pdfName, path: pdfPath }],
+    };
+
+    // ✅ Send email
+    const emailResponse = await transporter.sendMail(mailOptions);
+    if (!emailResponse.accepted?.length) throw new Error("Email rejected");
+
+    console.log("Email sent:", emailResponse.messageId);
+
+    // ✅ DB Update only after email success
+    await prisma.$transaction(async (tx) => {
+      if (isResend) {
+        await tx.purchaseOrder.update({
           where: { id: poId },
           data: {
-            pdfUrl: relativePath,
-            pdfName: fileName,
-            pdfGeneratedAt: new Date(),
-            pdfGeneratedBy: req.user?.id,
+            emailResentCount: { increment: 1 },
+            emailLastResentAt: new Date(),
           },
         });
 
-        await prisma.auditLog.create({
+        await tx.auditLog.create({
           data: {
             entityType: "PurchaseOrder",
             entityId: poId,
-            action: "PO_PDF_GENERATED",
-            performedBy: req.user?.id,
-            oldValue: {},
-            newValue: {
-              pdfUrl: relativePath,
-              pdfName: fileName,
-              pdfGeneratedAt: new Date(),
-            },
+            action: "EMAIL_RESENT",
+            performedBy: userId,
+            oldValue: { resentCount: po.emailResentCount },
+            newValue: { resentCount: po.emailResentCount + 1 },
+          },
+        });
+      } else {
+        await tx.purchaseOrder.update({
+          where: { id: poId },
+          data: {
+            status: "Sent",
+            emailSentAt: new Date(),
+            emailSentBy: userId,
           },
         });
 
-        return res.download(filePath);
-      } catch (err) {
-        console.error("DB Update Error: ", err);
-        return res.download(filePath);
+        await tx.auditLog.create({
+          data: {
+            entityType: "PurchaseOrder",
+            entityId: poId,
+            action: "EMAIL_SENT",
+            performedBy: userId,
+            oldValue: { status: po.status },
+            newValue: { status: "Sent", emailTo: po.vendor.email },
+          },
+        });
       }
     });
+
+    return res.status(200).json({
+      success: true,
+      message: isResend
+        ? "PO re-emailed successfully."
+        : "PO emailed successfully.",
+    });
+
   } catch (err) {
-    console.error("Error Generating PO PDF:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Email/DB Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send PO email",
+      error: err.message,
+    });
   }
 };
 
 module.exports = {
   createCompany,
   createVendor,
-  getAllCompanies,
-  getAllVendors,
-  getAllItems,
+  getCompaniesList,
+  getVendorsList,
+  getItemsList,
   createPurchaseOrder,
   updatePurchaseOrder,
   getPOListByCompany,
   getPurchaseOrderDetails,
   downloadPOPDF,
+  sendOrResendPO
 };
