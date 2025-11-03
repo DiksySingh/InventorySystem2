@@ -1025,7 +1025,7 @@ const downloadPOPDF = async (req, res) => {
       });
     }
 
-    // ✅ Prepare Items Array
+    // ✅ Prepare Items
     const items = po.items.map(it => ({
       itemName: it.itemName,
       hsnCode: it.hsnCode || "-",
@@ -1041,7 +1041,7 @@ const downloadPOPDF = async (req, res) => {
     const fileName = path.basename(filePath);
     const relativePath = `/uploads/purchaseOrderFolder/${fileName}`;
 
-    // ✅ Save PDF Metadata In DB
+    // ✅ Save PDF Info
     await prisma.purchaseOrder.update({
       where: { id: poId },
       data: {
@@ -1061,7 +1061,8 @@ const downloadPOPDF = async (req, res) => {
 
   } catch (err) {
     console.error("Error generating PO PDF:", err);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
       message: "Server Error while generating PO PDF",
       error: err.message,

@@ -1,0 +1,379 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Purchase Order</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact;
+        }
+
+        body {
+            font-family: "Arial Narrow", Arial, sans-serif;
+            font-size: 11px;
+            color: #000;
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        /* outer border like sample */
+        .container {
+            border: 2px solid #000;
+            padding: 6px;
+            box-sizing: border-box;
+            width: calc(210mm - 24px);
+            min-height: calc(297mm - 24px);
+            position: relative;
+        }
+
+        /* watermark (base64 dataURI will be injected) */
+        .watermark {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 560px;
+            opacity: 0.08;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* header */
+        .content-box {
+            border: 2px solid #000;
+            margin-bottom: 0px;
+        }
+
+        .title {
+            text-align: center;
+            font-weight: 700;
+            text-decoration: underline;
+            font-size: 18px;
+            margin-bottom: 3px;
+        }
+
+        .company {
+            text-align: center;
+            font-weight: 700;
+            font-size: 25px;
+        }
+
+        .company-sub {
+            text-align: center;
+            font-size: 15px;
+        }
+
+        .company-gst {
+            text-align: center;
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+
+        /* top info boxes */
+        .top-row {
+            display: flex;
+        }
+
+        .left-box {
+            flex: 1;
+            border: 1px solid #000;
+            padding: 4px;
+            font-size: 13px;
+            min-height: 120px;
+            font-weight: 500;
+            box-sizing: border-box;
+            text-align: justify;
+        }
+
+        .right-box {
+            flex: 1;
+            border: 1px solid #000;
+            padding: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .note {
+            border: 1px solid #000;
+            padding: 6px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        /* items table (fixed row heights) */
+        table.items {
+            width: 100%;
+            border-collapse: collapse;
+            /* margin-top: 8px; */
+            font-size: 13px;
+        }
+
+        table.items thead th {
+            border: 1px solid #000;
+            background: #eee;
+            padding: 4px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        table.items tbody td {
+            border-right: 1px solid #000;
+            border-left: 1px solid #000;
+            padding: 4px;
+            vertical-align: top;
+            height: 42px;
+            /* FIXED row height to match sample vertical space */
+        }
+
+        .bottom-rows {
+            margin-top: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .totals {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .amount-box {
+            width: 340px;
+            border: 1.7px solid #000;
+            border-collapse: collapse;
+        }
+
+        .amount-box td {
+            padding: 6px;
+            border: 1.2px solid #000;
+        }
+
+        .in-words {
+            margin-top: 6px;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .terms-sign {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .terms {
+            flex: 1;
+            border: 1.7px solid #000;
+            padding: 8px;
+            font-size: 10px;
+        }
+
+        .signature {
+            width: 320px;
+            border: 1.7px solid #000;
+            padding: 8px;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tfoot {
+            display: table-footer-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- watermark (base64) -->
+        <img src="<%= watermark %>" class="watermark" />
+
+        <div class="content">
+            <div class="content-box">
+                <div class="title">Purchase Order</div>
+                <div class="company">
+                    <%= companyName %>
+                </div>
+                <div class="company-sub">
+                    <%= companySub %>
+                </div>
+                <div class="company-sub">
+                    <%= companyAddress %>
+                </div>
+                <div class="company-gst">GSTIN: <%= companyGST %>
+                </div>
+            </div>
+
+
+            <div class="top-row" style="margin-top:6px;">
+                <div class="left-box">
+                    <strong>Party Details:</strong><br />
+                    <%= vendorName %><br />
+                        <%= vendorAddress %><br />
+                            GSTIN: <%= vendorGST %><br />
+                                Email: <%= vendorEmail %><br />
+                                    Mob: <%= vendorPhone %>
+                </div>
+
+                <div class="right-box">
+                    <table style=" font-size:14px; font-weight: 500;">
+                        <tr>
+                            <td><b>Order No :</b></td>
+                            <td style="text-align:left;">
+                                <%= poNumber %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b>Dated :</b></td>
+                            <td style="text-align:left;">
+                                <%= poDate %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b>Payment Terms :</b></td>
+                            <td style="text-align:left;">
+                                <%= paymentTerms %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b>Delivery Terms :</b></td>
+                            <td style="text-align:left;">
+                                <%= deliveryTerms %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b>Contact Person :</b></td>
+                            <td style="text-align:left;">
+                                <%= contactPerson %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b>Cell No :</b></td>
+                            <td style="text-align:left;">
+                                <%= cellNo %>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b>Warranty :</b></td>
+                            <td style="text-align:left;">
+                                <%= warranty %>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="note">COA report should be attached with invoice ,If the item arrives damaged or poor quality we
+                will return it the same day.</div>
+            <div class="note">We are pleased to place the order for the following items: </div>
+
+            <table class="items">
+                <thead>
+                    <tr>
+                        <th style="width:5%;">S.N.</th>
+                        <th style="width:46%;">Description of Goods</th>
+                        <th style="width:12%;">HSN Code</th>
+                        <th style="width:7%;">Qty.</th>
+                        <th style="width:7%;">Unit</th>
+                        <th style="width:10%;">Price/Unit (₹)</th>
+                        <th style="width:13%;">Amount (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% rows.forEach(function(r){ %>
+                        <tr style="text-decoration: none;">
+                            <td style="text-align:center;">
+                                <%= r.sno %>
+                            </td>
+                            <td>
+                                <%= r.description %>
+                            </td>
+                            <td style="text-align:center;">
+                                <%= r.hsn %>
+                            </td>
+                            <td style="text-align:center;">
+                                <%= r.qty %>
+                            </td>
+                            <td style="text-align:center;">
+                                <%= r.unit %>
+                            </td>
+                            <td style="text-align:right;">
+                                <%= r.rate %>
+                            </td>
+                            <td style="text-align:right;">
+                                <%= r.amount %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                </tbody>
+            </table>
+
+            <div class="bottom-rows">
+                <div class="totals">
+                    <div><strong>Add : <%= gstLabel %> @ <%= taxPercent %>% — ₹ <%= taxAmount %></strong></div>
+                    <div>Total Quantity: <%= totalQty %> Units</div>
+                    <div style="margin-top:6px;"><strong>Total Amount: ₹ <%= grandTotal %></strong></div>
+                    <div class="in-words">Amount in words: <%= inWords %>
+                    </div>
+                </div>
+
+                <table class="amount-box">
+                    <tbody>
+                        <tr>
+                            <td>Subtotal</td>
+                            <td style="text-align:right;">₹ <%= subTotal %>
+                            </td>
+                        </tr>
+                        <%= gstBreakup %>
+                            <tr>
+                                <td><strong>Grand Total</strong></td>
+                                <td style="text-align:right;"><strong>₹ <%= grandTotal %></strong></td>
+                            </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="terms-sign">
+                <div class="terms">
+                    <strong>Terms & Conditions</strong>
+                    <ol style="margin-left:14px;">
+                        <li>Purchase Order is inclusive of all taxes i.e GST</li>
+                        <li>All material will be dispatch to site</li>
+                        <li>If the supplied qty is in excess of Purchase Order Qty, we may reject the excess supplied
+                            qty without any economic consideration.</li>
+                        <li>All disputes subject to Delhi Jurisdiction.</li>
+                    </ol>
+                </div>
+
+                <div class="signature">
+                    Receiver's signature<br /><br />
+                    for <%= companyShort %><br /><br />
+                        <strong>Authorised Signatory</strong>
+                </div>
+            </div>
+        </div> <!-- content -->
+    </div> <!-- container -->
+</body>
+
+</html>
