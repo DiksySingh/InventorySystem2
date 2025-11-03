@@ -4112,6 +4112,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       outgoing,
       pickupDate,
     } = req.body;
+    console.log(req.body);
     if (
       !fromWarehouse ||
       !toWarehouse ||
@@ -4159,7 +4160,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
             inv.systemItemId.itemName.toLowerCase().trim() ===
             systemItemData.itemName.toLowerCase().trim()
         );
-
+        console.log(existingItem);
         if (!existingItem) {
           throw new Error(
             `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
@@ -4179,7 +4180,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
         await existingItem.save();
       }
     }
-
+    
     const insertData = {
       fromWarehouse,
       toWarehouse,
