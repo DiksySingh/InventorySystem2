@@ -18,17 +18,17 @@
         }
 
         body {
-            font-family: "Arial Narrow", Arial, sans-serif;
+            font-family: "Times New Roman", Arial, sans-serif;
             font-size: 11px;
             color: #000;
-            padding: 12px;
+            padding: 10px;
             box-sizing: border-box;
         }
 
         /* outer border like sample */
         .container {
-            border: 2px solid #000;
-            padding: 6px;
+            /* border: 2px solid #000; */
+            padding: 0px;
             box-sizing: border-box;
             width: calc(210mm - 24px);
             min-height: calc(297mm - 24px);
@@ -42,9 +42,15 @@
             left: 50%;
             transform: translate(-50%, -50%);
             width: 560px;
-            opacity: 0.08;
+            opacity: 0.10;
             z-index: 0;
             pointer-events: none;
+        }
+
+        .content {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
         .content {
@@ -54,7 +60,7 @@
 
         /* header */
         .content-box {
-            border: 2px solid #000;
+            border: 1px solid #000;
             margin-bottom: 0px;
         }
 
@@ -93,7 +99,7 @@
             flex: 1;
             border: 1px solid #000;
             padding: 4px;
-            font-size: 13px;
+            font-size: 14px;
             min-height: 120px;
             font-weight: 500;
             box-sizing: border-box;
@@ -111,8 +117,9 @@
         .note {
             border: 1px solid #000;
             padding: 6px;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 700;
+            min-height: 20px;
         }
 
         /* items table (fixed row heights) */
@@ -120,7 +127,7 @@
             width: 100%;
             border-collapse: collapse;
             /* margin-top: 8px; */
-            font-size: 13px;
+            font-size: 14px;
         }
 
         table.items thead th {
@@ -136,15 +143,37 @@
             border-left: 1px solid #000;
             padding: 4px;
             vertical-align: top;
-            height: 42px;
+            height: 40px;
+
             /* FIXED row height to match sample vertical space */
         }
 
-        .bottom-rows {
-            margin-top: 8px;
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
+        table.bottom-rows {
+            width: 100%;
+            border: 1px solid #000;
+            /* margin-top: 8px; */
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        table.bottom-rows tbody td {
+            padding: 2px;
+            vertical-align: top;
+            height: 15px;
+        }
+
+        table.total-amount-rows {
+            width: 100%;
+            border: 1px solid #000;
+            /* margin-top: 8px; */
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        table.total-amount-rows tbody td {
+            padding: 3px;
+            vertical-align: top;
+            height: 20px;
         }
 
         .totals {
@@ -171,24 +200,46 @@
 
         .terms-sign {
             display: flex;
-            gap: 10px;
-            margin-top: 8px;
+            gap: 0;
+            margin-top: 0px;
         }
 
         .terms {
             flex: 1;
-            border: 1.7px solid #000;
-            padding: 8px;
-            font-size: 10px;
+            border: 1px solid #000;
+            text-align: justify;
+            padding: 5px;
+            font-size: 15px;
+            min-height: 90px; /* ✅ fixed height like Gautam */
+        }
+        
+        .terms-list > li {
+            margin: 0px;
+            font-weight: 600;
+            padding: 0px;
         }
 
         .signature {
-            width: 320px;
-            border: 1.7px solid #000;
-            padding: 8px;
-            text-align: center;
-            font-size: 10px;
+            flex: 1;
+            border: 1px solid #000;
         }
+
+        .signature-box {
+            padding: 10px 0px 10px 10px;
+            min-height: 20px;
+            text-align: left;
+            font-size: 15px;
+            font-weight: 200;
+            border-bottom: 1.5px solid #000;
+        }
+
+        .signature-company {
+            text-align: right;
+            padding: 10px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
 
         thead {
             display: table-header-group;
@@ -206,7 +257,7 @@
 
 <body>
     <div class="container">
-        <!-- watermark (base64) -->
+        watermark (base64)
         <img src="<%= watermark %>" class="watermark" />
 
         <div class="content">
@@ -226,14 +277,13 @@
             </div>
 
 
-            <div class="top-row" style="margin-top:6px;">
+            <div class="top-row" style="margin-top:0px;">
                 <div class="left-box">
                     <strong>Party Details:</strong><br />
-                    <%= vendorName %><br />
+                    <strong><%= vendorName %></strong><br />
                         <%= vendorAddress %><br />
-                            GSTIN: <%= vendorGST %><br />
-                                Email: <%= vendorEmail %><br />
-                                    Mob: <%= vendorPhone %>
+                                Email: <%= vendorEmail %>, Mob: <%= vendorPhone %> <br/> <br/>
+                                    <strong>GSTIN: <%= vendorGST %></strong>
                 </div>
 
                 <div class="right-box">
@@ -284,20 +334,19 @@
                 </div>
             </div>
 
-            <div class="note">COA report should be attached with invoice ,If the item arrives damaged or poor quality we
-                will return it the same day.</div>
+            <div class="note"></div>
             <div class="note">We are pleased to place the order for the following items: </div>
 
             <table class="items">
                 <thead>
                     <tr>
                         <th style="width:5%;">S.N.</th>
-                        <th style="width:46%;">Description of Goods</th>
-                        <th style="width:12%;">HSN Code</th>
-                        <th style="width:7%;">Qty.</th>
-                        <th style="width:7%;">Unit</th>
-                        <th style="width:10%;">Price/Unit (₹)</th>
-                        <th style="width:13%;">Amount (₹)</th>
+                        <th style="width:43%;">Description of Goods</th>
+                        <th style="width:10%;">HSN Code</th>
+                        <th style="width:10%;">Qty.</th>
+                        <th style="width:5%;">Unit</th>
+                        <th style="width:12%;">Price/Unit (₹)</th>
+                        <th style="width:15%;">Amount (₹)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -329,35 +378,91 @@
                 </tbody>
             </table>
 
-            <div class="bottom-rows">
-                <div class="totals">
-                    <div><strong>Add : <%= gstLabel %> @ <%= taxPercent %>% — ₹ <%= taxAmount %></strong></div>
-                    <div>Total Quantity: <%= totalQty %> Units</div>
-                    <div style="margin-top:6px;"><strong>Total Amount: ₹ <%= grandTotal %></strong></div>
-                    <div class="in-words">Amount in words: <%= inWords %>
-                    </div>
-                </div>
-
-                <table class="amount-box">
-                    <tbody>
-                        <tr>
-                            <td>Subtotal</td>
-                            <td style="text-align:right;">₹ <%= subTotal %>
+            <table class="bottom-rows">
+                <tbody>
+                        <tr style="text-decoration: none;">
+                            <td></td>
+                            <td style="text-align:center;">
+                                <%= gstLabel %>
+                            </td>
+                            <td></td><td></td><td></td>
+                            <td style="text-align:right;">
+                            </td>
+                            <td style="text-align:right;">
+                                <%= INR(taxAmount) %>
                             </td>
                         </tr>
-                        <%= gstBreakup %>
-                            <tr>
-                                <td><strong>Grand Total</strong></td>
-                                <td style="text-align:right;"><strong>₹ <%= grandTotal %></strong></td>
-                            </tr>
-                    </tbody>
-                </table>
-            </div>
+
+                         <tr style="text-decoration: none;">
+                            <td style="text-align:center; width:5%;">
+                            </td>
+                            <td style="text-align:center; width:43%;">
+                                Total Quantity: 
+                            </td>
+                            <td style="text-align:center; width:10%;">
+                            </td>
+                            <td style="text-align:center; width:10%;">
+                                <%=totalQty%>
+                            </td>
+                            <td style="text-align:center; width:5%;">
+                            </td>
+                            <td style="text-align:right; width:12%;">
+                            </td>
+                            <td style="text-align:right; width:15%;">
+                            </td>
+                        </tr>
+                </tbody>
+            </table>
+
+            <table class="total-amount-rows">
+                <tbody>
+                        <tr style="text-decoration: none;">
+                            <td style="text-align:center; width:5%;">    
+                            </td>
+                            <td style="text-align:right; width: 43%;">
+                            </td>
+                              <td style="text-align:center; width:10%;">
+                            </td>
+                            <td style="text-align:center; width:10%;">
+                            </td>
+                            <td style="text-align:center; width:5%;">
+                            </td>
+                            <td style="text-align:left; width:12%;">
+                                  Grand Total
+                            </td>
+                            <td style="text-align:right; width:15%;">
+                                <%= grandTotal %>
+                            </td>
+                        </tr>
+                </tbody>
+            </table>
+
+            <table  class="total-amount-rows">
+                <tbody>
+                      <tr style="border-top: 1px solid #000;">
+                            <td style="text-align:center;" colspan="7">
+                                <%= inWords %>
+                            </td>
+                              <td style="text-align:right;">
+                            </td>
+                              <td style="text-align:center;">
+                            </td>
+                            <td style="text-align:center;">
+                            </td>
+                            <td style="text-align:center;">
+                            </td>
+                            <td style="text-align:left;">
+                            </td>
+                            <td style="text-align:right;">
+                            </td>
+                        </tr>
+                </tbody>
+            </table>
 
             <div class="terms-sign">
                 <div class="terms">
-                    <strong>Terms & Conditions</strong>
-                    <ol style="margin-left:14px;">
+                    <strong style="text-decoration: underline;">Terms & Conditions</strong>
+                    <ol class="terms-list">
                         <li>Purchase Order is inclusive of all taxes i.e GST</li>
                         <li>All material will be dispatch to site</li>
                         <li>If the supplied qty is in excess of Purchase Order Qty, we may reject the excess supplied
@@ -367,13 +472,16 @@
                 </div>
 
                 <div class="signature">
-                    Receiver's signature<br /><br />
-                    for <%= companyShort %><br /><br />
+                    <div class="signature-box">Receiver's signature </div>
+                    <div class="signature-company">
+                        for <%= companyName %><br /><br />
                         <strong>Authorised Signatory</strong>
+                    </div>
+                    
                 </div>
             </div>
-        </div> <!-- content -->
-    </div> <!-- container -->
+        </div> 
+    </div> 
 </body>
 
 </html>

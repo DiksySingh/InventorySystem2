@@ -644,6 +644,15 @@ model PurchaseOrder {
   createdBy         String?
   poDate            DateTime  @default(now())
   gstType           GSTType
+
+    /// --------------------- 💱 Currency & FX Fields ----------------------
+  currency          String?    @default("INR")   // e.g. USD, EUR, AED
+  exchangeRate      Decimal?   @db.Decimal(12,4) @default(1.0000) // INR conversion rate
+
+  foreignSubTotal   Decimal?  @db.Decimal(12,2) // subtotal in foreign currency
+  foreignGrandTotal Decimal?  @db.Decimal(12,2) // final in foreign currency
+  /// --------------------- 💱 End Currency & FX ------------------------
+
   subTotal          Decimal?  @db.Decimal(12, 2)
   totalCGST         Decimal?  @db.Decimal(12, 2)
   totalSGST         Decimal?  @db.Decimal(12, 2)
