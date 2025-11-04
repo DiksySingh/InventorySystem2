@@ -26,12 +26,12 @@ const purchaseRouter = require("./routes/rawMaterialItemsRoutes/purchaseRouter")
 const testRouter = require("./routes/test");
 
 // Load environment variables
-// const MONGODB_URL = process.env.MONGODB_URL;
-const MONGO_URL = process.env.MONGO_URL;
+const MONGODB_URL = process.env.MONGODB_URL;
+// const MONGO_URL = process.env.MONGO_URL;
 const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
-mongoose.connect(MONGO_URL, {
+mongoose.connect(MONGODB_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
