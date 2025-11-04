@@ -4330,6 +4330,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
     });
 
   } catch (error) {
+    console.log("ERROR: ", error);
     // ❌ Rollback everything
     await session.abortTransaction();
     session.endSession();
