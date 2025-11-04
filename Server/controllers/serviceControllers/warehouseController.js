@@ -4099,7 +4099,122 @@ module.exports.showIncomingItemToWarehouse = async (req, res) => {
   }
 };
 
+// module.exports.warehouse2WarehouseTransaction = async (req, res) => {
+//   try {
+//     const {
+//       fromWarehouse,
+//       toWarehouse,
+//       itemsList,
+//       driverName,
+//       driverContact,
+//       serialNumber,
+//       remarks,
+//       outgoing,
+//       pickupDate,
+//     } = req.body;
+//     console.log(req.body);
+//     if (
+//       !fromWarehouse ||
+//       !toWarehouse ||
+//       !itemsList ||
+//       !driverName ||
+//       !driverContact ||
+//       !remarks ||
+//       !outgoing ||
+//       !pickupDate
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "All fields are required",
+//       });
+//     }
+
+//     if (!Array.isArray(itemsList) || itemsList.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Items is an array & should be non-empty",
+//       });
+//     }
+
+//     if (outgoing === true) {
+//       for (let item of itemsList) {
+//         const { systemItemId, quantity } = item;
+//         const systemItemData = await SystemItem.findOne({ _id: systemItemId });
+//         if (!systemItemData) {
+//           return res.status(400).json({
+//             success: false,
+//             message: "SubItem Not Found",
+//           });
+//         }
+
+//         const existingInventoryItems = await InstallationInventory.find({
+//           warehouseId: req.user.warehouse,
+//         }).populate({
+//           path: "systemItemId",
+//           select: "itemName",
+//         });
+
+//         // Check if any inventory item has a subItemId with a matching subItemName
+//         const existingItem = existingInventoryItems.find(
+//           (inv) =>
+//             inv.systemItemId.itemName.toLowerCase().trim() ===
+//             systemItemData.itemName.toLowerCase().trim()
+//         );
+//         console.log(existingItem);
+//         if (!existingItem) {
+//           throw new Error(
+//             `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
+//           );
+//         }
+
+//         if (existingItem.quantity < quantity || existingItem.quantity === 0) {
+//           throw new Error(
+//             `Insufficient stock for item "${systemItemData.itemName}"`
+//           );
+//         }
+
+//         existingItem.quantity =
+//           parseInt(existingItem?.quantity) - parseInt(quantity);
+//         existingItem.updatedAt = new Date();
+//         existingItem.updatedBy = req.user._id;
+//         await existingItem.save();
+//       }
+//     }
+    
+//     const insertData = {
+//       fromWarehouse,
+//       toWarehouse,
+//       itemsList,
+//       driverName,
+//       driverContact: Number(driverContact),
+//       serialNumber,
+//       remarks,
+//       outgoing,
+//       pickupDate,
+//       createdBy: req.user._id,
+//     };
+//     const incomingInventoryStock = new SystemInventoryWToW(insertData);
+//     const savedIncomingStock = await incomingInventoryStock.save();
+//     if (savedIncomingStock) {
+//       return res.status(200).json({
+//         success: true,
+//         message: "Incoming Inventory Stock Data Saved/Updated Successfully",
+//         data: savedIncomingStock,
+//       });
+//     }
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 module.exports.warehouse2WarehouseTransaction = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const {
       fromWarehouse,
@@ -4112,7 +4227,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       outgoing,
       pickupDate,
     } = req.body;
-    console.log(req.body);
+
     if (
       !fromWarehouse ||
       !toWarehouse ||
@@ -4123,6 +4238,8 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       !outgoing ||
       !pickupDate
     ) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -4130,6 +4247,8 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
     }
 
     if (!Array.isArray(itemsList) || itemsList.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         success: false,
         message: "Items is an array & should be non-empty",
@@ -4139,28 +4258,28 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
     if (outgoing === true) {
       for (let item of itemsList) {
         const { systemItemId, quantity } = item;
-        const systemItemData = await SystemItem.findOne({ _id: systemItemId });
+
+        const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
         if (!systemItemData) {
-          return res.status(400).json({
-            success: false,
-            message: "SubItem Not Found",
-          });
+          throw new Error(`SubItem Not Found`);
         }
 
+        // fetch existing stock
         const existingInventoryItems = await InstallationInventory.find({
           warehouseId: req.user.warehouse,
-        }).populate({
-          path: "systemItemId",
-          select: "itemName",
-        });
+        })
+          .populate({
+            path: "systemItemId",
+            select: "itemName",
+          })
+          .session(session);
 
-        // Check if any inventory item has a subItemId with a matching subItemName
         const existingItem = existingInventoryItems.find(
           (inv) =>
             inv.systemItemId.itemName.toLowerCase().trim() ===
             systemItemData.itemName.toLowerCase().trim()
         );
-        console.log(existingItem);
+
         if (!existingItem) {
           throw new Error(
             `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
@@ -4173,14 +4292,17 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
           );
         }
 
+        // reduce stock
         existingItem.quantity =
-          parseInt(existingItem?.quantity) - parseInt(quantity);
+          parseInt(existingItem.quantity) - parseInt(quantity);
         existingItem.updatedAt = new Date();
         existingItem.updatedBy = req.user._id;
-        await existingItem.save();
+
+        await existingItem.save({ session });
       }
     }
-    
+
+    // create transfer entry
     const insertData = {
       fromWarehouse,
       toWarehouse,
@@ -4193,24 +4315,32 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       pickupDate,
       createdBy: req.user._id,
     };
-    const incomingInventoryStock = new SystemInventoryWToW(insertData);
-    const savedIncomingStock = await incomingInventoryStock.save();
-    if (savedIncomingStock) {
-      return res.status(200).json({
-        success: true,
-        message: "Incoming Inventory Stock Data Saved/Updated Successfully",
-        data: savedIncomingStock,
-      });
-    }
+
+    const newDoc = new SystemInventoryWToW(insertData);
+    const saved = await newDoc.save({ session });
+
+    // ✅ Commit everything
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Transaction saved successfully",
+      data: saved,
+    });
+
   } catch (error) {
+    // ❌ Rollback everything
+    await session.abortTransaction();
+    session.endSession();
+
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: "Transaction Failed",
       error: error.message,
     });
   }
 };
-
 module.exports.showIncomingWToWItems = async (req, res) => {
   try {
     const warehouseId = req.user.warehouse;
