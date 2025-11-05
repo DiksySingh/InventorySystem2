@@ -1474,9 +1474,9 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 
 // module.exports.showItemsWithStockStatus = async (req, res) => {
 //   try {
-//     const warehouseId = req.user.warehouse;
+//     const warehouseId = req.user?.warehouse;
 //     const systemId = req.query.systemId;
-//     const systemCount = 25;
+//     const systemCount = 25; // target systems to plan
 
 //     if (!systemId) {
 //       return res.status(400).json({
@@ -1485,7 +1485,7 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 //       });
 //     }
 
-//     // Step 1: Fetch required items and quantities for the system
+//     // Step 1: Get required components & quantities for the system
 //     const [systemItemMaps, subItemMaps] = await Promise.all([
 //       SystemItemMap.find({ systemId }).select("systemItemId quantity").lean(),
 //       ItemComponentMap.find({ systemId }).select("subItemId quantity").lean(),
@@ -1496,25 +1496,19 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 
 //     systemItemMaps.forEach(({ systemItemId, quantity }) => {
 //       const id = systemItemId.toString();
-//       requiredQtyMap.set(
-//         id,
-//         (requiredQtyMap.get(id) || 0) + quantity * systemCount
-//       );
+//       requiredQtyMap.set(id, quantity);
 //       itemIdSet.add(id);
 //     });
 
 //     subItemMaps.forEach(({ subItemId, quantity }) => {
 //       const id = subItemId.toString();
-//       requiredQtyMap.set(
-//         id,
-//         (requiredQtyMap.get(id) || 0) + quantity * systemCount
-//       );
+//       requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
 //       itemIdSet.add(id);
 //     });
 
 //     const itemIds = Array.from(itemIdSet);
 
-//     // Step 2: Fetch inventory for these item IDs in the warehouse
+//     // Step 2: Fetch inventory in warehouse for these items
 //     const inventoryItems = await InstallationInventory.find({
 //       warehouseId,
 //       systemItemId: { $in: itemIds },
@@ -1528,58 +1522,68 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 
 //     const inventoryMap = new Map();
 
-//     for (const item of inventoryItems) {
+//     inventoryItems.forEach((item) => {
 //       const id = item.systemItemId._id.toString();
 //       if (!inventoryMap.has(id)) {
 //         inventoryMap.set(id, {
-//           systemItemId: {
-//             _id: item.systemItemId._id,
-//             itemName: item.systemItemId.itemName,
-//           },
+//           systemItemId: item.systemItemId,
 //           quantity: 0,
 //         });
 //       }
 //       inventoryMap.get(id).quantity += item.quantity;
-//     }
+//     });
 
-//     // Step 3: Construct final result array
+//     // Step 3: Build response
 //     const result = [];
+//     let minPossibleSystems = Infinity;
 
 //     for (const id of itemIds) {
-//       const requiredQuantity = requiredQtyMap.get(id) || 0;
+//       const requiredPerSystem = requiredQtyMap.get(id) || 0;
 //       const inv = inventoryMap.get(id);
+//       const availableQty = inv?.quantity || 0;
 
-//       let quantity = 0;
-//       let systemItemData = {
+//       const possibleSystems =
+//         requiredPerSystem > 0
+//           ? Math.floor(availableQty / requiredPerSystem)
+//           : Infinity;
+
+//       if (possibleSystems < minPossibleSystems) {
+//         minPossibleSystems = possibleSystems;
+//       }
+
+//       const itemData = inv?.systemItemId || {
 //         _id: id,
 //         itemName: "Unknown Item",
 //       };
 
-//       if (inv) {
-//         quantity = inv.quantity;
-//         systemItemData = inv.systemItemId;
-//       }
+//       const shortageUnits =
+//         requiredPerSystem > 0
+//           ? Math.max(0, requiredPerSystem * systemCount - availableQty)
+//           : 0;
 
-//       let materialShort = 0;
-//       if (quantity < requiredQuantity) {
-//         materialShort = requiredQuantity - quantity;
-//       }
+//       const materialShortSystems =
+//         possibleSystems === Infinity
+//           ? 0
+//           : Math.max(0, systemCount - possibleSystems);
 
 //       result.push({
-//         systemItemId: systemItemData,
-//         quantity,
-//         requiredQuantity,
-//         stockLow: quantity < requiredQuantity,
-//         materialShort,
+//         systemItemId: itemData,
+//         quantity: availableQty,
+//         requiredQuantity: requiredPerSystem,
+//         materialShort: shortageUnits,
+//         stockLow: availableQty < requiredPerSystem * systemCount,
 //       });
 //     }
 
-//     // Step 4: Sort by quantity ascending
+//     if (minPossibleSystems === Infinity) minPossibleSystems = 0;
+
+//     // ✅ Sort by available stock (ascending)
 //     result.sort((a, b) => a.quantity - b.quantity);
 
 //     return res.status(200).json({
 //       success: true,
 //       message: "Inventory fetched with stock status",
+//       dispatchableSystems: minPossibleSystems,
 //       data: result,
 //     });
 //   } catch (error) {
@@ -1591,126 +1595,224 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
 //   }
 // };
 
+// Helper to extract pump head from itemName
+function getPumpHead(itemName) {
+  if (!itemName) return null;
+  const match = itemName.trim().match(/(\d+\.?\d*)\s*M$/i);
+  if (match) return match[0].toUpperCase().replace(/\s+/g, "");
+  return null;
+}
+
 module.exports.showItemsWithStockStatus = async (req, res) => {
   try {
     const warehouseId = req.user?.warehouse;
     const systemId = req.query.systemId;
-    const systemCount = 25; // target systems to plan
 
     if (!systemId) {
-      return res.status(400).json({
-        success: false,
-        message: "systemId is required",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "systemId is required" });
     }
 
-    // Step 1: Get required components & quantities for the system
-    const [systemItemMaps, subItemMaps] = await Promise.all([
-      SystemItemMap.find({ systemId }).select("systemItemId quantity").lean(),
-      ItemComponentMap.find({ systemId }).select("subItemId quantity").lean(),
-    ]);
+    // Step 1: Fetch all system items
+    const systemItems = await SystemItemMap.find({ systemId })
+      .populate({ path: "systemItemId", select: "_id itemName" })
+      .select("systemItemId quantity")
+      .lean();
 
-    const requiredQtyMap = new Map();
-    const itemIdSet = new Set();
-
-    systemItemMaps.forEach(({ systemItemId, quantity }) => {
-      const id = systemItemId.toString();
-      requiredQtyMap.set(id, quantity);
-      itemIdSet.add(id);
+    // Extract pumpHead from itemName
+    systemItems.forEach((item) => {
+      item.systemItemId.pumpHead = getPumpHead(item.systemItemId.itemName);
     });
 
-    subItemMaps.forEach(({ subItemId, quantity }) => {
-      const id = subItemId.toString();
-      requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
-      itemIdSet.add(id);
-    });
+    const pumps = systemItems.filter((i) => i.systemItemId.pumpHead);
+    const commonItems = systemItems.filter((i) => !i.systemItemId.pumpHead);
 
-    const itemIds = Array.from(itemIdSet);
+    // Step 2: Fetch all sub-items
+    const subItems = await ItemComponentMap.find({ systemId })
+      .populate({ path: "subItemId", select: "_id itemName" })
+      .select("systemItemId subItemId quantity")
+      .lean();
 
-    // Step 2: Fetch inventory in warehouse for these items
+    // Step 3: Fetch inventory for all items
+    const allItemIds = [
+      ...systemItems.map((i) => i.systemItemId._id.toString()),
+      ...subItems.map((i) => i.subItemId._id.toString()),
+    ];
+
     const inventoryItems = await InstallationInventory.find({
       warehouseId,
-      systemItemId: { $in: itemIds },
+      systemItemId: { $in: allItemIds },
     })
-      .populate({
-        path: "systemItemId",
-        select: "_id itemName",
-      })
+      .populate({ path: "systemItemId", select: "_id itemName" })
       .select("systemItemId quantity")
       .lean();
 
     const inventoryMap = new Map();
-
     inventoryItems.forEach((item) => {
       const id = item.systemItemId._id.toString();
-      if (!inventoryMap.has(id)) {
-        inventoryMap.set(id, {
-          systemItemId: item.systemItemId,
-          quantity: 0,
-        });
-      }
-      inventoryMap.get(id).quantity += item.quantity;
+      inventoryMap.set(id, {
+        systemItemId: item.systemItemId,
+        quantity: item.quantity,
+      });
     });
 
-    // Step 3: Build response
-    const result = [];
-    let minPossibleSystems = Infinity;
+    // -------------------------------
+    // Step 4: Calculate overall stock (global)
+    // -------------------------------
+    let overallRequiredQtyMap = new Map();
+    let overallItemIds = new Set();
 
-    for (const id of itemIds) {
-      const requiredPerSystem = requiredQtyMap.get(id) || 0;
-      const inv = inventoryMap.get(id);
-      const availableQty = inv?.quantity || 0;
+    systemItems.forEach(({ systemItemId, quantity }) => {
+      const id = systemItemId._id.toString();
+      overallRequiredQtyMap.set(id, quantity);
+      overallItemIds.add(id);
+    });
 
+    subItems.forEach(({ subItemId, quantity }) => {
+      const id = subItemId._id.toString();
+      overallRequiredQtyMap.set(
+        id,
+        (overallRequiredQtyMap.get(id) || 0) + quantity
+      );
+      overallItemIds.add(id);
+    });
+
+    const overallItemIdsArray = Array.from(overallItemIds);
+    let overallMinDispatchableSystems = Infinity;
+    const overallStockStatus = [];
+
+    for (const id of overallItemIdsArray) {
+      const requiredPerSystem = overallRequiredQtyMap.get(id);
+      const availableQty = inventoryMap.get(id)?.quantity || 0;
       const possibleSystems =
         requiredPerSystem > 0
           ? Math.floor(availableQty / requiredPerSystem)
           : Infinity;
 
-      if (possibleSystems < minPossibleSystems) {
-        minPossibleSystems = possibleSystems;
-      }
+      if (possibleSystems < overallMinDispatchableSystems)
+        overallMinDispatchableSystems = possibleSystems;
 
-      const itemData = inv?.systemItemId || {
-        _id: id,
-        itemName: "Unknown Item",
-      };
-
-      const shortageUnits =
-        requiredPerSystem > 0
-          ? Math.max(0, requiredPerSystem * systemCount - availableQty)
-          : 0;
-
-      const materialShortSystems =
-        possibleSystems === Infinity
-          ? 0
-          : Math.max(0, systemCount - possibleSystems);
-
-      result.push({
-        systemItemId: itemData,
+      overallStockStatus.push({
+        systemItemId: inventoryMap.get(id)?.systemItemId || {
+          _id: id,
+          itemName: "Unknown Item",
+        },
         quantity: availableQty,
         requiredQuantity: requiredPerSystem,
-        materialShort: shortageUnits,
-        stockLow: availableQty < requiredPerSystem * systemCount,
+        stockLow: availableQty < requiredPerSystem,
+        materialShort: Math.max(0, requiredPerSystem - availableQty),
       });
     }
 
-    if (minPossibleSystems === Infinity) minPossibleSystems = 0;
+    if (overallMinDispatchableSystems === Infinity)
+      overallMinDispatchableSystems = 0;
 
-    // ✅ Sort by available stock (ascending)
-    result.sort((a, b) => a.quantity - b.quantity);
+    // Sort overall stock by quantity ascending
+    overallStockStatus.sort((a, b) => a.quantity - b.quantity);
+
+    // -------------------------------
+    // Step 5: Group by pump head
+    // -------------------------------
+    const uniquePumpHeads = [
+      ...new Set(pumps.map((p) => p.systemItemId.pumpHead)),
+    ];
+    const pumpDispatchData = [];
+    let totalDispatchableSystems = 0;
+
+    for (const pumpHead of uniquePumpHeads) {
+      const pumpsForHead = pumps.filter(
+        (p) => p.systemItemId.pumpHead === pumpHead
+      );
+
+      let requiredQtyMap = new Map();
+      let itemIdSet = new Set();
+
+      pumpsForHead.forEach(({ systemItemId, quantity }) => {
+        const id = systemItemId._id.toString();
+        requiredQtyMap.set(id, quantity);
+        itemIdSet.add(id);
+      });
+
+      const relevantSubItems = subItems.filter((sub) =>
+        pumpsForHead.some(
+          (p) => p.systemItemId._id.toString() === sub.systemItemId.toString()
+        )
+      );
+
+      relevantSubItems.forEach(({ subItemId, quantity }) => {
+        const id = subItemId._id.toString();
+        requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
+        itemIdSet.add(id);
+      });
+
+      commonItems.forEach(({ systemItemId, quantity }) => {
+        const id = systemItemId._id.toString();
+        requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
+        itemIdSet.add(id);
+      });
+
+      const itemIds = Array.from(itemIdSet);
+      let minDispatchableSystems = Infinity;
+      const stockStatus = [];
+
+      for (const id of itemIds) {
+        const requiredPerSystem = requiredQtyMap.get(id);
+        const availableQty = inventoryMap.get(id)?.quantity || 0;
+        const possibleSystems =
+          requiredPerSystem > 0
+            ? Math.floor(availableQty / requiredPerSystem)
+            : Infinity;
+
+        if (possibleSystems < minDispatchableSystems)
+          minDispatchableSystems = possibleSystems;
+
+        stockStatus.push({
+          systemItemId: inventoryMap.get(id)?.systemItemId || {
+            _id: id,
+            itemName: "Unknown Item",
+          },
+          quantity: availableQty,
+          requiredQuantity: requiredPerSystem,
+          stockLow: availableQty < requiredPerSystem,
+          materialShort: Math.max(0, requiredPerSystem - availableQty),
+        });
+      }
+
+      if (minDispatchableSystems === Infinity) minDispatchableSystems = 0;
+      totalDispatchableSystems += minDispatchableSystems;
+
+      // Sort pump head stock by quantity ascending
+      stockStatus.sort((a, b) => a.quantity - b.quantity);
+
+      pumpDispatchData.push({
+        pumpHead,
+        dispatchableSystems: minDispatchableSystems,
+        stockStatus,
+      });
+      pumpDispatchData.sort((a, b) => {
+        const numA = parseFloat(a.pumpHead.replace("M", ""));
+        const numB = parseFloat(b.pumpHead.replace("M", ""));
+        return numA - numB;
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Inventory fetched with stock status",
-      dispatchableSystems: minPossibleSystems,
-      data: result,
+      message: "Inventory fetched with overall and pump-head grouped stock",
+      data: overallStockStatus,
+      pumpHeadData: pumpDispatchData,
+      totalDispatchableSystems,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
+    console.error(error);
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Internal Server Error",
+        error: error.message,
+      });
   }
 };
 
@@ -2763,16 +2865,24 @@ module.exports.addNewInstallationData = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { dispatchedSystem, driverName, driverContact, vehicleNumber } = req.body;
+    const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
+      req.body;
 
-    const dispatchedSystems = typeof dispatchedSystem === "string" ? JSON.parse(dispatchedSystem) : dispatchedSystem;
+    const dispatchedSystems =
+      typeof dispatchedSystem === "string"
+        ? JSON.parse(dispatchedSystem)
+        : dispatchedSystem;
 
     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
-      return res.status(400).json({ success: false, message: "No dispatched systems provided" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No dispatched systems provided" });
 
     const uploadedFiles = req.files || [];
     if (uploadedFiles.length === 0)
-      return res.status(400).json({ success: false, message: "No bill photos uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No bill photos uploaded" });
 
     const billPhotosMap = {};
     uploadedFiles.forEach((file) => {
@@ -2781,24 +2891,52 @@ module.exports.addNewInstallationData = async (req, res) => {
     });
 
     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
-      return res.status(400).json({ success: false, message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})` });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
+        });
 
     if (!driverName || !driverContact || !vehicleNumber)
-      return res.status(400).json({ success: false, message: "Driver name, contact, and vehicle number are required" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Driver name, contact, and vehicle number are required",
+        });
 
-    const requiredKeys = ["installerId", "farmerSaralId", "systemId", "pumpId", "controllerId"];
+    const requiredKeys = [
+      "installerId",
+      "farmerSaralId",
+      "systemId",
+      "pumpId",
+      "controllerId",
+    ];
     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
     if (!keyValidation.success) return res.status(400).json(keyValidation);
 
     const warehousePersonId = req.user._id;
     const warehouseId = req.user.warehouse;
-    const warehouseData = await Warehouse.findById(warehouseId).session(session);
+    const warehouseData =
+      await Warehouse.findById(warehouseId).session(session);
     if (!warehouseData) throw new Error("Warehouse not found");
 
-    const stateMap = { Bhiwani: "Haryana", "Jalna Warehouse": "Maharashtra", "Korba Chhattisgarh": "Chhattisgarh" };
+    const stateMap = {
+      Bhiwani: "Haryana",
+      "Jalna Warehouse": "Maharashtra",
+      "Korba Chhattisgarh": "Chhattisgarh",
+    };
     const state = stateMap[warehouseData.warehouseName] || "";
 
-    const dispatchDetails = new DispatchDetails({ driverName, driverContact, vehicleNumber, dispatchedBy: warehousePersonId, warehouseId, dispatchedSystems: [] });
+    const dispatchDetails = new DispatchDetails({
+      driverName,
+      driverContact,
+      vehicleNumber,
+      dispatchedBy: warehousePersonId,
+      warehouseId,
+      dispatchedSystems: [],
+    });
     await dispatchDetails.save({ session });
 
     const farmerActivities = [];
@@ -2809,32 +2947,60 @@ module.exports.addNewInstallationData = async (req, res) => {
       const billPhotoFile = billPhotosMap[i];
       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
 
-      const existingActivity = await FarmerItemsActivity.findOne({ farmerSaralId: system.farmerSaralId }).session(session);
-      if (existingActivity) throw new Error(`Farmer ${system.farmerSaralId} system already dispatched`);
+      const existingActivity = await FarmerItemsActivity.findOne({
+        farmerSaralId: system.farmerSaralId,
+      }).session(session);
+      if (existingActivity)
+        throw new Error(
+          `Farmer ${system.farmerSaralId} system already dispatched`
+        );
 
-      let empData = await ServicePerson.findById(system.installerId).session(session);
+      let empData = await ServicePerson.findById(system.installerId).session(
+        session
+      );
       let refType = "ServicePerson";
 
       if (!empData) {
-        empData = await SurveyPerson.findById(system.installerId).session(session);
+        empData = await SurveyPerson.findById(system.installerId).session(
+          session
+        );
         if (!empData) throw new Error("Installer not found");
         refType = "SurveyPerson";
       }
 
-      const systemItems = await SystemItemMap.find({ systemId: system.systemId }).populate("systemItemId", "itemName").session(session);
-      if (!systemItems.length) throw new Error(`No system items found for systemId: ${system.systemId}`);
+      const systemItems = await SystemItemMap.find({
+        systemId: system.systemId,
+      })
+        .populate("systemItemId", "itemName")
+        .session(session);
+      if (!systemItems.length)
+        throw new Error(
+          `No system items found for systemId: ${system.systemId}`
+        );
 
       const filteredSystemItems = systemItems.filter((item) => {
         const name = item.systemItemId?.itemName?.toLowerCase() || "";
         if (name.includes("controller")) return false;
-        if (name.includes("pump") && item.systemItemId._id.toString() !== system.pumpId.toString()) return false;
+        if (
+          name.includes("pump") &&
+          item.systemItemId._id.toString() !== system.pumpId.toString()
+        )
+          return false;
         return true;
       });
 
-      const selectedPump = systemItems.find((item) => item.systemItemId._id.toString() === system.pumpId.toString());
-      if (!selectedPump) throw new Error(`Pump with ID ${system.pumpId} not found`);
+      const selectedPump = systemItems.find(
+        (item) => item.systemItemId._id.toString() === system.pumpId.toString()
+      );
+      if (!selectedPump)
+        throw new Error(`Pump with ID ${system.pumpId} not found`);
 
-      const pumpComponents = await ItemComponentMap.find({ systemId: system.systemId, systemItemId: system.pumpId }).populate("subItemId", "itemName").session(session);
+      const pumpComponents = await ItemComponentMap.find({
+        systemId: system.systemId,
+        systemItemId: system.pumpId,
+      })
+        .populate("subItemId", "itemName")
+        .session(session);
       const filteredPumpComponents = pumpComponents.filter((comp) => {
         const name = comp.subItemId?.itemName?.toLowerCase() || "";
         if (name.includes("controller") || name.includes("rmu")) return false;
@@ -2842,13 +3008,21 @@ module.exports.addNewInstallationData = async (req, res) => {
       });
 
       const itemsList = [
-        ...filteredSystemItems.map((item) => ({ systemItemId: item.systemItemId._id, quantity: item.quantity })),
-        ...filteredPumpComponents.map((comp) => ({ systemItemId: comp.subItemId._id, quantity: comp.quantity })),
+        ...filteredSystemItems.map((item) => ({
+          systemItemId: item.systemItemId._id,
+          quantity: item.quantity,
+        })),
+        ...filteredPumpComponents.map((comp) => ({
+          systemItemId: comp.subItemId._id,
+          quantity: comp.quantity,
+        })),
       ];
 
       // ✅ Controller add only once
       if (system.controllerId) {
-        const controllerItem = await SystemItem.findById(system.controllerId).session(session);
+        const controllerItem = await SystemItem.findById(
+          system.controllerId
+        ).session(session);
         if (!controllerItem) throw new Error("Controller not found");
         itemsList.push({ systemItemId: controllerItem._id, quantity: 1 });
       }
@@ -2857,37 +3031,84 @@ module.exports.addNewInstallationData = async (req, res) => {
       const uniqueItemsMap = new Map();
       for (const item of itemsList) {
         const id = item.systemItemId.toString();
-        uniqueItemsMap.set(id, uniqueItemsMap.has(id) ? { ...item, quantity: uniqueItemsMap.get(id).quantity + item.quantity } : { ...item });
+        uniqueItemsMap.set(
+          id,
+          uniqueItemsMap.has(id)
+            ? {
+                ...item,
+                quantity: uniqueItemsMap.get(id).quantity + item.quantity,
+              }
+            : { ...item }
+        );
       }
 
       // ✅ Ensure pump exists only once
       if (!uniqueItemsMap.has(system.pumpId.toString())) {
-        uniqueItemsMap.set(system.pumpId.toString(), { systemItemId: system.pumpId, quantity: selectedPump.quantity });
+        uniqueItemsMap.set(system.pumpId.toString(), {
+          systemItemId: system.pumpId,
+          quantity: selectedPump.quantity,
+        });
       }
 
       const finalItemsList = Array.from(uniqueItemsMap.values());
       console.log("Final Items List: ", finalItemsList);
 
       for (const item of finalItemsList) {
-        const stockDoc = await InstallationInventory.findOne({ warehouseId, systemItemId: item.systemItemId }).populate("systemItemId").session(session);
+        const stockDoc = await InstallationInventory.findOne({
+          warehouseId,
+          systemItemId: item.systemItemId,
+        })
+          .populate("systemItemId")
+          .session(session);
 
-        if (!stockDoc) throw new Error(`Item not found in inventory: ${item.systemItemId}`);
+        if (!stockDoc)
+          throw new Error(`Item not found in inventory: ${item.systemItemId}`);
         if (stockDoc.quantity < item.quantity)
-          throw new Error(`Insufficient stock for item ${stockDoc.systemItemId.itemName}`);
+          throw new Error(
+            `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
+          );
 
-        stockDoc.quantity = Math.round((stockDoc.quantity - item.quantity) * 100) / 100;
+        stockDoc.quantity =
+          Math.round((stockDoc.quantity - item.quantity) * 100) / 100;
         stockDoc.updatedAt = new Date();
         stockDoc.updatedBy = warehousePersonId;
         await stockDoc.save({ session });
       }
 
-      const farmerActivity = new FarmerItemsActivity({ referenceType: refType, warehouseId, farmerSaralId: system.farmerSaralId, empId: system.installerId, systemId: system.systemId, itemsList: finalItemsList, panelNumbers: [], pumpNumber: "", controllerNumber: "", rmuNumber: "", motorNumber: "", state, createdBy: warehousePersonId });
+      const farmerActivity = new FarmerItemsActivity({
+        referenceType: refType,
+        warehouseId,
+        farmerSaralId: system.farmerSaralId,
+        empId: system.installerId,
+        systemId: system.systemId,
+        itemsList: finalItemsList,
+        panelNumbers: [],
+        pumpNumber: "",
+        controllerNumber: "",
+        rmuNumber: "",
+        motorNumber: "",
+        state,
+        createdBy: warehousePersonId,
+      });
       await farmerActivity.save({ session });
 
-      const assignedEmp = new InstallationAssignEmp({ referenceType: refType, warehouseId, empId: system.installerId, farmerSaralId: system.farmerSaralId, systemId: system.systemId, itemsList: finalItemsList, extraItemsList: [], createdBy: warehousePersonId });
+      const assignedEmp = new InstallationAssignEmp({
+        referenceType: refType,
+        warehouseId,
+        empId: system.installerId,
+        farmerSaralId: system.farmerSaralId,
+        systemId: system.systemId,
+        itemsList: finalItemsList,
+        extraItemsList: [],
+        createdBy: warehousePersonId,
+      });
       await assignedEmp.save({ session });
 
-      const dispatchBillPhoto = new DispatchBillPhoto({ dispatchId: dispatchDetails._id, farmerActivityId: farmerActivity._id, billPhoto: billPhotoPath });
+      const dispatchBillPhoto = new DispatchBillPhoto({
+        dispatchId: dispatchDetails._id,
+        farmerActivityId: farmerActivity._id,
+        billPhoto: billPhotoPath,
+      });
       await dispatchBillPhoto.save({ session });
 
       farmerActivities.push(farmerActivity);
@@ -2899,7 +3120,13 @@ module.exports.addNewInstallationData = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(200).json({ success: true, message: `${farmerActivities.length} systems dispatched successfully`, data: { dispatchDetails } });
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: `${farmerActivities.length} systems dispatched successfully`,
+        data: { dispatchDetails },
+      });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -2910,10 +3137,14 @@ module.exports.addNewInstallationData = async (req, res) => {
       });
     }
 
-    return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: error.message || "Internal Server Error",
+      });
   }
 };
-
 
 // module.exports.getDispatchHistory = async (req, res) => {
 //   try {
@@ -4180,7 +4411,7 @@ module.exports.showIncomingItemToWarehouse = async (req, res) => {
 //         await existingItem.save();
 //       }
 //     }
-    
+
 //     const insertData = {
 //       fromWarehouse,
 //       toWarehouse,
@@ -4259,7 +4490,9 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       for (let item of itemsList) {
         const { systemItemId, quantity } = item;
 
-        const systemItemData = await SystemItem.findOne({ _id: systemItemId }).session(session);
+        const systemItemData = await SystemItem.findOne({
+          _id: systemItemId,
+        }).session(session);
         if (!systemItemData) {
           throw new Error(`SubItem Not Found`);
         }
@@ -4328,7 +4561,6 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       message: "Transaction saved successfully",
       data: saved,
     });
-
   } catch (error) {
     console.log("ERROR: ", error);
     // ❌ Rollback everything
@@ -7269,7 +7501,10 @@ module.exports.getInstallerData = async (req, res) => {
     let state = null;
     if (warehouseData?.warehouseName === "Bhiwani") {
       state = "Haryana";
-    } else if (warehouseData?.warehouseName === "Jalna Warehouse" || warehouseData?.warehouseName === "Maharashtra Warehouse - Jalna") {
+    } else if (
+      warehouseData?.warehouseName === "Jalna Warehouse" ||
+      warehouseData?.warehouseName === "Maharashtra Warehouse - Jalna"
+    ) {
       state = "Maharashtra";
     }
 
