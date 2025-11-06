@@ -1461,8 +1461,10 @@ const downloadPOPDF = async (req, res) => {
       gstRate: Number(it.gstRate),
     }));
 
+    // ✅ Generate PDF buffer
     const pdfBuffer = await generatePO(po, items);
 
+    // ✅ Save PDF file to backend
     const uploadDir = path.join(__dirname, "../../uploads/purchaseOrder");
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -1473,6 +1475,7 @@ const downloadPOPDF = async (req, res) => {
 
     const relativePath = `/uploads/purchaseOrder/${fileName}`;
 
+    // ✅ Old and new PDF details for audit
     const oldPdfData =
       po.pdfUrl || po.pdfName || po.pdfGeneratedAt
         ? {
@@ -1490,6 +1493,7 @@ const downloadPOPDF = async (req, res) => {
       generatedBy: userId,
     };
 
+    // ✅ Transaction: Update PO + log audit
     await prisma.$transaction([
       prisma.purchaseOrder.update({
         where: { id: poId },
@@ -1512,14 +1516,14 @@ const downloadPOPDF = async (req, res) => {
       }),
     ]);
 
-    return res.status(200).json({
-      success: true,
-      message: "PO PDF generated successfully.",
-      pdfUrl: relativePath,
-      fileName,
-    });
+    // ✅ Send file to browser for download
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+
+    return res.send(pdfBuffer);
+
   } catch (err) {
-    console.error("Error generating PO PDF:", err);
+    console.error("❌ Error generating PO PDF:", err);
     return res.status(500).json({
       success: false,
       message: "Server Error while generating PO PDF",
