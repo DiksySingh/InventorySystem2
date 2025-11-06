@@ -21,15 +21,22 @@
             font-family: "Times New Roman", Arial, sans-serif;
             font-size: 11px;
             color: #000;
-            padding: 10px;
+            padding-left: 12px;
+            /* padding-right: 10px; */
             box-sizing: border-box;
         }
 
         .container {
-            padding: 0;
             width: calc(210mm - 24px);
             min-height: calc(297mm - 24px);
             position: relative;
+            page-break-after: always;
+
+            padding-top: 10px;
+        }
+
+        .container:last-child {
+            page-break-after: auto;
         }
 
         .watermark {
@@ -85,6 +92,7 @@
 
         .top-row {
             display: flex;
+            /* margin-top: 6px; */
         }
 
         .left-box,
@@ -108,12 +116,14 @@
             font-size: 14px;
             font-weight: 700;
             min-height: 20px;
+            /* margin-top: 4px; */
         }
 
         table.items {
             width: 100%;
             border-collapse: collapse;
             font-size: 14px;
+            /* margin-top: 4px; */
         }
 
         table.items thead th {
@@ -129,20 +139,22 @@
             border-left: 1px solid #000;
             padding: 4px;
             vertical-align: top;
-            height: 40px;
+            height: 50px;
+            font-size: 12px;
         }
 
-        .gst-hide {
-            display: none;
+        .container table.items tbody tr:last-child td {
+            border-bottom: 1px solid #000;
         }
 
         table.bottom-rows,
         table.total-amount-rows {
             width: 100%;
             border: 1px solid #000;
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 600;
             border-collapse: collapse;
+            /* margin-top: 3px; */
         }
 
         table.bottom-rows td,
@@ -155,6 +167,7 @@
             display: flex;
             gap: 0;
             margin-top: 0px;
+            /* height: 90px; */
         }
 
         .terms {
@@ -163,7 +176,7 @@
             text-align: left;
             padding: 5px;
             font-size: 13px;
-            min-height: 90px;
+            min-height: 60px;
         }
 
         .terms-list {
@@ -184,6 +197,8 @@
 
         .signature-box {
             padding: 10px;
+            font-size: 12px;
+            font-weight: bold;
             border-bottom: 1.5px solid #000;
         }
 
@@ -193,6 +208,8 @@
             font-size: 18px;
             font-weight: 700;
         }
+
+
 
         thead {
             display: table-header-group;
@@ -209,252 +226,260 @@
 </head>
 
 <body>
-    <div class="container">
-        <img src="<%= watermark %>" class="watermark" />
+    <% const isIGSTItemwise=gstType.startsWith("IGST_") && gstType.includes("ITEMWISE"); const
+        isLGSTItemwise=gstType.startsWith("LGST_") && gstType.includes("ITEMWISE"); %>
 
-        <div class="content">
+        <% pages.forEach((page, pageIndex)=> { %>
 
-            <div class="content-box">
-                <div class="title">Purchase Order</div>
-                <div class="company">
-                    <%= companyName %>
-                </div>
-                <div class="company-sub">
-                    <%= companySub %>
-                </div>
-                <div class="company-sub">
-                    <%= companyAddress %>
-                </div>
-                <div class="company-gst">GSTIN: <%= companyGST %>
-                </div>
-            </div>
+            <div class="container <%= pageIndex === 0 ? 'first-page' : '' %>">
+                <img src="<%= watermark %>" class="watermark" />
 
-            <div class="top-row">
-                <div class="left-box">
-                    <strong>Party Details:</strong><br />
-                    <strong>
-                        <%= vendorName %>
-                    </strong><br />
-                    <%= vendorAddress %><br />
-                        Email: <%= vendorEmail %>, Mob: <%= vendorPhone %><br /><br />
-                                <strong>GSTIN: <%= vendorGST %></strong>
-                </div>
+                <div class="content">
 
-                <div class="right-box">
-                    <table style="font-size:14px;font-weight:500;">
-                        <tr>
-                            <td><b>Order No :</b></td>
-                            <td>
-                                <%= poNumber %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><b>Dated :</b></td>
-                            <td>
-                                <%= poDate %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><b>Payment Terms :</b></td>
-                            <td>
-                                <%= paymentTerms %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><b>Delivery Terms :</b></td>
-                            <td>
-                                <%= deliveryTerms %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><b>Contact Person :</b></td>
-                            <td>
-                                <%= contactPerson %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><b>Cell No :</b></td>
-                            <td>
-                                <%= cellNo %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><b>Warranty :</b></td>
-                            <td>
-                                <%= warranty %>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
+                    <!-- ===== HEADER (REPEAT EVERY PAGE) ===== -->
+                    <div class="content-box">
+                        <div class="title">Purchase Order</div>
+                        <div class="company">
+                            <%= companyName %>
+                        </div>
+                        <div class="company-sub">
+                            <%= companySub %>
+                        </div>
+                        <div class="company-sub">
+                            <%= companyAddress %>
+                        </div>
+                        <div class="company-gst">GSTIN: <%= companyGST %>
+                        </div>
+                    </div>
 
-            <div class="note"></div>
-            <div class="note">We are pleased to place the order for the following items:</div>
+                    <div class="top-row">
+                        <div class="left-box">
+                            <strong>Party Details:</strong><br />
+                            <strong>
+                                <%= vendorName %>
+                            </strong><br />
+                            <%= vendorAddress %><br />
+                                Email: <%= vendorEmail %>, Mob: <%= vendorPhone %><br /><br />
+                                        <strong>GSTIN: <%= vendorGST %></strong>
+                        </div>
 
-            <% const hasGstColumn=gstType.includes("ITEMWISE"); %>
-
-                <table class="items">
-                    <thead>
-                        <tr>
-                            <th style="width:5%;">S.No.</th>
-                            <th style="width:40%;">Description</th>
-                            <th style="width:10%;">HSN Code</th>
-                            <th style="width:10%;">Qty.</th>
-                            <th style="width:5%;">Unit</th>
-                            <th style="width:12%;">Price/Unit (₹)</th>
-                            <th style="width:6%;" class="<%= hasGstColumn ? '' : 'gst-hide' %>">GST %</th>
-                            <th style="width:14%;">Amount (₹)</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        <% rows.forEach(r=> { %>
-                            <tr>
-                                <td style="text-align:center">
-                                    <%= r.sno %>
-                                </td>
-                                <td>
-                                    <%= r.description %>
-                                </td>
-                                <td style="text-align:center">
-                                    <%= r.hsn %>
-                                </td>
-                                <td style="text-align:center">
-                                    <%= r.qty %>
-                                </td>
-                                <td style="text-align:center">
-                                    <%= r.unit %>
-                                </td>
-                                <td style="text-align:right">
-                                    <%= r.rate %>
-                                </td>
-                                <td style="text-align:center" class="<%= hasGstColumn ? '' : 'gst-hide' %>">
-                                    <%= r.gstRate %>
-                                </td>
-                                <td style="text-align:right">
-                                    <%= r.amount %>
-                                </td>
-                            </tr>
-                            <% }) %>
-                    </tbody>
-                </table>
-
-                <table class="total-amount-rows">
-                    <tbody>
-                        <% if (!gstType.includes('EXEMPTED') && !gstType.includes('ITEMWISE')) { %>
-
-                            <% if (gstType.startsWith('IGST')) { %>
+                        <div class="right-box">
+                            <table style="font-size:14px;font-weight:500;">
                                 <tr>
-                                    <td style="width: 5%"></td>
-                                    <td style="text-align:right; width: 40%">Add: IGST @<%= gstRate %>%</td>
-                                    <td style="width: 10%"></td>
-                                    <td style="width: 10%"></td>
-                                    <td style="width: 5%"></td>
-                                    <td style="width: 12%"></td>
-                                    <td style="width: 6%;" class="<%= hasGstColumn ? '' : 'gst-hide' %>"></td>
-                                    <td style="text-align:right; width: 14%">
-                                        <%= igst %>
+                                    <td><b>Order No :</b></td>
+                                    <td>
+                                        <%= poNumber %>
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td><b>Dated :</b></td>
+                                    <td>
+                                        <%= poDate %>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>Payment Terms :</b></td>
+                                    <td>
+                                        <%= paymentTerms %>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>Delivery Terms :</b></td>
+                                    <td>
+                                        <%= deliveryTerms %>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>Contact Person :</b></td>
+                                    <td>
+                                        <%= contactPerson %>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>Cell No :</b></td>
+                                    <td>
+                                        <%= cellNo %>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><b>Warranty :</b></td>
+                                    <td>
+                                        <%= warranty %>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
 
-                                <% } else if (gstType.startsWith('LGST')) { %>
-                                    <tr>
-                                        <td style="width: 5%"></td>
-                                        <td style="text-align:right; width: 40%">Add: CGST @<%=
-                                                (parseFloat(gstRate)/2).toFixed(2) %>%</td>
-                                        <td style="width: 10%"></td>
-                                        <td style="width: 10%"></td>
-                                        <td style="width: 5%"></td>
-                                        <td style="width: 12%"></td>
-                                        <td style="width: 6%;" class="<%= hasGstColumn ? '' : 'gst-hide' %>"></td>
-                                        <td style="text-align:right; width: 14%;">
-                                            <%= cgst %>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="width: 5%"></td>
-                                        <td style="text-align:right; width: 40%;">SGST @<%=
-                                                (parseFloat(gstRate)/2).toFixed(2) %>%</td>
-                                        <td style="width: 10%"></td>
-                                        <td style="width: 10%"></td>
-                                        <td style="width: 5%"></td>
-                                        <td style="width: 12%"></td>
-                                        <td style="width: 6%;" class="<%= hasGstColumn ? '' : 'gst-hide' %>"></td>
-                                        <td style="text-align:right; width: 14%;">
-                                            <%= sgst %>
-                                        </td>
-                                    </tr>
+                    <div class="note">We are pleased to place the order for the following items:</div>
+
+                    <!-- ===== ITEMS TABLE ===== -->
+                    <table class="items">
+                        <thead>
+                            <tr>
+                                <th style="width:5%;">S.No.</th>
+                                <th style="width:38%;">Description</th>
+                                <th style="width:8%;">HSN</th>
+                                <th style="width:8%;">Qty</th>
+                                <th style="width:5%;">Unit</th>
+                                <th style="width:12%;">Price (₹)</th>
+
+                                <% if(isIGSTItemwise) { %>
+                                    <th style="width:6%;">GST%</th>
                                     <% } %>
 
+                                        <% if(isLGSTItemwise) { %>
+                                            <th style="width:6%;">CGST</th>
+                                            <th style="width:6%;">SGST</th>
+                                            <% } %>
+
+                                                <th style="width:14%;">Amount (₹)</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <% (page || []).forEach(r=> {
+                                r = r || { isEmpty: true };
+                                %>
+                                <tr>
+                                    <td>
+                                        <%= r.isEmpty ? "" : r.sno %>
+                                    </td>
+                                    <td>
+                                        <%= r.isEmpty ? "" : r.description %>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <%= r.isEmpty ? "" : r.hsn %>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <%= r.isEmpty ? "" : r.qty %>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <%= r.isEmpty ? "" : r.unit %>
+                                    </td>
+                                    <td style="text-align:right">
+                                        <%= r.isEmpty ? "" : r.rate %>
+                                    </td>
+
+                                    <% if(isIGSTItemwise) { %>
+                                        <td style="text-align: center;">
+                                            <% let igstRate=parseFloat(r.gstRate); %>
+                                                <%= r.isEmpty || isNaN(igstRate) ? "" : igstRate.toFixed(1) + "%" %>
+                                        </td>
                                         <% } %>
-                    </tbody>
-                </table>
 
-                <table class="bottom-rows">
-                    <tbody>
-                        <tr>
-                            <td style="width: 5%"></td>
-                            <td style="text-align:right; width: 40%;">Total Quantity:</td>
-                            <td style="width: 10%"></td>
-                            <td style="text-align: center; width: 10%">
-                                <%= totalQty %>
-                            </td>
-                            <td style="width: 5%"></td>
-                            <td style="width: 12%"></td>
-                            <td style="width: 6%;" class="<%= hasGstColumn ? '' : 'gst-hide' %>"></td>
-                            <td style="width: 14%;"></td>
-                        </tr>
-                    </tbody>
-                </table>
+                                            <% if(isLGSTItemwise) { %>
+                                                <% let lgstRate=parseFloat(r.gstRate); let halfRate=!isNaN(lgstRate) ?
+                                                    (lgstRate / 2).toFixed(1) : "" ; %>
+                                                    <td style="text-align: center;">
+                                                        <%= r.isEmpty ? "" : halfRate + "%" %>
+                                                    </td>
+                                                    <td style="text-align: center;">
+                                                        <%= r.isEmpty ? "" : halfRate + "%" %>
+                                                    </td>
+                                                    <% } %>
 
-                <table class="total-amount-rows">
-                    <tbody>
-                        <tr>
-                            <td style="width: 5%;"></td>
-                            <td style="width: 40%;"></td>
-                            <td style="width: 10%;"></td>
-                            <td style="width: 10%;"></td>
-                            <td style="width: 5%;"></td>
-                            <td style="text-align: center; width: 12%;">Grand Total: </td>
-                            <td style="width: 6%;" class="<%= hasGstColumn ? '' : 'gst-hide' %>"></td>
-                            <td style="text-align:right; width: 14%;">₹<%= grandTotalFormatted %>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                                        <td style="text-align:right">
+                                                            <%= r.isEmpty ? "" : r.amount %>
+                                                        </td>
+                                </tr>
+                                <% }) %>
+                        </tbody>
+                    </table>
 
-                <table class="total-amount-rows">
-                    <tbody>
-                        <tr>
-                            <td colspan="7" style="text-align:center">
-                                <%= inWords %>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                    <!-- ===== CONTINUED NOTE FOR MULTIPAGE ===== -->
+                    <% if(pages.length> 1 && pageIndex !== pages.length - 1) { %>
+                        <div style="
+                            text-align: right;
+                            font-weight: bold;
+                            font-size: 14px;
+                            margin-top: 0px;
+                            border-top: 1px solid #000;
+                            padding-top: 2px;
+                        ">
+                            Continued to Next Page →
+                        </div>
+                        <% } %>
 
-                <div class="terms-sign">
-                    <div class="terms">
-                        <strong style="text-decoration:underline;">Terms & Conditions</strong>
-                        <ol class="terms-list">
-                            <li>Any taxes, expense, charges not mentioned in this P.O, will not be applicable & P.O is
-                                inclusive of all taxes i.e GST.</li>
-                            <li>All material will be dispatched to site.</li>
-                            <li>If the supplied qty is in excess of P.O qty, we may reject the excess supplied qty
-                                without any economic consideration.</li>
-                            <li>All disputes subject to Delhi Jurisdiction</li>
-                        </ol>
-                    </div>
+                            <!-- ===== FOOTER ONLY ON LAST PAGE ===== -->
+                            <% if(pageIndex===pages.length - 1) { %>
 
-                    <div class="signature">
-                        <div class="signature-box">Receiver's signature</div>
-                        <div class="signature-company">for <%= companyName %><br /><br /><strong>Authorised
-                                    Signatory</strong></div>
-                    </div>
+                                <table class="bottom-rows">
+                                    <tr>
+                                        <td></td>
+                                        <td style="text-align:right;">Total Quantity:</td>
+                                        <td></td>
+                                        <td style="text-align:center;">
+                                            <%= totalQty %>
+                                        </td>
+                                        <td></td>
+                                        <td></td>
+                                        <% if(isIGSTItemwise) { %>
+                                            <td></td>
+                                            <% } %>
+                                                <% if(isLGSTItemwise) { %>
+                                                    <td></td>
+                                                    <td></td>
+                                                    <% } %>
+                                                        <td></td>
+                                    </tr>
+                                </table>
+
+                                <table class="total-amount-rows">
+                                    <tr>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td style="text-align:right;">Grand Total:</td>
+                                        <% if(isIGSTItemwise) { %>
+                                            <td></td>
+                                            <% } %>
+                                                <% if(isLGSTItemwise) { %>
+                                                    <td></td>
+                                                    <td></td>
+                                                    <% } %>
+                                                        <td style="text-align:right;">₹<%= grandTotalFormatted %>
+                                                        </td>
+                                    </tr>
+                                </table>
+
+                                <table class="total-amount-rows">
+                                    <tr>
+                                        <td colspan="7" style="text-align:center">
+                                            <%= inWords %>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <div class="terms-sign">
+                                    <div class="terms">
+                                        <strong style="text-decoration:underline;">Terms & Conditions</strong>
+                                        <ol class="terms-list">
+                                            <li>Any taxes, expense, charges not mentioned in this P.O, will not be
+                                                applicable &
+                                                P.O is inclusive of all taxes i.e. GST.</li>
+                                            <li>All material will be dispatched to site.</li>
+                                            <li>If the supplied qty is in excess of P.O qty, we may reject the excess
+                                                supplied
+                                                qty without any economic consideration.</li>
+                                            <li>All disputes subject to Delhi Jurisdiction.</li>
+                                        </ol>
+                                    </div>
+                                    <div class="signature">
+                                        <div class="signature-box">Receiver's signature</div>
+                                        <div class="signature-company">
+                                            for <%= companyName %><br><br><strong>Authorised Signatory</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <% } %>
                 </div>
+            </div>
 
-        </div>
-    </div>
+            <% }) %>
+
 </body>
 
 </html>

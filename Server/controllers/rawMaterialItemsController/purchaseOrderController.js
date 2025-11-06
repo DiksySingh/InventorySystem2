@@ -73,9 +73,8 @@ const createCompany = async (req, res) => {
       currency,
     } = req.body;
 
-    const createdBy = req.user?.id;
+    const performedBy = req.user?.id;
 
-    // 🔹 Basic validation
     if (
       !name ||
       !companyCode ||
@@ -86,7 +85,8 @@ const createCompany = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Company name, code, gstNumber, address, contact number, email are required.",
+        message:
+          "Company name, code, gstNumber, address, contact number, and email are required.",
       });
     }
 
@@ -94,30 +94,24 @@ const createCompany = async (req, res) => {
     const upperCaseGST = gstNumber.toUpperCase().trim();
     const trimmedAddress = address.trim();
     const lowerCaseEmail = email.toLowerCase().trim();
+    const trimmedCompanyCode = companyCode.toUpperCase().trim();
 
-    // 🔹 Email format validation
-    if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(lowerCaseEmail)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid email format.",
-        });
-      }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(lowerCaseEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format.",
+      });
     }
 
-    // 🔹 GST number duplicate check
-    if (gstNumber) {
-      const existingCompany = await prisma.company.findFirst({
-        where: { gstNumber: upperCaseGST },
+    const existingCompany = await prisma.company.findFirst({
+      where: { gstNumber: upperCaseGST },
+    });
+    if (existingCompany) {
+      return res.status(400).json({
+        success: false,
+        message: `A company with GST number '${upperCaseGST}' already exists.`,
       });
-
-      if (existingCompany) {
-        return res.status(400).json({
-          success: false,
-          message: `A company with GST number '${upperCaseGST}' already exists.`,
-        });
-      }
     }
 
     const allowedCountries = [
@@ -142,41 +136,57 @@ const createCompany = async (req, res) => {
     if (country && !allowedCountries.includes(country)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid country. Allowed values: ${allowedCountries.join(", ")}`,
+        message: `Invalid country. Allowed: ${allowedCountries.join(", ")}`,
       });
     }
 
     if (currency && !allowedCurrencies.includes(currency)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid currency. Allowed values: ${allowedCurrencies.join(", ")}`,
+        message: `Invalid currency. Allowed: ${allowedCurrencies.join(", ")}`,
       });
     }
-    const trimmedCompanyCode = companyCode.toUpperCase().trim();
-    const newCompany = await prisma.company.create({
-      data: {
-        name: trimmedName,
-        companyCode: trimmedCompanyCode,
-        gstNumber: upperCaseGST,
-        address: trimmedAddress,
-        city,
-        state,
-        pincode,
-        contactNumber,
-        alternateNumber,
-        email: lowerCaseEmail,
-        country: country || "INDIA",
-        currency: currency || "INR",
-        createdBy,
-      },
+
+    const result = await prisma.$transaction(async (tx) => {
+      
+      const newCompany = await tx.company.create({
+        data: {
+          name: trimmedName,
+          companyCode: trimmedCompanyCode,
+          gstNumber: upperCaseGST,
+          address: trimmedAddress,
+          city,
+          state,
+          pincode,
+          contactNumber,
+          alternateNumber,
+          email: lowerCaseEmail,
+          country: country || "INDIA",
+          currency: currency || "INR",
+          createdBy: performedBy,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "Company",
+          entityId: newCompany.id,
+          action: "Created",
+          performedBy,
+          newValue: newCompany,
+        },
+      });
+
+      return newCompany;
     });
 
     return res.status(201).json({
       success: true,
       message: "Company created successfully.",
-      data: newCompany,
+      data: result,
     });
   } catch (error) {
+    console.error("❌ Error in createCompany:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
@@ -200,7 +210,7 @@ const createVendor = async (req, res) => {
       alternateNumber,
     } = req.body;
 
-    const createdBy = req.user?.id || req.body.createdBy;
+    const performedBy = req.user?.id;
 
     if (
       !name ||
@@ -214,7 +224,7 @@ const createVendor = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "All fields are required.",
       });
     }
 
@@ -234,7 +244,6 @@ const createVendor = async (req, res) => {
     const existingVendor = await prisma.vendor.findFirst({
       where: { gstNumber: upperCaseGST },
     });
-
     if (existingVendor) {
       return res.status(400).json({
         success: false,
@@ -242,7 +251,6 @@ const createVendor = async (req, res) => {
       });
     }
 
-    // 🔹 Validate enum values
     const allowedCountries = [
       "INDIA",
       "USA",
@@ -276,33 +284,215 @@ const createVendor = async (req, res) => {
       });
     }
 
-    // ✅ Create vendor
-    const newVendor = await prisma.vendor.create({
-      data: {
-        name: upperCaseName,
-        email: lowerCaseEmail,
-        gstNumber: upperCaseGST,
-        address: upperCaseAddress,
-        city,
-        state,
-        pincode,
-        country: country || "INDIA",
-        currency: currency || "INR",
-        contactNumber,
-        alternateNumber,
-        createdBy,
-      },
+    const result = await prisma.$transaction(async (tx) => {
+      const newVendor = await tx.vendor.create({
+        data: {
+          name: upperCaseName,
+          email: lowerCaseEmail,
+          gstNumber: upperCaseGST,
+          address: upperCaseAddress,
+          city,
+          state,
+          pincode,
+          country: country || "INDIA",
+          currency: currency || "INR",
+          contactNumber,
+          alternateNumber,
+          createdBy: performedBy,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "Vendor",
+          entityId: newVendor.id,
+          action: "Created",
+          performedBy,
+          oldValue: null,
+          newValue: newVendor,
+        },
+      });
+
+      return newVendor;
     });
 
     return res.status(201).json({
       success: true,
       message: "Vendor created successfully.",
-      data: newVendor,
+      data: result,
     });
   } catch (error) {
+    console.error("❌ Error in createVendor:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const updateCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const {
+      name,
+      companyCode,
+      gstNumber,
+      address,
+      city,
+      state,
+      pincode,
+      contactNumber,
+      alternateNumber,
+      email,
+      country,
+      currency,
+    } = req.body;
+
+    const existingCompany = await prisma.company.findUnique({ where: { id } });
+    if (!existingCompany) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const updateData = {
+      ...(name && { name }),
+      ...(companyCode && { companyCode }),
+      ...(gstNumber && { gstNumber }),
+      ...(address && { address }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(pincode && { pincode }),
+      ...(contactNumber && { contactNumber }),
+      ...(alternateNumber && { alternateNumber }),
+      ...(email && { email }),
+      ...(country && { country }),
+      ...(currency && { currency }),
+    };
+
+    const changedOldValues = {};
+    const changedNewValues = {};
+    for (const key in updateData) {
+      if (existingCompany[key] !== updateData[key]) {
+        changedOldValues[key] = existingCompany[key];
+        changedNewValues[key] = updateData[key];
+      }
+    }
+
+    if (Object.keys(changedNewValues).length === 0) {
+      return res.status(400).json({ message: "No fields were changed." });
+    }
+
+    const [updatedCompany, auditLog] = await prisma.$transaction([
+      prisma.company.update({
+        where: { id },
+        data: updateData,
+      }),
+      prisma.auditLog.create({
+        data: {
+          entityType: "Company",
+          entityId: id,
+          action: "Updated",
+          performedBy: userId || null,
+          oldValue: changedOldValues,
+          newValue: changedNewValues,
+        },
+      }),
+    ]);
+
+    res.status(200).json({
+      message: "Company data updated successfully",
+      company: updatedCompany,
+      auditLog,
+    });
+  } catch (error) {
+    console.error("Error updating company:", error);
+    res.status(500).json({
+      message: error.message || "Internal Server Error",
+      // error: error.message,
+    });
+  }
+};
+
+const updateVendor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const {
+      name,
+      email,
+      gstNumber,
+      address,
+      city,
+      state,
+      pincode,
+      country,
+      currency,
+      contactNumber,
+      alternateNumber,
+    } = req.body;
+
+    const existingVendor = await prisma.vendor.findUnique({ where: { id } });
+    if (!existingVendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    const updateData = {
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(gstNumber && { gstNumber }),
+      ...(address && { address }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(pincode && { pincode }),
+      ...(country && { country }),
+      ...(currency && { currency }),
+      ...(contactNumber && { contactNumber }),
+      ...(alternateNumber && { alternateNumber }),
+    };
+
+    const changedOldValues = {};
+    const changedNewValues = {};
+
+    for (const key in updateData) {
+      if (existingVendor[key] !== updateData[key]) {
+        changedOldValues[key] = existingVendor[key];
+        changedNewValues[key] = updateData[key];
+      }
+    }
+
+    if (Object.keys(changedNewValues).length === 0) {
+      return res.status(400).json({ message: "No fields were changed." });
+    }
+
+    const [updatedVendor, auditLog] = await prisma.$transaction([
+      prisma.vendor.update({
+        where: { id },
+        data: updateData,
+      }),
+      prisma.auditLog.create({
+        data: {
+          entityType: "Vendor",
+          entityId: id,
+          action: "Updated",
+          performedBy: userId || null,
+          oldValue: changedOldValues,
+          newValue: changedNewValues,
+        },
+      }),
+    ]);
+
+    res.status(200).json({
+      message: "Vendor updated successfully",
+      vendor: updatedVendor,
+      auditLog,
+    });
+  } catch (error) {
+    console.error("Error updating vendor:", error);
+    res.status(500).json({
+      message: error.message || "Internal Server Error",
+      // error: error.message,
     });
   }
 };
@@ -653,7 +843,6 @@ const getGSTPercent = (type) => {
   if (!type) return new Decimal(0);
   if (type.includes("EXEMPTED")) return new Decimal(0);
 
-  // extract number after underscore (ex: IGST_18 -> 18)
   const match = type.match(/_(\d+(\.\d+)?)/);
   return match ? new Decimal(match[1]) : new Decimal(0);
 };
@@ -677,9 +866,10 @@ const createPurchaseOrder = async (req, res) => {
 
     const userId = req.user?.id;
     if (!userId)
-      return res.status(400).json({ success: false, message: "User not found" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
 
-    // ✅ Check role
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { role: true },
@@ -701,7 +891,6 @@ const createPurchaseOrder = async (req, res) => {
 
     const isItemWise = gstType.includes("ITEMWISE");
 
-    // ✅ Validate item fields
     for (const item of items) {
       if (!item.id || !item.name || !item.unit) {
         return res.status(400).json({
@@ -716,7 +905,6 @@ const createPurchaseOrder = async (req, res) => {
         });
       }
 
-      // ✅ Only require gstRate when ITEMWISE
       if (isItemWise && (item.gstRate == null || item.gstRate === "")) {
         return res.status(400).json({
           success: false,
@@ -724,7 +912,6 @@ const createPurchaseOrder = async (req, res) => {
         });
       }
 
-      // ✅ Reject gstRate if PO is NOT itemwise
       if (!isItemWise && item.gstRate) {
         return res.status(400).json({
           success: false,
@@ -733,7 +920,6 @@ const createPurchaseOrder = async (req, res) => {
       }
     }
 
-    // ✅ Check company & vendor exist
     const [company, vendor] = await Promise.all([
       prisma.company.findUnique({ where: { id: companyId } }),
       prisma.vendor.findUnique({ where: { id: vendorId } }),
@@ -745,7 +931,6 @@ const createPurchaseOrder = async (req, res) => {
         .json({ success: false, message: "Company/Vendor not found" });
     }
 
-    // ✅ Generate PO number
     const poNumber = await generatePONumber(company);
 
     if (await prisma.purchaseOrder.findUnique({ where: { poNumber } })) {
@@ -763,7 +948,6 @@ const createPurchaseOrder = async (req, res) => {
     const normalItems = [];
     const itemWiseItems = [];
 
-    // ✅ Split normal vs itemwise items
     for (const item of items) {
       const totalForeign = new Decimal(item.rate).mul(item.quantity);
       const totalINR = totalForeign.mul(exchangeRate);
@@ -774,13 +958,11 @@ const createPurchaseOrder = async (req, res) => {
       isItemWise ? itemWiseItems.push(item) : normalItems.push(item);
     }
 
-    // ✅ GST % only for NON-ITEMWISE & non-exempted
     const poGSTPercent =
       isItemWise || gstType.includes("EXEMPTED")
         ? null
         : getGSTPercent(gstType);
 
-    // ✅ Normal GST calculation (global slab)
     if (normalItems.length && poGSTPercent) {
       const normalTotalINR = normalItems.reduce(
         (acc, i) =>
@@ -796,9 +978,10 @@ const createPurchaseOrder = async (req, res) => {
       }
     }
 
-    // ✅ Item-wise GST calculation
     for (const item of itemWiseItems) {
-      const totalINR = new Decimal(item.rate).mul(item.quantity).mul(exchangeRate);
+      const totalINR = new Decimal(item.rate)
+        .mul(item.quantity)
+        .mul(exchangeRate);
       const rate = new Decimal(item.gstRate);
 
       if (gstType === "LGST_ITEMWISE") {
@@ -813,7 +996,6 @@ const createPurchaseOrder = async (req, res) => {
     const grandTotalINR = subTotalINR.plus(totalGST);
     const foreignGrandTotal = foreignSubTotal;
 
-    // ✅ Create PO with transaction
     const newPO = await prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.create({
         data: {
@@ -847,7 +1029,9 @@ const createPurchaseOrder = async (req, res) => {
               itemId: i.id,
               itemName: i.name,
               itemSource: i.source,
+              itemDetail: i.itemDetail || null,
               hsnCode: i.hsnCode || null,
+              modelNumber: i.modelNumber || null,
               unit: i.unit,
               rate: new Decimal(i.rate),
               gstRate: isItemWise ? new Decimal(i.gstRate) : null,
@@ -882,8 +1066,8 @@ const createPurchaseOrder = async (req, res) => {
     console.error(err);
     return res.status(500).json({
       success: false,
-      message: "Server error while creating PO",
-      error: err.message,
+      message: err.message || "Server error while creating PO",
+      // error: err.message,
     });
   }
 };
@@ -908,7 +1092,9 @@ const updatePurchaseOrder = async (req, res) => {
 
     const userId = req.user?.id;
     if (!userId)
-      return res.status(400).json({ success: false, message: "User not found" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
 
     // ✅ Check role
     const user = await prisma.user.findUnique({
@@ -1026,7 +1212,9 @@ const updatePurchaseOrder = async (req, res) => {
 
     // ✅ Calculate Item-wise GST
     for (const item of itemWiseItems) {
-      const totalINR = new Decimal(item.rate).mul(item.quantity).mul(exchangeRate);
+      const totalINR = new Decimal(item.rate)
+        .mul(item.quantity)
+        .mul(exchangeRate);
       const rate = new Decimal(item.gstRate);
 
       if (gstType === "LGST_ITEMWISE") {
@@ -1043,7 +1231,9 @@ const updatePurchaseOrder = async (req, res) => {
 
     // ✅ Update PO in a transaction
     const updatedPO = await prisma.$transaction(async (tx) => {
-      await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: poId } });
+      await tx.purchaseOrderItem.deleteMany({
+        where: { purchaseOrderId: poId },
+      });
 
       const po = await tx.purchaseOrder.update({
         where: { id: poId },
@@ -1235,10 +1425,9 @@ const downloadPOPDF = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized: User not found.",
-      });
+      return res
+        .status(401)
+        .json({ success: false, message: "Unauthorized: User not found." });
     }
 
     const user = await prisma.user.findUnique({
@@ -1255,60 +1444,73 @@ const downloadPOPDF = async (req, res) => {
 
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: poId },
-      include: {
-        company: true,
-        vendor: true,
-        items: true,
-      },
+      include: { company: true, vendor: true, items: true },
     });
 
     if (!po) {
-      return res.status(404).json({
-        success: false,
-        message: "PO not found.",
-      });
+      return res.status(404).json({ success: false, message: "PO not found." });
     }
 
-    const items = po.items.map(it => ({
+    const items = po.items.map((it) => ({
       itemName: it.itemName,
       hsnCode: it.hsnCode || "-",
       quantity: Number(it.quantity),
       unit: it.unit || "Nos",
       rate: Number(it.rate),
       total: Number(it.total),
-      gstRate: Number(it.gstRate)
+      gstRate: Number(it.gstRate),
     }));
 
-    const filePath = await generatePO(po, items);
-    const fileName = path.basename(filePath);
-    const relativePath = `/uploads/purchaseOrderFolder/${fileName}`;
+    const pdfBuffer = await generatePO(po, items);
 
-    await prisma.purchaseOrder.update({
-      where: { id: poId },
-      data: {
-        pdfUrl: relativePath,
-        pdfName: fileName,
-        pdfGeneratedAt: new Date(),
-        pdfGeneratedBy: userId,
-      },
-    });
+    const uploadDir = path.join(__dirname, "../../uploads/purchaseOrder");
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-    // ✅ Audit Log entry
-    await prisma.auditLog.create({
-      data: {
-        entityType: "PurchaseOrder",
-        entityId: poId,
-        action: "Generated PDF",
-        performedBy: userId,
-        oldValue: null, // nothing changed before
-        newValue: {
-          pdfName: fileName,
+    const vendor = po.vendor.name.split(" ")[0];
+    const fileName = `${vendor.toUpperCase()}-PO-${po.poNumber}.pdf`;
+    const filePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    const relativePath = `/uploads/purchaseOrder/${fileName}`;
+
+    const oldPdfData =
+      po.pdfUrl || po.pdfName || po.pdfGeneratedAt
+        ? {
+            pdfName: po.pdfName || null,
+            pdfUrl: po.pdfUrl || null,
+            generatedAt: po.pdfGeneratedAt || null,
+            generatedBy: po.pdfGeneratedBy || null,
+          }
+        : null;
+
+    const newPdfData = {
+      pdfName: fileName,
+      pdfUrl: relativePath,
+      generatedAt: new Date(),
+      generatedBy: userId,
+    };
+
+    await prisma.$transaction([
+      prisma.purchaseOrder.update({
+        where: { id: poId },
+        data: {
           pdfUrl: relativePath,
-          generatedAt: new Date(),
-          generatedBy: userId
-        }
-      }
-    });
+          pdfName: fileName,
+          pdfGeneratedAt: new Date(),
+          pdfGeneratedBy: userId,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          entityType: "PurchaseOrder",
+          entityId: poId,
+          action: "Generated PDF",
+          performedBy: userId,
+          oldValue: oldPdfData,
+          newValue: newPdfData,
+        },
+      }),
+    ]);
 
     return res.status(200).json({
       success: true,
@@ -1316,10 +1518,8 @@ const downloadPOPDF = async (req, res) => {
       pdfUrl: relativePath,
       fileName,
     });
-
   } catch (err) {
     console.error("Error generating PO PDF:", err);
-
     return res.status(500).json({
       success: false,
       message: "Server Error while generating PO PDF",
@@ -1327,7 +1527,6 @@ const downloadPOPDF = async (req, res) => {
     });
   }
 };
-
 
 //----------------- Send PO -------------------//
 // const sendPO = async (req, res) => {
@@ -1603,7 +1802,9 @@ const sendOrResendPO = async (req, res) => {
     const userId = req?.user?.id;
 
     if (!poId) {
-      return res.status(404).json({ success: false, message: "PO-Id is required" });
+      return res
+        .status(404)
+        .json({ success: false, message: "PO-Id is required" });
     }
 
     const userData = await prisma.user.findUnique({
@@ -1614,7 +1815,9 @@ const sendOrResendPO = async (req, res) => {
     });
 
     if (!userData) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     if (userData.role?.name !== "Purchase") {
@@ -1629,16 +1832,27 @@ const sendOrResendPO = async (req, res) => {
       include: { vendor: true, company: true },
     });
 
-    if (!po) return res.status(404).json({ success: false, message: "PO not found" });
+    if (!po)
+      return res.status(404).json({ success: false, message: "PO not found" });
     if (!po.vendor.email)
-      return res.status(400).json({ success: false, message: "Vendor email missing" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Vendor email missing" });
     if (!po.pdfName || !po.pdfUrl) {
-      return res.status(400).json({ success: false, message: "PDF not generated yet" });
+      return res
+        .status(400)
+        .json({ success: false, message: "PDF not generated yet" });
     }
 
-    const pdfPath = path.join(__dirname, "../../uploads/purchaseOrder", po.pdfName);
+    const pdfPath = path.join(
+      __dirname,
+      "../../uploads/purchaseOrder",
+      po.pdfName
+    );
     if (!fs.existsSync(pdfPath)) {
-      return res.status(404).json({ success: false, message: "PDF file missing on server" });
+      return res
+        .status(404)
+        .json({ success: false, message: "PDF file missing on server" });
     }
 
     // ✅ Determine action (Send or Resend)
@@ -1725,7 +1939,6 @@ Contact: ${po.company.contactNumber}
         ? "PO re-emailed successfully."
         : "PO emailed successfully.",
     });
-
   } catch (err) {
     console.error("Email/DB Error:", err);
     return res.status(500).json({
@@ -1739,6 +1952,8 @@ Contact: ${po.company.contactNumber}
 module.exports = {
   createCompany,
   createVendor,
+  updateCompany,
+  updateVendor,
   getCompaniesList,
   getVendorsList,
   getItemsList,
@@ -1747,5 +1962,5 @@ module.exports = {
   getPOListByCompany,
   getPurchaseOrderDetails,
   downloadPOPDF,
-  sendOrResendPO
+  sendOrResendPO,
 };

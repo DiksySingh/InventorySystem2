@@ -10,7 +10,7 @@ function numberToWords(num) {
   function inWords(n) {
     if (n < 20) return a[n];
     if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
-    if (n < 1000) return a[Math.floor(n / 100)] + " HUNDRED" + (n % 100 ? " and " + inWords(n % 100) : "");
+    if (n < 1000) return a[Math.floor(n / 100)] + " HUNDRED" + (n % 100 ? " AND " + inWords(n % 100) : "");
     if (n < 100000) return inWords(Math.floor(n / 1000)) + " THOUSAND" + (n % 1000 ? " " + inWords(n % 1000) : "");
     if (n < 10000000) return inWords(Math.floor(n / 100000)) + " LAKH" + (n % 100000 ? " " + inWords(n % 100000) : "");
     return inWords(Math.floor(n / 10000000)) + " CRORE" + (n % 10000000 ? " " + inWords(n % 10000000) : "");
