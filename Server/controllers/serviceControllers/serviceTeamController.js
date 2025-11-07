@@ -2,6 +2,16 @@ const WarehousePerson = require("../../models/serviceInventoryModels/warehousePe
 const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema");
 const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSchema");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerItemsActivity");
+const NewSystemInstallation = require("../../models/systemInventoryModels/newSystemInstallationSchema");
+
+const BASE_URL = process.env.BASE_URL
+
+const getFullUrl = (path) => {
+  if (!path) return null;
+  if (Array.isArray(path)) return path.map((p) => `${BASE_URL}${p}`);
+  return `${BASE_URL}${path}`;
+};
 
 module.exports.getServicePersonContacts = async (req, res) => {
     try {
@@ -212,5 +222,80 @@ module.exports.stateWiseServiceSurveyPersons = async (req, res) => {
         });
     }
 };
+
+module.exports.getFarmerInstallationDetails = async (req, res) => {
+  try {
+    const { saralId } = req.query;
+
+    if (!saralId) {
+      return res.status(400).json({ message: "saralId is required" });
+    }
+
+    const farmerActivity = await FarmerItemsActivity.findOne(
+      { farmerSaralId: saralId },
+      {
+        panelNumbers: 1,
+        controllerNumber: 1,
+        rmuNumber: 1,
+        pumpNumber: 1,
+        motorNumber: 1,
+        _id: 0,
+      }
+    ).lean();
+
+    const systemInstallation = await NewSystemInstallation.findOne(
+      { farmerSaralId: saralId },
+      {
+        pitPhoto: 1,
+        borePhoto: 1,
+        earthingFarmerPhoto: 1,
+        antiTheftNutBoltPhoto: 1,
+        lightingArresterInstallationPhoto: 1,
+        finalFoundationFarmerPhoto: 1,
+        panelFarmerPhoto: 1,
+        controllerBoxFarmerPhoto: 1,
+        waterDischargeFarmerPhoto: 1,
+        installationVideo: 1,
+        _id: 0,
+      }
+    ).lean();
+
+    if (!farmerActivity && !systemInstallation) {
+      return res.status(404).json({ message: "No data found for this saralId" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        farmerSaralId: farmerActivity.farmerSaralId,
+        panelNumbers: farmerActivity?.panelNumbers || [],
+        controllerNumber: farmerActivity?.controllerNumber || null,
+        rmuNumber: farmerActivity?.rmuNumber || null,
+        pumpNumber: farmerActivity?.pumpNumber || null,
+        motorNumber: farmerActivity?.motorNumber || null,
+        photos: {
+          pitPhoto: getFullUrl(systemInstallation?.pitPhoto),
+          borePhoto: getFullUrl(systemInstallation?.borePhoto),
+          earthingFarmerPhoto: getFullUrl(systemInstallation?.earthingFarmerPhoto),
+          antiTheftNutBoltPhoto: getFullUrl(systemInstallation?.antiTheftNutBoltPhoto),
+          lightingArresterInstallationPhoto: getFullUrl(systemInstallation?.lightingArresterInstallationPhoto),
+          finalFoundationFarmerPhoto: getFullUrl(systemInstallation?.finalFoundationFarmerPhoto),
+          panelFarmerPhoto: getFullUrl(systemInstallation?.panelFarmerPhoto),
+          controllerBoxFarmerPhoto: getFullUrl(systemInstallation?.controllerBoxFarmerPhoto),
+          waterDischargeFarmerPhoto: getFullUrl(systemInstallation?.waterDischargeFarmerPhoto),
+        },
+        videos: getFullUrl(systemInstallation?.installationVideo),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching farmer installation details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+
 
 
