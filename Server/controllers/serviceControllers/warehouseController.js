@@ -4459,6 +4459,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       pickupDate,
     } = req.body;
 
+    // 🔸 Basic validation
     if (
       !fromWarehouse ||
       !toWarehouse ||
@@ -4466,7 +4467,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       !driverName ||
       !driverContact ||
       !remarks ||
-      !outgoing ||
+      outgoing === undefined ||
       !pickupDate
     ) {
       await session.abortTransaction();
@@ -4482,40 +4483,33 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: "Items is an array & should be non-empty",
+        message: "itemsList must be a non-empty array",
       });
     }
 
+    // 🔸 Reduce stock if outgoing
     if (outgoing === true) {
-      for (let item of itemsList) {
+      for (const item of itemsList) {
         const { systemItemId, quantity } = item;
 
-        const systemItemData = await SystemItem.findOne({
-          _id: systemItemId,
-        }).session(session);
-        if (!systemItemData) {
-          throw new Error(`SubItem Not Found`);
+        if (!mongoose.Types.ObjectId.isValid(systemItemId)) {
+          throw new Error(`Invalid systemItemId: ${systemItemId}`);
         }
 
-        // fetch existing stock
-        const existingInventoryItems = await InstallationInventory.find({
-          warehouseId: req.user.warehouse,
-        })
-          .populate({
-            path: "systemItemId",
-            select: "itemName",
-          })
-          .session(session);
+        const systemItemData = await SystemItem.findById(systemItemId).session(session);
+        if (!systemItemData) {
+          throw new Error(`SystemItem not found for ID: ${systemItemId}`);
+        }
 
-        const existingItem = existingInventoryItems.find(
-          (inv) =>
-            inv.systemItemId.itemName.toLowerCase().trim() ===
-            systemItemData.itemName.toLowerCase().trim()
-        );
+        // 🔹 Find existing inventory entry for that system item in the warehouse
+        const existingItem = await InstallationInventory.findOne({
+          warehouseId: fromWarehouse,
+          systemItemId: systemItemId,
+        }).session(session);
 
         if (!existingItem) {
           throw new Error(
-            `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
+            `Item "${systemItemData.itemName}" not found in warehouse inventory`
           );
         }
 
@@ -4525,7 +4519,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
           );
         }
 
-        // reduce stock
+        // 🔹 Reduce stock
         existingItem.quantity =
           parseInt(existingItem.quantity) - parseInt(quantity);
         existingItem.updatedAt = new Date();
@@ -4535,7 +4529,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       }
     }
 
-    // create transfer entry
+    // 🔸 Create warehouse-to-warehouse transfer record
     const insertData = {
       fromWarehouse,
       toWarehouse,
@@ -4552,7 +4546,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
     const newDoc = new SystemInventoryWToW(insertData);
     const saved = await newDoc.save({ session });
 
-    // ✅ Commit everything
+    // ✅ Commit the transaction
     await session.commitTransaction();
     session.endSession();
 
@@ -4562,8 +4556,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
       data: saved,
     });
   } catch (error) {
-    console.log("ERROR: ", error);
-    // ❌ Rollback everything
+    console.error("❌ ERROR:", error);
     await session.abortTransaction();
     session.endSession();
 
@@ -4574,6 +4567,7 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
     });
   }
 };
+
 module.exports.showIncomingWToWItems = async (req, res) => {
   try {
     const warehouseId = req.user.warehouse;
