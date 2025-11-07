@@ -139,7 +139,7 @@
             border-left: 1px solid #000;
             padding: 4px;
             vertical-align: top;
-            height: 50px;
+            height: 70px;
             font-size: 12px;
         }
 
@@ -401,80 +401,136 @@
                         </div>
                         <% } %>
 
-                            <!-- ===== FOOTER ONLY ON LAST PAGE ===== -->
-                            <% if(pageIndex===pages.length - 1) { %>
-
-                                <table class="bottom-rows">
+                            <!-- IGST Summary (only if not ITEMWISE/EXEMPTED and gstType is IGST) -->
+                            <% if (!gstType.includes("ITEMWISE") && !gstType.includes("EXEMPTED") &&
+                                gstType.includes("IGST")) { %>
+                                <table class="total-amount-rows">
                                     <tr>
-                                        <td></td>
-                                        <td style="text-align:right;">Total Quantity:</td>
-                                        <td></td>
-                                        <td style="text-align:center;">
-                                            <%= totalQty %>
+                                        <td style="width: 5%;"></td>
+                                        <td style="text-align:right; width: 38%;">Add - IGST @ <%= gstRate %>%</td>
+                                        <td style="text-align:right; width: 14%;">₹<%= igst %>
                                         </td>
-                                        <td></td>
-                                        <td></td>
-                                        <% if(isIGSTItemwise) { %>
-                                            <td></td>
-                                            <% } %>
-                                                <% if(isLGSTItemwise) { %>
-                                                    <td></td>
-                                                    <td></td>
-                                                    <% } %>
-                                                        <td></td>
                                     </tr>
                                 </table>
+                                <% } %>
 
-                                <table class="total-amount-rows">
-                                    <tr>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td style="text-align:right;">Grand Total:</td>
-                                        <% if(isIGSTItemwise) { %>
-                                            <td></td>
-                                            <% } %>
-                                                <% if(isLGSTItemwise) { %>
-                                                    <td></td>
-                                                    <td></td>
+                                    <!-- CGST + SGST Summary (only if not ITEMWISE/EXEMPTED and gstType is LGST) -->
+                                    <% if (!gstType.includes("ITEMWISE") && !gstType.includes("EXEMPTED") &&
+                                        gstType.includes("LGST")) { %>
+                                        <table class="total-amount-rows">
+                                            <tr>
+                                                <td style="width: 5%;"></td>
+                                                <td style="text-align:right; width: 38%;">Add - CGST @ <%=
+                                                        parseFloat(gstRate / 2).toFixed(1) %>%</td>
+                                                <td style="width: 8%;"></td>
+                                                <td style="width: 8%;"></td>
+                                                <td style="width: 5%;"></td>
+                                                <td style="width: 12%;"></td>
+                                                <% if(isIGSTItemwise) { %>
+                                                    <td style="width: 6%;"></td>
                                                     <% } %>
-                                                        <td style="text-align:right;">₹<%= grandTotalFormatted %>
+                                                        <% if(isLGSTItemwise) { %>
+                                                            <td style="width: 6%;"></td>
+                                                            <td style="width: 6%;"></td>
+                                                            <% } %>
+                                                                <td style="text-align:right; width: 14%;">₹<%= cgst %>
+                                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="width: 5%;"></td>
+                                                <td style="text-align:right; width: 38%;">SGST @ <%= parseFloat(gstRate
+                                                        / 2).toFixed(1) %>%</td>
+                                                <td style="width: 8%;"></td>
+                                                <td style="width: 8%;"></td>
+                                                <td style="width: 5%;"></td>
+                                                <td style="width: 12%;"></td>
+                                                <% if(isIGSTItemwise) { %>
+                                                    <td style="width: 6%;"></td>
+                                                    <% } %>
+                                                        <% if(isLGSTItemwise) { %>
+                                                            <td style="width: 6%;"></td>
+                                                            <td style="width: 6%;"></td>
+                                                            <% } %>
+                                                                <td style="text-align:right; width: 14%;">₹<%= sgst %>
+                                                                </td>
+                                            </tr>
+                                        </table>
+                                        <% } %>
+
+                                            <!-- ===== FOOTER ONLY ON LAST PAGE ===== -->
+                                            <% if(pageIndex===pages.length - 1) { %>
+
+                                                <table class="bottom-rows">
+                                                    <tr>
+                                                        <td style="width: 5%;"></td>
+                                                        <td style="text-align:right; width: 38%;">Total Quantity:</td>
+                                                        <td style="width: 8%;"></td>
+                                                        <td style="text-align:center; width: 8%;">
+                                                            <%= totalQty %>
                                                         </td>
-                                    </tr>
-                                </table>
+                                                        <td style="width: 5%;"></td>
+                                                        <td style="width: 12%;"></td>
+                                                        <% if(isIGSTItemwise) { %>
+                                                            <td style="width: 6%;"></td>
+                                                            <% } %>
+                                                                <% if(isLGSTItemwise) { %>
+                                                                    <td style="width: 6%;"></td>
+                                                                    <td style="width: 6%;"></td>
+                                                                    <% } %>
+                                                                        <td style="width: 14%;"></td>
+                                                    </tr>
+                                                </table>
 
-                                <table class="total-amount-rows">
+                                                <table class="total-amount-rows">
+                                                    <tr>
+                                                        <td style="width: 12%;">Grand Total:</td>
+                                                        <td style="text-align:left; padding-left: 10px; width:80%;">
+                                                            <%= inWords %>
+                                                        </td>
+                                                        <td></td>
+                                                        <td></td>
+                                                        <td></td>
+                                                        <td></td>
+                                                        <td style="text-align:right; width: 14%;">₹<%=
+                                                                grandTotalFormatted %>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+
+                                                <!-- <table class="total-amount-rows">
                                     <tr>
                                         <td colspan="7" style="text-align:center">
                                             <%= inWords %>
                                         </td>
                                     </tr>
-                                </table>
+                                </table> -->
 
-                                <div class="terms-sign">
-                                    <div class="terms">
-                                        <strong style="text-decoration:underline;">Terms & Conditions</strong>
-                                        <ol class="terms-list">
-                                            <li>Any taxes, expense, charges not mentioned in this P.O, will not be
-                                                applicable &
-                                                P.O is inclusive of all taxes i.e. GST.</li>
-                                            <li>All material will be dispatched to site.</li>
-                                            <li>If the supplied qty is in excess of P.O qty, we may reject the excess
-                                                supplied
-                                                qty without any economic consideration.</li>
-                                            <li>All disputes subject to Delhi Jurisdiction.</li>
-                                        </ol>
-                                    </div>
-                                    <div class="signature">
-                                        <div class="signature-box">Receiver's signature</div>
-                                        <div class="signature-company">
-                                            for <%= companyName %><br><br><strong>Authorised Signatory</strong>
-                                        </div>
-                                    </div>
-                                </div>
-                                <% } %>
+                                                <div class="terms-sign">
+                                                    <div class="terms">
+                                                        <strong style="text-decoration:underline;">Terms &
+                                                            Conditions</strong>
+                                                        <ol class="terms-list">
+                                                            <li>Any taxes, expense, charges not mentioned in this P.O,
+                                                                will not be
+                                                                applicable &
+                                                                P.O is inclusive of all taxes i.e. GST.</li>
+                                                            <li>All material will be dispatched to site.</li>
+                                                            <li>If the supplied qty is in excess of P.O qty, we may
+                                                                reject the excess
+                                                                supplied
+                                                                qty without any economic consideration.</li>
+                                                            <li>All disputes subject to Delhi Jurisdiction.</li>
+                                                        </ol>
+                                                    </div>
+                                                    <div class="signature">
+                                                        <div class="signature-box">Receiver's signature</div>
+                                                        <div class="signature-company">
+                                                            for <%= companyName %><br><br><strong>Authorised
+                                                                    Signatory</strong>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <% } %>
                 </div>
             </div>
 

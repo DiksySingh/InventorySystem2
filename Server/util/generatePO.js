@@ -82,8 +82,8 @@ async function generatePOBuffer(po, items) {
   });
 
   // Smart Pagination
-  const FULL_PAGE_LIMIT = 12;
-  const FOOTER_PAGE_LIMIT = 9;
+  const FULL_PAGE_LIMIT = 8;
+  const FOOTER_PAGE_LIMIT = 7;
   let rowsArr = [...preparedRows], pages = [];
 
   const totalRows = rowsArr.length;

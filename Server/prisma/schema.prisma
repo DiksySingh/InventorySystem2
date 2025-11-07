@@ -41,6 +41,7 @@ model User {
   BankDetail            BankDetail[]
   PurchaseOrder         PurchaseOrder[]
   PurchaseOrderReceipt  PurchaseOrderReceipt[]
+  DamagedStock          DamagedStock[]
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -490,7 +491,6 @@ enum GSTType {
   LGST_ITEMWISE
 }
 
-
 enum POStatus {
   Draft
   Sent
@@ -643,25 +643,25 @@ model Counter {
  * ----------------------------- PURCHASE ORDER MODEL-----------------------------
  */
 model PurchaseOrder {
-  id                String    @id @default(uuid())
-  poNumber          String    @unique
-  financialYear     String?
-  companyId         String
-  companyName       String?
-  vendorId          String
-  vendorName        String?
-  bankDetailId      String?
-  createdBy         String?
-  poDate            DateTime  @default(now())
-  gstType           GSTType
-  gstRate           Decimal? @db.Decimal(5,2)
+  id            String   @id @default(uuid())
+  poNumber      String   @unique
+  financialYear String?
+  companyId     String
+  companyName   String?
+  vendorId      String
+  vendorName    String?
+  bankDetailId  String?
+  createdBy     String?
+  poDate        DateTime @default(now())
+  gstType       GSTType
+  gstRate       Decimal? @db.Decimal(5, 2)
 
-    /// --------------------- 💱 Currency & FX Fields ----------------------
-  currency          String?    @default("INR")   // e.g. USD, EUR, AED
-  exchangeRate      Decimal?   @db.Decimal(12,4) @default(1.0000) // INR conversion rate
+  /// --------------------- 💱 Currency & FX Fields ----------------------
+  currency     String?  @default("INR") // e.g. USD, EUR, AED
+  exchangeRate Decimal? @default(1.0000) @db.Decimal(12, 4) // INR conversion rate
 
-  foreignSubTotal   Decimal?  @db.Decimal(12,2) // subtotal in foreign currency
-  foreignGrandTotal Decimal?  @db.Decimal(12,2) // final in foreign currency
+  foreignSubTotal   Decimal? @db.Decimal(12, 2) // subtotal in foreign currency
+  foreignGrandTotal Decimal? @db.Decimal(12, 2) // final in foreign currency
   /// --------------------- 💱 End Currency & FX ------------------------
 
   subTotal          Decimal?  @db.Decimal(12, 2)
@@ -694,6 +694,7 @@ model PurchaseOrder {
   items          PurchaseOrderItem[]
   payments       Payment[]
   returnToVendor ReturnToVendor[]
+  damagedStock   DamagedStock[]
   receipts       PurchaseOrderReceipt[] @relation("PO_Receipts") // PO → Receipts
   user           User?                  @relation(fields: [createdBy], references: [id])
 }
@@ -724,13 +725,14 @@ model PurchaseOrderItem {
 
 model PurchaseOrderReceipt {
   id                  String        @id @default(uuid())
-  purchaseOrderId     String
-  purchaseOrderItemId String
-  itemId              String
-  itemSource          String
-  receivedQty         Decimal       @db.Decimal(10, 2) // ✅ Quantity actually received (total)
-  goodQty             Decimal       @default(0) @db.Decimal(10, 2) // ✅ Accepted quantity
-  damagedQty          Decimal       @default(0) @db.Decimal(10, 2) // ⚠️ Damaged quantity
+  purchaseOrderId     String?
+  purchaseOrderItemId String?
+  itemId              String?
+  itemSource          String?
+  itemName            String?
+  receivedQty         Decimal?      @db.Decimal(10, 2) // ✅ Quantity actually received (total)
+  goodQty             Decimal?      @default(0) @db.Decimal(10, 2) // ✅ Accepted quantity
+  damagedQty          Decimal?      @default(0) @db.Decimal(10, 2) // ⚠️ Damaged quantity
   status              ReceiptStatus @default(PendingInspection)
   receivedDate        DateTime      @default(now())
   remarks             String?
@@ -738,9 +740,9 @@ model PurchaseOrderReceipt {
   createdAt           DateTime      @default(now())
 
   returnToVendor    ReturnToVendor[]
-  purchaseOrder     PurchaseOrder     @relation("PO_Receipts", fields: [purchaseOrderId], references: [id])
-  purchaseOrderItem PurchaseOrderItem @relation("Item_Receipts", fields: [purchaseOrderItemId], references: [id])
-  user              User?             @relation(fields: [createdBy], references: [id])
+  purchaseOrder     PurchaseOrder?     @relation("PO_Receipts", fields: [purchaseOrderId], references: [id])
+  purchaseOrderItem PurchaseOrderItem? @relation("Item_Receipts", fields: [purchaseOrderItemId], references: [id])
+  user              User?              @relation(fields: [createdBy], references: [id])
 }
 
 enum ReceiptStatus {
@@ -749,6 +751,22 @@ enum ReceiptStatus {
   PartiallyAccepted // some damaged
   Rejected // completely damaged
   Returned // sent back to vendor
+}
+
+model DamagedStock {
+  id              String   @id @default(uuid())
+  purchaseOrderId String?
+  itemId          String?
+  itemSource      String?
+  itemName        String?
+  quantity        Int      @default(0)
+  remarks         String? // optional reason for damage (e.g. "broken packaging", "defective motor")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  user          User?          @relation(fields: [createdBy], references: [id])
 }
 
 /**

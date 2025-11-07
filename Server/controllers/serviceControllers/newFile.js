@@ -3866,7 +3866,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     let state;
     const whName = warehouseData.warehouseName;
     if (whName === "Bhiwani") state = "Haryana";
-    else if (whName === "Jalna Warehouse") state = "Maharashtra";
+    else if (whName === "Maharashtra Warehouse - Ambad") state = "Maharashtra";
     else if (whName === "Korba Chhattisgarh") state = "Chhattisgarh";
 
     const farmerActivities = [];

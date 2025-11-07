@@ -12,20 +12,20 @@ const generateJalnaReport = async (req, res) => {
 
     // Fetch data
     const incomingTrue = await PickupItem.find({
-      warehouse: "Jalna Warehouse",
+      warehouse: "Maharashtra Warehouse - Ambad",
       incoming: true,
       pickupDate: { $gte: startOfDay, $lte: endOfDay },
     }).lean();
 
     const incomingAndStatusTrue = await PickupItem.find({
-      warehouse: "Jalna Warehouse",
+      warehouse: "Maharashtra Warehouse - Ambad",
       incoming: true,
       status: true,
       arrivedDate: { $gte: startOfDay, $lte: endOfDay },
     }).lean();
 
     const incomingFalse = await PickupItem.find({
-      warehouse: "Jalna Warehouse",
+      warehouse: "Maharashtra Warehouse - Ambad",
       incoming: false,
       pickupDate: { $gte: startOfDay, $lte: endOfDay },
     }).lean();
@@ -72,7 +72,7 @@ const generateJalnaReport = async (req, res) => {
     const htmlContent = `
       <html>
       <head>
-        <title>Jalna Warehouse Report</title>
+        <title>Maharashtra Warehouse - Ambad Report</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; }
           h1, h2 { text-align: center; }
@@ -82,7 +82,7 @@ const generateJalnaReport = async (req, res) => {
         </style>
       </head>
       <body>
-        <h1>Jalna Warehouse Report</h1>
+        <h1>Maharashtra Warehouse - Ambad Report</h1>
 
         <h2>Items Picked-Up (Today)</h2>
         ${tableHTML(incomingTrue)}

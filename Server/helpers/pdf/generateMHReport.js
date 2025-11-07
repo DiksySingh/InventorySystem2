@@ -6,7 +6,7 @@ const XLSX = require("xlsx");
 module.exports.exportToExcel = async (req, res) => {
   try {
     const marchFirst = new Date("2025-03-01T00:00:00.000Z");
-    const warehouseName = "Jalna Warehouse";
+    const warehouseName = "Maharashtra Warehouse - Ambad";
 
     // Fetch filtered data
     const items = await PickupItem.find({

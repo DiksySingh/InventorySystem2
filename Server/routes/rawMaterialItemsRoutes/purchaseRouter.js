@@ -26,6 +26,10 @@ router.get(
   tokenVerification(['Purchase']),
   purchaseOrderController.getVendorsList
 );
+router.get("/companies/:id", tokenVerification(['Purchase']), purchaseOrderController.getCompanyById);
+router.get("/vendors/:id", tokenVerification(['Purchase']), purchaseOrderController.getVendorById);
+router.put("/companies/:id", tokenVerification(['Purchase']), purchaseOrderController.updateCompany);
+router.put("/vendors/:id", tokenVerification(['Purchase']), purchaseOrderController.updateVendor);
 
 router.get(
   "/items",

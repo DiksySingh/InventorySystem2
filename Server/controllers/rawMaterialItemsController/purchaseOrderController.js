@@ -4,7 +4,9 @@ const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
+const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const generatePO = require("../../util/generatePO");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 
 function getISTDate() {
   const now = new Date();
@@ -148,7 +150,6 @@ const createCompany = async (req, res) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      
       const newCompany = await tx.company.create({
         data: {
           name: trimmedName,
@@ -528,6 +529,50 @@ const getCompaniesList = async (req, res) => {
   }
 };
 
+const getCompanyById = async (req, res) => {
+  try {
+    const id = req.params.id || req.query?.id;
+
+    if (!id) {
+      return res.status(400).json({ message: "Company ID is required" });
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { id: id },
+      select: {
+        id: true,
+        name: true,
+        companyCode: true,
+        gstNumber: true,
+        address: true,
+        city: true,
+        state: true,
+        pincode: true,
+        contactNumber: true,
+        alternateNumber: true,
+        email: true,
+        country: true,
+        currency: true,
+      },
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: company,
+    });
+  } catch (error) {
+    console.error("Error fetching company by ID:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 const getVendorsList = async (req, res) => {
   try {
     const vendors = await prisma.vendor.findMany({
@@ -553,6 +598,49 @@ const getVendorsList = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const getVendorById = async (req, res) => {
+  try {
+    const id = req.params.id || req.query?.id;
+
+    if (!id) {
+      return res.status(400).json({ message: "Vendor ID is required" });
+    }
+
+    const vendor = await prisma.vendor.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        gstNumber: true,
+        address: true,
+        city: true,
+        state: true,
+        pincode: true,
+        country: true,
+        currency: true,
+        contactNumber: true,
+        alternateNumber: true,
+      },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: vendor,
+    });
+  } catch (error) {
+    console.error("Error fetching vendor by ID:", error);
+    res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
     });
@@ -1464,7 +1552,7 @@ const downloadPOPDF = async (req, res) => {
     // ✅ Generate PDF buffer
     const pdfBuffer = await generatePO(po, items);
 
-    // ✅ Save PDF file to backend
+    // ✅ Ensure uploads directory exists
     const uploadDir = path.join(__dirname, "../../uploads/purchaseOrder");
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -1475,7 +1563,7 @@ const downloadPOPDF = async (req, res) => {
 
     const relativePath = `/uploads/purchaseOrder/${fileName}`;
 
-    // ✅ Old and new PDF details for audit
+    // ✅ Audit log
     const oldPdfData =
       po.pdfUrl || po.pdfName || po.pdfGeneratedAt
         ? {
@@ -1493,7 +1581,6 @@ const downloadPOPDF = async (req, res) => {
       generatedBy: userId,
     };
 
-    // ✅ Transaction: Update PO + log audit
     await prisma.$transaction([
       prisma.purchaseOrder.update({
         where: { id: poId },
@@ -1516,12 +1603,14 @@ const downloadPOPDF = async (req, res) => {
       }),
     ]);
 
-    // ✅ Send file to browser for download
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    // ✅ Send PDF response properly
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Length": pdfBuffer.length,
+      "Content-Disposition": `inline; filename="${fileName}"`,
+    });
 
-    return res.send(pdfBuffer);
-
+    return res.end(pdfBuffer);
   } catch (err) {
     console.error("❌ Error generating PO PDF:", err);
     return res.status(500).json({
@@ -1953,6 +2042,308 @@ Contact: ${po.company.contactNumber}
   }
 };
 
+const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
+  const userId = req.user?.id;
+
+  try {
+    const { purchaseOrderId, items, warehouseId } = req.body;
+
+    if (
+      !purchaseOrderId ||
+      !Array.isArray(items) ||
+      items.length === 0 ||
+      !warehouseId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "purchaseOrderId, warehouseId and items[] are required.",
+      });
+    }
+
+    // Validate Warehouse
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if (!warehouseData)
+      return res
+        .status(404)
+        .json({ success: false, message: "Warehouse not found." });
+
+    // Validate Purchase Order
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: purchaseOrderId },
+      include: { items: true },
+    });
+    if (!po)
+      return res
+        .status(404)
+        .json({ success: false, message: "Purchase Order not found." });
+    if (["Received", "Cancelled"].includes(po.status)) {
+      return res
+        .status(400)
+        .json({ success: false, message: `PO already ${po.status}.` });
+    }
+
+    // Pre-validation: Ensure all items exist
+    for (const item of items) {
+      const { itemId, itemSource, purchaseOrderItemId } = item;
+      if (!itemId || !itemSource || !purchaseOrderItemId)
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid item data." });
+
+      const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+      if (!poItem)
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: `PO item ${purchaseOrderItemId} not found.`,
+          });
+
+      if (itemSource === "mongo") {
+        const systemItem = await SystemItem.findById(itemId);
+        if (!systemItem)
+          return res
+            .status(404)
+            .json({
+              success: false,
+              message: `SystemItem ${itemId} not found.`,
+            });
+      } else if (itemSource === "mysql") {
+        const rawMat = await prisma.rawMaterial.findUnique({
+          where: { id: itemId },
+        });
+        if (!rawMat)
+          return res
+            .status(404)
+            .json({
+              success: false,
+              message: `RawMaterial ${itemId} not found.`,
+            });
+      } else {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: `Invalid itemSource for ${itemId}.`,
+          });
+      }
+    }
+
+    // Start transaction
+    const { receiptResults, stockUpdates } = await prisma.$transaction(
+      async (tx) => {
+        const receiptResults = [];
+        const stockUpdates = [];
+
+        for (const item of items) {
+          const {
+            purchaseOrderItemId,
+            itemId,
+            itemSource,
+            itemName,
+            receivedQty,
+            goodQty = 0,
+            damagedQty = 0,
+            remarks = "",
+          } = item;
+
+          const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+          const poQty = Number(poItem.quantity);
+
+          const existingReceipt = await tx.purchaseOrderReceipt.findFirst({
+            where: { purchaseOrderId, purchaseOrderItemId, itemId },
+          });
+
+          const alreadyReceived = existingReceipt
+            ? Number(existingReceipt.receivedQty)
+            : 0;
+          const totalReceived = alreadyReceived + Number(receivedQty);
+
+          if (totalReceived > poQty) {
+            throw new Error(
+              `Cannot receive ${receivedQty}. Only ${poQty - alreadyReceived} remaining for ${itemName}.`
+            );
+          }
+
+          // Determine receipt status
+          let newStatus = "PendingInspection";
+          if (totalReceived === poQty) newStatus = "Accepted";
+          else if (totalReceived > 0) newStatus = "PartiallyReceived";
+
+          // Create or update receipt
+          let receiptRecord;
+          if (existingReceipt) {
+            receiptRecord = await tx.purchaseOrderReceipt.update({
+              where: { id: existingReceipt.id },
+              data: {
+                receivedQty: totalReceived,
+                goodQty: Number(existingReceipt.goodQty) + Number(goodQty),
+                damagedQty:
+                  Number(existingReceipt.damagedQty) + Number(damagedQty),
+                status: newStatus,
+                remarks: remarks || existingReceipt.remarks,
+                updatedAt: new Date(),
+              },
+            });
+          } else {
+            receiptRecord = await tx.purchaseOrderReceipt.create({
+              data: {
+                purchaseOrderId,
+                purchaseOrderItemId,
+                itemId,
+                itemSource,
+                itemName,
+                receivedQty: Number(receivedQty),
+                goodQty: Number(goodQty),
+                damagedQty: Number(damagedQty),
+                status: newStatus,
+                remarks,
+                createdBy: userId,
+              },
+            });
+          }
+
+          // Update PurchaseOrderItem receivedQty
+          await tx.purchaseOrderItem.update({
+            where: { id: purchaseOrderItemId },
+            data: { receivedQty: totalReceived },
+          });
+
+          // Audit log for receipt
+          await tx.auditLog.create({
+            data: {
+              entityType: "PurchaseOrderReceipt",
+              entityId: receiptRecord.id,
+              action: existingReceipt ? "Updated" : "Created",
+              performedBy: userId,
+              newValue: receiptRecord,
+            },
+          });
+
+          // Handle damaged stock
+          if (Number(damagedQty) > 0) {
+            const existingDamage = await tx.damagedStock.findFirst({
+              where: { itemId, itemSource, purchaseOrderId },
+            });
+
+            if (existingDamage) {
+              await tx.damagedStock.update({
+                where: { id: existingDamage.id },
+                data: {
+                  quantity: { increment: Number(damagedQty) },
+                  remarks: `${existingDamage.remarks || ""}${existingDamage.remarks ? "; " : ""}${remarks}`,
+                },
+              });
+            } else {
+              await tx.damagedStock.create({
+                data: {
+                  purchaseOrderId,
+                  itemId,
+                  itemSource,
+                  itemName,
+                  quantity: Number(damagedQty),
+                  remarks,
+                },
+              });
+            }
+          }
+
+          // Collect goodQty for warehouse update
+          if (Number(goodQty) > 0)
+            stockUpdates.push({ itemSource, itemId, goodQty, warehouseId });
+
+          // Collect receipt result
+          receiptResults.push({
+            itemId,
+            itemName,
+            receivedQty: totalReceived,
+            goodQty,
+            damagedQty,
+            status: newStatus,
+            remainingQty: poQty - totalReceived,
+          });
+        }
+
+        // Update Purchase Order status
+        const poItems = await tx.purchaseOrderItem.findMany({
+          where: { purchaseOrderId },
+        });
+        const allReceived = poItems.every(
+          (i) => Number(i.receivedQty) >= Number(i.quantity)
+        );
+        const someReceived = poItems.some((i) => Number(i.receivedQty) > 0);
+
+        let newPOStatus = po.status;
+        if (allReceived) newPOStatus = "Received";
+        else if (someReceived) newPOStatus = "PartiallyReceived";
+
+        if (newPOStatus !== po.status) {
+          await tx.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: newPOStatus },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              entityType: "PurchaseOrder",
+              entityId: purchaseOrderId,
+              action: "StatusUpdated",
+              performedBy: userId,
+              oldValue: { status: po.status },
+              newValue: { status: newPOStatus },
+            },
+          });
+        }
+
+        return { receiptResults, stockUpdates };
+      }
+    );
+
+    // Parallel warehouse stock updates
+    await Promise.all(
+      stockUpdates.map(async (upd) => {
+        const { itemSource, itemId, goodQty, warehouseId } = upd;
+
+        if (itemSource === "mongo") {
+          const inventoryItem = await InstallationInventory.findOne({
+            warehouseId,
+            systemItemId: itemId,
+          });
+          if (inventoryItem) {
+            inventoryItem.quantity += Number(goodQty);
+            await inventoryItem.save();
+          } else {
+            await InstallationInventory.create({
+              warehouseId,
+              systemItemId: itemId,
+              quantity: Number(goodQty),
+            });
+          }
+        } else if (itemSource === "mysql") {
+          await prisma.rawMaterial.update({
+            where: { id: itemId },
+            data: { stock: { increment: Number(goodQty) } },
+          });
+        }
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Purchase Order Receipts processed successfully.",
+      data: receiptResults,
+    });
+  } catch (error) {
+    console.error("❌ Error in PO Receipt creation:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error while processing PO Receipts.",
+    });
+  }
+};
+
+module.exports = { createOrUpdatePurchaseOrderReceipts };
+
 module.exports = {
   createCompany,
   createVendor,
@@ -1967,4 +2358,6 @@ module.exports = {
   getPurchaseOrderDetails,
   downloadPOPDF,
   sendOrResendPO,
+  getCompanyById,
+  getVendorById
 };

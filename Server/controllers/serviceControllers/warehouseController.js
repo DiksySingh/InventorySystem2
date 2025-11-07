@@ -1903,7 +1903,7 @@ module.exports.updateItemQuantity = async (req, res) => {
 //     const whName = warehouseData.warehouseName;
 //     if (["Bhiwani", "Jind", "Hisar", "Sirsa"].includes(whName)) {
 //       state = "Haryana";
-//     } else if (whName === "Jalna Warehouse") {
+//     } else if (whName === "Maharashtra Warehouse - Ambad") {
 //       state = "Maharashtra";
 //     } else if (whName === "Korba Chhattisgarh") {
 //       state = "Chhattisgarh";
@@ -2325,7 +2325,7 @@ module.exports.getControllerData = async (req, res) => {
 
 //     const stateMap = {
 //       Bhiwani: "Haryana",
-//       "Jalna Warehouse": "Maharashtra",
+//       "Maharashtra Warehouse - Ambad": "Maharashtra",
 //       "Korba Chhattisgarh": "Chhattisgarh",
 //     };
 //     const state = stateMap[warehouseData.warehouseName] || "";
@@ -2595,7 +2595,7 @@ module.exports.getControllerData = async (req, res) => {
 
 //     const stateMap = {
 //       Bhiwani: "Haryana",
-//       "Jalna Warehouse": "Maharashtra",
+//       "Maharashtra Warehouse - Ambad": "Maharashtra",
 //       "Korba Chhattisgarh": "Chhattisgarh",
 //     };
 //     const state = stateMap[warehouseData.warehouseName] || "";
@@ -2924,7 +2924,7 @@ module.exports.addNewInstallationData = async (req, res) => {
 
     const stateMap = {
       Bhiwani: "Haryana",
-      "Jalna Warehouse": "Maharashtra",
+      "Maharashtra Warehouse - Ambad": "Maharashtra",
       "Korba Chhattisgarh": "Chhattisgarh",
     };
     const state = stateMap[warehouseData.warehouseName] || "";
@@ -3342,7 +3342,7 @@ module.exports.addNewInstallationData = async (req, res) => {
 //     const whName = warehouseData.warehouseName;
 //     if (["Bhiwani", "Jind", "Hisar", "Sirsa"].includes(whName)) {
 //       state = "Haryana";
-//     } else if (whName === "Jalna Warehouse") {
+//     } else if (whName === "Maharashtra Warehouse - Ambad") {
 //       state = "Maharashtra";
 //     } else if (whName === "Korba Chhattisgarh") {
 //       state = "Chhattisgarh";
@@ -6293,7 +6293,7 @@ module.exports.checkSerialNumber = async (req, res) => {
     const whName = warehouseData.warehouseName;
     if (["Bhiwani"].includes(whName)) {
       state = "Haryana";
-    } else if (whName === "Jalna Warehouse") {
+    } else if (whName === "Maharashtra Warehouse - Ambad") {
       state = "Maharashtra";
     } else if (whName === "Korba Chhattisgarh") {
       state = "Chhattisgarh";
@@ -6445,7 +6445,7 @@ module.exports.checkRMUNumber = async (req, res) => {
     let state;
     if (["Bhiwani"].includes(whName)) {
       state = "Haryana";
-    } else if (whName === "Jalna Warehouse") {
+    } else if (whName === "Maharashtra Warehouse - Ambad") {
       state = "Maharashtra";
     } else if (whName === "Korba Chhattisgarh") {
       state = "Chhattisgarh";
@@ -7506,7 +7506,7 @@ module.exports.getInstallerData = async (req, res) => {
     if (warehouseData?.warehouseName === "Bhiwani") {
       state = "Haryana";
     } else if (
-      warehouseData?.warehouseName === "Jalna Warehouse" ||
+      warehouseData?.warehouseName === "Maharashtra Warehouse - Ambad" ||
       warehouseData?.warehouseName === "Maharashtra Warehouse - Jalna"
     ) {
       state = "Maharashtra";

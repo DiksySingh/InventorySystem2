@@ -7,7 +7,7 @@ const generateWarehouse2FarmerExcel = async (req, res) => {
 try {
     const records = await PickupItem.find({
       incoming: false,
-      warehouse: "Jalna Warehouse"
+      warehouse: "Maharashtra Warehouse - Ambad"
     }).select(
       "servicePersonName servicePerContact farmerName farmerContact farmerVillage farmerSaralId warehouse items serialNumber withoutRMU rmuRemark remark pickupDate"
     );
