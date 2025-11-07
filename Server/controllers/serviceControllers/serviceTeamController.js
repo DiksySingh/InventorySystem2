@@ -226,13 +226,13 @@ module.exports.stateWiseServiceSurveyPersons = async (req, res) => {
 module.exports.getFarmerInstallationDetails = async (req, res) => {
   try {
     const { saralId } = req.query;
-
     if (!saralId) {
       return res.status(400).json({ message: "saralId is required" });
     }
+    const upperCaseSaralId = saralId.toUpperCase().trim();
 
     const farmerActivity = await FarmerItemsActivity.findOne(
-      { farmerSaralId: saralId },
+      { farmerSaralId: upperCaseSaralId },
       {
         panelNumbers: 1,
         controllerNumber: 1,
@@ -244,7 +244,7 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
     ).lean();
 
     const systemInstallation = await NewSystemInstallation.findOne(
-      { farmerSaralId: saralId },
+      { farmerSaralId: upperCaseSaralId },
       {
         pitPhoto: 1,
         borePhoto: 1,
@@ -266,6 +266,7 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      message: `Installation Data Fetched For Saral Id - ${upperCaseSaralId}`,
       data: {
         farmerSaralId: farmerActivity.farmerSaralId,
         panelNumbers: farmerActivity?.panelNumbers || [],
@@ -288,10 +289,9 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching farmer installation details:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
