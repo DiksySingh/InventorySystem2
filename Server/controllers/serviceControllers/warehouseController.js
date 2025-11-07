@@ -4672,107 +4672,117 @@ module.exports.showOutgoingWToWItems = async (req, res) => {
 };
 
 module.exports.acceptingWToWIncomingItems = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { transactionId, status, arrivedDate } = req.body;
+
     if (!transactionId) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         success: false,
-        message: "TransactionId not found",
+        message: "TransactionId is required",
       });
     }
-    let incomingSystemItems = await SystemInventoryWToW.findOne({
-      _id: transactionId,
-    })
+
+    let incomingSystemItems = await SystemInventoryWToW.findOne({ _id: transactionId })
       .populate({
         path: "fromWarehouse",
-        select: {
-          _id: 1,
-          warehouseName: 1,
-        },
+        select: { _id: 1, warehouseName: 1 },
       })
       .populate({
         path: "toWarehouse",
-        select: {
-          _id: 1,
-          warehouseName: 1,
-        },
+        select: { _id: 1, warehouseName: 1 },
       })
       .populate({
         path: "itemsList.systemItemId",
         model: "SystemItem",
-        select: {
-          _id: 1,
-          itemName: 1,
-        },
+        select: { _id: 1, itemName: 1 },
       })
-      .select("-createdAt -createdBy -__v")
-      .sort({ pickupDate: -1 });
+      .session(session);
+
     if (!incomingSystemItems) {
-      return res.status(400).json({
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
         success: false,
-        message: "Incoming System Items Data Not Found",
+        message: "Incoming System Items data not found",
       });
     }
 
     if (incomingSystemItems.status === true) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         success: false,
-        message: "Incoming Items Already Approved",
+        message: "Incoming items already approved",
       });
     }
 
+    // ✅ Update stock if approved
     if (status === true) {
-      for (let item of incomingSystemItems.itemsList) {
+      for (const item of incomingSystemItems.itemsList) {
         const { systemItemId, quantity } = item;
-        const systemItemData = await SystemItem.findOne({ _id: systemItemId });
+
+        if (!mongoose.Types.ObjectId.isValid(systemItemId)) {
+          throw new Error(`Invalid systemItemId: ${systemItemId}`);
+        }
+
+        const systemItemData = await SystemItem.findById(systemItemId).session(session);
         if (!systemItemData) {
-          return res.status(400).json({
-            success: false,
-            message: "SubItem Not Found",
+          throw new Error(`SystemItem not found for ID: ${systemItemId}`);
+        }
+
+        // 🔹 Check if item exists in the receiving warehouse inventory
+        let existingItem = await InstallationInventory.findOne({
+          warehouseId: incomingSystemItems.toWarehouse._id,
+          systemItemId: systemItemId,
+        }).session(session);
+
+        if (existingItem) {
+          // 🔸 Update existing stock
+          existingItem.quantity += parseInt(quantity);
+          existingItem.updatedAt = new Date();
+          existingItem.updatedBy = req.user._id;
+          await existingItem.save({ session });
+        } else {
+          // 🔸 Create new inventory entry if item doesn’t exist
+          const newInventoryItem = new InstallationInventory({
+            warehouseId: incomingSystemItems.toWarehouse._id,
+            systemItemId: systemItemId,
+            quantity: parseInt(quantity),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            createdBy: req.user._id,
+            updatedBy: req.user._id,
           });
+          await newInventoryItem.save({ session });
         }
-
-        const existingInventoryItems = await InstallationInventory.find({
-          warehouseId: req.user.warehouse,
-        }).populate({
-          path: "systemItemId",
-          select: "itemName",
-        });
-
-        // Check if any inventory item has a subItemId with a matching subItemName
-        const existingItem = existingInventoryItems.find(
-          (inv) =>
-            inv.systemItemId.itemName.toLowerCase().trim() ===
-            systemItemData.itemName.toLowerCase().trim()
-        );
-
-        if (!existingItem) {
-          throw new Error(
-            `SubItem "${systemItemData.itemName}" not found in warehouse inventory`
-          );
-        }
-
-        existingItem.quantity =
-          parseInt(existingItem?.quantity) + parseInt(quantity);
-        existingItem.updatedAt = new Date();
-        existingItem.updatedBy = req.user._id;
-        await existingItem.save();
       }
     }
 
+    // ✅ Update transaction record
     incomingSystemItems.status = status;
     incomingSystemItems.arrivedDate = arrivedDate;
     incomingSystemItems.approvedBy = req.user._id;
     incomingSystemItems.updatedAt = new Date();
     incomingSystemItems.updatedBy = req.user._id;
-    const approvedData = await incomingSystemItems.save();
-    if (approvedData) {
-      return res.status(200).json({
-        success: true,
-        message: "Incoming System Items Approved Successfully",
-      });
-    }
+    await incomingSystemItems.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Incoming System Items Approved Successfully",
+    });
   } catch (error) {
+    console.error("❌ ERROR:", error);
+    await session.abortTransaction();
+    session.endSession();
+
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
