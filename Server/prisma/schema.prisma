@@ -707,7 +707,7 @@ model PurchaseOrderItem {
   itemName        String
   hsnCode         String?
   modelNumber     String?
-  itemDetail      String?
+  itemDetail      String?  @db.VarChar(500)
   unit            String?
   rate            Decimal  @db.Decimal(10, 2)
   gstRate         Decimal? @db.Decimal(5, 2)
