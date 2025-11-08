@@ -1543,7 +1543,7 @@ const getPurchaseOrderDetails = async (req, res) => {
 
 const downloadPOPDF = async (req, res) => {
   try {
-    const { poId } = req.query;
+    const { poId } = req.params;
     const userId = req.user?.id;
 
     if (!userId) {

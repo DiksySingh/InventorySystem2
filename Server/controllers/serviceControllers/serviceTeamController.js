@@ -298,4 +298,3 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
 
 
 
-
