@@ -44,7 +44,7 @@ router.post(
 );
 router.get("/purchase-orders/company/:companyId", tokenVerification(['Purchase']), purchaseOrderController.getPOListByCompany);
 router.get("/purchase-orders/details/:poId", tokenVerification(['Purchase']), purchaseOrderController.getPurchaseOrderDetails);
-router.put("/purchase-orders/update/:id", tokenVerification(['Purchase']), purchaseOrderController.updatePurchaseOrder);
+router.put("/purchase-orders/update/:poId", tokenVerification(['Purchase']), purchaseOrderController.updatePurchaseOrder);
 
 router.post(
     "/purchase-order-pdf",
