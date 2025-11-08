@@ -1352,6 +1352,8 @@ const updatePurchaseOrder = async (req, res) => {
               itemName: i.name,
               itemSource: i.source,
               hsnCode: i.hsnCode || null,
+              modelNumber: i.modelNumber || null,
+              itemDetail: i.itemDetail || null,
               unit: i.unit,
               rate: new Decimal(i.rate),
               gstRate: isItemWise ? new Decimal(i.gstRate) : null,
@@ -1394,7 +1396,7 @@ const updatePurchaseOrder = async (req, res) => {
 
 const getPOListByCompany = async (req, res) => {
   try {
-    const { companyId } = req.query;
+    const { companyId } = req.params;
 
     if (!companyId) {
       return res.status(400).json({
@@ -1441,7 +1443,7 @@ const getPOListByCompany = async (req, res) => {
 
 const getPurchaseOrderDetails = async (req, res) => {
   try {
-    const { poId } = req.query;
+    const { poId } = req.params;
 
     if (!poId) {
       return res.status(400).json({
@@ -1452,33 +1454,65 @@ const getPurchaseOrderDetails = async (req, res) => {
 
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: poId },
-      include: {
-        company: {
+      select: {
+        id: true,
+        poNumber: true,
+        //financialYear: true,
+        companyId: true,
+        companyName: true,
+        vendorId: true,
+        vendorName: true,
+        //bankDetailId: true,
+        //createdBy: true,
+        poDate: true,
+        gstType: true,
+        gstRate: true,
+        currency: true,
+        exchangeRate: true,
+        //foreignSubTotal: true,
+        //foreignGrandTotal: true,
+        //subTotal: true,
+        //totalCGST: true,
+        //totalSGST: true,
+        //totalIGST: true,
+        //totalGST: true,
+        //grandTotal: true,
+        status: true,
+        remarks: true,
+        //pdfUrl: true,
+        //pdfName: true,
+        //pdfGeneratedAt: true,
+        //pdfGeneratedBy: true,
+        //emailSentAt: true,
+        //emailSentBy: true,
+        //emailResentCount: true,
+        //emailLastResentAt: true,
+        paymentTerms: true,
+        deliveryTerms: true,
+        contactPerson: true,
+        cellNo: true,
+        warranty: true,
+        createdAt: true,
+        //updatedAt: true,
+        items: {
           select: {
             id: true,
-            name: true,
-            gstNumber: true,
-            address: true,
-            state: true,
-          },
-        },
-        vendor: {
-          select: {
-            id: true,
-            name: true,
-            gstNumber: true,
-            address: true,
-            state: true,
-            contactPerson: true,
-            contactNumber: true,
-          },
-        },
-        items: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+            purchaseOrderId: true,
+            itemId: true,
+            itemSource: true,
+            itemName: true,
+            hsnCode: true,
+            modelNumber: true,
+            itemDetail: true,
+            unit: true,
+            rate: true,
+            gstRate: true,
+            quantity: true,
+            //receivedQty: true,
+            //itemGSTType: true,
+            total: true,
+            //createdAt: true,
+            //updatedAt: true,
           },
         },
       },
@@ -1543,27 +1577,21 @@ const downloadPOPDF = async (req, res) => {
       itemName: it.itemName,
       hsnCode: it.hsnCode || "-",
       quantity: Number(it.quantity),
+      modelNumber: it.modelNumber || null,
+      itemDetail: it.itemDetail || null,
       unit: it.unit || "Nos",
       rate: Number(it.rate),
       total: Number(it.total),
       gstRate: Number(it.gstRate),
     }));
 
-    // ✅ Generate PDF buffer
+    // Generate PDF buffer
     const pdfBuffer = await generatePO(po, items);
-
-    // ✅ Ensure uploads directory exists
-    const uploadDir = path.join(__dirname, "../../uploads/purchaseOrder");
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
     const vendor = po.vendor.name.split(" ")[0];
     const fileName = `${vendor.toUpperCase()}-PO-${po.poNumber}.pdf`;
-    const filePath = path.join(uploadDir, fileName);
-    fs.writeFileSync(filePath, pdfBuffer);
 
-    const relativePath = `/uploads/purchaseOrder/${fileName}`;
-
-    // ✅ Audit log
+    // ✅ Audit log (optional, no file saved)
     const oldPdfData =
       po.pdfUrl || po.pdfName || po.pdfGeneratedAt
         ? {
@@ -1576,38 +1604,27 @@ const downloadPOPDF = async (req, res) => {
 
     const newPdfData = {
       pdfName: fileName,
-      pdfUrl: relativePath,
+      pdfUrl: null, // Not saved
       generatedAt: new Date(),
       generatedBy: userId,
     };
 
-    await prisma.$transaction([
-      prisma.purchaseOrder.update({
-        where: { id: poId },
-        data: {
-          pdfUrl: relativePath,
-          pdfName: fileName,
-          pdfGeneratedAt: new Date(),
-          pdfGeneratedBy: userId,
-        },
-      }),
-      prisma.auditLog.create({
-        data: {
-          entityType: "PurchaseOrder",
-          entityId: poId,
-          action: "Generated PDF",
-          performedBy: userId,
-          oldValue: oldPdfData,
-          newValue: newPdfData,
-        },
-      }),
-    ]);
+    await prisma.auditLog.create({
+      data: {
+        entityType: "PurchaseOrder",
+        entityId: poId,
+        action: "Generated PDF",
+        performedBy: userId,
+        oldValue: oldPdfData,
+        newValue: newPdfData,
+      },
+    });
 
-    // ✅ Send PDF response properly
+    // Send PDF directly to browser for download
     res.set({
       "Content-Type": "application/pdf",
       "Content-Length": pdfBuffer.length,
-      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Content-Disposition": `attachment; filename="${fileName}"`, // triggers download
     });
 
     return res.end(pdfBuffer);
@@ -2092,40 +2109,32 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
 
       const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
       if (!poItem)
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: `PO item ${purchaseOrderItemId} not found.`,
-          });
+        return res.status(400).json({
+          success: false,
+          message: `PO item ${purchaseOrderItemId} not found.`,
+        });
 
       if (itemSource === "mongo") {
         const systemItem = await SystemItem.findById(itemId);
         if (!systemItem)
-          return res
-            .status(404)
-            .json({
-              success: false,
-              message: `SystemItem ${itemId} not found.`,
-            });
+          return res.status(404).json({
+            success: false,
+            message: `SystemItem ${itemId} not found.`,
+          });
       } else if (itemSource === "mysql") {
         const rawMat = await prisma.rawMaterial.findUnique({
           where: { id: itemId },
         });
         if (!rawMat)
-          return res
-            .status(404)
-            .json({
-              success: false,
-              message: `RawMaterial ${itemId} not found.`,
-            });
-      } else {
-        return res
-          .status(400)
-          .json({
+          return res.status(404).json({
             success: false,
-            message: `Invalid itemSource for ${itemId}.`,
+            message: `RawMaterial ${itemId} not found.`,
           });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid itemSource for ${itemId}.`,
+        });
       }
     }
 
@@ -2342,8 +2351,6 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   }
 };
 
-module.exports = { createOrUpdatePurchaseOrderReceipts };
-
 module.exports = {
   createCompany,
   createVendor,
@@ -2359,5 +2366,6 @@ module.exports = {
   downloadPOPDF,
   sendOrResendPO,
   getCompanyById,
-  getVendorById
+  getVendorById,
+  createOrUpdatePurchaseOrderReceipts,
 };

@@ -7,13 +7,18 @@ const numberToWords = require("./numberToWords");
 function getWatermark(companyName) {
   if (!companyName) return null;
   const lower = companyName.toLowerCase();
-  if (lower.startsWith("galo")) return path.join(__dirname, "../assets/galo.png");
-  if (lower.startsWith("gautam")) return path.join(__dirname, "../assets/gautam.png");
+  if (lower.startsWith("galo"))
+    return path.join(__dirname, "../assets/galo.png");
+  if (lower.startsWith("gautam"))
+    return path.join(__dirname, "../assets/gautam.png");
   return null; // default no watermark
 }
 
 function formatCurrency(n) {
-  return Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Number(n || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function toIndianWords(amount) {
@@ -49,7 +54,12 @@ async function generatePOBuffer(po, items) {
   const isIGST = gstType.startsWith("IGST_");
   const isLGST = gstType.startsWith("LGST_");
 
-  let totalQty = 0, grandTotal = 0, totalGST = 0, totalCGST = 0, totalSGST = 0, totalIGST = 0;
+  let totalQty = 0,
+    grandTotal = 0,
+    totalGST = 0,
+    totalCGST = 0,
+    totalSGST = 0,
+    totalIGST = 0;
 
   const preparedRows = (items || []).map((it, i) => {
     const qty = Number(it.quantity || 0);
@@ -57,7 +67,9 @@ async function generatePOBuffer(po, items) {
     totalQty += qty;
     const lineAmount = qty * rate;
 
-    let gstRate = 0, gstAmount = 0, finalAmount = lineAmount;
+    let gstRate = 0,
+      gstAmount = 0,
+      finalAmount = lineAmount;
     if (isItemWise) {
       gstRate = Number(it.gstRate || 0);
       gstAmount = (lineAmount * gstRate) / 100;
@@ -67,10 +79,12 @@ async function generatePOBuffer(po, items) {
 
     grandTotal += finalAmount;
 
-    return {
+     return {
       sno: i + 1,
-      description: it.itemName + (it.description ? "\n" + it.description : ""),
-      hsn: it.hsnCode || "-",
+      itemName: it.itemName != null ? it.itemName : "",       // keep numbers
+      modelNumber: it.modelNumber != null ? it.modelNumber : "",
+      itemDetail: it.itemDetail != null ? String(it.itemDetail) : "",
+      hsn: it.hsnCode || "",
       qty,
       unit: it.unit || "Nos",
       rate: formatCurrency(rate),
@@ -82,16 +96,17 @@ async function generatePOBuffer(po, items) {
   });
 
   // Smart Pagination
-  const FULL_PAGE_LIMIT = 8;
-  const FOOTER_PAGE_LIMIT = 7;
-  let rowsArr = [...preparedRows], pages = [];
+  const FULL_PAGE_LIMIT = 5;
+  const FOOTER_PAGE_LIMIT = 5;
+  let rowsArr = [...preparedRows],
+    pages = [];
 
   const totalRows = rowsArr.length;
 
   if (totalRows <= FOOTER_PAGE_LIMIT) {
     while (rowsArr.length < FOOTER_PAGE_LIMIT) rowsArr.push(null);
     pages.push(rowsArr);
-  } else if (totalRows <= 13) {
+  } else if (totalRows <= 8) {
     let firstPageCount = totalRows - 1;
     let page1 = rowsArr.splice(0, firstPageCount);
     while (page1.length < FULL_PAGE_LIMIT) page1.push(null);
@@ -99,7 +114,8 @@ async function generatePOBuffer(po, items) {
     while (page2.length < FOOTER_PAGE_LIMIT) page2.push(null);
     pages.push(page1, page2);
   } else {
-    while (rowsArr.length > FOOTER_PAGE_LIMIT) pages.push(rowsArr.splice(0, FULL_PAGE_LIMIT));
+    while (rowsArr.length > FOOTER_PAGE_LIMIT)
+      pages.push(rowsArr.splice(0, FULL_PAGE_LIMIT));
     let last = rowsArr.splice(0);
     while (last.length < FOOTER_PAGE_LIMIT) last.push(null);
     pages.push(last);
@@ -114,8 +130,8 @@ async function generatePOBuffer(po, items) {
       grandTotal += totalIGST;
     }
     if (isLGST) {
-      totalCGST = (grandTotal * rate / 2) / 100;
-      totalSGST = (grandTotal * rate / 2) / 100;
+      totalCGST = (grandTotal * rate) / 2 / 100;
+      totalSGST = (grandTotal * rate) / 2 / 100;
       totalGST = totalCGST + totalSGST;
       grandTotal += totalGST;
     }
@@ -157,7 +173,10 @@ async function generatePOBuffer(po, items) {
     igst: formatCurrency(totalIGST),
   });
 
-  const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
