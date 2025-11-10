@@ -244,8 +244,8 @@ function getGSTLabel(po) {
 }
 
 async function generatePOBuffer(po, items) {
-  // const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
-  // const tpl = fs.readFileSync(tplPath, "utf8");
+  const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
+  const tpl = fs.readFileSync(tplPath, "utf8");
 
   // // Watermark
   // const watermark = getWatermark(po.company?.name);
