@@ -1,0 +1,663 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Purchase Order</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact;
+        }
+
+        body {
+            font-family: "Times New Roman", Arial, sans-serif;
+            font-size: 11px;
+            color: #000;
+            padding-left: 12px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: calc(210mm - 24px);
+            min-height: calc(297mm - 24px);
+            position: relative;
+            page-break-after: always;
+            padding-top: 10px;
+        }
+
+        .container:last-child {
+            page-break-after: auto;
+        }
+
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            opacity: 0.06;
+            z-index: 0;
+            pointer-events: none;
+            object-fit: contain;
+        }
+
+        .content {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 1;
+        }
+
+        .content-box {
+            border: 1px solid #000;
+            margin-bottom: 0px;
+        }
+
+        .title {
+            text-align: center;
+            font-weight: 700;
+            text-decoration: underline;
+            font-size: 18px;
+            margin-bottom: 3px;
+        }
+
+        .company {
+            text-align: center;
+            font-weight: 700;
+            font-size: 25px;
+        }
+
+        .company-sub {
+            text-align: center;
+            font-size: 15px;
+        }
+
+        .company-gst {
+            text-align: center;
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+
+        .top-row {
+            display: flex;
+        }
+
+        .left-box,
+        .right-box {
+            flex: 1;
+            border: 1px solid #000;
+            padding: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .left-box {
+            font-weight: 500;
+            min-height: 120px;
+            text-align: justify;
+        }
+
+        .note {
+            border: 1px solid #000;
+            padding: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            min-height: 18px;
+        }
+
+        table.items {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table.items thead th {
+            border: 1px solid #000;
+            background: #eee;
+            padding: 4px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        table.items tbody td {
+            border-right: 1px solid #000;
+            border-left: 1px solid #000;
+            padding: 4px;
+            vertical-align: top;
+            height: auto;
+            height: 95px;
+            font-size: 12px;
+            white-space: normal;
+            word-wrap: break-word;
+            vertical-align: top;
+            text-align: justify;
+        }
+
+        td strong {
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .container table.items tbody tr:last-child td {
+            border-bottom: 1px solid #000;
+        }
+
+        table.bottom-rows,
+        table.total-amount-rows {
+            width: 100%;
+            border: 1px solid #000;
+            font-size: 13px;
+            font-weight: 600;
+            border-collapse: collapse;
+        }
+
+        table.bottom-rows td,
+        table.total-amount-rows td {
+            padding: 3px;
+            height: 17px;
+        }
+
+        /* .terms-sign {
+            display: flex;
+            gap: 0;
+            margin-top: 0px;
+            min-height: 35px;
+        }
+
+        .terms {
+            flex: 1.2;
+            border: 1px solid #000;
+            text-align: left;
+            padding: 4px 4px;
+            font-size: 12px;
+            min-height: 35px;
+        }
+
+        .terms-list {
+            margin-left: 12px;
+            padding-left: 3px;
+        }
+
+        .terms-list li {
+            font-weight: 600;
+            margin-bottom: 1px;
+            font-size: 12px;
+        }
+
+        .signature {
+            flex: 0.8;
+            border: 1px solid #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .signature-box {
+            padding: 5px 5px;
+            font-size: 12px;
+            height: auto;
+            font-weight: bold;
+            border-bottom: 1px solid #000;
+        }
+
+        .signature-company {
+            text-align: right;
+            padding: 4px 6px;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-top: 5px;
+        } */
+
+        .terms-sign {
+            display: flex;
+            gap: 0;
+            margin-top: 0px;
+            min-height: 35px;
+            /* reduced further */
+        }
+
+        .terms {
+            flex: 1.1;
+            border: 1px solid #000;
+            text-align: justify;
+            padding: 3px 4px 2px 4px;
+            /* tighter padding */
+            font-size: 11px;
+            line-height: 1.1;
+            /* more compact lines */
+        }
+
+        .terms strong {
+            display: block;
+            text-decoration: underline;
+            font-size: 12px;
+            margin-bottom: 2px;
+            /* reduce gap between title and list */
+        }
+
+        .terms-list {
+            margin: 0;
+            /* remove all outer spacing */
+            padding-left: 13px;
+            /* small indent for numbering */
+            list-style-position: outside;
+        }
+
+        .terms-list li {
+            font-weight: 600;
+            margin-bottom: 1px;
+            font-size: 12px;
+            line-height: 1.15;
+        }
+
+        .signature {
+            flex: 0.9;
+            border: 1px solid #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .signature-box {
+            padding: 3px 5px;
+            font-size: 12px;
+            height: auto;
+            font-weight: bold;
+            border-bottom: 1px solid #000;
+        }
+
+        .signature-company {
+            text-align: right;
+            padding: 3px 6px;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-top: 3px;
+        }
+
+
+        thead {
+            display: table-header-group;
+        }
+
+        tfoot {
+            display: table-footer-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+
+<body>
+    <% const isIGSTItemwise=gstType.startsWith("IGST_") && gstType.includes("ITEMWISE"); %>
+        <% const isLGSTItemwise=gstType.startsWith("LGST_") && gstType.includes("ITEMWISE"); %>
+
+            <% let runningTotalAmount=0; let previousTotal=0; %>
+
+                <% pages.forEach((page, pageIndex)=> {
+                    // Declare pageTotalAmount before it's used
+                    let pageTotalAmount = 0;
+                    %>
+                    <div class="container <%= pageIndex === 0 ? 'first-page' : '' %>">
+                        <img src="<%= watermark %>" class="watermark" />
+
+                        <div class="content">
+
+                            <!-- ===== HEADER (REPEAT EVERY PAGE) ===== -->
+                            <div class="content-box">
+                                <div class="title">Purchase Order</div>
+                                <div class="company">
+                                    <%= companyName %>
+                                </div>
+                                <div class="company-sub">
+                                    <%= companySub %>
+                                </div>
+                                <div class="company-sub">
+                                    <%= companyAddress %>
+                                </div>
+                                <div class="company-gst">GSTIN: <%= companyGST %>
+                                </div>
+                            </div>
+
+                            <div class="top-row">
+                                <div class="left-box">
+                                    <strong>Party Details:</strong><br />
+                                    <strong>
+                                        <%= vendorName %>
+                                    </strong><br />
+                                    <%= vendorAddress %><br />
+                                        Email: <%= vendorEmail %>, Mob: <%= vendorPhone %><br /><br />
+                                                <strong>GSTIN: <%= vendorGST %></strong>
+                                </div>
+
+                                <div class="right-box">
+                                    <table style="font-size:14px;font-weight:500;">
+                                        <tr>
+                                            <td><b>Order No :</b></td>
+                                            <td>
+                                                <%= poNumber %>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Dated :</b></td>
+                                            <td>
+                                                <%= poDate %>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Payment Terms :</b></td>
+                                            <td>
+                                                <%= paymentTerms %>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Delivery Terms :</b></td>
+                                            <td>
+                                                <%= deliveryTerms %>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Contact Person :</b></td>
+                                            <td>
+                                                <%= contactPerson %>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Cell No :</b></td>
+                                            <td>
+                                                <%= cellNo %>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><b>Warranty :</b></td>
+                                            <td>
+                                                <%= warranty %>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="note">We are pleased to place the order for the following items:</div>
+
+                            <% if (pages.length> 1 && pageIndex > 0) { %>
+                                <div class="note" style="text-align: right;">
+                                    <% let safeTotal=parseFloat(previousTotal); if (isNaN(safeTotal) ||
+                                        !isFinite(safeTotal)) safeTotal=0; const
+                                        formattedTotal=safeTotal.toLocaleString('en-IN', { minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2 }); %>
+                                        Total Amount till Previous Pages:&nbsp;&nbsp; ₹<%= formattedTotal %>
+                                </div>
+                                <% } %>
+
+                                    <!-- ===== ITEMS TABLE ===== -->
+                                    <table class="items">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:5%;">S.No.</th>
+                                                <th style="width:42%;">Description</th>
+                                                <th style="width:8%;">HSN</th>
+                                                <th style="width:8%;">Qty</th>
+                                                <th style="width:5%;">Unit</th>
+                                                <th style="width:8%;">Price/Unit (₹)</th>
+                                                <% if(isIGSTItemwise) { %>
+                                                    <th style="width:6%;">GST%</th>
+                                                    <% } %>
+                                                        <% if(isLGSTItemwise) { %>
+                                                            <th style="width:6%;">CGST</th>
+                                                            <th style="width:6%;">SGST</th>
+                                                            <% } %>
+                                                                <th style="width:14%;">Amount (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <%
+                                                function parseAmount(val) {
+                                                    if (!val) return 0;
+                                                    if (typeof val === 'number') return val;
+                                                    if (typeof val === 'string') {
+                                                        return parseFloat(val.replace(/,/g, '')) || 0;
+                                                    }
+                                                    return 0;
+                                                }
+
+                                                (page || []).forEach(r => {
+                                                    r = r || { isEmpty: true };
+                                                    if (!r.isEmpty && r.amount) {
+                                                        pageTotalAmount += parseAmount(r.amount);
+                                                    }
+                                            %>
+                                                <tr>
+                                                    <td><%= r.isEmpty ? "" : r.sno %></td>
+                                                    <td>
+                                                        <% if (!r.isEmpty) { %>
+                                                            <% if (r.itemName) { %>
+                                                                <strong style="font-size: 14px;"><%= r.itemName %></strong>
+                                                            <% } %>
+                                                            <% if (r.modelNumber) { %>
+                                                                Model No: <%= r.modelNumber %>,
+                                                            <% } %>
+                                                            <% if (r.itemDetail) { %>
+                                                                <%= r.itemDetail %>
+                                                            <% } %>
+                                                        <% } %>
+                                                    </td>
+                                                    <td style="text-align:center;"><%= r.isEmpty ? "" : r.hsn %></td>
+                                                    <td style="text-align:center;"><%= r.isEmpty ? "" : r.qty %></td>
+                                                    <td style="text-align:center;"><%= r.isEmpty ? "" : r.unit %></td>
+                                                    <td style="text-align:right;"><%= r.isEmpty ? "" : r.rate %></td>
+
+                                                    <% if(isIGSTItemwise) { %>
+                                                        <td style="text-align:center;">
+                                                            <% let igstRate = parseFloat(r.gstRate); %>
+                                                            <%= r.isEmpty || isNaN(igstRate) ? "" : igstRate.toFixed(1) + "%" %>
+                                                        </td>
+                                                    <% } %>
+
+                                                    <% if(isLGSTItemwise) { 
+                                                        let lgstRate = parseFloat(r.gstRate);
+                                                        let halfRate = !isNaN(lgstRate) ? (lgstRate / 2).toFixed(1) : "";
+                                                    %>
+                                                        <td style="text-align:center;"><%= r.isEmpty ? "" : halfRate + "%" %></td>
+                                                        <td style="text-align:center;"><%= r.isEmpty ? "" : halfRate + "%" %></td>
+                                                    <% } %>
+
+                                                    <td style="text-align:right;"><%= r.isEmpty ? "" : r.amount %></td>
+                                                </tr>
+                                            <% }) %>
+
+                                            <% runningTotalAmount += pageTotalAmount;
+                                            previousTotal = runningTotalAmount;
+                                            %>
+                                        </tbody>
+                                    </table>
+
+                                    <% if(pages.length> 1 && pageIndex !== pages.length - 1) { %>
+                                        <div
+                                            style="text-align: right; font-weight: bold; font-size: 14px; margin-top: 0px; border-top: 1px solid #000; padding-top: 2px;">
+                                            Continued to Next Page →
+                                        </div>
+                                        <% } %>
+
+                                            <!-- ===== FOOTER ONLY ON LAST PAGE ===== -->
+                                            <% if(pageIndex===pages.length - 1) { %>
+
+                                                <!-- IGST Summary (only if not ITEMWISE/EXEMPTED and gstType is IGST) -->
+                                                <% if (!gstType.includes("ITEMWISE") && !gstType.includes("EXEMPTED") &&
+                                                    gstType.includes("IGST")) { %>
+                                                    <table class="total-amount-rows">
+                                                        <tr>
+                                                            <td style="width: 5%;"></td>
+                                                            <td style="text-align:right; width: 42%;">Add - IGST @ <%=
+                                                                    gstRate %>%</td>
+                                                            <td style="width: 8%;"></td>
+                                                            <td style="width: 8%;"></td>
+                                                            <td style="width: 5%;"></td>
+                                                            <td style="width: 8%;"></td>
+                                                            <% if(isIGSTItemwise) { %>
+                                                                <td style="width: 6%;"></td>
+                                                                <% } %>
+                                                                    <% if(isLGSTItemwise) { %>
+                                                                        <td style="width: 6%;"></td>
+                                                                        <td style="width: 6%;"></td>
+                                                                        <% } %>
+                                                                            <td style="text-align:right; width: 14%;">₹
+                                                                                <%= igst %>
+                                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <% } %>
+
+                                                        <!-- CGST + SGST Summary (only if not ITEMWISE/EXEMPTED and gstType is LGST) -->
+                                                        <% if (!gstType.includes("ITEMWISE") &&
+                                                            !gstType.includes("EXEMPTED") && gstType.includes("LGST")) {
+                                                            %>
+                                                            <table class="total-amount-rows">
+                                                                <tr>
+                                                                    <td style="width: 5%;"></td>
+                                                                    <td style="text-align:right; width: 42%;">Add - CGST
+                                                                        @ <%= parseFloat(gstRate / 2).toFixed(1) %>%
+                                                                    </td>
+                                                                    <td style="width: 8%;"></td>
+                                                                    <td style="width: 8%;"></td>
+                                                                    <td style="width: 5%;"></td>
+                                                                    <td style="width: 8%;"></td>
+                                                                    <% if(isIGSTItemwise) { %>
+                                                                        <td style="width: 6%;"></td>
+                                                                        <% } %>
+                                                                            <% if(isLGSTItemwise) { %>
+                                                                                <td style="width: 6%;"></td>
+                                                                                <td style="width: 6%;"></td>
+                                                                                <% } %>
+                                                                                    <td
+                                                                                        style="text-align:right; width: 14%;">
+                                                                                        ₹<%= cgst %>
+                                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td style="width: 5%;"></td>
+                                                                    <td style="text-align:right; width: 42%;">SGST @ <%=
+                                                                            parseFloat(gstRate / 2).toFixed(1) %>%</td>
+                                                                    <td style="width: 8%;"></td>
+                                                                    <td style="width: 8%;"></td>
+                                                                    <td style="width: 5%;"></td>
+                                                                    <td style="width: 8%;"></td>
+                                                                    <% if(isIGSTItemwise) { %>
+                                                                        <td style="width: 6%;"></td>
+                                                                        <% } %>
+                                                                            <% if(isLGSTItemwise) { %>
+                                                                                <td style="width: 6%;"></td>
+                                                                                <td style="width: 6%;"></td>
+                                                                                <% } %>
+                                                                                    <td
+                                                                                        style="text-align:right; width: 14%;">
+                                                                                        ₹<%= sgst %>
+                                                                                    </td>
+                                                                </tr>
+                                                            </table>
+                                                            <% } %>
+
+                                                                <table class="bottom-rows">
+                                                                    <tr>
+                                                                        <td style="width: 5%;"></td>
+                                                                        <td style="text-align:right; width: 42%;">Total
+                                                                            Quantity:</td>
+                                                                        <td style="width: 8%;"></td>
+                                                                        <td style="text-align:center; width: 8%;">
+                                                                            <%= totalQty %>
+                                                                        </td>
+                                                                        <td style="width: 5%;"></td>
+                                                                        <td style="width: 8%;"></td>
+                                                                        <% if(isIGSTItemwise) { %>
+                                                                            <td style="width: 6%;"></td>
+                                                                            <% } %>
+                                                                                <% if(isLGSTItemwise) { %>
+                                                                                    <td style="width: 6%;"></td>
+                                                                                    <td style="width: 6%;"></td>
+                                                                                    <% } %>
+                                                                                        <td style="width: 14%;"></td>
+                                                                    </tr>
+                                                                </table>
+
+                                                                <table class="total-amount-rows">
+                                                                    <tr>
+                                                                        <td style="width: 12%;">Grand Total:</td>
+                                                                        <td
+                                                                            style="text-align:left; padding-left: 10px; width:80%;">
+                                                                            <%= inWords %>
+                                                                        </td>
+                                                                        <td></td>
+                                                                        <td></td>
+                                                                        <td></td>
+                                                                        <td></td>
+                                                                        <td style="text-align:right; width: 14%;">₹<%=
+                                                                                grandTotalFormatted %>
+                                                                        </td>
+                                                                    </tr>
+                                                                </table>
+
+                                                                <!-- <table class="total-amount-rows">
+                                    <tr>
+                                        <td colspan="7" style="text-align:center">
+                                            <%= inWords %>
+                                        </td>
+                                    </tr>
+                                </table> -->
+
+                                                                <div class="terms-sign">
+                                                                    <div class="terms">
+                                                                        <strong
+                                                                            style="text-decoration:underline; margin-bottom: 0px;">Terms
+                                                                            &
+                                                                            Conditions</strong>
+                                                                        <ol class="terms-list">
+                                                                            <li>Any taxes, expense, charges not
+                                                                                mentioned in this P.O,
+                                                                                will not be
+                                                                                applicable &
+                                                                                P.O is inclusive of all taxes i.e. GST.
+                                                                            </li>
+                                                                            <li>All material will be dispatched to site.
+                                                                            </li>
+                                                                            <li>If the supplied qty is in excess of P.O
+                                                                                qty, we may
+                                                                                reject the excess
+                                                                                supplied
+                                                                                qty without any economic consideration.
+                                                                            </li>
+                                                                            <li>All disputes subject to Delhi
+                                                                                Jurisdiction.</li>
+                                                                        </ol>
+                                                                    </div>
+                                                                    <div class="signature">
+                                                                        <div class="signature-box">Receiver's signature
+                                                                        </div>
+                                                                        <div class="signature-company">
+                                                                            for <%= companyName %>
+                                                                                <br><br><strong>Authorised
+                                                                                    Signatory</strong>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <% } %>
+                        </div>
+                    </div>
+
+                    <% }) %>
+
+</body>
+
+</html>
