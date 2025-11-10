@@ -1524,6 +1524,7 @@ const getPurchaseOrderDetails = async (req, res) => {
         cellNo: true,
         warranty: true,
         createdAt: true,
+        otherCharges: true,
         //updatedAt: true,
         items: {
           select: {
