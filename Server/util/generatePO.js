@@ -200,26 +200,26 @@ const ejs = require("ejs");
 const puppeteer = require("puppeteer");
 const numberToWords = require("./numberToWords");
 
-const WATERMARK_CACHE = {};
+// const WATERMARK_CACHE = {};
 
-function getWatermark(companyName) {
-  if (!companyName) return null;
-  const lower = companyName.toLowerCase();
-  if (WATERMARK_CACHE[lower]) return WATERMARK_CACHE[lower];
+// function getWatermark(companyName) {
+//   if (!companyName) return null;
+//   const lower = companyName.toLowerCase();
+//   if (WATERMARK_CACHE[lower]) return WATERMARK_CACHE[lower];
 
-  let filePath = null;
-  if (lower.startsWith("galo"))
-    filePath = path.join(__dirname, "../assets/galo.png");
-  if (lower.startsWith("gautam"))
-    filePath = path.join(__dirname, "../assets/gautam.png");
+//   let filePath = null;
+//   if (lower.startsWith("galo"))
+//     filePath = path.join(__dirname, "../assets/galo.png");
+//   if (lower.startsWith("gautam"))
+//     filePath = path.join(__dirname, "../assets/gautam.png");
 
-  if (filePath && fs.existsSync(filePath)) {
-    const buff = fs.readFileSync(filePath);
-    WATERMARK_CACHE[lower] = `data:image/png;base64,${buff.toString("base64")}`;
-    return WATERMARK_CACHE[lower];
-  }
-  return null;
-}
+//   if (filePath && fs.existsSync(filePath)) {
+//     const buff = fs.readFileSync(filePath);
+//     WATERMARK_CACHE[lower] = `data:image/png;base64,${buff.toString("base64")}`;
+//     return WATERMARK_CACHE[lower];
+//   }
+//   return null;
+// }
 
 function formatCurrency(n) {
   return Number(n || 0).toLocaleString("en-IN", {
@@ -244,11 +244,11 @@ function getGSTLabel(po) {
 }
 
 async function generatePOBuffer(po, items) {
-  const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
-  const tpl = fs.readFileSync(tplPath, "utf8");
+  // const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
+  // const tpl = fs.readFileSync(tplPath, "utf8");
 
-  // Watermark
-  const watermark = getWatermark(po.company?.name);
+  // // Watermark
+  // const watermark = getWatermark(po.company?.name);
 
   const gstType = (po.gstType || "").toUpperCase();
   const isItemWise = gstType.includes("ITEMWISE");
@@ -425,7 +425,7 @@ async function generatePOBuffer(po, items) {
 
   // 🧾 Render EJS
   const html = ejs.render(tpl, {
-    watermark,
+    //watermark,
     companyName: po.company?.name,
     companySub: po.company?.subtitle,
     companyAddress: po.company?.address,
