@@ -200,13 +200,24 @@ const ejs = require("ejs");
 const puppeteer = require("puppeteer");
 const numberToWords = require("./numberToWords");
 
+const WATERMARK_CACHE = {};
+
 function getWatermark(companyName) {
   if (!companyName) return null;
   const lower = companyName.toLowerCase();
+  if (WATERMARK_CACHE[lower]) return WATERMARK_CACHE[lower];
+
+  let filePath = null;
   if (lower.startsWith("galo"))
-    return path.join(__dirname, "../assets/galo.png");
+    filePath = path.join(__dirname, "../assets/galo.png");
   if (lower.startsWith("gautam"))
-    return path.join(__dirname, "../assets/gautam.png");
+    filePath = path.join(__dirname, "../assets/gautam.png");
+
+  if (filePath && fs.existsSync(filePath)) {
+    const buff = fs.readFileSync(filePath);
+    WATERMARK_CACHE[lower] = `data:image/png;base64,${buff.toString("base64")}`;
+    return WATERMARK_CACHE[lower];
+  }
   return null;
 }
 
@@ -237,12 +248,7 @@ async function generatePOBuffer(po, items) {
   const tpl = fs.readFileSync(tplPath, "utf8");
 
   // Watermark
-  let watermark = "";
-  const selectedWatermark = getWatermark(po.company?.name);
-  if (selectedWatermark && fs.existsSync(selectedWatermark)) {
-    const buff = fs.readFileSync(selectedWatermark);
-    watermark = `data:image/png;base64,${buff.toString("base64")}`;
-  }
+  const watermark = getWatermark(po.company?.name);
 
   const gstType = (po.gstType || "").toUpperCase();
   const isItemWise = gstType.includes("ITEMWISE");
