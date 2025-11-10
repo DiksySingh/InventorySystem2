@@ -506,7 +506,11 @@ const pages = getPageSplits(preparedRows);
   // 🧾 Generate PDF
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [ "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage", // important on low-memory VPS
+    "--single-process"
+  ],
   });
 
   try {
