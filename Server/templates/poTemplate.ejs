@@ -494,6 +494,67 @@
 
                                             <!-- ===== FOOTER ONLY ON LAST PAGE ===== -->
                                             <% if(pageIndex===pages.length - 1) { %>
+                                                <%
+                                                function formatCurrency(value) {
+                                                    const num = parseFloat(value); // Convert string → number
+                                                    if (isNaN(num)) return "0.00";
+                                                    return num.toLocaleString("en-IN", {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                    });
+                                                }
+                                                %>
+
+                                               <!-- ===== OTHER CHARGES SECTION ===== -->
+                                                <% if (otherCharges && otherCharges.length > 0) { %>
+                                                <table class="total-amount-rows" style="margin-top:0px;">
+                                                    <!-- <thead>
+                                                    <tr>
+                                                        <th colspan="2" style="text-align:center; background:#eee;">Other Charges</th>
+                                                    </tr>
+                                                    </thead> -->
+                                                    <tbody>
+                                                    <% otherCharges.forEach(ch => { %>
+                                                        <tr>
+                                                        <!-- <td style="text-align:left; padding-left:10px;"><%= ch.name %></td>
+                                                        <td style="text-align:right; padding-right:1px;">₹<%= formatCurrency(ch.amount) %></td> -->
+                                                            <td style="width: 5%;"></td>
+                                                            <td style="text-align:right; width: 42%;">Add: <%= ch.name %></td>
+                                                            <td style="width: 8%;"></td>
+                                                            <td style="width: 8%;"></td>
+                                                            <td style="width: 5%;"></td>
+                                                            <td style="width: 8%;"></td>
+                                                            <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
+                                                            <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
+                                                            <td style="text-align:right; width: 14%;">₹<%= formatCurrency(ch.amount) %></td>
+                                                            <% }) %>
+                                                        </tr>
+                                                    <!-- <tr>
+                                                        <td style="text-align:right; font-weight:bold;">Total Other Charges:</td>
+                                                        <td style="text-align:right; font-weight:bold;">₹<%= totalOtherCharges %></td>
+                                                    </tr> -->
+                                                    </tbody>
+                                                </table>
+                                                <% } %>
+
+                                                <!-- ===== SUBTOTAL (AFTER OTHER CHARGES) ===== -->
+                                                <%
+                                                const subTotalWithOther = (runningTotalAmount || 0) + (totalOtherChargesRaw || 0);
+                                                %>
+                                                <table class="total-amount-rows" style="margin-top:0px;">
+                                                <tr>
+                                                    <td style="width: 5%;"></td>
+                                                    <td style="text-align:right; width: 42%;">Sub Total:</td>
+                                                    <td style="width: 8%;"></td>
+                                                    <td style="width: 8%;"></td>
+                                                    <td style="width: 5%;"></td>
+                                                    <td style="width: 8%;"></td>
+                                                    <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
+                                                    <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
+                                                    <td style="text-align:right; width: 14%;">₹<%= formatCurrency(subTotalWithOther) %></td>
+                                                </tr>
+                                                </table>
+                                                <!-- ===== END SUBTOTAL (AFTER OTHER CHARGES) ===== -->
 
                                                 <!-- IGST Summary (only if not ITEMWISE/EXEMPTED and gstType is IGST) -->
                                                 <% if (!gstType.includes("ITEMWISE") && !gstType.includes("EXEMPTED") &&
