@@ -317,110 +317,62 @@ async function generatePOBuffer(po, items) {
   //   pages.push(last);
   // }
 
-// function getPageSplits(preparedRows) {
-//   const FULL_PAGE = 5;
-//   const FOOTER_PAGE = 4;
-//   const LAST_PAGE = 1;
+  function getPageSplits(preparedRows) {
+    const FULL_PAGE = 5;
+    const FOOTER_PAGE = 4;
+    const LAST_PAGE = 1;
 
-//   let rows = [...preparedRows];
-//   let pages = [];
-//   let total = rows.length;
+    let rows = [...preparedRows];
+    let pages = [];
+    let total = rows.length;
 
-//   // Helper to push a page with padding
-//   const pushPage = (arr, padTo = FULL_PAGE) => {
-//     while (arr.length < padTo) arr.push(null);
-//     pages.push(arr);
-//   };
+    // Helper to push a page with padding
+    const pushPage = (arr, padTo = FULL_PAGE) => {
+      while (arr.length < padTo) arr.push(null);
+      pages.push(arr);
+    };
 
-//   // Handle small datasets (<= 5)
-//   if (total <= FULL_PAGE) {
-//     pushPage(rows.splice(0), total === 5 ? FULL_PAGE - 1 : total); // for 5 → 4+1
-//     if (total === 5) pushPage(rows.splice(0, 1), FOOTER_PAGE); // last page 1+footer
-//     return pages;
-//   }
+    // --- Handle small datasets (<5) ---
+    if (total < FULL_PAGE) {
+      // Pad to 4 rows first
+      pushPage(rows.splice(0), FOOTER_PAGE);
+      return pages;
+    }
 
-//   // Handle multiples of 5
-//   if (total % FULL_PAGE === 0) {
-//     while (rows.length > FULL_PAGE) {
-//       pushPage(rows.splice(0, FULL_PAGE));
-//     }
-//     // Pre-last page (4 rows)
-//     pushPage(rows.splice(0, FULL_PAGE - 1));
-//     // Last page 1 row + footer
-//     pushPage(rows.splice(0, 1), FOOTER_PAGE);
-//     return pages;
-//   }
+    // --- Handle exactly 5 rows ---
+    if (total === FULL_PAGE) {
+      pushPage(rows.splice(0, FULL_PAGE - 1), FULL_PAGE); // 4 rows
+      pushPage(rows.splice(0, 1), FOOTER_PAGE); // last page 1 + footer
+      return pages;
+    }
 
-//   // Handle non-multiples of 5
-//   while (rows.length > FULL_PAGE) {
-//     pushPage(rows.splice(0, FULL_PAGE));
-//   }
+    // --- Handle multiples of 5 (>5) ---
+    if (total % FULL_PAGE === 0) {
+      while (rows.length > FULL_PAGE) {
+        pushPage(rows.splice(0, FULL_PAGE));
+      }
+      // Pre-last page (4 rows)
+      pushPage(rows.splice(0, FULL_PAGE - 1));
+      // Last page 1 row + footer
+      pushPage(rows.splice(0, 1), FOOTER_PAGE);
+      return pages;
+    }
 
-//   // Last page: remaining rows + footer padding
-//   if (rows.length > 0) {
-//     pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
-//   }
-
-//   return pages;
-// }
-
-function getPageSplits(preparedRows) {
-  const FULL_PAGE = 5;
-  const FOOTER_PAGE = 4;
-  const LAST_PAGE = 1;
-
-  let rows = [...preparedRows];
-  let pages = [];
-  let total = rows.length;
-
-  // Helper to push a page with padding
-  const pushPage = (arr, padTo = FULL_PAGE) => {
-    while (arr.length < padTo) arr.push(null);
-    pages.push(arr);
-  };
-
-  // --- Handle small datasets (<5) ---
-  if (total < FULL_PAGE) {
-    // Pad to 4 rows first
-    pushPage(rows.splice(0), FOOTER_PAGE);
-    return pages;
-  }
-
-  // --- Handle exactly 5 rows ---
-  if (total === FULL_PAGE) {
-    pushPage(rows.splice(0, FULL_PAGE - 1), FULL_PAGE); // 4 rows
-    pushPage(rows.splice(0, 1), FOOTER_PAGE); // last page 1 + footer
-    return pages;
-  }
-
-  // --- Handle multiples of 5 (>5) ---
-  if (total % FULL_PAGE === 0) {
+    // --- Handle non-multiples of 5 (>5) ---
     while (rows.length > FULL_PAGE) {
       pushPage(rows.splice(0, FULL_PAGE));
     }
-    // Pre-last page (4 rows)
-    pushPage(rows.splice(0, FULL_PAGE - 1));
-    // Last page 1 row + footer
-    pushPage(rows.splice(0, 1), FOOTER_PAGE);
+
+    // Last page: remaining rows + footer padding
+    if (rows.length > 0) {
+      pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
+    }
+
     return pages;
   }
 
-  // --- Handle non-multiples of 5 (>5) ---
-  while (rows.length > FULL_PAGE) {
-    pushPage(rows.splice(0, FULL_PAGE));
-  }
-
-  // Last page: remaining rows + footer padding
-  if (rows.length > 0) {
-    pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
-  }
-
-  return pages;
-}
-
-
   // 🧾 Generate pages dynamically
-const pages = getPageSplits(preparedRows);
+  const pages = getPageSplits(preparedRows);
 
   // 🆕 Handle Other Charges
   const otherCharges = po.otherCharges || [];
@@ -503,19 +455,22 @@ const pages = getPageSplits(preparedRows);
     totalOtherCharges: formatCurrency(totalOtherCharges),
   });
 
-  // 🧾 Generate PDF
   const browser = await puppeteer.launch({
     headless: true,
-    args: [ "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage", // important on low-memory VPS
-    "--single-process"
-  ],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-extensions",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+    ],
   });
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setViewport({ width: 1200, height: 800 });
+    await page.setContent(html, { waitUntil: "domcontentloaded" }); // Faster than networkidle0
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
