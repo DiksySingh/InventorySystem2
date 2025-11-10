@@ -292,30 +292,135 @@ async function generatePOBuffer(po, items) {
     };
   });
 
-  // 📄 Smart Pagination
-  const FULL_PAGE_LIMIT = 6;
-  const FOOTER_PAGE_LIMIT = 4;
-  let rowsArr = [...preparedRows],
-    pages = [];
+  // // 📄 Smart Pagination
+  // const FULL_PAGE_LIMIT = 5;
+  // const FOOTER_PAGE_LIMIT = 4;
+  // let rowsArr = [...preparedRows],
+  //   pages = [];
 
-  const totalRows = rowsArr.length;
-  if (totalRows <= FOOTER_PAGE_LIMIT) {
-    while (rowsArr.length < FOOTER_PAGE_LIMIT) rowsArr.push(null);
-    pages.push(rowsArr);
-  } else if (totalRows <= 8) {
-    let firstPageCount = totalRows - 1;
-    let page1 = rowsArr.splice(0, firstPageCount);
-    while (page1.length < FULL_PAGE_LIMIT) page1.push(null);
-    let page2 = rowsArr.splice(0);
-    while (page2.length < FOOTER_PAGE_LIMIT) page2.push(null);
-    pages.push(page1, page2);
-  } else {
-    while (rowsArr.length > FOOTER_PAGE_LIMIT)
-      pages.push(rowsArr.splice(0, FULL_PAGE_LIMIT));
-    let last = rowsArr.splice(0);
-    while (last.length < FOOTER_PAGE_LIMIT) last.push(null);
-    pages.push(last);
+  // const totalRows = rowsArr.length;
+  // if (totalRows <= FOOTER_PAGE_LIMIT) {
+  //   while (rowsArr.length < FOOTER_PAGE_LIMIT) rowsArr.push(null);
+  //   pages.push(rowsArr);
+  // } else if (totalRows <= 8) {
+  //   let firstPageCount = totalRows - 1;
+  //   let page1 = rowsArr.splice(0, firstPageCount);
+  //   while (page1.length < FULL_PAGE_LIMIT) page1.push(null);
+  //   let page2 = rowsArr.splice(0);
+  //   while (page2.length < FOOTER_PAGE_LIMIT) page2.push(null);
+  //   pages.push(page1, page2);
+  // } else {
+  //   while (rowsArr.length > FOOTER_PAGE_LIMIT)
+  //     pages.push(rowsArr.splice(0, FULL_PAGE_LIMIT));
+  //   let last = rowsArr.splice(0);
+  //   while (last.length < FOOTER_PAGE_LIMIT) last.push(null);
+  //   pages.push(last);
+  // }
+
+// function getPageSplits(preparedRows) {
+//   const FULL_PAGE = 5;
+//   const FOOTER_PAGE = 4;
+//   const LAST_PAGE = 1;
+
+//   let rows = [...preparedRows];
+//   let pages = [];
+//   let total = rows.length;
+
+//   // Helper to push a page with padding
+//   const pushPage = (arr, padTo = FULL_PAGE) => {
+//     while (arr.length < padTo) arr.push(null);
+//     pages.push(arr);
+//   };
+
+//   // Handle small datasets (<= 5)
+//   if (total <= FULL_PAGE) {
+//     pushPage(rows.splice(0), total === 5 ? FULL_PAGE - 1 : total); // for 5 → 4+1
+//     if (total === 5) pushPage(rows.splice(0, 1), FOOTER_PAGE); // last page 1+footer
+//     return pages;
+//   }
+
+//   // Handle multiples of 5
+//   if (total % FULL_PAGE === 0) {
+//     while (rows.length > FULL_PAGE) {
+//       pushPage(rows.splice(0, FULL_PAGE));
+//     }
+//     // Pre-last page (4 rows)
+//     pushPage(rows.splice(0, FULL_PAGE - 1));
+//     // Last page 1 row + footer
+//     pushPage(rows.splice(0, 1), FOOTER_PAGE);
+//     return pages;
+//   }
+
+//   // Handle non-multiples of 5
+//   while (rows.length > FULL_PAGE) {
+//     pushPage(rows.splice(0, FULL_PAGE));
+//   }
+
+//   // Last page: remaining rows + footer padding
+//   if (rows.length > 0) {
+//     pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
+//   }
+
+//   return pages;
+// }
+
+function getPageSplits(preparedRows) {
+  const FULL_PAGE = 5;
+  const FOOTER_PAGE = 4;
+  const LAST_PAGE = 1;
+
+  let rows = [...preparedRows];
+  let pages = [];
+  let total = rows.length;
+
+  // Helper to push a page with padding
+  const pushPage = (arr, padTo = FULL_PAGE) => {
+    while (arr.length < padTo) arr.push(null);
+    pages.push(arr);
+  };
+
+  // --- Handle small datasets (<5) ---
+  if (total < FULL_PAGE) {
+    // Pad to 4 rows first
+    pushPage(rows.splice(0), FOOTER_PAGE);
+    return pages;
   }
+
+  // --- Handle exactly 5 rows ---
+  if (total === FULL_PAGE) {
+    pushPage(rows.splice(0, FULL_PAGE - 1), FULL_PAGE); // 4 rows
+    pushPage(rows.splice(0, 1), FOOTER_PAGE); // last page 1 + footer
+    return pages;
+  }
+
+  // --- Handle multiples of 5 (>5) ---
+  if (total % FULL_PAGE === 0) {
+    while (rows.length > FULL_PAGE) {
+      pushPage(rows.splice(0, FULL_PAGE));
+    }
+    // Pre-last page (4 rows)
+    pushPage(rows.splice(0, FULL_PAGE - 1));
+    // Last page 1 row + footer
+    pushPage(rows.splice(0, 1), FOOTER_PAGE);
+    return pages;
+  }
+
+  // --- Handle non-multiples of 5 (>5) ---
+  while (rows.length > FULL_PAGE) {
+    pushPage(rows.splice(0, FULL_PAGE));
+  }
+
+  // Last page: remaining rows + footer padding
+  if (rows.length > 0) {
+    pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
+  }
+
+  return pages;
+}
+
+
+  // 🧾 Generate pages dynamically
+const pages = getPageSplits(preparedRows);
 
   // 🆕 Handle Other Charges
   const otherCharges = po.otherCharges || [];
@@ -355,9 +460,10 @@ async function generatePOBuffer(po, items) {
   const inWords = toIndianWords(grandTotal);
 
   const runningTotalAmount = subTotal;
-  const totalOtherChargesRaw = typeof totalOtherCharges === "string"
-  ? parseFloat(totalOtherCharges.replace(/,/g, "")) || 0
-  : totalOtherCharges || 0;
+  const totalOtherChargesRaw =
+    typeof totalOtherCharges === "string"
+      ? parseFloat(totalOtherCharges.replace(/,/g, "")) || 0
+      : totalOtherCharges || 0;
 
   // 🧾 Render EJS
   const html = ejs.render(tpl, {
