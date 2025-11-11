@@ -1078,6 +1078,7 @@ module.exports.updateServicePersonHoldingItems = async (req, res) => {
     const holdingItems = await OutgoingItemDetails.findOne({
       servicePerson: servicePersonId
     });
+    console.log(holdingItems);
 
     if (!holdingItems) {
       return res.status(404).json({
@@ -1090,7 +1091,7 @@ module.exports.updateServicePersonHoldingItems = async (req, res) => {
       const matchingItem = holdingItems.items.find(
         (i) => i.itemName === item.itemName
       );
-
+      console.log(matchingItem);
       if (!matchingItem) {
         return res.status(404).json({
           success: false,
