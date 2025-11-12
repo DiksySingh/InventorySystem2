@@ -5813,6 +5813,15 @@ module.exports.addReceivingItemsData = async (req, res) => {
       });
     }
 
+    if(outgoing.status === "Fully Received") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "Status - Fully Received for the outgoing record. Cannot accept any item for this record now.",
+      });
+    }
+
     // 🔹 Step 3: Validate each farmer and item exist in outgoing
     for (const farmer of farmers) {
       const outgoingFarmer = outgoing.farmers.find(f => f.farmerSaralId === farmer.farmerSaralId);
