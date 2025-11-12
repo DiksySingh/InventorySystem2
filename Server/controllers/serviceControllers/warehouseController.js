@@ -5784,12 +5784,21 @@ module.exports.addReceivingItemsData = async (req, res) => {
     const warehouseId = req.user?.warehouse;
 
     // 🔹 Step 1: Basic validation
-    if (!outgoingId || !Array.isArray(farmers) || farmers.length === 0 || !warehouseId || !driverName || !driverContact || !vehicleNumber) {
+    if (
+      !outgoingId ||
+      !Array.isArray(farmers) ||
+      farmers.length === 0 ||
+      !warehouseId ||
+      !driverName ||
+      !driverContact ||
+      !vehicleNumber
+    ) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: "outgoingId, warehouseId, farmers saralId, driver name, driver contact and vehicle number are required.",
+        message:
+          "outgoingId, warehouseId, farmers saralId, driver name, driver contact and vehicle number are required.",
       });
     }
 
@@ -5804,7 +5813,7 @@ module.exports.addReceivingItemsData = async (req, res) => {
       });
     }
 
-    // 🔹 Step 3: Validate each farmer and item against outgoing record
+    // 🔹 Step 3: Validate each farmer and item exist in outgoing
     for (const farmer of farmers) {
       const outgoingFarmer = outgoing.farmers.find(f => f.farmerSaralId === farmer.farmerSaralId);
 
@@ -5828,15 +5837,6 @@ module.exports.addReceivingItemsData = async (req, res) => {
           return res.status(400).json({
             success: false,
             message: `Item '${recvItem.itemName}' not found for farmer '${farmer.farmerSaralId}' in outgoing record.`,
-          });
-        }
-
-        if (recvItem.quantity > outItem.quantity) {
-          await session.abortTransaction();
-          session.endSession();
-          return res.status(400).json({
-            success: false,
-            message: `Received quantity (${recvItem.quantity}) exceeds sent quantity (${outItem.quantity}) for '${recvItem.itemName}' (Farmer: ${farmer.farmerSaralId}).`,
           });
         }
       }
@@ -5871,6 +5871,68 @@ module.exports.addReceivingItemsData = async (req, res) => {
       }
     }
 
+    // 🔹 Step 5.5: Prevent duplicate receiving for already fully received items
+    const previousReceivings = await ReceivingItems.find({ outgoingId }).session(session);
+
+    // Build cumulative map
+    const totalReceivedMap = {};
+    outgoing.farmers.forEach(farmer => {
+      totalReceivedMap[farmer.farmerSaralId] = {};
+      farmer.items.forEach(item => {
+        totalReceivedMap[farmer.farmerSaralId][item.itemName.toLowerCase()] = 0;
+      });
+    });
+
+    // Add all previous received quantities
+    previousReceivings.forEach(rec => {
+      rec.farmers.forEach(farmerRec => {
+        farmerRec.receivedItems.forEach(recvItem => {
+          const key = recvItem.itemName.toLowerCase();
+          if (
+            totalReceivedMap[farmerRec.farmerSaralId] &&
+            totalReceivedMap[farmerRec.farmerSaralId][key] !== undefined
+          ) {
+            totalReceivedMap[farmerRec.farmerSaralId][key] += recvItem.quantity;
+          }
+        });
+      });
+    });
+
+    // Validate that new items don’t exceed remaining quantity
+    for (const farmer of farmers) {
+      const outgoingFarmer = outgoing.farmers.find(f => f.farmerSaralId === farmer.farmerSaralId);
+      if (!outgoingFarmer) continue;
+
+      for (const recvItem of farmer.receivedItems) {
+        const outItem = outgoingFarmer.items.find(
+          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+        );
+        if (!outItem) continue;
+
+        const alreadyReceived =
+          totalReceivedMap[farmer.farmerSaralId][recvItem.itemName.toLowerCase()] || 0;
+        const remainingQty = outItem.quantity - alreadyReceived;
+
+        if (remainingQty <= 0) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            success: false,
+            message: `All units of '${recvItem.itemName}' for farmer '${farmer.farmerSaralId}' have already been received. Cannot receive again.`,
+          });
+        }
+
+        if (recvItem.quantity > remainingQty) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            success: false,
+            message: `Received quantity (${recvItem.quantity}) exceeds remaining (${remainingQty}) for '${recvItem.itemName}' (Farmer: ${farmer.farmerSaralId}).`,
+          });
+        }
+      }
+    }
+
     // 🔹 Step 6: Create receiving record
     const receiving = new ReceivingItems({
       outgoingId,
@@ -5878,7 +5940,7 @@ module.exports.addReceivingItemsData = async (req, res) => {
       remarks,
       driverName,
       driverContact,
-      vehicleNumber
+      vehicleNumber,
     });
     await receiving.save({ session });
 
@@ -5888,14 +5950,13 @@ module.exports.addReceivingItemsData = async (req, res) => {
         const warehouseItem = warehouse.items.find(
           i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
         );
-
         warehouseItem.quantity += recvItem.quantity;
       }
     }
     await warehouse.save({ session });
 
-    // 🔹 Step 8: Calculate cumulative received quantities for outgoing
-    const allReceivingRecords = await ReceivingItems.find({ outgoingId }).session(session);
+    // 🔹 Step 8: Recalculate total received quantities and outgoing status
+    const allReceivings = await ReceivingItems.find({ outgoingId }).session(session);
 
     const receivedMap = {};
     outgoing.farmers.forEach(farmer => {
@@ -5905,23 +5966,22 @@ module.exports.addReceivingItemsData = async (req, res) => {
       });
     });
 
-    allReceivingRecords.forEach(rec => {
-      rec.farmers.forEach(farmerReceived => {
-        if (!receivedMap[farmerReceived.farmerSaralId]) return;
-        farmerReceived.receivedItems.forEach(recvItem => {
-          if (receivedMap[farmerReceived.farmerSaralId][recvItem.itemName] !== undefined) {
-            receivedMap[farmerReceived.farmerSaralId][recvItem.itemName] += recvItem.quantity;
+    allReceivings.forEach(rec => {
+      rec.farmers.forEach(farmerRec => {
+        if (!receivedMap[farmerRec.farmerSaralId]) return;
+        farmerRec.receivedItems.forEach(recvItem => {
+          if (receivedMap[farmerRec.farmerSaralId][recvItem.itemName] !== undefined) {
+            receivedMap[farmerRec.farmerSaralId][recvItem.itemName] += recvItem.quantity;
           }
         });
       });
     });
 
-    // 🔹 Step 9: Determine full or partial receipt
     let fullyReceived = true;
-
     for (const outgoingFarmer of outgoing.farmers) {
       for (const outItem of outgoingFarmer.items) {
-        const totalReceived = receivedMap[outgoingFarmer.farmerSaralId][outItem.itemName] || 0;
+        const totalReceived =
+          receivedMap[outgoingFarmer.farmerSaralId][outItem.itemName] || 0;
         if (totalReceived < outItem.quantity) {
           fullyReceived = false;
           break;
@@ -5934,7 +5994,7 @@ module.exports.addReceivingItemsData = async (req, res) => {
     outgoing.updatedBy = req.user?._id;
     await outgoing.save({ session });
 
-    // 🔹 Step 10: Commit transaction
+    // 🔹 Step 9: Commit transaction
     await session.commitTransaction();
     session.endSession();
 
@@ -5946,7 +6006,6 @@ module.exports.addReceivingItemsData = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-
     console.error("❌ Error receiving items:", error);
     return res.status(500).json({
       success: false,
@@ -5955,6 +6014,7 @@ module.exports.addReceivingItemsData = async (req, res) => {
     });
   }
 };
+
 
 module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
   try {
