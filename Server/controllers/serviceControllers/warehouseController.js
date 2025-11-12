@@ -5714,12 +5714,10 @@ module.exports.showOutgoingItemsData = async (req, res) => {
       });
     }
 
-    // 🔹 Fetch outgoing items by warehouse reference (using ID)
+    // 🔹 Fetch outgoing items
     const outgoingItemsData = await OutgoingItems.find({
       fromWarehouse: warehouseData.warehouseName,
-    })
-      .populate("toServiceCenter", "serviceCenterName")
-      .sort({ sendingDate: -1 });
+    }).sort({ sendingDate: -1 });
 
     if (!outgoingItemsData || outgoingItemsData.length === 0) {
       return res.status(404).json({
@@ -5728,41 +5726,71 @@ module.exports.showOutgoingItemsData = async (req, res) => {
       });
     }
 
-    // 🔹 Clean and format the response
-    const cleanedData = outgoingItemsData.map((doc) => {
+    const cleanedData = [];
+
+    for (const doc of outgoingItemsData) {
       const docObj = doc.toObject();
 
-      // remove _id inside farmers.items[]
-      if (Array.isArray(docObj.farmers)) {
-        docObj.farmers = docObj.farmers.map((farmer) => {
-          if (Array.isArray(farmer.items)) {
-            farmer.items = farmer.items.map((item) => {
-              const { _id, ...rest } = item;
-              return rest;
-            });
-          }
-          return farmer;
-        });
-      }
+      // 🔹 Find all receiving batches for this outgoing record
+      const receivingBatches = await ReceivingItems.find({ outgoingId: docObj._id });
 
-      return {
+      // 🔹 Create map of received quantities for comparison
+      const receivedMap = {};
+      receivingBatches.forEach((batch) => {
+        batch.farmers.forEach((farmer) => {
+          if (!receivedMap[farmer.farmerSaralId]) receivedMap[farmer.farmerSaralId] = {};
+          farmer.receivedItems.forEach((item) => {
+            if (!receivedMap[farmer.farmerSaralId][item.itemName])
+              receivedMap[farmer.farmerSaralId][item.itemName] = 0;
+            receivedMap[farmer.farmerSaralId][item.itemName] += item.quantity;
+          });
+        });
+      });
+
+      // 🔹 Check each farmer’s items and determine item-level + farmer-level receive status
+      const farmersWithStatus = docObj.farmers.map((farmer) => {
+        let farmerFullyReceived = true;
+
+        const updatedItems = farmer.items.map((item) => {
+          const receivedQty =
+            receivedMap[farmer.farmerSaralId]?.[item.itemName] || 0;
+
+          const isFullyReceived = receivedQty >= item.quantity;
+
+          if (!isFullyReceived) farmerFullyReceived = false;
+
+          return {
+            ...item,
+            receivedQuantity: receivedQty,
+            isFullyReceived, // ✅ item-level status
+          };
+        });
+
+        return {
+          ...farmer,
+          items: updatedItems,
+          fullyReceived: farmerFullyReceived, // ✅ farmer-level status
+        };
+      });
+
+      cleanedData.push({
         _id: docObj._id,
         fromWarehouse: warehouseData.warehouseName,
         toServiceCenter: docObj.toServiceCenter || null,
         status: docObj.status,
         sendingDate: docObj.sendingDate,
-        farmers: docObj.farmers,
+        farmers: farmersWithStatus,
         driverName: docObj.driverName,
         driverContact: docObj.driverContact,
         vehicleNumber: docObj.vehicleNumber,
         createdAt: docObj.createdAt,
-      };
-    });
+      });
+    }
 
     // ✅ Success response
     return res.status(200).json({
       success: true,
-      message: "Outgoing items fetched successfully.",
+      message: "Outgoing items fetched successfully with receiving status.",
       data: cleanedData,
     });
   } catch (error) {
