@@ -6052,7 +6052,6 @@ module.exports.addReceivingItemsData = async (req, res) => {
   }
 };
 
-
 module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
   try {
     const warehouseId = req.user?.warehouse;
@@ -6067,9 +6066,9 @@ module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
       .populate({
         path: "outgoingId",
         match: { fromWarehouse: warehouseData.warehouseName },
-        select: "fromWarehouse toServiceCenter farmers sendingDate",
+        select: "fromWarehouse toServiceCenter farmers receivedDate driverName driverContact vehicleNumber",
       })
-      .sort({ receivedDate: 1 });
+      .sort({ receivedDate: -1 });
 
     receivingRecords = receivingRecords.filter(rec => rec.outgoingId);
 
@@ -6126,6 +6125,9 @@ module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
         receivingId: rec._id,
         farmersReceived: rec.farmers || [],
         remarks: rec.remarks || "",
+        driverName: rec.driverName,
+        driverContact: rec.driverContact,
+        vehicleNumber: rec.vehicleNumber,
         receivedDate: rec.receivedDate,
       });
 
