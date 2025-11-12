@@ -134,7 +134,6 @@ router.post(
 router.post(
   "/add-outgoing-item",
   userVerification(["warehouseAdmin"]),
-
   addOutgoingItemsData
 );
 router.get(

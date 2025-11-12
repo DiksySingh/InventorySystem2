@@ -5577,15 +5577,15 @@ module.exports.addOutgoingItemsData = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { fromWarehouse, toServiceCenter, farmers } = req.body;
+    const { fromWarehouse, toServiceCenter, farmers, driverName, driverContact, vehicleNumber } = req.body;
 
     // 🔹 Step 1: Validate required fields
-    if (!fromWarehouse || !toServiceCenter || !farmers) {
+    if (!fromWarehouse || !toServiceCenter || !farmers || !driverName || !driverContact || !vehicleNumber) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: "fromWarehouse, toServiceCenter, and farmers are required.",
+        message: "fromWarehouse, toServiceCenter, farmers, driver name, driver contact and vehicle number are required.",
       });
     }
 
@@ -5661,6 +5661,9 @@ module.exports.addOutgoingItemsData = async (req, res) => {
       farmers,
       sendingDate: new Date(),
       status: "Pending", // ✅ status now tracked here
+      driverName,
+      driverContact,
+      vehicleNumber,
       createdBy: req.user._id,
       createdAt: new Date(),
     });
@@ -5749,6 +5752,9 @@ module.exports.showOutgoingItemsData = async (req, res) => {
         status: docObj.status,
         sendingDate: docObj.sendingDate,
         farmers: docObj.farmers,
+        driverName: docObj.driverName,
+        driverContact: docObj.driverContact,
+        vehicleNumber: docObj.vehicleNumber,
         createdAt: docObj.createdAt,
       };
     });
@@ -5774,16 +5780,16 @@ module.exports.addReceivingItemsData = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { outgoingId, farmers, remarks } = req.body;
+    const { outgoingId, farmers, remarks, driverName, driverContact, vehicleNumber } = req.body;
     const warehouseId = req.user?.warehouse;
 
     // 🔹 Step 1: Basic validation
-    if (!outgoingId || !Array.isArray(farmers) || farmers.length === 0 || !warehouseId) {
+    if (!outgoingId || !Array.isArray(farmers) || farmers.length === 0 || !warehouseId || !driverName || !driverContact || !vehicleNumber) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: "outgoingId, warehouseId, and farmers array are required.",
+        message: "outgoingId, warehouseId, farmers saralId, driver name, driver contact and vehicle number are required.",
       });
     }
 
@@ -5870,6 +5876,9 @@ module.exports.addReceivingItemsData = async (req, res) => {
       outgoingId,
       farmers,
       remarks,
+      driverName,
+      driverContact,
+      vehicleNumber
     });
     await receiving.save({ session });
 

@@ -90,6 +90,21 @@ const outgoingItemsSchema = new Schema(
       enum: ["Pending", "Partially Received", "Fully Received"],
       default: "Pending",
     },
+    driverName: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+    driverContact: {
+      type: String,
+      trim: true,
+      minLength: 10,
+    },
+    vehicleNumber: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -100,7 +115,7 @@ const outgoingItemsSchema = new Schema(
       ref: "WarehousePerson",
     },
     updatedAt: {
-        type: Date,
+      type: Date,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
