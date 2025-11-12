@@ -955,7 +955,9 @@ const createPurchaseOrder = async (req, res) => {
 
     const userId = req.user?.id;
     if (!userId)
-      return res.status(400).json({ success: false, message: "User not found" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -1060,7 +1062,9 @@ const createPurchaseOrder = async (req, res) => {
     subTotalINR = subTotalINR.plus(otherChargesTotal);
 
     const poGSTPercent =
-      isItemWise || gstType.includes("EXEMPTED") ? null : getGSTPercent(gstType);
+      isItemWise || gstType.includes("EXEMPTED")
+        ? null
+        : getGSTPercent(gstType);
 
     if (normalItems.length && poGSTPercent) {
       // 💡 Now GST applies on subtotal (including otherCharges)
@@ -1195,7 +1199,9 @@ const updatePurchaseOrder = async (req, res) => {
 
     const userId = req.user?.id;
     if (!userId)
-      return res.status(400).json({ success: false, message: "User not found" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
 
     // ✅ Check role
     const user = await prisma.user.findUnique({
@@ -1424,7 +1430,6 @@ const updatePurchaseOrder = async (req, res) => {
   }
 };
 
-
 const getPOListByCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
@@ -1617,46 +1622,60 @@ const downloadPOPDF = async (req, res) => {
       gstRate: Number(it.gstRate),
     }));
 
-    // Generate PDF buffer
+    // Generate PDF buffer (takes some time)
     const pdfBuffer = await generatePO(po, items);
 
     const vendor = po.vendor.name.split(" ")[0];
     const fileName = `${vendor.toUpperCase()}-PO-${po.poNumber}.pdf`;
 
-    // ✅ Audit log (optional, no file saved)
-    const oldPdfData =
-      po.pdfUrl || po.pdfName || po.pdfGeneratedAt
-        ? {
-            pdfName: po.pdfName || null,
-            pdfUrl: po.pdfUrl || null,
-            generatedAt: po.pdfGeneratedAt || null,
-            generatedBy: po.pdfGeneratedBy || null,
-          }
-        : null;
+    // ✅ Transaction: Update PO + log audit
+    await prisma.$transaction(async (tx) => {
+      const oldPdfData =
+        po.pdfUrl || po.pdfName || po.pdfGeneratedAt
+          ? {
+              pdfName: po.pdfName || null,
+              pdfUrl: po.pdfUrl || null,
+              generatedAt: po.pdfGeneratedAt || null,
+              generatedBy: po.pdfGeneratedBy || null,
+            }
+          : null;
 
-    const newPdfData = {
-      pdfName: fileName,
-      pdfUrl: null, // Not saved
-      generatedAt: new Date(),
-      generatedBy: userId,
-    };
+      const newPdfData = {
+        pdfName: fileName,
+        pdfUrl: null,
+        generatedAt: new Date(),
+        generatedBy: userId,
+      };
 
-    await prisma.auditLog.create({
-      data: {
-        entityType: "PurchaseOrder",
-        entityId: poId,
-        action: "Generated PDF",
-        performedBy: userId,
-        oldValue: oldPdfData,
-        newValue: newPdfData,
-      },
+      // Update PO status and PDF details
+      await tx.purchaseOrder.update({
+        where: { id: poId },
+        data: {
+          status: "Generated_Downloaded",
+          pdfName: fileName,
+          pdfGeneratedAt: new Date(),
+          pdfGeneratedBy: userId,
+        },
+      });
+
+      // Log to audit table
+      await tx.auditLog.create({
+        data: {
+          entityType: "PurchaseOrder",
+          entityId: poId,
+          action: "Generated PDF",
+          performedBy: userId,
+          oldValue: oldPdfData,
+          newValue: newPdfData,
+        },
+      });
     });
 
-    // Send PDF directly to browser for download
+    // ✅ Send PDF directly to browser
     res.set({
       "Content-Type": "application/pdf",
       "Content-Length": pdfBuffer.length,
-      "Content-Disposition": `attachment; filename="${fileName}"`, // triggers download
+      "Content-Disposition": `attachment; filename="${fileName}"`,
     });
 
     return res.end(pdfBuffer);
@@ -2096,6 +2115,7 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
 
   try {
     const { purchaseOrderId, items, warehouseId } = req.body;
+    const billFile = req.file; // optional PDF or image
 
     if (
       !purchaseOrderId ||
@@ -2109,14 +2129,14 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
       });
     }
 
-    // Validate Warehouse
+    // ✅ Validate Warehouse
     const warehouseData = await Warehouse.findById(warehouseId);
     if (!warehouseData)
       return res
         .status(404)
         .json({ success: false, message: "Warehouse not found." });
 
-    // Validate Purchase Order
+    // ✅ Validate Purchase Order
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: purchaseOrderId },
       include: { items: true },
@@ -2125,13 +2145,20 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Purchase Order not found." });
+
+    if (po.status !== "Generated_Downloaded") {
+      return res
+        .status(400)
+        .json({ success: false, message: `PO is not generated.` });
+    }
+
     if (["Received", "Cancelled"].includes(po.status)) {
       return res
         .status(400)
         .json({ success: false, message: `PO already ${po.status}.` });
     }
 
-    // Pre-validation: Ensure all items exist
+    // ✅ Pre-validation for all items
     for (const item of items) {
       const { itemId, itemSource, purchaseOrderItemId } = item;
       if (!itemId || !itemSource || !purchaseOrderItemId)
@@ -2170,11 +2197,12 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
       }
     }
 
-    // Start transaction
-    const { receiptResults, stockUpdates } = await prisma.$transaction(
-      async (tx) => {
+    // ✅ Start transaction
+    const { receiptResults, stockUpdates, allFullyDamaged } =
+      await prisma.$transaction(async (tx) => {
         const receiptResults = [];
         const stockUpdates = [];
+        let allFullyDamaged = true;
 
         for (const item of items) {
           const {
@@ -2206,12 +2234,9 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
             );
           }
 
-          // Determine receipt status
-          let newStatus = "PendingInspection";
-          if (totalReceived === poQty) newStatus = "Accepted";
-          else if (totalReceived > 0) newStatus = "PartiallyReceived";
+          if (Number(goodQty) > 0) allFullyDamaged = false; //Checks if any item is damaged or not
 
-          // Create or update receipt
+          // ✅ Create or update receipt
           let receiptRecord;
           if (existingReceipt) {
             receiptRecord = await tx.purchaseOrderReceipt.update({
@@ -2221,9 +2246,19 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
                 goodQty: Number(existingReceipt.goodQty) + Number(goodQty),
                 damagedQty:
                   Number(existingReceipt.damagedQty) + Number(damagedQty),
-                status: newStatus,
                 remarks: remarks || existingReceipt.remarks,
                 updatedAt: new Date(),
+              },
+            });
+
+            await tx.auditLog.create({
+              data: {
+                entityType: "PurchaseOrderReceipt",
+                entityId: receiptRecord.id,
+                action: "Updated",
+                performedBy: userId,
+                remarks: `Updated receipt for ${itemName}: received ${receivedQty} (good: ${goodQty}, damaged: ${damagedQty})`,
+                newValue: receiptRecord,
               },
             });
           } else {
@@ -2237,31 +2272,30 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
                 receivedQty: Number(receivedQty),
                 goodQty: Number(goodQty),
                 damagedQty: Number(damagedQty),
-                status: newStatus,
                 remarks,
                 createdBy: userId,
               },
             });
+
+            await tx.auditLog.create({
+              data: {
+                entityType: "PurchaseOrderReceipt",
+                entityId: receiptRecord.id,
+                action: "Created",
+                performedBy: userId,
+                remarks: `Created receipt for ${itemName}: received ${receivedQty} (good: ${goodQty}, damaged: ${damagedQty})`,
+                newValue: receiptRecord,
+              },
+            });
           }
 
-          // Update PurchaseOrderItem receivedQty
+          // ✅ Update PO item
           await tx.purchaseOrderItem.update({
             where: { id: purchaseOrderItemId },
             data: { receivedQty: totalReceived },
           });
 
-          // Audit log for receipt
-          await tx.auditLog.create({
-            data: {
-              entityType: "PurchaseOrderReceipt",
-              entityId: receiptRecord.id,
-              action: existingReceipt ? "Updated" : "Created",
-              performedBy: userId,
-              newValue: receiptRecord,
-            },
-          });
-
-          // Handle damaged stock
+          // ✅ Handle damaged stock
           if (Number(damagedQty) > 0) {
             const existingDamage = await tx.damagedStock.findFirst({
               where: { itemId, itemSource, purchaseOrderId },
@@ -2272,7 +2306,9 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
                 where: { id: existingDamage.id },
                 data: {
                   quantity: { increment: Number(damagedQty) },
-                  remarks: `${existingDamage.remarks || ""}${existingDamage.remarks ? "; " : ""}${remarks}`,
+                  remarks: `${existingDamage.remarks || ""}${
+                    existingDamage.remarks ? "; " : ""
+                  }${remarks}`,
                 },
               });
             } else {
@@ -2287,25 +2323,32 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
                 },
               });
             }
+
+            await tx.auditLog.create({
+              data: {
+                entityType: "DamagedStock",
+                action: "Updated",
+                performedBy: userId,
+                remarks: `${damagedQty} units of ${itemName} marked as damaged.`,
+              },
+            });
           }
 
-          // Collect goodQty for warehouse update
+          // ✅ Good items go to stock update
           if (Number(goodQty) > 0)
             stockUpdates.push({ itemSource, itemId, goodQty, warehouseId });
 
-          // Collect receipt result
           receiptResults.push({
             itemId,
             itemName,
             receivedQty: totalReceived,
             goodQty,
             damagedQty,
-            status: newStatus,
             remainingQty: poQty - totalReceived,
           });
         }
 
-        // Update Purchase Order status
+        // ✅ Update PO status
         const poItems = await tx.purchaseOrderItem.findMany({
           where: { purchaseOrderId },
         });
@@ -2315,7 +2358,8 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
         const someReceived = poItems.some((i) => Number(i.receivedQty) > 0);
 
         let newPOStatus = po.status;
-        if (allReceived) newPOStatus = "Received";
+        if (allFullyDamaged) newPOStatus = "Cancelled";
+        else if (allReceived) newPOStatus = "Received";
         else if (someReceived) newPOStatus = "PartiallyReceived";
 
         if (newPOStatus !== po.status) {
@@ -2330,17 +2374,47 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
               entityId: purchaseOrderId,
               action: "StatusUpdated",
               performedBy: userId,
+              remarks: `PO status changed from ${po.status} → ${newPOStatus}`,
               oldValue: { status: po.status },
               newValue: { status: newPOStatus },
             },
           });
         }
 
-        return { receiptResults, stockUpdates };
-      }
-    );
+        return { receiptResults, stockUpdates, allFullyDamaged };
+      });
 
-    // Parallel warehouse stock updates
+    // ✅ Bill file upload saved separately (avoids duplicates)
+    if (billFile) {
+      const fileUrl = `/uploads/purchaseOrder/receivingBill/${billFile.filename}`; // adjust path to your storage logic
+
+      const billRecord = await prisma.purchaseOrderBill.create({
+        data: {
+          purchaseOrderId,
+          fileName: billFile.originalname,
+          fileUrl,
+          mimeType: billFile.mimetype,
+          uploadedBy: userId,
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          entityType: "PurchaseOrderBill",
+          entityId: billRecord.id,
+          action: "Created",
+          performedBy: userId,
+          remarks: `Bill file uploaded: ${billFile.originalname}`,
+          newValue: {
+            fileName: billFile.originalname,
+            mimeType: billFile.mimetype,
+            fileUrl,
+          },
+        },
+      });
+    }
+
+    // ✅ Parallel warehouse stock updates
     await Promise.all(
       stockUpdates.map(async (upd) => {
         const { itemSource, itemId, goodQty, warehouseId } = upd;
@@ -2382,6 +2456,7 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   createCompany,

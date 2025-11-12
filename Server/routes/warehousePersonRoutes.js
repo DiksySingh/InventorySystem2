@@ -63,6 +63,8 @@ const {
   importDispatchedSystemExcelData,
   getInstallerData,
   getControllerData,
+  addReceivingItemsData,
+  receivingDataGroupedByOutgoing,
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -128,9 +130,11 @@ router.post(
   userVerification(["warehouseAdmin"]),
   incomingItems
 );
+//----------------------Third Party Servicing -----------------------------//
 router.post(
   "/add-outgoing-item",
   userVerification(["warehouseAdmin"]),
+
   addOutgoingItemsData
 );
 router.get(
@@ -138,6 +142,17 @@ router.get(
   userVerification(["warehouseAdmin"]),
   showOutgoingItemsData
 );
+router.post(
+  "/add-receiving-items",
+  userVerification(["warehouseAdmin"]),
+  addReceivingItemsData
+);
+router.get(
+  "/receiving-items-data",
+  userVerification(["warehouseAdmin"]),
+  receivingDataGroupedByOutgoing
+);
+//-----------------------------------------//
 router.get(
   "/incoming-items-data",
   userVerification(["warehouseAdmin"]),
@@ -259,10 +274,15 @@ router.get(
 );
 router.post(
   "/add-new-installation",
-  userVerification(["warehouseAdmin"]), fileHandler,
+  userVerification(["warehouseAdmin"]),
+  fileHandler,
   addNewInstallationData
 );
-router.get("/get-dispatch-history", userVerification(['warehouseAdmin']), getDispatchHistory);
+router.get(
+  "/get-dispatch-history",
+  userVerification(["warehouseAdmin"]),
+  getDispatchHistory
+);
 router.get(
   "/new-installation-data",
   userVerification(["warehouseAdmin"]),

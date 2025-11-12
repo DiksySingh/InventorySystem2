@@ -493,7 +493,7 @@ enum GSTType {
 
 enum POStatus {
   Draft
-  Sent
+  Generated_Downloaded
   PartiallyReceived
   Received
   Cancelled
@@ -699,6 +699,7 @@ model PurchaseOrder {
   returnToVendor ReturnToVendor[]
   damagedStock   DamagedStock[]
   receipts       PurchaseOrderReceipt[] @relation("PO_Receipts") // PO → Receipts
+  bills          PurchaseOrderBill[]
   user           User?                  @relation(fields: [createdBy], references: [id])
 }
 
@@ -736,7 +737,8 @@ model PurchaseOrderReceipt {
   receivedQty         Decimal?      @db.Decimal(10, 2) // ✅ Quantity actually received (total)
   goodQty             Decimal?      @default(0) @db.Decimal(10, 2) // ✅ Accepted quantity
   damagedQty          Decimal?      @default(0) @db.Decimal(10, 2) // ⚠️ Damaged quantity
-  status              ReceiptStatus @default(PendingInspection)
+  // status              ReceiptStatus @default(PendingInspection)
+  receivingBill       String?
   receivedDate        DateTime      @default(now())
   remarks             String?
   createdBy           String?
@@ -748,13 +750,12 @@ model PurchaseOrderReceipt {
   user              User?              @relation(fields: [createdBy], references: [id])
 }
 
-enum ReceiptStatus {
-  PendingInspection // received but not checked yet
-  Accepted // fully accepted
-  PartiallyAccepted // some damaged
-  Rejected // completely damaged
-  Returned // sent back to vendor
-}
+// enum ReceiptStatus {
+//   Accepted // fully accepted
+//   PartiallyAccepted // some damaged
+//   Rejected // completely damaged
+//   Returned // sent back to vendor
+// }
 
 model DamagedStock {
   id              String   @id @default(uuid())
@@ -771,6 +772,19 @@ model DamagedStock {
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
   user          User?          @relation(fields: [createdBy], references: [id])
 }
+
+model PurchaseOrderBill {
+  id             String   @id @default(cuid())
+  purchaseOrderId String
+  fileName       String
+  fileUrl        String
+  mimeType       String
+  uploadedBy     String
+  createdAt      DateTime @default(now())
+
+  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+}
+
 
 /**
  * ----------------------------- RETURN TO VENDOR -----------------------------

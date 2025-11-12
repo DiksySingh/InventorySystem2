@@ -24,6 +24,7 @@ const OutgoingItems = require("../../models/serviceInventoryModels/outgoingItems
 const SerialNumber = require("../../models/systemInventoryModels/serialNumberSchema");
 const DispatchDetails = require("../../models/systemInventoryModels/dispatchDetailsSchema");
 const DispatchBillPhoto = require("../../models/systemInventoryModels/dispatchBillPhotoSchema");
+const ReceivingItems = require("../../models/serviceInventoryModels/receivingItemsSchema");
 const fs = require("fs");
 const path = require("path");
 const ExcelJS = require("exceljs");
@@ -5488,79 +5489,199 @@ module.exports.deductFromDefectiveOfItems = async (req, res) => {
   }
 };
 
+// module.exports.addOutgoingItemsData = async (req, res) => {
+//   try {
+//     const { fromWarehouse, toServiceCenter, items } = req.body;
+
+//     if (!fromWarehouse || !toServiceCenter || !items) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "All fields are required",
+//       });
+//     }
+
+//     if (!Array.isArray(items) || items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "items should be a non-empty array",
+//       });
+//     }
+
+//     const warehouseItemsData = await WarehouseItems.findOne({
+//       warehouse: req.user.warehouse,
+//     });
+
+//     if (!warehouseItemsData) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Warehouse Items Data Not Found",
+//       });
+//     }
+//     for (let item of items) {
+//       const existingItem = warehouseItemsData.items.find(
+//         (i) => i.itemName === item.itemName
+//       );
+
+//       if (!existingItem) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Item Not Found In Warehouse",
+//         });
+//       }
+//       if (
+//         existingItem.defective === 0 ||
+//         existingItem.defective < item.quantity
+//       ) {
+//         return res.status(403).json({
+//           success: false,
+//           message: `Warehouse item defective count: ${existingItem.defective}, is less than sending defective count: ${item.quantity}`,
+//         });
+//       }
+
+//       existingItem.defective =
+//         parseInt(existingItem.defective) - parseInt(item.quantity);
+//     }
+
+//     const savedWarehouseItemsData = await warehouseItemsData.save();
+
+//     const newOutgoingItemsData = new OutgoingItems({
+//       fromWarehouse,
+//       toServiceCenter,
+//       items,
+//       sendingDate: Date.now(),
+//       createdBy: req.user._id,
+//       createdAt: new Date(),
+//     });
+//     const savedOutgoingItemsData = await newOutgoingItemsData.save();
+
+//     if (savedWarehouseItemsData && savedOutgoingItemsData) {
+//       return res.status(200).json({
+//         success: true,
+//         message: "Data logged and warehouse items data updated successfully",
+//         data: newOutgoingItemsData,
+//       });
+//     }
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+//---------------- Third Party Service Controller -----------------------//
+
 module.exports.addOutgoingItemsData = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const { fromWarehouse, toServiceCenter, items } = req.body;
+    const { fromWarehouse, toServiceCenter, farmers } = req.body;
 
-    if (!fromWarehouse || !toServiceCenter || !items) {
+    // 🔹 Step 1: Validate required fields
+    if (!fromWarehouse || !toServiceCenter || !farmers) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "fromWarehouse, toServiceCenter, and farmers are required.",
       });
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(farmers) || farmers.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         success: false,
-        message: "items should be a non-empty array",
+        message: "farmers should be a non-empty array.",
       });
     }
 
+    // 🔹 Step 2: Fetch warehouse inventory
     const warehouseItemsData = await WarehouseItems.findOne({
       warehouse: req.user.warehouse,
-    });
+    }).session(session);
 
     if (!warehouseItemsData) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({
         success: false,
-        message: "Warehouse Items Data Not Found",
+        message: "Warehouse Items Data Not Found.",
       });
     }
-    for (let item of items) {
-      const existingItem = warehouseItemsData.items.find(
-        (i) => i.itemName === item.itemName
-      );
 
-      if (!existingItem) {
-        return res.status(404).json({
+    // 🔹 Step 3: Validate each farmer's items
+    for (const farmer of farmers) {
+      if (!farmer.farmerSaralId || !Array.isArray(farmer.items) || farmer.items.length === 0) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
           success: false,
-          message: "Item Not Found In Warehouse",
-        });
-      }
-      if (
-        existingItem.defective === 0 ||
-        existingItem.defective < item.quantity
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: `Warehouse item defective count: ${existingItem.defective}, is less than sending defective count: ${item.quantity}`,
+          message: "Each farmer must have a farmerSaralId and a non-empty items array.",
         });
       }
 
-      existingItem.defective =
-        parseInt(existingItem.defective) - parseInt(item.quantity);
+      for (const item of farmer.items) {
+        const existingItem = warehouseItemsData.items.find(
+          (i) => i.itemName === item.itemName
+        );
+
+        if (!existingItem) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(404).json({
+            success: false,
+            message: `Item '${item.itemName}' not found in warehouse.`,
+          });
+        }
+
+        if (existingItem.defective < item.quantity) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient defective stock for '${item.itemName}'. Available: ${existingItem.defective}, Requested: ${item.quantity}.`,
+          });
+        }
+
+        // 🔹 Deduct defective stock
+        existingItem.defective -= parseInt(item.quantity);
+      }
     }
 
-    const savedWarehouseItemsData = await warehouseItemsData.save();
+    // 🔹 Step 4: Save updated warehouse stock
+    await warehouseItemsData.save({ session });
 
-    const newOutgoingItemsData = new OutgoingItems({
+    // 🔹 Step 5: Create OutgoingItems record with "Pending" status
+    const newOutgoing = new OutgoingItems({
       fromWarehouse,
       toServiceCenter,
-      items,
-      sendingDate: Date.now(),
+      farmers,
+      sendingDate: new Date(),
+      status: "Pending", // ✅ status now tracked here
       createdBy: req.user._id,
       createdAt: new Date(),
     });
-    const savedOutgoingItemsData = await newOutgoingItemsData.save();
 
-    if (savedWarehouseItemsData && savedOutgoingItemsData) {
-      return res.status(200).json({
-        success: true,
-        message: "Data logged and warehouse items data updated successfully",
-        data: newOutgoingItemsData,
-      });
-    }
+    await newOutgoing.save({ session });
+
+    // 🔹 Step 6: Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Outgoing items recorded and warehouse updated successfully.",
+      data: newOutgoing,
+    });
   } catch (error) {
+    // 🔹 Rollback on error
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error in addOutgoingItemsData:", error);
+
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -5572,45 +5693,74 @@ module.exports.addOutgoingItemsData = async (req, res) => {
 module.exports.showOutgoingItemsData = async (req, res) => {
   try {
     const warehouseId = req.user.warehouse;
+
+    // 🔹 Validate warehouse ID
     if (!warehouseId) {
       return res.status(400).json({
         success: false,
-        message: "WarehouseId Not Found",
-      });
-    }
-    const warehouseData = await Warehouse.findById({ _id: warehouseId });
-    if (!warehouseData) {
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse Data Not Found",
-      });
-    }
-    const outgoingItemsData = await OutgoingItems.find({
-      fromWarehouse: warehouseData.warehouseName,
-    }).sort({ sendingDate: -1 });
-    if (!outgoingItemsData) {
-      return res.status(404).json({
-        success: false,
-        message: "Outgoing Items Data Not Found",
+        message: "Warehouse ID not found in user data.",
       });
     }
 
+    // 🔹 Check if warehouse exists
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if (!warehouseData) {
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse not found.",
+      });
+    }
+
+    // 🔹 Fetch outgoing items by warehouse reference (using ID)
+    const outgoingItemsData = await OutgoingItems.find({
+      fromWarehouse: warehouseData.warehouseName,
+    })
+      .populate("toServiceCenter", "serviceCenterName")
+      .sort({ sendingDate: -1 });
+
+    if (!outgoingItemsData || outgoingItemsData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No outgoing items found for this warehouse.",
+      });
+    }
+
+    // 🔹 Clean and format the response
     const cleanedData = outgoingItemsData.map((doc) => {
       const docObj = doc.toObject();
-      if (Array.isArray(docObj.items)) {
-        docObj.items = docObj.items.map((item) => {
-          const { _id, ...rest } = item;
-          return rest;
+
+      // remove _id inside farmers.items[]
+      if (Array.isArray(docObj.farmers)) {
+        docObj.farmers = docObj.farmers.map((farmer) => {
+          if (Array.isArray(farmer.items)) {
+            farmer.items = farmer.items.map((item) => {
+              const { _id, ...rest } = item;
+              return rest;
+            });
+          }
+          return farmer;
         });
       }
-      return docObj;
+
+      return {
+        _id: docObj._id,
+        fromWarehouse: warehouseData.warehouseName,
+        toServiceCenter: docObj.toServiceCenter || null,
+        status: docObj.status,
+        sendingDate: docObj.sendingDate,
+        farmers: docObj.farmers,
+        createdAt: docObj.createdAt,
+      };
     });
+
+    // ✅ Success response
     return res.status(200).json({
       success: true,
-      message: "Data Fetched Successfully",
-      data: cleanedData || [],
+      message: "Outgoing items fetched successfully.",
+      data: cleanedData,
     });
   } catch (error) {
+    console.error("Error in showOutgoingItemsData:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -5618,6 +5768,336 @@ module.exports.showOutgoingItemsData = async (req, res) => {
     });
   }
 };
+
+module.exports.addReceivingItemsData = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { outgoingId, farmers, remarks } = req.body;
+    const warehouseId = req.user?.warehouse;
+
+    // 🔹 Step 1: Basic validation
+    if (!outgoingId || !Array.isArray(farmers) || farmers.length === 0 || !warehouseId) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: "outgoingId, warehouseId, and farmers array are required.",
+      });
+    }
+
+    // 🔹 Step 2: Fetch outgoing record
+    const outgoing = await OutgoingItems.findById(outgoingId).session(session);
+    if (!outgoing) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "Outgoing record not found.",
+      });
+    }
+
+    // 🔹 Step 3: Validate each farmer and item against outgoing record
+    for (const farmer of farmers) {
+      const outgoingFarmer = outgoing.farmers.find(f => f.farmerSaralId === farmer.farmerSaralId);
+
+      if (!outgoingFarmer) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          success: false,
+          message: `FarmerSaralId '${farmer.farmerSaralId}' not found in outgoing record.`,
+        });
+      }
+
+      for (const recvItem of farmer.receivedItems) {
+        const outItem = outgoingFarmer.items.find(
+          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+        );
+
+        if (!outItem) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            success: false,
+            message: `Item '${recvItem.itemName}' not found for farmer '${farmer.farmerSaralId}' in outgoing record.`,
+          });
+        }
+
+        if (recvItem.quantity > outItem.quantity) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            success: false,
+            message: `Received quantity (${recvItem.quantity}) exceeds sent quantity (${outItem.quantity}) for '${recvItem.itemName}' (Farmer: ${farmer.farmerSaralId}).`,
+          });
+        }
+      }
+    }
+
+    // 🔹 Step 4: Find warehouse
+    const warehouse = await WarehouseItems.findOne({ warehouse: warehouseId }).session(session);
+    if (!warehouse) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse not found in WarehouseItems collection.",
+      });
+    }
+
+    // 🔹 Step 5: Ensure all received items exist in warehouse
+    for (const farmer of farmers) {
+      for (const recvItem of farmer.receivedItems) {
+        const itemInWarehouse = warehouse.items.find(
+          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+        );
+
+        if (!itemInWarehouse) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({
+            success: false,
+            message: `Item '${recvItem.itemName}' not found in warehouse '${warehouseId}'. Please ensure this item exists before receiving.`,
+          });
+        }
+      }
+    }
+
+    // 🔹 Step 6: Create receiving record
+    const receiving = new ReceivingItems({
+      outgoingId,
+      farmers,
+      remarks,
+    });
+    await receiving.save({ session });
+
+    // 🔹 Step 7: Update warehouse stock
+    for (const farmer of farmers) {
+      for (const recvItem of farmer.receivedItems) {
+        const warehouseItem = warehouse.items.find(
+          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+        );
+
+        warehouseItem.quantity += recvItem.quantity;
+      }
+    }
+    await warehouse.save({ session });
+
+    // 🔹 Step 8: Calculate cumulative received quantities for outgoing
+    const allReceivingRecords = await ReceivingItems.find({ outgoingId }).session(session);
+
+    const receivedMap = {};
+    outgoing.farmers.forEach(farmer => {
+      receivedMap[farmer.farmerSaralId] = {};
+      farmer.items.forEach(item => {
+        receivedMap[farmer.farmerSaralId][item.itemName] = 0;
+      });
+    });
+
+    allReceivingRecords.forEach(rec => {
+      rec.farmers.forEach(farmerReceived => {
+        if (!receivedMap[farmerReceived.farmerSaralId]) return;
+        farmerReceived.receivedItems.forEach(recvItem => {
+          if (receivedMap[farmerReceived.farmerSaralId][recvItem.itemName] !== undefined) {
+            receivedMap[farmerReceived.farmerSaralId][recvItem.itemName] += recvItem.quantity;
+          }
+        });
+      });
+    });
+
+    // 🔹 Step 9: Determine full or partial receipt
+    let fullyReceived = true;
+
+    for (const outgoingFarmer of outgoing.farmers) {
+      for (const outItem of outgoingFarmer.items) {
+        const totalReceived = receivedMap[outgoingFarmer.farmerSaralId][outItem.itemName] || 0;
+        if (totalReceived < outItem.quantity) {
+          fullyReceived = false;
+          break;
+        }
+      }
+    }
+
+    outgoing.status = fullyReceived ? "Fully Received" : "Partially Received";
+    outgoing.updatedAt = new Date();
+    outgoing.updatedBy = req.user?._id;
+    await outgoing.save({ session });
+
+    // 🔹 Step 10: Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: `Items received successfully (${outgoing.status}). Warehouse stock updated.`,
+      data: receiving,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("❌ Error receiving items:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
+  try {
+    const warehouseId = req.user?.warehouse;
+
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if (!warehouseData) {
+      return res.status(404).json({ success: false, message: "Warehouse Not Found." });
+    }
+
+    // Fetch all receiving records with outgoing info
+    let receivingRecords = await ReceivingItems.find()
+      .populate({
+        path: "outgoingId",
+        match: { fromWarehouse: warehouseData.warehouseName },
+        select: "fromWarehouse toServiceCenter farmers sendingDate",
+      })
+      .sort({ receivedDate: 1 });
+
+    receivingRecords = receivingRecords.filter(rec => rec.outgoingId);
+
+    if (receivingRecords.length === 0) {
+      return res.status(404).json({ success: false, message: "No receiving records found." });
+    }
+
+    const groupedData = {};
+
+    receivingRecords.forEach(rec => {
+      const outgoingId = rec.outgoingId._id.toString();
+
+      if (!groupedData[outgoingId]) {
+        groupedData[outgoingId] = {
+          outgoingId,
+          fromWarehouse: rec.outgoingId.fromWarehouse,
+          toServiceCenter: rec.outgoingId.toServiceCenter,
+          sendingDate: rec.outgoingId.sendingDate,
+          farmers: {},
+          receivingBatches: [],
+          summary: {
+            totalFarmers: 0,
+            totalItems: 0,
+            totalQuantitySent: 0,
+            totalQuantityReceived: 0,
+            totalQuantityPending: 0,
+          },
+        };
+
+        // Initialize farmers/items
+        if (Array.isArray(rec.outgoingId.farmers)) {
+          rec.outgoingId.farmers.forEach(farmer => {
+            groupedData[outgoingId].farmers[farmer.farmerSaralId] = {
+              items: {},
+            };
+            if (Array.isArray(farmer.items)) {
+              farmer.items.forEach(item => {
+                groupedData[outgoingId].farmers[farmer.farmerSaralId].items[item.itemName] = {
+                  quantity: item.quantity || 0,
+                  receivedQuantity: 0,
+                  pendingQuantity: item.quantity || 0,
+                };
+                groupedData[outgoingId].summary.totalItems += 1;
+                groupedData[outgoingId].summary.totalQuantitySent += item.quantity || 0;
+              });
+            }
+          });
+          groupedData[outgoingId].summary.totalFarmers = Object.keys(groupedData[outgoingId].farmers).length;
+        }
+      }
+
+      // Add receiving batch
+      groupedData[outgoingId].receivingBatches.push({
+        receivingId: rec._id,
+        farmersReceived: rec.farmers || [],
+        remarks: rec.remarks || "",
+        receivedDate: rec.receivedDate,
+      });
+
+      // Accumulate received quantities
+      if (Array.isArray(rec.farmers)) {
+        rec.farmers.forEach(farmerReceived => {
+          const farmerData = groupedData[outgoingId].farmers[farmerReceived.farmerSaralId];
+          if (!farmerData || !Array.isArray(farmerReceived.receivedItems)) return;
+
+          farmerReceived.receivedItems.forEach(recvItem => {
+            if (!recvItem?.itemName || typeof recvItem.quantity !== "number") return;
+
+            const itemData = farmerData.items[recvItem.itemName];
+            if (itemData) {
+              itemData.receivedQuantity += recvItem.quantity;
+              itemData.pendingQuantity = Math.max(itemData.quantity - itemData.receivedQuantity, 0);
+            }
+          });
+        });
+      }
+    });
+
+    // Flatten farmers/items and calculate summary
+    const result = Object.values(groupedData).map(outgoing => {
+      let totalReceived = 0;
+      let totalPending = 0;
+      let fullyReceived = true;
+      let partiallyReceived = false;
+
+      // Convert farmers object to array, keep only items received
+      const farmersArray = Object.entries(outgoing.farmers)
+        .map(([farmerId, farmerData]) => {
+          const itemsArray = Object.entries(farmerData.items)
+            .filter(([_, item]) => item.receivedQuantity > 0) // only received items
+            .map(([itemName, item]) => {
+              totalReceived += item.receivedQuantity;
+              totalPending += item.pendingQuantity;
+
+              if (item.receivedQuantity === 0) fullyReceived = false;
+              if (item.receivedQuantity > 0 && item.receivedQuantity < item.quantity) {
+                fullyReceived = false;
+                partiallyReceived = true;
+              }
+              if (item.receivedQuantity === item.quantity) partiallyReceived = true;
+
+              return { itemName, ...item };
+            });
+
+          if (itemsArray.length === 0) return null; // skip farmer with no received items
+          return { farmerSaralId: farmerId, items: itemsArray };
+        })
+        .filter(f => f !== null); // remove nulls
+
+      outgoing.farmers = farmersArray;
+      outgoing.outgoingStatus = fullyReceived ? "Fully Received" : partiallyReceived ? "Partially Received" : "Pending";
+      outgoing.summary.totalQuantityReceived = totalReceived;
+      outgoing.summary.totalQuantityPending = totalPending;
+
+      return outgoing;
+    }).filter(out => out.farmers.length > 0); // only outgoings with received items
+
+    return res.status(200).json({
+      success: true,
+      message: "Receiving records grouped by outgoing fetched successfully.",
+      data: result,
+    });
+
+  } catch (error) {
+    console.error("❌ Error fetching grouped receiving data:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
+  }
+};
+
+//-------------------------------------------------------------------------//
 
 module.exports.showWarehouseItemsData = async (req, res) => {
   try {
