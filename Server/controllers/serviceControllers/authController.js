@@ -630,7 +630,7 @@ module.exports.validateRefreshToken = async (req, res) => {
     // If not Admin, check ServicePerson
     if (!user || user.refreshToken !== refreshToken) {
       user = await ServicePerson.findById(decoded.id);
-      if (user && user.refreshToken === refreshToken) role = "serviceperson";
+      if (user && user.refreshToken === refreshToken) role = user.role;
     }
 
     // If still not found, check SurveyPerson
@@ -662,6 +662,7 @@ module.exports.validateRefreshToken = async (req, res) => {
         success: true,
         message: `Welcome back ${user.name}!`,
         role,
+        refreshToken: newRefreshToken,
       });
   } catch (error) {
     return res.status(500).json({
