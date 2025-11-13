@@ -645,6 +645,13 @@ module.exports.validateRefreshToken = async (req, res) => {
         .json({ success: false, message: "Invalid refresh token" });
     }
 
+    if(user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: "User is blocked."
+      });
+    }
+
     // Generate new tokens
     const newAccessToken = createSecretToken(user._id, role);
     const newRefreshToken = createRefreshToken(user._id);
