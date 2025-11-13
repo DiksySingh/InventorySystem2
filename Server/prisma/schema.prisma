@@ -272,6 +272,7 @@ enum ActivityStatus {
   IN_PROGRESS
   COMPLETED
   FAILED
+  REJECTED
   SKIPPED
 }
 
@@ -362,6 +363,7 @@ model Service_Process_Record {
   createdBy            String?
   updatedAt            DateTime      @updatedAt
   updatedBy            String?
+  completedAt          DateTime?
 
   itemType           ItemType? @relation(fields: [itemTypeId], references: [id])
   stage              Stage?    @relation(fields: [stageId], references: [id])
@@ -380,12 +382,14 @@ model Service_Process_Record {
 
 model StageFlow {
   id             String   @id @default(uuid())
+  productId      String?
   itemTypeId     String?
   currentStageId String?
   nextStageId    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  product      Product? @relation(fields: [productId], references: [id])
   itemType     ItemType? @relation(fields: [itemTypeId], references: [id])
   currentStage Stage?    @relation("CurrentStage", fields: [currentStageId], references: [id])
   nextStage    Stage?    @relation("NextStage", fields: [nextStageId], references: [id])
@@ -517,6 +521,7 @@ model Product {
   updatedAt   DateTime @updatedAt
 
   productItemMap Product_Item_Map[]
+  stageFlow   StageFlow[]
 }
 
 /**
@@ -686,7 +691,7 @@ model PurchaseOrder {
   cellNo            String?
   warranty          String?
   /// --------------------- 💰 Other Charges ------------------------
-  otherCharges Json? // e.g. [{ "name": "Freight", "amount": 500 }]
+  otherCharges      Json? // e.g. [{ "name": "Freight", "amount": 500 }]
   /// ---------------------------------------------------------------
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -728,21 +733,21 @@ model PurchaseOrderItem {
 }
 
 model PurchaseOrderReceipt {
-  id                  String        @id @default(uuid())
+  id                  String   @id @default(uuid())
   purchaseOrderId     String?
   purchaseOrderItemId String?
   itemId              String?
   itemSource          String?
   itemName            String?
-  receivedQty         Decimal?      @db.Decimal(10, 2) // ✅ Quantity actually received (total)
-  goodQty             Decimal?      @default(0) @db.Decimal(10, 2) // ✅ Accepted quantity
-  damagedQty          Decimal?      @default(0) @db.Decimal(10, 2) // ⚠️ Damaged quantity
+  receivedQty         Decimal? @db.Decimal(10, 2) // ✅ Quantity actually received (total)
+  goodQty             Decimal? @default(0) @db.Decimal(10, 2) // ✅ Accepted quantity
+  damagedQty          Decimal? @default(0) @db.Decimal(10, 2) // ⚠️ Damaged quantity
   // status              ReceiptStatus @default(PendingInspection)
   receivingBill       String?
-  receivedDate        DateTime      @default(now())
+  receivedDate        DateTime @default(now())
   remarks             String?
   createdBy           String?
-  createdAt           DateTime      @default(now())
+  createdAt           DateTime @default(now())
 
   returnToVendor    ReturnToVendor[]
   purchaseOrder     PurchaseOrder?     @relation("PO_Receipts", fields: [purchaseOrderId], references: [id])
@@ -774,17 +779,16 @@ model DamagedStock {
 }
 
 model PurchaseOrderBill {
-  id             String   @id @default(cuid())
+  id              String   @id @default(cuid())
   purchaseOrderId String
-  fileName       String
-  fileUrl        String
-  mimeType       String
-  uploadedBy     String
-  createdAt      DateTime @default(now())
+  fileName        String
+  fileUrl         String
+  mimeType        String
+  uploadedBy      String
+  createdAt       DateTime @default(now())
 
-  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
 }
-
 
 /**
  * ----------------------------- RETURN TO VENDOR -----------------------------

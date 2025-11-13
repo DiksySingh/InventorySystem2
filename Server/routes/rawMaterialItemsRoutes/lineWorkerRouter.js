@@ -10,6 +10,7 @@ router.post("/createItemRequest", tokenVerification(["Disassemble", "Stamping", 
 router.post("/createServiceProcess", tokenVerification(["Disassemble", "MPC Work"]), lineWorkerController.createServiceProcess); 
 router.get("/getPendingActivitiesForUserStage", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.getPendingActivitiesForUserStage);
 router.put("/acceptServiceProcess", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.acceptServiceProcess);
+router.put("/startServiceProcess", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.startServiceProcess);
 router.get("/showUserItemStock", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.showUserItemStock);
 router.post("/createItemUsageLog", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createItemUsageLog);
 router.post("/completeServiceProcess", tokenVerification(["Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.completeServiceProcess);

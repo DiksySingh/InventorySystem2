@@ -91,7 +91,7 @@ const login = async (req, res) => {
                 message: "Invalid email, password, or role"
             });
         }
-
+        console.log("Hi")
         const verifyPassword = await bcrypt.compare(password, user.password);
         if (!verifyPassword) {
             return res.status(400).json({

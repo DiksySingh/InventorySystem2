@@ -639,7 +639,7 @@ const startServiceProcess = async (req, res) => {
     const updatedActivity = await prisma.stageActivity.update({
       where: { id: activity.id },
       data: { startedAt: new Date() },
-      include: { serviceProcess: true, stage: true, user: true },
+      include: { serviceProcess: true, stage: true,},
     });
 
     return res.status(200).json({ success: true, message: "Service process started successfully", data: updatedActivity });
@@ -661,7 +661,10 @@ const showUserItemStock = async (req, res) => {
         empId,
         quantity: { gt: 0 },
       },
-      include: {
+      select: {
+        id: true,
+        empId: true,
+        quantity: true,
         rawMaterial: {
           select: {
             id: true,
@@ -704,8 +707,8 @@ const createItemUsageLog = async (req, res) => {
     // 🔹 Wrap the logic in a transaction for consistency
     await prisma.$transaction(async (tx) => {
       for (const rawMaterial of rawMaterialList) {
-        const { id: rawMaterialId, quantity, unit } = rawMaterial;
-
+        const { rawMaterialId, unit } = rawMaterial;
+        const quantity = Number(rawMaterial.quantity);
         // Validate raw material existence
         const existingRawMaterial = await tx.rawMaterial.findUnique({
           where: { id: rawMaterialId },
@@ -1099,155 +1102,182 @@ const createItemUsageLog = async (req, res) => {
 const completeServiceProcess = async (req, res) => {
   try {
     const { serviceProcessId, status, failureReason, remarks } = req.body;
+    console.log("Req Body: ", req.body);
     const empId = req.user?.id;
     const warehouseId = req.user?.warehouse || "67446a8b27dae6f7f4d985dd";
-
+    console.log("WarehouseId: ", warehouseId);
+    // 🔹 Basic validations
     if (!serviceProcessId || !status || !remarks) {
       return res.status(400).json({
         success: false,
-        message: "Service process ID, status, and remarks are required",
+        message: "Service process ID, status, and remarks are required.",
       });
     }
+    if (!empId) {
+      return res.status(401).json({ success: false, message: "Unauthorized user." });
+    }
 
-    // Fetch warehouse data
     const warehouseItemsData = await WarehouseItems.findOne({
-      warehouse: mongoose.Types.ObjectId(warehouseId),
+      warehouse: new mongoose.Types.ObjectId(warehouseId),
     });
-
+    console.log("WarehouseItems: ", warehouseItemsData);
     if (!warehouseItemsData) {
-      return res.status(404).json({
-        success: false,
-        message: "Warehouse items not found",
-      });
+      return res.status(404).json({ success: false, message: "Warehouse data not found." });
     }
 
-    // Get process record
     const processData = await prisma.service_Process_Record.findFirst({
       where: { id: serviceProcessId },
       include: { stage: true, itemType: true },
     });
 
+    console.log("Process Data: ", processData);
+
     if (!processData) {
-      return res.status(404).json({
-        success: false,
-        message: "Service process not found",
-      });
+      return res.status(404).json({ success: false, message: "Service process not found." });
     }
 
-    // Transaction block
+    if(processData.stage.name === "COMPLETED") {
+      return res.status(400).json({ success: false, message: "Process already completed."});
+    }
+
+    const itemType = processData.itemType.name;
+    console.log("ItemType: ", itemType);
+    const handleFailureRedirect = async (tx, updatedActivity, reason) => {
+      const itemTypeId = updatedActivity.serviceProcess.itemType.id;
+      const redirectStage = await tx.failureRedirect.findFirst({
+        where: { itemTypeId, failureReason: reason },
+      });
+      if (!redirectStage) throw new Error(`Failure redirect stage not found for reason: ${reason}`);
+
+      await tx.service_Process_Record.update({
+        where: { id: serviceProcessId },
+        data: {
+          stageId: redirectStage.redirectStageId,
+          restartedFromStageId: redirectStage.redirectStageId,
+          status: "REDIRECTED",
+        },
+      });
+
+      await tx.stageActivity.create({
+        data: {
+          serviceProcessId,
+          stageId: redirectStage.redirectStageId,
+          status: "PENDING",
+          isCurrent: true,
+        },
+      });
+    };
+
+    const moveToNextStage = async (tx, updatedActivity) => {
+      const { serviceProcess, stage } = updatedActivity;
+      const stageFlow = await tx.stageFlow.findFirst({
+        where: { itemTypeId: serviceProcess.itemType.id, currentStageId: stage.id },
+      });
+
+      if (!stageFlow) {
+        // 🚀 No next stage = process completed successfully
+        await tx.service_Process_Record.update({
+          where: { id: serviceProcess.id },
+          data: {
+            status: "COMPLETED",
+            finalStatus: "SUCCESS",
+            isClosed: true,
+            isRepaired: itemType === "SERVICE" ? true: null,
+          },
+        });
+        return null;
+      }
+
+      await tx.service_Process_Record.update({
+        where: { id: serviceProcess.id },
+        data: { stageId: stageFlow.nextStageId, status: "IN_PROGRESS" },
+      });
+
+      await tx.stageActivity.create({
+        data: {
+          serviceProcessId: serviceProcess.id,
+          stageId: stageFlow.nextStageId,
+          status: "PENDING",
+          isCurrent: true,
+        },
+      });
+
+      return stageFlow.nextStageId;
+    };
+    console.log("Hi");
+    // 🔹 Main Transaction
     const updatedActivity = await prisma.$transaction(async (tx) => {
       const currentActivity = await tx.stageActivity.findFirst({
         where: { serviceProcessId, stageId: processData.stage.id, isCurrent: true },
       });
+      if (!currentActivity) throw new Error("Current stage activity not found.");
 
-      if (!currentActivity) throw new Error("Current stage activity not found");
-
-      // Mark current stage as done
       const updated = await tx.stageActivity.update({
         where: { id: currentActivity.id },
         data: {
-          empId,
+          empId: String(empId),
           status,
+          failureReason: status === "FAILED" ? failureReason : null,
           remarks,
           isCurrent: false,
           completedAt: new Date(),
         },
         include: { stage: true, serviceProcess: { include: { itemType: true } } },
       });
+      console.log("Hi2");
+      const { stage } = updated;
 
-      const { stage, serviceProcess } = updated;
-
-      // ✅ Case 1: Testing COMPLETED → process done
-      if (stage.name === "Testing" && status === "COMPLETED") {
-        await tx.service_Process_Record.update({
-          where: { id: serviceProcess.id },
-          data: { status: "COMPLETED", testingStatus: "SUCCESS" },
-        });
-      }
-
-      // ✅ Case 2: Testing FAILED → redirect
-      else if (stage.name === "Testing" && status === "FAILED" && failureReason) {
-        const redirectStage = await tx.failureRedirect.findFirst({
-          where: {
-            itemTypeId: serviceProcess.itemType.id,
-            failureReason: failureReason,
-          },
-        });
-
-        if (!redirectStage)
-          throw new Error(`Failure redirect not found for reason: ${failureReason}`);
-
-        await tx.service_Process_Record.update({
-          where: { id: serviceProcess.id },
-          data: {
-            stageId: redirectStage.redirectStageId,
-            restartedFromStageId: redirectStage.redirectStageId,
-            status: "REDIRECTED",
-          },
-        });
-
-        await tx.stageActivity.create({
-          data: {
-            serviceProcessId,
-            stageId: redirectStage.redirectStageId,
-            status: "IN_PROGRESS",
-            isCurrent: true,
-          },
-        });
-      }
-
-      // ✅ Case 3: Testing REJECTED → mark completed
-      else if (stage.name === "Testing" && status === "REJECTED") {
-        await tx.service_Process_Record.update({
-          where: { id: serviceProcess.id },
-          data: { status: "COMPLETED", testingStatus: "REJECTED" },
-        });
-      }
-
-      // ✅ Case 4: Normal stages → move to next
-      else if (status === "COMPLETED") {
-        const stageFlow = await tx.stageFlow.findFirst({
-          where: {
-            itemTypeId: serviceProcess.itemType.id,
-            currentStageId: stage.id,
-          },
-        });
-
-        if (stageFlow) {
+      // 🧩 CASE 1: TESTING stage logic
+      if (stage.name === "Testing") {
+        if (status === "REJECTED") {
+          // ❌ Rejected in testing → completed but rejected
           await tx.service_Process_Record.update({
-            where: { id: serviceProcess.id },
-            data: { stageId: stageFlow.nextStageId, status: "IN_PROGRESS" },
-          });
-
-          await tx.stageActivity.create({
+            where: { id: serviceProcessId },
             data: {
-              serviceProcessId: serviceProcess.id,
-              stageId: stageFlow.nextStageId,
-              status: "IN_PROGRESS",
-              isCurrent: true,
+              status: "COMPLETED",
+              finalStatus: "REJECTED",
+              isClosed: true,
+              isRepaired: itemType === "SERVICE" ? false : null,
+              finalRemarks: remarks,
+              updatedBy: String(empId),
+              //completedAt: new Date()
             },
           });
-        } else {
-          // last stage fallback
+        } else if (status === "COMPLETED") {
+          // ✅ Successfully passed testing
           await tx.service_Process_Record.update({
-            where: { id: serviceProcess.id },
-            data: { status: "COMPLETED" },
+            where: { id: serviceProcessId },
+            data: {
+              status: "COMPLETED",
+              finalStatus: "SUCCESS",
+              isClosed: true,
+              isRepaired: itemType === "SERVICE" ? true : null,
+              finalRemarks: remarks,
+              updatedBy: empId,
+            },
           });
+        } else if (status === "FAILED" && failureReason) {
+          // ⚙️ Redirect if test failed
+          await handleFailureRedirect(tx, updated, failureReason);
         }
+      }
+
+      // 🧩 CASE 2: Normal stage logic
+      else if (status === "COMPLETED") {
+        await moveToNextStage(tx, updated);
+        console.log("Hi3");
       }
 
       return updated;
     });
-
-    // 🔹 Warehouse update only for successful testing
+    console.log("Hi4");
+    // 🔹 Update warehouse stock only on successful testing completion
     const { stage, serviceProcess } = updatedActivity;
     if (stage.name === "Testing" && status === "COMPLETED") {
       const subItem = serviceProcess.subItem;
-      const existingItem = warehouseItemsData.items.find(
-        (item) => item.itemName === subItem
-      );
-      if (!existingItem)
-        throw new Error(`Item "${subItem}" not found in warehouse items`);
+      const existingItem = warehouseItemsData.items.find((i) => i.itemName === subItem);
+      console.log("existingItem: ", existingItem);
+      if (!existingItem) throw new Error(`Item "${subItem}" not found in Warehouse.`);
 
       const incField = serviceProcess.itemType.name === "SERVICE" ? "quantity" : "newStock";
       await WarehouseItems.updateOne(
@@ -1255,15 +1285,11 @@ const completeServiceProcess = async (req, res) => {
         { $inc: { [`items.$.${incField}`]: 1 } }
       );
     }
-
+    console.log("Hi5");
     return res.status(200).json({
       success: true,
-      message:
-        stage.name === "Testing" && status === "REJECTED"
-          ? "Testing rejected, process closed"
-          : stage.name === "Testing" && status === "COMPLETED"
-          ? "Testing passed, process completed and stock updated"
-          : "Stage completed successfully",
+      message: "Stage processed successfully.",
+      data: { activity: updatedActivity, processId: serviceProcessId },
     });
   } catch (error) {
     console.error("❌ Error in completeServiceProcess:", error);
