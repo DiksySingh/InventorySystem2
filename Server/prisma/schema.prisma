@@ -360,6 +360,8 @@ model Service_Process_Record {
   isClosed             Boolean       @default(false)
   isRepaired           Boolean?
   finalRemarks         String?
+  disassembleRequired   Boolean?
+  disassembleSessionId  String?
   createdAt            DateTime      @default(now())
   createdBy            String?
   updatedAt            DateTime      @updatedAt
