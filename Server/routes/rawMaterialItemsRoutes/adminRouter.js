@@ -19,7 +19,6 @@ router.delete("/deleteAllRawMaterials", tokenVerification(['Admin']), adminContr
 router.post("/updateRawMaterialStock", tokenVerification(['Admin']), adminController.updateRawMaterialStock);
 router.post("/addWarehouse", tokenVerification(['Admin']), adminController.addWarehouse);
 router.get("/showDefectiveItemsOfWarehouse", tokenVerification(['Admin']), adminController.getDefectiveItemsForWarehouse);
-router.get("/showDefectiveItemsList", tokenVerification(['Admin']), adminController.getDefectiveItemsListByWarehouse);
 router.get("/getItemsByName", tokenVerification(['Admin']), adminController.getItemsByName);
 router.get("/getRawMaterialsByItemId", tokenVerification(['Admin']), adminController.getRawMaterialsByItemId);
 router.post("/addServiceRecord", tokenVerification(['Admin']), adminController.addServiceRecord);
@@ -60,7 +59,5 @@ router.get("/showFailureRedirectStage", adminController.showFailureRedirectStage
 
 router.get("/showStockUpdateHistory", adminController.showStockUpdateHistory);
 
-router.post("/addProduct", adminController.addProduct);
-router.delete("/deleteProduct", adminController.deleteProduct);
-router.post("/addProductItemMap", adminController.addProductItemMap);
+
 module.exports = router;

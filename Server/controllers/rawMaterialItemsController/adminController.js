@@ -166,76 +166,77 @@ const getDefectiveItemsForWarehouse = async (req, res) => {
 //   }
 // };
 
-const getDefectiveItemsListByWarehouse = async (req, res) => {
-  try {
-    const { itemName } = req.query;
-    const warehouseName = "Bhiwani";
+// const getDefectiveItemsListByWarehouse = async (req, res) => {
+//   try {
+//     const { itemName } = req.query;
+//     const warehouseName = "Bhiwani";
 
-    if (!warehouseName || !itemName) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide both warehouseName and itemName to filter by.",
-      });
-    }
+//     if (!warehouseName || !itemName) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Please provide both warehouseName and itemName to filter by.",
+//       });
+//     }
 
-    // Split itemName into individual words for flexible matching
-    const searchWords = itemName.split(" ").filter(Boolean);
+//     // Split itemName into individual words for flexible matching
+//     const searchWords = itemName.split(" ").filter(Boolean);
 
-    // Create an array of regex conditions (all words must appear)
-    const regexConditions = searchWords.map((word) => ({
-      "items.itemName": { $regex: word, $options: "i" },
-    }));
+//     // Create an array of regex conditions (all words must appear)
+//     const regexConditions = searchWords.map((word) => ({
+//       "items.itemName": { $regex: word, $options: "i" },
+//     }));
 
-    const items = await WarehouseItems.aggregate([
-      {
-        $lookup: {
-          from: "inWarehouses",
-          localField: "warehouse",
-          foreignField: "_id",
-          as: "warehouseDetails",
-        },
-      },
-      { $unwind: "$warehouseDetails" },
-      {
-        $match: {
-          "warehouseDetails.warehouseName": warehouseName,
-        },
-      },
-      { $unwind: "$items" },
-      {
-        $match: {
-          $and: regexConditions, // ensure all words are present
-        },
-      },
-      {
-        $project: {
-          itemName: "$items.itemName",
-          defective: "$items.defective",
-        },
-      },
-    ]);
+//     const items = await WarehouseItems.aggregate([
+//       {
+//         $lookup: {
+//           from: "inWarehouses",
+//           localField: "warehouse",
+//           foreignField: "_id",
+//           as: "warehouseDetails",
+//         },
+//       },
+//       { $unwind: "$warehouseDetails" },
+//       {
+//         $match: {
+//           "warehouseDetails.warehouseName": warehouseName,
+//         },
+//       },
+//       { $unwind: "$items" },
+//       {
+//         $match: {
+//           $and: regexConditions, // ensure all words are present
+//         },
+//       },
+//       {
+//         $project: {
+//           itemName: "$items.itemName",
+//           defective: "$items.defective",
+//         },
+//       },
+//     ]);
 
-    if (items.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: `No items found matching '${itemName}' in warehouse '${warehouseName}'.`,
-      });
-    }
+//     if (items.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: `No items found matching '${itemName}' in warehouse '${warehouseName}'.`,
+//       });
+//     }
 
-    return res.status(200).json({
-      success: true,
-      message: `Items matching '${itemName}' in warehouse '${warehouseName}' found.`,
-      data: items,
-    });
-  } catch (error) {
-    console.error("Error fetching items:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch items.",
-      error: error.message,
-    });
-  }
-};
+//     return res.status(200).json({
+//       success: true,
+//       message: `Items matching '${itemName}' in warehouse '${warehouseName}' found.`,
+//       data: items,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching items:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch items.",
+//       error: error.message,
+//     });
+//   }
+// };
+
 
 const addWarehouse = async (req, res) => {
   try {
@@ -3601,187 +3602,6 @@ const showStockUpdateHistory = async (req, res) => {
   }
 };
 
-const addProduct = async (req, res) => {
-  try {
-    const {productName} = req?.body;
-    if(!productName) {
-      return res.status(400).json({
-        success: false,
-        message: "Product name is required"
-      });
-    }
-    const trimmedProductName = productName.trim();
-    const existingProduct = await prisma.product.findUnique({
-      where: {
-        productName: trimmedProductName
-      }
-    });
-
-    if(existingProduct) {
-      return res.status(400).json({
-        success: false,
-        message: "Product already exists"
-      });
-    }
-
-    const addProduct = await prisma.product.create({
-      data: {
-        productName: trimmedProductName
-      }
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Product added successfully",
-      data: addProduct
-    });
-    
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error"
-    });
-  }
-};
-
-const deleteProduct = async (req, res) => {
-  try {
-    const productId = req.query?.productId;
-    if(!productId) {
-      return res.status(400).json({
-        success: false,
-        message: "Incomplete Data"
-      });
-    }
-
-    const existingProduct = await prisma.product.findUnique({
-      where: {
-        id: productId
-      }
-    });
-
-    if(!existingProduct) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found"
-      });
-    }
-
-    const deletedProduct = await prisma.product.delete({
-      where: {
-        id: productId
-      }
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Product removed successfully"
-    });
-    
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error"
-    });
-  }
-}
-
-const addProductItemMap = async (req, res) => {
-  try {
-    const { productId, itemId } = req.body;
-
-    if (!productId || !itemId) {
-      return res.status(400).json({
-        success: false,
-        message: "Both productId and itemId are required.",
-      });
-    }
-
-    const existingMap = await prisma.product_Item_Map.findUnique({
-      where: {
-        unique_product_item: {
-          productId,
-          itemId,
-        },
-      },
-    });
-
-    if (existingMap) {
-      return res.status(200).json({
-        success: true,
-        message: "This product-item mapping already exists.",
-        data: existingMap,
-      });
-    }
-
-    const newMap = await prisma.product_Item_Map.create({
-      data: {
-        productId,
-        itemId,
-      },
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Product-item mapping created successfully.",
-      data: newMap,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error"
-    });
-  }
-};
-
-const deleteProductItemMap = async (req, res) => {
-    try {
-    const { productId, itemId } = req.body;
-
-    if (!productId || !itemId) {
-      return res.status(400).json({
-        success: false,
-        message: "Both productId and itemId are required.",
-      });
-    }
-
-    const existingMap = await prisma.product_Item_Map.findUnique({
-      where: {
-        unique_product_item: {
-          productId,
-          itemId,
-        },
-      },
-    });
-
-    if (!existingMap) {
-      return res.status(404).json({
-        success: false,
-        message: "No mapping found for the given product and item.",
-      });
-    }
-
-    await prisma.product_Item_Map.delete({
-      where: {
-        unique_product_item: {
-          productId,
-          itemId,
-        },
-      },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Product-item mapping deleted successfully.",
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error",
-    });
-  }
-};
-
 module.exports = {
   showEmployees,
   deactivateEmployee,
@@ -3797,7 +3617,6 @@ module.exports = {
   getItemsByName,
   getRawMaterialsByItemId,
   getDefectiveItemsForWarehouse,
-  getDefectiveItemsListByWarehouse,
   addServiceRecord,
   getRepairedServiceRecords,
   getRejectedServiceRecords,
@@ -3831,8 +3650,4 @@ module.exports = {
   showStockUpdateHistory,
   detachRawMaterialFromItem,
   detachRawMaterialFromStage,
-  addProduct,
-  deleteProduct,
-  addProductItemMap,
-  deleteProductItemMap
 };

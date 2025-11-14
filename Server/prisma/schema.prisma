@@ -264,7 +264,7 @@ enum FailureReason {
   VIBRATION
   OVERLOAD
   EARTHING
-  OTHER
+  LEAKAGE
 }
 
 enum ActivityStatus {
@@ -346,8 +346,9 @@ enum ProcessStatus {
 
 model Service_Process_Record {
   id                   String        @id @default(uuid())
-  item                 String?
-  subItem              String?
+  productName          String?
+  itemName             String?
+  subItemName          String?
   itemTypeId           String?
   serialNumber         String?
   quantity             Float?
@@ -389,7 +390,7 @@ model StageFlow {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  product      Product? @relation(fields: [productId], references: [id])
+  product      Product?  @relation(fields: [productId], references: [id])
   itemType     ItemType? @relation(fields: [itemTypeId], references: [id])
   currentStage Stage?    @relation("CurrentStage", fields: [currentStageId], references: [id])
   nextStage    Stage?    @relation("NextStage", fields: [nextStageId], references: [id])
@@ -399,6 +400,7 @@ model StageFlow {
 
 model FailureRedirect {
   id              String        @id @default(uuid())
+  productId       String?
   itemTypeId      String? // Optional if universal
   failureReason   FailureReason
   redirectStageId String?
@@ -407,7 +409,7 @@ model FailureRedirect {
 
   itemType      ItemType? @relation(fields: [itemTypeId], references: [id])
   redirectStage Stage?    @relation(fields: [redirectStageId], references: [id])
-
+  product       Product? @relation(fields: [productId], references: [id])
   @@map("FailureRedirect")
 }
 
@@ -521,7 +523,8 @@ model Product {
   updatedAt   DateTime @updatedAt
 
   productItemMap Product_Item_Map[]
-  stageFlow   StageFlow[]
+  stageFlow      StageFlow[]
+  failureRedirect FailureRedirect[]
 }
 
 /**
