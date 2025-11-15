@@ -539,18 +539,18 @@ const getPendingActivitiesForUserStage = async (req, res) => {
             stage: {
               select: {
                 id: true,
-                name: true
-              }
+                name: true,
+              },
             },
             initialStage: {
               select: {
                 id: true,
-                name: true
-              }
+                name: true,
+              },
             },
             restartedFromStage: {
-              select: { id: true, name: true }
-            }
+              select: { id: true, name: true },
+            },
           },
         },
         stage: { select: { id: true, name: true } },
@@ -578,10 +578,14 @@ const getPendingActivitiesForUserStage = async (req, res) => {
       isDisassemblePending: activity.serviceProcess.isDisassemblePending,
       disassembleSessionId: activity.serviceProcess.disassembleSessionId,
       disassembleStatus: activity.serviceProcess.disassembleStatus,
-      itemType: activity.serviceProcess.itemType.name,
-      initialStage: activity.serviceProcess.initialStage.name,
-      restartedFromStage: activity.serviceProcess.restartedFromStage.name,
-      stage: activity.stage.name,
+      itemType: activity.serviceProcess.itemType?.name || null,
+
+      processStage: activity.serviceProcess.stage?.name || null,
+      initialStage: activity.serviceProcess.initialStage?.name || null,
+      restartedFromStage:
+        activity.serviceProcess.restartedFromStage?.name || null,
+
+      activityStage: activity.stage?.name || null,
       createdAt: activity.createdAt,
     }));
 
