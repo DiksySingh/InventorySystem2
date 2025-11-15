@@ -22,18 +22,18 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
-  updatedItems          ItemRawMaterial[]        @relation("UserUpdates")
+  updatedItems          ItemRawMaterial[]            @relation("UserUpdates")
   stocks                StockMovement[]
   services              ServiceRecord[] // One-to-Many relationship with ServiceRecord
   productionLogs        ProductionLog[]
-  role                  Role?                    @relation(fields: [roleId], references: [id])
+  role                  Role?                        @relation(fields: [roleId], references: [id])
   stageActivity         StageActivity[]
   itemUsage             ItemUsage[]
-  requestedItemRequests ItemRequestData[]        @relation("RequestedByUser")
-  approvedItemRequests  ItemRequestData[]        @relation("ApprovedByUser")
-  updatedItemRequests   ItemRequestData[]        @relation("UpdatedByUser")
-  createdServiceProcess Service_Process_Record[] @relation("CreatedByUser")
-  updatedServiceProcess Service_Process_Record[] @relation("UpdatedByUser")
+  requestedItemRequests ItemRequestData[]            @relation("RequestedByUser")
+  approvedItemRequests  ItemRequestData[]            @relation("ApprovedByUser")
+  updatedItemRequests   ItemRequestData[]            @relation("UpdatedByUser")
+  createdServiceProcess Service_Process_Record[]     @relation("CreatedByUser")
+  updatedServiceProcess Service_Process_Record[]     @relation("UpdatedByUser")
   userItemStock         UserItemStock[]
   stockMovementBatch    StockMovementBatch[]
   Company               Company[]
@@ -42,6 +42,8 @@ model User {
   PurchaseOrder         PurchaseOrder[]
   PurchaseOrderReceipt  PurchaseOrderReceipt[]
   DamagedStock          DamagedStock[]
+  disassembleTasks      Disassemble_Reusable_Items[] @relation("DisassembleEmployee")
+  assembleStockReceives Disassemble_Reusable_Items[] @relation("AssembleEmployee")
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -265,6 +267,7 @@ enum FailureReason {
   OVERLOAD
   EARTHING
   LEAKAGE
+  OTHER
 }
 
 enum ActivityStatus {
@@ -360,8 +363,9 @@ model Service_Process_Record {
   isClosed             Boolean       @default(false)
   isRepaired           Boolean?
   finalRemarks         String?
-  disassembleRequired   Boolean?
-  disassembleSessionId  String?
+  isDisassemblePending  Boolean?  @default(false)
+  disassembleSessionId String?
+  disassembleStatus    ProcessStatus?
   createdAt            DateTime      @default(now())
   createdBy            String?
   updatedAt            DateTime      @updatedAt
@@ -379,6 +383,7 @@ model Service_Process_Record {
   itemRequestData     ItemRequestData[]
   stageActivity       StageActivity[]
   serviceProcessUsage ItemUsage[]
+  reusableItems       Disassemble_Reusable_Items[]
 
   @@map("Service_Process_Record")
 }
@@ -411,7 +416,8 @@ model FailureRedirect {
 
   itemType      ItemType? @relation(fields: [itemTypeId], references: [id])
   redirectStage Stage?    @relation(fields: [redirectStageId], references: [id])
-  product       Product? @relation(fields: [productId], references: [id])
+  product       Product?  @relation(fields: [productId], references: [id])
+
   @@map("FailureRedirect")
 }
 
@@ -447,6 +453,20 @@ model UserItemStock {
 
   @@unique([empId, rawMaterialId])
   @@map("UserItemStock")
+}
+
+model Disassemble_Reusable_Items {
+  id               String   @id @default(uuid())
+  serviceProcessId String
+  empId            String?
+  assembleEmpId    String?
+  reusableItems    Json?
+  remarks          String?
+  createdAt        DateTime @default(now())
+
+  disassembleEmp       User?                  @relation("DisassembleEmployee", fields: [empId], references: [id])
+  assembleEmp          User?                  @relation("AssembleEmployee", fields: [assembleEmpId], references: [id])
+  serviceProcessRecord Service_Process_Record @relation(fields: [serviceProcessId], references: [id])
 }
 
 model BOMEntry {
@@ -524,8 +544,8 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  productItemMap Product_Item_Map[]
-  stageFlow      StageFlow[]
+  productItemMap  Product_Item_Map[]
+  stageFlow       StageFlow[]
   failureRedirect FailureRedirect[]
 }
 
