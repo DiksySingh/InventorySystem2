@@ -524,12 +524,22 @@ const getPendingActivitiesForUserStage = async (req, res) => {
             itemName: true,
             subItemName: true,
             serialNumber: true,
+            quantity: true,
+            status: true,
+            finalStatus: true,
+            isClosed: true,
+            isRepaired: true,
+            finalRemarks: true,
+            isDisassemblePending: true,
+            disassembleSessionId: true,
+            disassembleStatus: true,
             itemType: {
               select: { id: true, name: true },
             },
           },
         },
         stage: { select: { id: true, name: true } },
+        restartedFromStage : { select: { id: true, name: true } }
       },
       orderBy: { createdAt: "asc" },
     });
@@ -545,6 +555,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
       itemName: activity.serviceProcess.itemName,
       subItemName: activity.serviceProcess.subItemName,
       serialNumber: activity.serviceProcess.serialNumber,
+
       itemType: activity.serviceProcess.itemType.name,
       stage: activity.stage.name,
       createdAt: activity.createdAt,
