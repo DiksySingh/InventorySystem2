@@ -348,7 +348,7 @@ enum ProcessStatus {
 }
 
 model Service_Process_Record {
-  id                   String        @id @default(uuid())
+  id                   String         @id @default(uuid())
   productName          String?
   itemName             String?
   subItemName          String?
@@ -358,17 +358,17 @@ model Service_Process_Record {
   stageId              String?
   initialStageId       String? // NEW - where it originally started
   restartedFromStageId String? // NEW - where it restarted from
-  status               ProcessStatus @default(PENDING)
+  status               ProcessStatus  @default(PENDING)
   finalStatus          String? // REPAIRED, REJECTED, PRODUCED, FAILED
-  isClosed             Boolean       @default(false)
+  isClosed             Boolean        @default(false)
   isRepaired           Boolean?
   finalRemarks         String?
-  isDisassemblePending  Boolean?  @default(false)
+  isDisassemblePending Boolean?       @default(false)
   disassembleSessionId String?
   disassembleStatus    ProcessStatus?
-  createdAt            DateTime      @default(now())
+  createdAt            DateTime       @default(now())
   createdBy            String?
-  updatedAt            DateTime      @updatedAt
+  updatedAt            DateTime       @updatedAt
   updatedBy            String?
   completedAt          DateTime?
 

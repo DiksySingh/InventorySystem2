@@ -537,6 +537,9 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     // Optional: Transform for frontend-friendly format
     const response = pendingActivities.map((activity) => ({
       activityId: activity.id,
+      processAccepted: activity.acceptedAt !== null ? true: false,
+      processStarted: activity.startedAt !== null ? true: false, 
+      processCompleted: activity.completedAt !== null ? true: false, 
       serviceProcessId: activity.serviceProcess.id,
       productName: activity.serviceProcess.productName,
       itemName: activity.serviceProcess.itemName,
