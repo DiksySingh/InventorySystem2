@@ -539,7 +539,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
           },
         },
         stage: { select: { id: true, name: true } },
-        restartedFromStage : { select: { id: true, name: true } }
+        restartedFromStage: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -547,15 +547,23 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     // Optional: Transform for frontend-friendly format
     const response = pendingActivities.map((activity) => ({
       activityId: activity.id,
-      processAccepted: activity.acceptedAt !== null ? true: false,
-      processStarted: activity.startedAt !== null ? true: false, 
-      processCompleted: activity.completedAt !== null ? true: false, 
+      processAccepted: activity.acceptedAt !== null ? true : false,
+      processStarted: activity.startedAt !== null ? true : false,
+      processCompleted: activity.completedAt !== null ? true : false,
       serviceProcessId: activity.serviceProcess.id,
       productName: activity.serviceProcess.productName,
       itemName: activity.serviceProcess.itemName,
       subItemName: activity.serviceProcess.subItemName,
       serialNumber: activity.serviceProcess.serialNumber,
-
+      quantity: activity.serviceProcess.quantity,
+      status: activity.serviceProcess.status,
+      finalStatus: activity.serviceProcess.finalStatus,
+      isClosed: activity.serviceProcess.isClosed,
+      isRepaired: activity.serviceProcess.isRepaired,
+      finalRemarks: activity.serviceProcess.finalRemarks,
+      isDisassemblePending: activity.serviceProcess.isDisassemblePending,
+      disassembleSessionId: activity.serviceProcess.disassembleSessionId,
+      disassembleStatus: activity.serviceProcess.disassembleStatus,
       itemType: activity.serviceProcess.itemType.name,
       stage: activity.stage.name,
       createdAt: activity.createdAt,
