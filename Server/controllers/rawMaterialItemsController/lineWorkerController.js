@@ -776,6 +776,7 @@ const showUserItemStock = async (req, res) => {
 
     const response = itemStock.map((item) => ({
       rawMaterialId: item.rawMaterial.id,
+      rawMaterialName: item.rawMaterial.name,
       quantity: item.quantity,
       itemStock: item.rawMaterial.stock,
       unit: item.rawMaterial.unit
