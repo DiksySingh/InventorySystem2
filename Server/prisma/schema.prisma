@@ -267,6 +267,7 @@ enum FailureReason {
   OVERLOAD
   EARTHING
   LEAKAGE
+  REJECTED
   OTHER
 }
 

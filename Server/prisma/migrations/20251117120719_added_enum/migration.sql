@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `FailureRedirect` MODIFY `failureReason` ENUM('VIBRATION', 'OVERLOAD', 'EARTHING', 'LEAKAGE', 'REJECTED', 'OTHER') NOT NULL;
+
+-- AlterTable
+ALTER TABLE `StageActivity` MODIFY `failureReason` ENUM('VIBRATION', 'OVERLOAD', 'EARTHING', 'LEAKAGE', 'REJECTED', 'OTHER') NULL;

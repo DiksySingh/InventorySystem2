@@ -779,7 +779,7 @@ const showUserItemStock = async (req, res) => {
       rawMaterialName: item.rawMaterial.name,
       quantity: item.quantity,
       itemStock: item.rawMaterial.stock,
-      unit: item.rawMaterial.unit
+      unit: item.rawMaterial.unit,
     }));
 
     return res.status(200).json({
@@ -1219,7 +1219,7 @@ const completeServiceProcess = async (req, res) => {
   try {
     const { serviceProcessId, status, failureReason, remarks } = req.body;
     const empId = req.user?.id;
-    const warehouseId = req.user?.warehouse || "67446a8b27dae6f7f4d985dd";
+    const warehouseId = "67446a8b27dae6f7f4d985dd";
 
     if (!serviceProcessId || !status || !remarks) {
       return res.status(400).json({
@@ -1233,14 +1233,14 @@ const completeServiceProcess = async (req, res) => {
         .json({ success: false, message: "Unauthorized user." });
     }
 
-    const warehouseItemsData = await WarehouseItems.findOne({
-      warehouse: new mongoose.Types.ObjectId(warehouseId),
-    });
-    if (!warehouseItemsData) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Warehouse data not found." });
-    }
+    // const warehouseItemsData = await WarehouseItems.findOne({
+    //   warehouse: new mongoose.Types.ObjectId(warehouseId),
+    // });
+    // if (!warehouseItemsData) {
+    //   return res
+    //     .status(404)
+    //     .json({ success: false, message: "Warehouse data not found." });
+    // }
 
     const processData = await prisma.service_Process_Record.findFirst({
       where: { id: serviceProcessId },
@@ -1479,27 +1479,49 @@ const completeServiceProcess = async (req, res) => {
     const { stage: updatedStage, serviceProcess } = updatedActivity;
 
     if (updatedStage.name === "Testing" && status === "COMPLETED") {
+      const normalize = (str) =>
+        str
+          ?.toLowerCase()
+          .trim()
+          .replace(/\s+/g, "")
+          .replace(/[^a-z0-9.]/g, "");
+
       const subItemName = serviceProcess.subItemName;
+    console.log(subItemName);
+      // fetch latest warehouse data again to avoid stale data
+      const freshWarehouse = await WarehouseItems.findOne({
+        warehouse: new mongoose.Types.ObjectId(warehouseId),
+      });
+      console.log(freshWarehouse);
 
-      const existingItem = warehouseItemsData.items.find(
-        (it) => it.itemName && it.itemName === subItemName
-      );
-
+      const normalizedSub = normalize(subItemName);
+      console.log(normalizedSub);
+      const existingItem = freshWarehouse.items.find((it) => {
+        if (!it.itemName) return false;
+        return normalize(it.itemName) === normalizedSub;
+      });
+      console.log(existingItem);
       if (!existingItem) {
         throw new Error(
-          `Warehouse item not found for subItemName="${subItemName}"`
+          `Warehouse item not found for "${subItemName}" (normalized: "${normalizedSub}")`
         );
       }
 
-      const incField =
-        serviceProcess.itemType.name === "SERVICE" ? "quantity" : "newStock";
+      // update value
+      if (serviceProcess.itemType.name === "SERVICE") {
+        existingItem.quantity += serviceProcess.quantity;
+      } else if (serviceProcess.itemType.name === "NEW") {
+        existingItem.newStock += serviceProcess.quantity;
+      }
+      console.log("Updated existing item: ", existingItem);
 
-      await WarehouseItems.updateOne(
-        { _id: warehouseItemsData._id, "items.itemName": subItemName },
-        { $inc: { [`items.$.${incField}`]: 1 } }
+      // write to DB
+      const updatedData = await WarehouseItems.updateOne(
+        { _id: freshWarehouse._id },
+        { $set: { items: freshWarehouse.items } }
       );
+      console.log(updatedData);
     }
-
     if (
       latestProcess.stage?.name === "Disassemble" &&
       latestProcess.disassembleSessionId

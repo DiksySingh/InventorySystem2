@@ -3291,8 +3291,8 @@ const addStageFlow = async (req, res) => {
 
 const addFailureRedirectStage = async (req, res) => {
   try {
-    const { itemTypeId, failureReason, redirectStageId } = req?.body;
-    if (!itemTypeId || !failureReason || !redirectStageId) {
+    const { productId, itemTypeId, failureReason, redirectStageId } = req?.body;
+    if (!productId || !itemTypeId || !failureReason || !redirectStageId) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -3301,6 +3301,7 @@ const addFailureRedirectStage = async (req, res) => {
 
     const existingData = await prisma.failureRedirect.findFirst({
       where: {
+        productId,
         itemTypeId,
         failureReason,
         redirectStageId,
@@ -3316,6 +3317,7 @@ const addFailureRedirectStage = async (req, res) => {
 
     const newData = await prisma.failureRedirect.create({
       data: {
+        productId,
         itemTypeId,
         failureReason,
         redirectStageId,
