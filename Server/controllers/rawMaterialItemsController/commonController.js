@@ -797,13 +797,10 @@ const getDefectiveItemsListByWarehouse = async (req, res) => {
       });
     }
 
-    // // STEP 1: Split by space and remove empty tokens
-    // const searchWords = itemName.trim().split(/\s+/);
+    const normalize = (str) =>
+      str.toLowerCase().trim().replace(/\s+/g, " ").split(" ");
 
-    // // STEP 2: Build flexible regex match (all words must appear)
-    // const regexConditions = searchWords.map((word) => ({
-    //   "items.itemName": { $regex: word, $options: "i" },
-    // }));
+    const searchTokens = normalize(itemName);
 
     const items = await WarehouseItems.aggregate([
       {
@@ -821,30 +818,37 @@ const getDefectiveItemsListByWarehouse = async (req, res) => {
           "warehouseDetails.warehouseName": warehouseName,
         },
       },
+
       { $unwind: "$items" },
 
-      // ⭐ Custom matching logic in MongoDB
+      // ⭐ Add a cleanedTokens array inside the pipeline
+      {
+        $addFields: {
+          tokens: {
+            $split: [
+              {
+                $trim: {
+                  input: {
+                    $toLower: {
+                      $replaceAll: {
+                        input: "$items.itemName",
+                        find: "  ",
+                        replacement: " ",
+                      },
+                    },
+                  },
+                },
+              },
+              " ",
+            ],
+          },
+        },
+      },
+
+      // ⭐ EXACT token matching (NO PARTIAL MATCH)
       {
         $match: {
-          $expr: {
-            $function: {
-              body: function (dbName, search) {
-                if (!dbName || !search) return false;
-
-                // Normalize both
-                const norm = (str) =>
-                  str.toLowerCase().trim().replace(/\s+/g, " ").split(" ");
-
-                const dbTokens = norm(dbName);
-                const searchTokens = norm(search);
-
-                // Ensure every token matches EXACTLY (no partial)
-                return searchTokens.every((t) => dbTokens.includes(t));
-              },
-              args: ["$items.itemName", itemName],
-              lang: "js",
-            },
-          },
+          tokens: { $all: searchTokens },
         },
       },
 
