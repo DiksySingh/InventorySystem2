@@ -299,6 +299,8 @@ model StageActivity {
   stage          Stage?                  @relation(fields: [stageId], references: [id])
   user           User?                   @relation(fields: [empId], references: [id])
 
+
+
   @@map("StageActivity")
 }
 
@@ -384,6 +386,14 @@ model Service_Process_Record {
   stageActivity       StageActivity[]
   serviceProcessUsage ItemUsage[]
   reusableItems       Disassemble_Reusable_Items[]
+
+  @@index([serialNumber])
+  @@index([itemName])
+  @@index([subItemName])
+  @@index([createdAt])
+  @@index([stageId])
+  @@index([itemTypeId])
+  @@index([status])
 
   @@map("Service_Process_Record")
 }

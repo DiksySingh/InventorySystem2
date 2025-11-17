@@ -1,3 +1,4 @@
+const { ProcessStatus, FailureReason, ActivityStatus } = require("@prisma/client");
 const prisma = require("../../config/prismaClient");
 const fs = require("fs/promises");
 
@@ -70,14 +71,14 @@ const getRawMaterialList = async (req, res) => {
   try {
     const allRawMaterial = await prisma.rawMaterial.findMany({
       orderBy: {
-        stock: "asc"
+        stock: "asc",
       },
       select: {
         id: true,
         name: true,
         stock: true,
-        unit: true
-      }
+        unit: true,
+      },
     });
 
     const filteredData = allRawMaterial.map((data) => ({
@@ -85,20 +86,20 @@ const getRawMaterialList = async (req, res) => {
       name: data.name,
       stock: data.stock,
       unit: data.unit,
-      outOfStock: data.stock === 0 ? true : false
+      outOfStock: data.stock === 0 ? true : false,
     }));
 
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: filteredData || []
+      data: filteredData || [],
     });
   } catch (error) {
     console.log("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -393,109 +394,365 @@ const getUserItemStock = async (req, res) => {
   }
 };
 
+// const showProcessData = async (req, res) => {
+//   try {
+//     const { filterType, startDate, endDate, status, stageId, itemTypeId, search, page = 1, limit = 15 } = req.query;
+
+//     let filterConditions = { AND: [] };
+//     let start, end;
+
+//     // ⭐ Convert IST → UTC
+//     const ISTtoUTC = (date) => new Date(date.getTime() - (5.5 * 60 * 60 * 1000));
+
+//     const now = new Date();
+//     const todayIST = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+//     const validFilters = ["Today", "Week", "Month", "Year", "Custom"];
+
+//     // ⭐ DATE FILTER
+//     if (validFilters.includes(filterType)) {
+//       switch (filterType) {
+//         case "Today": {
+//           const startIST = todayIST;
+//           const endIST = new Date(todayIST);
+//           endIST.setHours(23, 59, 59, 999);
+//           start = ISTtoUTC(startIST);
+//           end = ISTtoUTC(endIST);
+//           break;
+//         }
+
+//         case "Week": {
+//           const startIST = new Date(todayIST);
+//           startIST.setDate(todayIST.getDate() - 6);
+//           start = ISTtoUTC(startIST);
+//           end = ISTtoUTC(now);
+//           break;
+//         }
+
+//         case "Month": {
+//           const startIST = new Date(now.getFullYear(), now.getMonth(), 1);
+//           const endIST = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+//           start = ISTtoUTC(startIST);
+//           end = ISTtoUTC(endIST);
+//           break;
+//         }
+
+//         case "Year": {
+//           const startIST = new Date(now.getFullYear(), 0, 1);
+//           const endIST = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+//           start = ISTtoUTC(startIST);
+//           end = ISTtoUTC(endIST);
+//           break;
+//         }
+
+//         case "Custom": {
+//           if (!startDate || !endDate) {
+//             return res.status(400).json({
+//               success: false,
+//               message: "Start date and end date are required for custom filter.",
+//             });
+//           }
+//           const startIST = new Date(startDate);
+//           const endIST = new Date(endDate);
+//           endIST.setHours(23, 59, 59, 999);
+//           start = ISTtoUTC(startIST);
+//           end = ISTtoUTC(endIST);
+//           break;
+//         }
+//       }
+
+//       filterConditions.AND.push({
+//         createdAt: { gte: start, lte: end }
+//       });
+//     }
+
+//     // ⭐ STATUS
+//     if (status && ["IN_PROGRESS", "COMPLETED", "REDIRECTED"].includes(status)) {
+//       filterConditions.AND.push({ status });
+//     }
+
+//     // ⭐ STAGE
+//     if (stageId) {
+//       filterConditions.AND.push({ stageId });
+//     }
+
+//     // ⭐ ITEM TYPE
+//     if (itemTypeId) {
+//       filterConditions.AND.push({ itemTypeId });
+//     }
+
+//     // ⭐ SEARCH (your exact uppercase match logic)
+//     if (search && search.trim() !== "") {
+//       const searchUpper = search.trim().toUpperCase();
+
+//       filterConditions.AND.push({
+//         OR: [
+//           { item: searchUpper },
+//           { subItem: searchUpper },
+//           { serialNumber: searchUpper }
+//         ]
+//       });
+//     }
+
+//     // ⭐ PAGINATION
+//     const skip = (page - 1) * limit;
+
+//     // ⭐ FETCH DATA + COUNT parallel
+//     const [processData, total] = await Promise.all([
+//       prisma.service_Process_Record.findMany({
+//         where: filterConditions,
+//         orderBy: { createdAt: "asc" },
+//         skip,
+//         take: Number(limit),
+//         select: {
+//           id: true,
+//           productName: true,
+//           itemName: true,
+//           subItemName: true,
+//           itemType: { select: { id: true, name: true } },
+//           serialNumber: true,
+//           quantity: true,
+//           stage: { select: { id: true, name: true } },
+//           status: true,
+//           createdAt: true,
+//           stageActivity: {
+//             orderBy: { createdAt: "asc" },
+//             select: {
+//               id: true,
+//               status: true,
+//               acceptedAt: true,
+//               startedAt: true,
+//               completedAt: true,
+//               isCurrent: true,
+//               failureReason: true,
+//               remarks: true,
+//               stage: { select: { id: true, name: true } },
+//               user: { select: { id: true, name: true } },
+//             },
+//           },
+//         },
+//       }),
+
+//       prisma.service_Process_Record.count({ where: filterConditions })
+//     ]);
+
+//     // ⭐ FORMAT OUTPUT
+//     const modifiedData = processData.map((process) => ({
+//       serviceProcessId: process.id,
+//       productName: process.productName,
+//       itemName: process.itemName,
+//       subItemName: process.subItemName,
+//       itemType: process.itemType.name,
+//       serialNumber: process.serialNumber,
+//       quantity: process.quantity,
+//       currentStage: process.stage?.name,
+//       processStatus: process.status,
+//       createdAt: process.createdAt,
+//       stageActivities: process.stageActivity.map((activity) => ({
+//         activityId: activity.id,
+//         stageId: activity.stage.id,
+//         stageName: activity.stage.name,
+//         activityStatus: activity.status,
+//         isCurrent: activity.isCurrent,
+//         failureReason: activity.failureReason,
+//         remarks: activity.remarks,
+//         acceptedAt: activity.acceptedAt,
+//         startedAt: activity.startedAt,
+//         completedAt: activity.completedAt,
+//       }))
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Data fetched successfully",
+//       page,
+//       limit,
+//       total,
+//       totalPages: Math.ceil(total / limit),
+//       data: modifiedData,
+//     });
+
+//   } catch (error) {
+//     console.log("ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
 const showProcessData = async (req, res) => {
   try {
-    const { filterType, startDate, endDate, status } = req.body;
-    let start, end;
+    const {
+      filterType,
+      startDate,
+      endDate,
+      status,
+      stageId,
+      itemTypeId,
+      search,
+      page = 1,
+      limit = 15
+    } = req.query;
+
+    let filterConditions = { AND: [] };
+
+    // ---------- UTIL ----------
+    const ISTtoUTC = (date) =>
+      new Date(date.getTime() - 5.5 * 60 * 60 * 1000);
 
     const now = new Date();
-    const today = new Date(now.setHours(0, 0, 0, 0));
+    const todayIST = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    switch (filterType) {
-      case "Today":
-        start = today;
-        end = new Date(today);
-        end.setHours(23, 59, 59, 9999);
-        break;
+    // ---------- DATE FILTER ----------
+    const setDateFilter = () => {
+      let startIST, endIST;
 
-      case "Week":
-        start = new Date(today);
-        start.setDate(today.getDate() - 6); // past 7 days
-        end = new Date();
-        break;
+      switch (filterType) {
+        case "Today":
+          startIST = todayIST;
+          endIST = new Date(todayIST);
+          endIST.setHours(23, 59, 59, 999);
+          break;
 
-      case "Month":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        end = new Date(
-          now.getFullYear(),
-          now.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-          999
-        );
-        break;
+        case "Week":
+          startIST = new Date(todayIST);
+          startIST.setDate(todayIST.getDate() - 6);
+          endIST = now;
+          break;
 
-      case "Year":
-        start = new Date(now.getFullYear(), 0, 1);
-        end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-        break;
+        case "Month":
+          startIST = new Date(now.getFullYear(), now.getMonth(), 1);
+          endIST = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          break;
 
-      case "Custom":
-        if (!startDate || !endDate) {
-          return res.status(400).json({
-            success: false,
-            message: "Start date and end date required for custom range",
-          });
-        }
-        start = new Date(startDate);
-        end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        break;
+        case "Year":
+          startIST = new Date(now.getFullYear(), 0, 1);
+          endIST = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+          break;
 
-      default:
-        return res.status(400).json({
-          success: false,
-          message: "Invalid filter type",
-        });
-    }
+        case "Custom":
+          if (!startDate || !endDate) {
+            throw new Error("Start date and end date required for Custom filter");
+          }
+          startIST = new Date(startDate);
+          endIST = new Date(endDate);
+          endIST.setHours(23, 59, 59, 999);
+          break;
 
-    const filterConditions = {
-      createdAt: {
-        gte: start,
-        lte: end,
-      },
+        default:
+          return;
+      }
+
+      filterConditions.AND.push({
+        createdAt: {
+          gte: ISTtoUTC(startIST),
+          lte: ISTtoUTC(endIST),
+        },
+      });
     };
 
-    if (status && ["IN_PROGRESS", "COMPLETED", "REDIRECTED"].includes(status)) {
-      filterConditions.status = status;
+    setDateFilter();
+
+    // ---------- BASIC FILTERS ----------
+    if (status) filterConditions.AND.push({ status });
+    if (stageId) filterConditions.AND.push({ stageId });
+    if (itemTypeId) filterConditions.AND.push({ itemTypeId });
+
+    // ---------- SEARCH ----------
+    if (search?.trim()) {
+      const s = search.trim().toUpperCase();
+      filterConditions.AND.push({
+        OR: [
+          { item: s },
+          { subItem: s },
+          { serialNumber: s }
+        ]
+      });
     }
 
-    const processData = await prisma.service_Process_Record.findMany({
-      where: filterConditions,
-      orderBy: {
-        createdAt: "asc",
-      },
-      select: {
-        id: true,
-        item: true,
-        subItem: true,
-        itemType: {
-          select: {
-            id: true,
-            name: true,
+    // ---------- PAGINATION ----------
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // ---------- QUERY ----------
+    const [processData, total] = await Promise.all([
+      prisma.service_Process_Record.findMany({
+        where: filterConditions,
+        orderBy: { createdAt: "asc" },
+        skip,
+        take: Number(limit),
+        select: {
+          id: true,
+          productName: true,
+          itemName: true,
+          subItemName: true,
+          itemType: { select: { id: true, name: true } },
+          serialNumber: true,
+          quantity: true,
+          stage: { select: { id: true, name: true } },
+          status: true,
+          createdAt: true,
+          stageActivity: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              status: true,
+              acceptedAt: true,
+              startedAt: true,
+              completedAt: true,
+              isCurrent: true,
+              failureReason: true,
+              remarks: true,
+              stage: { select: { id: true, name: true } },
+              user: { select: { id: true, name: true } },
+            },
           },
         },
-        serialNumber: true,
-        stage: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        status: true,
-        createdAt: true,
-      },
-    });
+      }),
+
+      prisma.service_Process_Record.count({ where: filterConditions })
+    ]);
+
+    // ---------- FORMAT ----------
+    const modifiedData = processData.map((p) => ({
+      serviceProcessId: p.id,
+      productName: p.productName,
+      itemName: p.itemName,
+      subItemName: p.subItemName,
+      itemType: p.itemType?.name,
+      serialNumber: p.serialNumber,
+      quantity: p.quantity,
+      currentStage: p.stage?.name,
+      processStatus: p.status,
+      createdAt: p.createdAt,
+      stageActivities: p.stageActivity.map((a) => ({
+        activityId: a.id,
+        stageId: a.stage.id,
+        stageName: a.stage.name,
+        activityStatus: a.status,
+        isCurrent: a.isCurrent,
+        failureReason: a.failureReason,
+        remarks: a.remarks,
+        acceptedAt: a.acceptedAt,
+        startedAt: a.startedAt,
+        completedAt: a.completedAt,
+      }))
+    }));
 
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: processData || [],
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      totalPages: Math.ceil(total / limit),
+      data: modifiedData,
     });
+
   } catch (error) {
-    console.log("ERROR: ", error);
+    console.log("ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -503,6 +760,7 @@ const showProcessData = async (req, res) => {
     });
   }
 };
+
 
 const updateStock = async (req, res) => {
   const uploadFiles = [];
@@ -526,7 +784,7 @@ const updateStock = async (req, res) => {
       const addBillPhoto = await tx.stockMovementBatch.create({
         data: {
           billPhotos: billPhotoUrl, // JSON array
-          createdBy: empId
+          createdBy: empId,
         },
       });
       const parsedRawMaterialList = JSON.parse(rawMaterialList);

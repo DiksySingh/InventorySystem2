@@ -39,6 +39,7 @@ router.post(
   storekeeperController.updateStock
 );
 
+router.get("/showProcessData", tokenVerification(['Store']), storekeeperController.showProcessData);
 router.get("/getRawMaterialList", tokenVerification(["Store"]), storekeeperController.getRawMaterialList);
 router.get("/getStockMovementHistory", tokenVerification(["Store"]), storekeeperController.getStockMovementHistory);
 
