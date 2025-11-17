@@ -774,10 +774,17 @@ const showUserItemStock = async (req, res) => {
       },
     });
 
+    const response = itemStock.map((item) => ({
+      rawMaterialId: item.rawMaterial.id,
+      quantity: item.quantity,
+      itemStock: item.rawMaterial.stock,
+      unit: item.rawMaterial.unit
+    }));
+
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: itemStock || [],
+      data: response || [],
     });
   } catch (error) {
     console.error("❌ ERROR in showUserItemStock:", error);
