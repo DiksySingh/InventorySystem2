@@ -513,8 +513,16 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     const pendingActivities = await prisma.stageActivity.findMany({
       where: {
         stageId: stage.id,
-        status: "PENDING",
-        empId: null, // unassigned
+        OR: [
+          {
+            status: "PENDING",
+            empId: null, // Unassigned tasks
+          },
+          {
+            status: "IN_PROGRESS",
+            empId: empId, // Tasks assigned to this employee
+          },
+        ],
       },
       include: {
         serviceProcess: {
