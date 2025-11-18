@@ -788,10 +788,10 @@ const completeServiceProcess = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: `For status - ${status}, failureReason is required.`
+        message: `For status - ${status}, failureReason is required.`,
       });
     }
-    
+
     if (!empId) {
       return res
         .status(401)
@@ -974,6 +974,11 @@ const completeServiceProcess = async (req, res) => {
         },
         include: {
           stage: true,
+          serviceProcess: {
+            include: {
+              itemType: true,
+            },
+          },
         },
       });
 
