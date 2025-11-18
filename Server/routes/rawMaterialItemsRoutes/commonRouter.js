@@ -15,12 +15,12 @@ router.post("/migrateServiceRecordJSON", commonController.migrateServiceRecordJS
 router.post("/fixInvalidJSON", commonController.fixInvalidJSON);
 
 router.post("/addProduct", tokenVerification(['Admin', 'Store']), commonController.addProduct);
-router.get("/getProduct", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getProduct);
+router.get("/getProduct", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getProduct);
 router.delete("/deleteProduct", tokenVerification(['Admin', 'Store']), commonController.deleteProduct);
 router.post("/addProductItemMap", tokenVerification(['Admin', 'Store']), commonController.addProductItemMap);
-router.get("/getItemsByProductId", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getItemsByProductId);
+router.get("/getItemsByProductId", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getItemsByProductId);
 router.delete("/deleteProductItemMap", tokenVerification(['Admin', 'Store']), commonController.deleteProductItemMap);
-router.get("/showDefectiveItemsList", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "MPC Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getDefectiveItemsListByWarehouse);
+router.get("/showDefectiveItemsList", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getDefectiveItemsListByWarehouse);
 
 
 module.exports = router;

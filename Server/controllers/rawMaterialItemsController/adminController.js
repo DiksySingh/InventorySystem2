@@ -3243,8 +3243,8 @@ const updateStageRawMaterial = async (req, res) => {
 
 const addStageFlow = async (req, res) => {
   try {
-    const { itemTypeId, currentStageId, nextStageId } = req?.body;
-    if (!itemTypeId || !currentStageId || !nextStageId) {
+    const { productId, itemTypeId, currentStageId, nextStageId } = req?.body;
+    if (!productId || !itemTypeId || !currentStageId || !nextStageId) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -3253,6 +3253,7 @@ const addStageFlow = async (req, res) => {
 
     const existingStageFlow = await prisma.stageFlow.findFirst({
       where: {
+        productId,
         itemTypeId,
         currentStageId,
         nextStageId,
@@ -3268,6 +3269,7 @@ const addStageFlow = async (req, res) => {
 
     const newStageFlow = await prisma.stageFlow.create({
       data: {
+        productId,
         itemTypeId,
         currentStageId,
         nextStageId,
