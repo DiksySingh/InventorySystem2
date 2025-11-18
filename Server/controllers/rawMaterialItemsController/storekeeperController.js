@@ -582,7 +582,6 @@ const getUserItemStock = async (req, res) => {
 //   }
 // };
 
-
 const showProcessData = async (req, res) => {
   try {
     const {
@@ -760,7 +759,6 @@ const showProcessData = async (req, res) => {
     });
   }
 };
-
 
 const updateStock = async (req, res) => {
   const uploadFiles = [];

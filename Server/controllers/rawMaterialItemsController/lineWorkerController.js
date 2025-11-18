@@ -1131,7 +1131,6 @@ const completeServiceProcess = async (req, res) => {
 
 // Only for Disassemble Person in case of item get rejected at testing stage
 
-// Get all Assemble employees
 const getAssembleUsers = async (req, res) => {
   try {
     // 1️⃣ Get the role ID for "Assemble"
@@ -1171,7 +1170,6 @@ const getAssembleUsers = async (req, res) => {
     });
   }
 };
-
 
 const disassembleReusableItemsForm = async (req, res) => {
   try {
