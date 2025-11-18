@@ -1130,6 +1130,49 @@ const completeServiceProcess = async (req, res) => {
 };
 
 // Only for Disassemble Person in case of item get rejected at testing stage
+
+// Get all Assemble employees
+const getAssembleUsers = async (req, res) => {
+  try {
+    // 1️⃣ Get the role ID for "Assemble"
+    const assembleRole = await prisma.role.findFirst({
+      where: { name: "Assemble" },
+      select: { id: true },
+    });
+
+    if (!assembleRole) {
+      return res.status(404).json({
+        success: false,
+        message: "Role 'Assemble' not found.",
+      });
+    }
+
+    // 2️⃣ Fetch all users with Assemble role
+    const users = await prisma.user.findMany({
+      where: { roleId: assembleRole.id, isActive: true},
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Assemble users fetched successfully",
+      data: users,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching assemble users:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+
 const disassembleReusableItemsForm = async (req, res) => {
   try {
     const empId = req.user.id;
@@ -1319,5 +1362,6 @@ module.exports = {
   completeServiceProcess,
   showUserItemStock,
   createItemUsageLog,
+  getAssembleUsers,
   disassembleReusableItemsForm,
 };

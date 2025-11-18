@@ -14,6 +14,7 @@ router.put("/startServiceProcess", tokenVerification(["Disassemble", "Stamping",
 router.get("/showUserItemStock", tokenVerification(["Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.showUserItemStock);
 router.post("/createItemUsageLog", tokenVerification(["Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.createItemUsageLog);
 router.post("/completeServiceProcess", tokenVerification(["Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), lineWorkerController.completeServiceProcess);
+router.get("/getAssembleUsers", tokenVerification(["Disassemble"]), lineWorkerController.getAssembleUsers);
 router.post("/disassembleItemsForm", tokenVerification(["Disassemble"]), lineWorkerController.disassembleReusableItemsForm);
 
 module.exports = router;
