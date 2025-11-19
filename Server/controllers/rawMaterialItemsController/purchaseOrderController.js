@@ -2457,6 +2457,118 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   }
 };
 
+// ----------------------- Financial Year Helper -----------------------
+function getFinancialYearRange() {
+  const now = getISTDate();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // April = 3
+
+  const fyStartYear = month < 3 ? year - 1 : year;
+
+  return {
+    startFY: new Date(fyStartYear, 3, 1),
+    endFY: new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999),
+  };
+}
+
+// ----------------------- Date Ranges -----------------------
+function getDateRanges() {
+  const now = getISTDate();
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const day = now.getDay(); 
+  const mondayOffset = (day === 0 ? -6 : 1 - day);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() + mondayOffset);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const { startFY, endFY } = getFinancialYearRange();
+
+  return { startOfToday, startOfMonth, startOfWeek, startFY, endFY };
+}
+
+// ---------------------------------------------------------------------
+
+const getPODashboard = async (req, res) => {
+  try {
+    const { startOfToday, startOfMonth, startOfWeek, startFY, endFY } = getDateRanges();
+
+    // ------------------------------ FASTEST VERSION ------------------------------
+    const [
+      counts,
+      spend
+    ] = await Promise.all([
+      // Single count query (MySQL evaluates all conditions internally)
+      prisma.purchaseOrder.findMany({
+        select: { createdAt: true },
+      }),
+
+      // Single spend sum query
+      prisma.purchaseOrder.findMany({
+        select: { createdAt: true, grandTotal: true },
+      })
+    ]);
+
+    // -------------------------------- PROCESS DATA --------------------------------
+    let poStats = {
+      total: 0,
+      yearly: 0,
+      monthly: 0,
+      weekly: 0,
+      today: 0,
+    };
+
+    let spendStats = {
+      total: 0,
+      yearly: 0,
+      monthly: 0,
+      weekly: 0,
+      today: 0,
+    };
+
+    counts.forEach(po => {
+      const d = po.createdAt;
+
+      poStats.total++;
+
+      if (d >= startFY && d <= endFY) poStats.yearly++;
+      if (d >= startOfMonth) poStats.monthly++;
+      if (d >= startOfWeek) poStats.weekly++;
+      if (d >= startOfToday) poStats.today++;
+    });
+
+    spend.forEach(po => {
+      const d = po.createdAt;
+      const amount = Number(po.grandTotal);
+
+      spendStats.total += amount;
+
+      if (d >= startFY && d <= endFY) spendStats.yearly += amount;
+      if (d >= startOfMonth) spendStats.monthly += amount;
+      if (d >= startOfWeek) spendStats.weekly += amount;
+      if (d >= startOfToday) spendStats.today += amount;
+    });
+
+    // ------------------------------------------------------------------------------
+    return res.status(200).json({
+      success: true,
+      message: "PO dashboard optimized response",
+      data: {
+        poStats,
+        spendStats,
+      }
+    });
+
+  } catch (error) {
+    console.error("Dashboard Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
 
 module.exports = {
   createCompany,
@@ -2475,4 +2587,5 @@ module.exports = {
   getCompanyById,
   getVendorById,
   createOrUpdatePurchaseOrderReceipts,
+  getPODashboard
 };

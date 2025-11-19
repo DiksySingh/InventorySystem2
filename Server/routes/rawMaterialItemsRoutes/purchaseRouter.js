@@ -89,4 +89,6 @@ router.post(
   purchaseOrderController.downloadPOPDF
 );
 
+router.get("/dashboard", tokenVerification(['Purchase']), purchaseOrderController.getPODashboard);
+
 module.exports = router;
