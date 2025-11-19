@@ -374,6 +374,117 @@ const createServiceProcess = async (req, res) => {
   }
 };
 
+// const getPendingActivitiesForUserStage = async (req, res) => {
+//   try {
+//     const { role } = req.user;
+//     const empId = req.user?.id;
+
+//     if (!role?.name) throw new Error("User role not found");
+
+//     const stage = await prisma.stage.findFirst({ where: { name: role.name } });
+//     if (!stage) throw new Error("Stage not found for this role");
+
+//     const pendingActivities = await prisma.stageActivity.findMany({
+//       where: {
+//         stageId: stage.id,
+//         OR: [
+//           {
+//             status: "PENDING",
+//             empId: null, // Unassigned tasks
+//           },
+//           {
+//             status: "IN_PROGRESS",
+//             empId: empId, // Tasks assigned to this employee
+//           },
+//         ],
+//       },
+//       include: {
+//         serviceProcess: {
+//           select: {
+//             id: true,
+//             productName: true,
+//             itemName: true,
+//             subItemName: true,
+//             serialNumber: true,
+//             quantity: true,
+//             status: true,
+//             finalStatus: true,
+//             isClosed: true,
+//             isRepaired: true,
+//             finalRemarks: true,
+//             isDisassemblePending: true,
+//             disassembleSessionId: true,
+//             disassembleStatus: true,
+//             itemType: {
+//               select: { id: true, name: true },
+//             },
+//             stage: {
+//               select: {
+//                 id: true,
+//                 name: true,
+//               },
+//             },
+//             initialStage: {
+//               select: {
+//                 id: true,
+//                 name: true,
+//               },
+//             },
+//             restartedFromStage: {
+//               select: { id: true, name: true },
+//             },
+//           },
+//         },
+//         stage: { select: { id: true, name: true } },
+//       },
+//       orderBy: { createdAt: "asc" },
+//     });
+
+//     // Optional: Transform for frontend-friendly format
+//     const response = pendingActivities.map((activity) => ({
+//       activityId: activity.id,
+//       processAccepted: activity.acceptedAt !== null ? true : false,
+//       processStarted: activity.startedAt !== null ? true : false,
+//       processCompleted: activity.completedAt !== null ? true : false,
+//       serviceProcessId: activity.serviceProcess.id,
+//       productName: activity.serviceProcess.productName,
+//       itemName: activity.serviceProcess.itemName,
+//       subItemName: activity.serviceProcess.subItemName,
+//       serialNumber: activity.serviceProcess.serialNumber,
+//       quantity: activity.serviceProcess.quantity,
+//       status: activity.serviceProcess.status,
+//       finalStatus: activity.serviceProcess.finalStatus,
+//       isClosed: activity.serviceProcess.isClosed,
+//       isRepaired: activity.serviceProcess.isRepaired,
+//       finalRemarks: activity.serviceProcess.finalRemarks,
+//       isDisassemblePending: activity.serviceProcess.isDisassemblePending,
+//       disassembleSessionId: activity.serviceProcess.disassembleSessionId,
+//       disassembleStatus: activity.serviceProcess.disassembleStatus,
+//       itemType: activity.serviceProcess.itemType?.name || null,
+
+//       processStage: activity.serviceProcess.stage?.name || null,
+//       initialStage: activity.serviceProcess.initialStage?.name || null,
+//       restartedFromStage:
+//         activity.serviceProcess.restartedFromStage?.name || null,
+
+//       activityStage: activity.stage?.name || null,
+//       createdAt: activity.createdAt,
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Pending activities fetched successfully",
+//       data: response,
+//     });
+//   } catch (error) {
+//     console.error("❌ Error in getPendingActivitiesForUserStage:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal Server Error",
+//     });
+//   }
+// };
+
 const getPendingActivitiesForUserStage = async (req, res) => {
   try {
     const { role } = req.user;
@@ -384,20 +495,23 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     const stage = await prisma.stage.findFirst({ where: { name: role.name } });
     if (!stage) throw new Error("Stage not found for this role");
 
+    const whereFilter = {
+      stageId: stage.id,
+      OR: [
+        {
+          status: "PENDING",
+          empId: null, // unassigned tasks
+        },
+        {
+          status: "IN_PROGRESS",
+          empId: empId, // tasks assigned to this employee
+        },
+      ],
+    };
+
+    // Fetch data
     const pendingActivities = await prisma.stageActivity.findMany({
-      where: {
-        stageId: stage.id,
-        OR: [
-          {
-            status: "PENDING",
-            empId: null, // Unassigned tasks
-          },
-          {
-            status: "IN_PROGRESS",
-            empId: empId, // Tasks assigned to this employee
-          },
-        ],
-      },
+      where: whereFilter,
       include: {
         serviceProcess: {
           select: {
@@ -415,24 +529,10 @@ const getPendingActivitiesForUserStage = async (req, res) => {
             isDisassemblePending: true,
             disassembleSessionId: true,
             disassembleStatus: true,
-            itemType: {
-              select: { id: true, name: true },
-            },
-            stage: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            initialStage: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            restartedFromStage: {
-              select: { id: true, name: true },
-            },
+            itemType: { select: { id: true, name: true } },
+            stage: { select: { id: true, name: true } },
+            initialStage: { select: { id: true, name: true } },
+            restartedFromStage: { select: { id: true, name: true } },
           },
         },
         stage: { select: { id: true, name: true } },
@@ -440,12 +540,17 @@ const getPendingActivitiesForUserStage = async (req, res) => {
       orderBy: { createdAt: "asc" },
     });
 
-    // Optional: Transform for frontend-friendly format
+    // Count only — much faster than fetching full data again
+    const totalCount = await prisma.stageActivity.count({
+      where: whereFilter,
+    });
+
+    // Transform for frontend
     const response = pendingActivities.map((activity) => ({
       activityId: activity.id,
-      processAccepted: activity.acceptedAt !== null ? true : false,
-      processStarted: activity.startedAt !== null ? true : false,
-      processCompleted: activity.completedAt !== null ? true : false,
+      processAccepted: activity.acceptedAt !== null,
+      processStarted: activity.startedAt !== null,
+      processCompleted: activity.completedAt !== null,
       serviceProcessId: activity.serviceProcess.id,
       productName: activity.serviceProcess.productName,
       itemName: activity.serviceProcess.itemName,
@@ -461,12 +566,10 @@ const getPendingActivitiesForUserStage = async (req, res) => {
       disassembleSessionId: activity.serviceProcess.disassembleSessionId,
       disassembleStatus: activity.serviceProcess.disassembleStatus,
       itemType: activity.serviceProcess.itemType?.name || null,
-
       processStage: activity.serviceProcess.stage?.name || null,
       initialStage: activity.serviceProcess.initialStage?.name || null,
       restartedFromStage:
         activity.serviceProcess.restartedFromStage?.name || null,
-
       activityStage: activity.stage?.name || null,
       createdAt: activity.createdAt,
     }));
@@ -474,6 +577,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Pending activities fetched successfully",
+      count: totalCount,   // 🔥 count included
       data: response,
     });
   } catch (error) {

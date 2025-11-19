@@ -11,6 +11,7 @@ const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSc
 const WarehousePerson = require("../../models/serviceInventoryModels/warehousePersonSchema");
 const bulkMessage = require("../../helpers/whatsapp/bulkMessageEng");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
+const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const multer = require("multer");
 
 // 📦 Multer config — store in memory
@@ -810,6 +811,83 @@ const matchSystemItemsFromExcel = async (req, res) => {
   });
 };
 
+const updateInstallationInventoryFromExcel = async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file not provided",
+      });
+    }
+
+    // Read Excel
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+    if (!sheet.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel contains no rows",
+      });
+    }
+
+    const bulkOps = [];
+
+    for (const row of sheet) {
+      const warehouseId = row.warehouseId;
+      const systemItemId = row.systemItemId;
+      let quantity = row.quantity;
+
+      if (!warehouseId || !systemItemId) continue;
+
+      // 🔥 Convert quantity if string
+      if (typeof quantity === "string") {
+        quantity = quantity.trim();
+        quantity = Number(quantity);
+
+        // If still NaN → skip that row
+        if (isNaN(quantity)) continue;
+      }
+
+      // Ensure quantity is a number
+      if (typeof quantity !== "number") continue;
+
+      bulkOps.push({
+        updateOne: {
+          filter: { warehouseId, systemItemId },
+          update: {
+            $set: {
+              quantity,
+              updatedAt: new Date(),
+            },
+          },
+        },
+      });
+    }
+
+    if (bulkOps.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid rows found in Excel",
+      });
+    }
+
+    const result = await InstallationInventory.bulkWrite(bulkOps);
+
+    return res.status(200).json({
+      success: true,
+      message: "Inventory updated successfully",
+      updatedCount: result.modifiedCount,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 module.exports = {
   exportActiveUsers,
   W2W,
@@ -825,4 +903,5 @@ module.exports = {
   exportFarmerItemsActivityToExcel,
   sendWhatsAppMessage,
   matchSystemItemsFromExcel,
+  updateInstallationInventoryFromExcel
 };
