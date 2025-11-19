@@ -722,7 +722,7 @@ const showRawMaterials = async (req, res) => {
         quantity: true,
       },
     });
-    console.log(rawMaterialsForItem);
+  
     // Step 2: Enrich each raw material with stock health
     const enrichedRawMaterials = await Promise.all(
       rawMaterialsForItem.map(async (entry) => {

@@ -334,7 +334,7 @@ const generateDailyServiceRecordPDF = async (req, res) => {
         servicedAt: "asc",
       },
     });
-    console.log("Service Records:", serviceRecords);
+
     const rawMaterialIds = new Set();
     for (const record of serviceRecords) {
       if (record.repairedParts) {
