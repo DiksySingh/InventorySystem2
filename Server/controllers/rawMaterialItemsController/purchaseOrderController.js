@@ -2554,7 +2554,7 @@ const getPODashboard = async (req, res) => {
     // ------------------------------------------------------------------------------
     return res.status(200).json({
       success: true,
-      message: "PO dashboard optimized response",
+      message: "PO dashboard stats fetched successfully",
       data: {
         poStats,
         spendStats,
