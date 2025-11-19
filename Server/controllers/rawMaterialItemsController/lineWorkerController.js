@@ -1414,6 +1414,7 @@ const disassembleReusableItemsForm = async (req, res) => {
           status: "COMPLETED",
           isCurrent: false,
           completedAt: new Date(),
+          remarks,
           empId,
         },
       });
