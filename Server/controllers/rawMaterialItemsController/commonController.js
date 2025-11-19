@@ -882,6 +882,29 @@ const getDefectiveItemsListByWarehouse = async (req, res) => {
   }
 };
 
+const getItemType = async (req, res) => {
+  try {
+    const data = await prisma.itemType.findMany({
+      select: {
+        id: true,
+        name: true
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: data
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -901,4 +924,5 @@ module.exports = {
   getItemsByProductId,
   deleteProductItemMap,
   getDefectiveItemsListByWarehouse,
+  getItemType
 };

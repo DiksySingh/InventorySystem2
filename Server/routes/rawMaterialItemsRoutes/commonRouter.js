@@ -21,6 +21,7 @@ router.post("/addProductItemMap", tokenVerification(['Admin', 'Store']), commonC
 router.get("/getItemsByProductId", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getItemsByProductId);
 router.delete("/deleteProductItemMap", tokenVerification(['Admin', 'Store']), commonController.deleteProductItemMap);
 router.get("/showDefectiveItemsList", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getDefectiveItemsListByWarehouse);
+router.get("/getItemType", tokenVerification(['Admin', "Store"]), commonController.getItemType);
 
 
 module.exports = router;

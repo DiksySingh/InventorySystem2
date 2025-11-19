@@ -95,6 +95,7 @@ model RawMaterial {
 model ItemRawMaterial {
   id            String   @id @default(uuid())
   itemId        String?
+  itemModelId   String?
   rawMaterialId String?
   quantity      Float?
   createdAt     DateTime @default(now())
@@ -104,6 +105,7 @@ model ItemRawMaterial {
   user        User?        @relation("UserUpdates", fields: [updatedBy], references: [id])
   item        Item?        @relation(fields: [itemId], references: [id])
   rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+  itemModel   Item_Model?  @relation(fields: [itemModelId], references: [id])
 
   @@unique([itemId, rawMaterialId])
   @@index([rawMaterialId], map: "ItemRawMaterial_rawMaterialId_fkey")
@@ -300,8 +302,6 @@ model StageActivity {
   stage          Stage?                  @relation(fields: [stageId], references: [id])
   user           User?                   @relation(fields: [empId], references: [id])
 
-
-
   @@map("StageActivity")
 }
 
@@ -395,7 +395,6 @@ model Service_Process_Record {
   @@index([stageId])
   @@index([itemTypeId])
   @@index([status])
-
   @@map("Service_Process_Record")
 }
 
@@ -478,6 +477,15 @@ model Disassemble_Reusable_Items {
   disassembleEmp       User?                  @relation("DisassembleEmployee", fields: [empId], references: [id])
   assembleEmp          User?                  @relation("AssembleEmployee", fields: [assembleEmpId], references: [id])
   serviceProcessRecord Service_Process_Record @relation(fields: [serviceProcessId], references: [id])
+}
+
+model Item_Model {
+  id        String   @id @default(uuid())
+  model     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  itemRawMaterial ItemRawMaterial[]
 }
 
 model BOMEntry {
