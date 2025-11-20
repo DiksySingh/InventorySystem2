@@ -1,5 +1,6 @@
 const prisma = require("../../config/prismaClient");
 const xlsx = require("xlsx");
+const ExcelJS = require("exceljs");
 const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -973,6 +974,77 @@ const showModel = async (req, res) => {
   }
 };
 
+const getRawMaterialIdByName = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload an Excel file",
+      });
+    }
+
+    // Read uploaded excel from buffer
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    const worksheet = workbook.worksheets[0]; // first sheet
+
+    const resultData = [];
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // skip header row
+
+      const name = row.getCell(1).value;
+      const unit = row.getCell(2).value;
+
+      resultData.push({ name, unit });
+    });
+
+    // Fetch IDs from Prisma
+    for (let row of resultData) {
+      const raw = await prisma.rawMaterial.findFirst({
+        where: { name: row.name },
+        select: { id: true },
+      });
+
+      row.id = raw ? raw.id : "NOT FOUND";
+    }
+
+    // Create new Excel
+    const newWorkbook = new ExcelJS.Workbook();
+    const newSheet = newWorkbook.addWorksheet("Result");
+
+    // Header
+    newSheet.addRow(["Name", "Unit", "ID"]);
+
+    // Insert rows
+    resultData.forEach((r) => {
+      newSheet.addRow([r.name, r.unit, r.id]);
+    });
+
+    // Send file
+    const buffer = await newWorkbook.xlsx.writeBuffer();
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=rawmaterial_result.xlsx"
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    return res.send(buffer);
+  } catch (error) {
+    console.error("Excel Processing Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while processing Excel",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -994,5 +1066,6 @@ module.exports = {
   getDefectiveItemsListByWarehouse,
   getItemType,
   addModel,
-  showModel
+  showModel,
+  getRawMaterialIdByName
 };

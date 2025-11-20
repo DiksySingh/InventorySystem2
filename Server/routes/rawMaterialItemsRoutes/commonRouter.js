@@ -24,6 +24,7 @@ router.get("/showDefectiveItemsList", tokenVerification(['Admin', "Store", "Disa
 router.get("/getItemType", tokenVerification(['Admin', "Store"]), commonController.getItemType);
 router.post("/addModel", tokenVerification(['Admin', 'Store']), commonController.addModel);
 router.get("/showModel", tokenVerification(['Admin', 'Store']), commonController.showModel);
+router.get("/getRawMaterialIdByName", commonController.upload.single('file'), commonController.getRawMaterialIdByName);
 
 
 module.exports = router;

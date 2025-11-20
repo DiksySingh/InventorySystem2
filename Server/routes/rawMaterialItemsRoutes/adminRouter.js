@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../../controllers/rawMaterialItemsController/adminController");
+const commonController = require("../../controllers/rawMaterialItemsController/commonController");
 const {generateRawMaterialStockPDF, generateServiceRecordPDF, generateDailyServiceRecordPDF} = require("../../helpers/rawMaterialItemsHelpers/generateReports");
 const {deleteRawMaterialReport} = require("../../helpers/rawMaterialItemsHelpers/deleteRawMaterialReports");
 const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
@@ -58,6 +59,7 @@ router.get("/showStageFlow", adminController.showStageFlow);
 router.get("/showFailureRedirectStage", adminController.showFailureRedirectStage);
 
 router.get("/showStockUpdateHistory", adminController.showStockUpdateHistory);
+router.get("/showDefectiveItemsList", commonController.getDefectiveItemsListByWarehouse);
 
 
 module.exports = router;
