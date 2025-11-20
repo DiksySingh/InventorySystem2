@@ -22,6 +22,8 @@ router.get("/getItemsByProductId", tokenVerification(['Admin', "Store", "Disasse
 router.delete("/deleteProductItemMap", tokenVerification(['Admin', 'Store']), commonController.deleteProductItemMap);
 router.get("/showDefectiveItemsList", tokenVerification(['Admin', "Store", "Disassemble", "Stamping", "SFG Work", "Winding", "Winding Connection", "Assemble", "Testing"]), commonController.getDefectiveItemsListByWarehouse);
 router.get("/getItemType", tokenVerification(['Admin', "Store"]), commonController.getItemType);
+router.post("/addModel", tokenVerification(['Admin', 'Store']), commonController.addModel);
+router.get("/showModel", tokenVerification(['Admin', 'Store']), commonController.showModel);
 
 
 module.exports = router;

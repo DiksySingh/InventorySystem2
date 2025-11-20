@@ -905,6 +905,74 @@ const getItemType = async (req, res) => {
   }
 };
 
+const addModel = async (req, res) => {
+  try {
+    const {model} = req.body;
+    
+    if(!model) {
+      return res.status(400).json({
+        success: false,
+        message: "Model name is required."
+      });
+    }
+
+    const upperCaseModel = model.trim().toUpperCase();
+    const existingModel = await prisma.item_Model.findFirst({
+      where: {
+        model: upperCaseModel
+      }
+    });
+
+    if(existingModel) {
+      return res.status(400).json({
+        success: false,
+        message: "Model already exists"
+      });
+    }
+
+    const createModel = await prisma.item_Model.create({
+      data: {
+        model: upperCaseModel
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Model created successfully",
+      data: createModel
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    })
+  }
+};
+
+const showModel = async (req, res) => {
+  try {
+    const modelData = await prisma.item_Model.findMany({
+      select: {
+        id: true,
+        model: true
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Model's fetched successfully",
+      data: modelData || []
+    });
+    
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -924,5 +992,7 @@ module.exports = {
   getItemsByProductId,
   deleteProductItemMap,
   getDefectiveItemsListByWarehouse,
-  getItemType
+  getItemType,
+  addModel,
+  showModel
 };
