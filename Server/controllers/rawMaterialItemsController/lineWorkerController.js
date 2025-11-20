@@ -1,7 +1,9 @@
 const { default: mongoose } = require("mongoose");
 const prisma = require("../../config/prismaClient");
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
-const { v4: uuidv4 } = require("uuid");
+const uuid = (...args) =>
+  import("uuid").then(({ v4 }) => v4(...args));
+
 
 const showStorePersons = async (req, res) => {
   try {
