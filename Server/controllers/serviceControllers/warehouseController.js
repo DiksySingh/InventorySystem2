@@ -8095,7 +8095,7 @@ module.exports.getInstallerData = async (req, res) => {
       state = "Haryana";
     } else if (
       warehouseData?.warehouseName === "Maharashtra Warehouse - Ambad" ||
-      warehouseData?.warehouseName === "Maharashtra Warehouse - Jalna"
+      warehouseData?.warehouseName === "Maharashtra Warehouse - Badnapur"
     ) {
       state = "Maharashtra";
     }
