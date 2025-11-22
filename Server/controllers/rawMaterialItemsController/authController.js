@@ -9,7 +9,7 @@ const addUser = async (req, res) => {
     try {
         const { name, email, contact, password, roleId, block, district, state } = req.body;
 
-        if (!name || !email || !contact || !password || !roleId) {
+        if (!name || !email || !password || !roleId) {
             return res.status(400).json({
                 success: false,
                 message: "Name, email, password, and roleId are required",
@@ -33,7 +33,7 @@ const addUser = async (req, res) => {
             data: {
                 name,
                 email,
-                contact,
+                //contact,
                 password: hashedPassword,
                 roleId,
                 block: block || null,
