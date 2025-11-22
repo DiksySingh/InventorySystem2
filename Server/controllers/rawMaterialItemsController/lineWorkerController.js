@@ -279,12 +279,34 @@ const createServiceProcess = async (req, res) => {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
+    let itemType;
+    if(empRole === "Disassemble") {
+      itemType = await prisma.itemType.findFirst({
+        where: {
+          name: "SERVICE"
+        }, select: {
+          id: true,
+          name: true
+        }
+      });
+    } else if (empRole === "SFG Work") {
+      itemType = await prisma.itemType.findFirst({
+        where: {
+          name: "NEW"
+        }, select: {
+          id: true,
+          name: true
+        }
+      });
+    }
+
     const existingProcess = await prisma.service_Process_Record.findFirst({
       where: {
         serialNumber,
         productName,
         itemName,
         subItemName,
+        itemTypeId: itemType.id,
         createdAt: {
           gte: todayStart,
           lte: todayEnd,
@@ -295,7 +317,7 @@ const createServiceProcess = async (req, res) => {
     if (existingProcess) {
       return res.status(400).json({
         success: false,
-        message: `Service Process already created today for ${serialNumber}`,
+        message: `Service Process for "${itemType.name}" already created today for ${serialNumber}`,
       });
     }
 
