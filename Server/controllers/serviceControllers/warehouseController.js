@@ -2926,6 +2926,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     const stateMap = {
       Bhiwani: "Haryana",
       "Maharashtra Warehouse - Ambad": "Maharashtra",
+      "Maharashtra Warehouse - Badnapur": "Maharashtra",
       "Korba Chhattisgarh": "Chhattisgarh",
     };
     const state = stateMap[warehouseData.warehouseName] || "";
