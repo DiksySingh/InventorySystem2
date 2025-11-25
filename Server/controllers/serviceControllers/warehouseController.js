@@ -2948,7 +2948,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       const system = dispatchedSystems[i];
       const billPhotoFile = billPhotosMap[i];
       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
-
+      console.log(system.farmerSaralId);
       const existingActivity = await FarmerItemsActivity.findOne({
         farmerSaralId: system.farmerSaralId,
       }).session(session);
