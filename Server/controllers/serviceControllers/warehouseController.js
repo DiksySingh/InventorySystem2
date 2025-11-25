@@ -2952,6 +2952,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       const existingActivity = await FarmerItemsActivity.findOne({
         farmerSaralId: system.farmerSaralId,
       }).session(session);
+      console.log(existingActivity);
       if (existingActivity)
         throw new Error(
           `Farmer ${system.farmerSaralId} system already dispatched`
