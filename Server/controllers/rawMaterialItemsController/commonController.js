@@ -545,11 +545,16 @@ const getProduct = async (req, res) => {
       },
     });
 
+    const formatted = product.map(p => ({
+      id: p.id,
+      name: p.productName,
+    }));
+
     return res.status(200).json({
       success: true,
       message:
-        product.length > 0 ? "Data Fetched Successfully" : "No Data Found",
-      data: product,
+        formatted.length > 0 ? "Data Fetched Successfully" : "No Data Found",
+      data: formatted,
     });
   } catch (error) {
     return res.status(500).json({
