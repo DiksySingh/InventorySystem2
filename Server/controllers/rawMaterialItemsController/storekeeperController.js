@@ -143,6 +143,10 @@ const showIncomingItemRequest = async (req, res) => {
         approvedBy: true,
         approvedAt: true,
         materialGiven: true,
+        declined: true,
+        declinedBy: true,
+        declinedAt: true,
+        declinedRemarks: true
       },
       orderBy: {
         requestedAt: "desc",
