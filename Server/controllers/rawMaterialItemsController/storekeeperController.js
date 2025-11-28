@@ -241,7 +241,7 @@ const showIncomingItemRequest = async (req, res) => {
 //   }
 // };
 
-const approveOrDeclineIncomingItemRequest = async (req, res) => {
+const approveOrDeclineItemRequest = async (req, res) => {
   try {
     const { itemRequestId, action, remarks } = req.body;
     const userId = req?.user?.id;
@@ -999,7 +999,7 @@ module.exports = {
   getLineWorkerList,
   getRawMaterialList,
   showIncomingItemRequest,
-  approveOrDeclineIncomingItemRequest,
+  approveOrDeclineItemRequest,
   sanctionItemForRequest,
   getUserItemStock,
   showProcessData,
