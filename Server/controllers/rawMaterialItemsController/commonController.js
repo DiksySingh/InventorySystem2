@@ -860,7 +860,7 @@ const getDefectiveItemsListByWarehouse = async (req, res) => {
 
       {
         $project: {
-          itemName: "$items.itemName",
+          name: "$items.itemName",
           defective: "$items.defective",
         },
       },
