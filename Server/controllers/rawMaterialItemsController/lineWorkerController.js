@@ -994,7 +994,7 @@ const completeServiceProcess = async (req, res) => {
         redirectedStageRecord &&
         redirectedStageRecord.name === "Disassemble"
       ) {
-        disassembleTokenToSet = uuidv4();
+        disassembleTokenToSet = uuid();
       }
 
       await tx.service_Process_Record.update({
