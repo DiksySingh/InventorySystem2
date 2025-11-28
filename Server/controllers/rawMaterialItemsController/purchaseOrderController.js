@@ -2462,20 +2462,21 @@ Contact: ${po.company.contactNumber}
 // ========================================================
 // 🔄 Universal Unit Conversion Helper
 // ========================================================
+
 function convertUnit(value, fromUnit, toUnit) {
   const unitMap = {
     // Weight
-    Kg: 1000 * 1000, // base = mg
-    Gm: 1000,
-    Mg: 1,
+    kg: 1000 * 1000, // base = mg
+    gm: 1000,
+    mg: 1,
 
     // Length
-    Mtr: 1000, // base = mm
+    mtr: 1000, // base = mm
     cm: 10,
     mm: 1,
 
     // Volume
-    litre: 1000, // base = ml
+    ltr: 1000, // base = ml
     ml: 1,
   };
 
@@ -2489,11 +2490,8 @@ function convertUnit(value, fromUnit, toUnit) {
   const baseValue = value * unitMap[f];  // convert to base
   return baseValue / unitMap[t];         // convert to target
 }
-
-
-
 // ========================================================
-// 🔄 Main Controller
+// Receiving Order Controller
 // ========================================================
 const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   const userId = req.user?.id;

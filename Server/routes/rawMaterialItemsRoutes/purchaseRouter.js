@@ -95,4 +95,10 @@ router.get(
   purchaseOrderController.getPODashboard
 );
 
+router.post(
+  "/purchase-orders/receive/:poId",
+  tokenVerification(['Purchase']),
+  purchaseOrderController.createOrUpdatePurchaseOrderReceipts
+);
+
 module.exports = router;

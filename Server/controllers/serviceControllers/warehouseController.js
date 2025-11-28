@@ -4958,7 +4958,7 @@ module.exports.allServiceSurveyPersons = async (req, res) => {
     // Fetch servicepersons with role = serviceperson OR fieldsales
     const servicePersons = await ServicePerson.find({
       ...filter,
-      role: { $in: ["serviceperson", "fieldsales"] },
+      role: { $in: ["serviceperson", "fieldsales", "filing"] },
     })
       .select(
         "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
