@@ -355,6 +355,14 @@ const sanctionItemForRequest = async (req, res) => {
       throw new Error("Item request not found");
     }
 
+    if(itemRequestData.approved === null) {
+      throw new Error("Item request is not approved.");
+    }
+
+    if(itemRequestData.declined === true) {
+      throw new Error("Item request is declined.");
+    }
+
     if (itemRequestData.materialGiven) {
       throw new Error("Material for these request already sanctioned");
     }
