@@ -189,47 +189,141 @@ const showIncomingItemRequest = async (req, res) => {
   }
 };
 
-const approveIncomingItemRequest = async (req, res) => {
+// const approveIncomingItemRequest = async (req, res) => {
+//   try {
+//     const { itemRequestId } = req.body;
+//     if (!itemRequestId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "ItemRequestId Not Found",
+//       });
+//     }
+
+//     const itemRequestData = await prisma.itemRequestData.findFirst({
+//       where: {
+//         id: itemRequestId,
+//       },
+//     });
+
+//     if (itemRequestData.approved) {
+//       throw new Error("Request is already approved");
+//     }
+
+//     if (itemRequestData.materialGiven) {
+//       throw new Error("Material already sanctioned");
+//     }
+//     const date = new Date();
+//     const updatedRequest = await prisma.itemRequestData.update({
+//       where: {
+//         id: itemRequestId,
+//       },
+//       data: {
+//         approved: true,
+//         approvedBy: req?.user?.id,
+//         approvedAt: date,
+//         updatedBy: req?.user?.id,
+//         updatedAt: date,
+//       },
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Item Request Approved Successfully",
+//       data: updatedRequest,
+//     });
+//   } catch (error) {
+//     console.error("ERROR: ", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+const approveOrDeclineIncomingItemRequest = async (req, res) => {
   try {
-    const { itemRequestId } = req.body;
-    if (!itemRequestId) {
+    const { itemRequestId, action, remarks } = req.body;
+    const userId = req?.user?.id;
+
+    if (!itemRequestId || !action) {
       return res.status(400).json({
         success: false,
-        message: "ItemRequestId Not Found",
+        message: "itemRequestId and action are required",
       });
     }
 
-    const itemRequestData = await prisma.itemRequestData.findFirst({
-      where: {
-        id: itemRequestId,
-      },
+    if(action === "DECLINE") {
+      if(!remarks) {
+        return res.status(400).json({
+          success: false,
+          message: `Action - ${action}, remarks is required.`
+        })
+      }
+    }
+
+    if (!["APPROVE", "DECLINE"].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid action. Allowed: APPROVE, DECLINE",
+      });
+    }
+
+    const itemRequest = await prisma.itemRequestData.findFirst({
+      where: { id: itemRequestId },
     });
 
-    if (itemRequestData.approved) {
-      throw new Error("Request is already approved");
+    if (!itemRequest) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Item request not found" });
     }
 
-    if (itemRequestData.materialGiven) {
-      throw new Error("Material already sanctioned");
+    if (itemRequest.approved || itemRequest.declined) {
+      return res.status(400).json({
+        success: false,
+        message: "Item request already processed",
+      });
     }
-    const date = new Date();
-    const updatedRequest = await prisma.itemRequestData.update({
-      where: {
-        id: itemRequestId,
-      },
-      data: {
+
+    const now = new Date();
+
+    let updateData = {
+      updatedBy: userId,
+      updatedAt: now,
+    };
+
+    if (action === "APPROVE") {
+      updateData = {
+        ...updateData,
         approved: true,
-        approvedBy: req?.user?.id,
-        approvedAt: date,
-        updatedBy: req?.user?.id,
-        updatedAt: date,
-      },
+        approvedBy: userId,
+        approvedAt: now,
+      };
+    }
+
+    if (action === "DECLINE") {
+      updateData = {
+        ...updateData,
+        declined: true,
+        declinedBy: userId,
+        declinedAt: now,
+        declinedRemarks: remarks || null,
+      };
+    }
+
+    const updated = await prisma.itemRequestData.update({
+      where: { id: itemRequestId },
+      data: updateData,
     });
 
     return res.status(200).json({
       success: true,
-      message: "Item Request Approved Successfully",
-      data: updatedRequest,
+      message:
+        action === "APPROVE"
+          ? "Item Request Approved Successfully"
+          : "Item Request Declined Successfully",
+      data: updated,
     });
   } catch (error) {
     console.error("ERROR: ", error);
@@ -905,7 +999,7 @@ module.exports = {
   getLineWorkerList,
   getRawMaterialList,
   showIncomingItemRequest,
-  approveIncomingItemRequest,
+  approveOrDeclineIncomingItemRequest,
   sanctionItemForRequest,
   getUserItemStock,
   showProcessData,

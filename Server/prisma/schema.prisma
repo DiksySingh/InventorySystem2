@@ -32,6 +32,7 @@ model User {
   requestedItemRequests ItemRequestData[]            @relation("RequestedByUser")
   approvedItemRequests  ItemRequestData[]            @relation("ApprovedByUser")
   updatedItemRequests   ItemRequestData[]            @relation("UpdatedByUser")
+  declinedItemRequests  ItemRequestData[]            @relation("DeclinedByUser")
   createdServiceProcess Service_Process_Record[]     @relation("CreatedByUser")
   updatedServiceProcess Service_Process_Record[]     @relation("UpdatedByUser")
   userItemStock         UserItemStock[]
@@ -329,6 +330,10 @@ model ItemRequestData {
   approved             Boolean?
   approvedBy           String?
   approvedAt           DateTime?
+  declined             Boolean?
+  declinedBy           String?
+  declinedAt           DateTime?
+  declinedRemarks      String?
   materialGiven        Boolean?
   updatedAt            DateTime? @updatedAt
   updatedBy            String?
@@ -338,6 +343,7 @@ model ItemRequestData {
   requestedByUser User?                   @relation("RequestedByUser", fields: [requestedBy], references: [id])
   approvedByUser  User?                   @relation("ApprovedByUser", fields: [approvedBy], references: [id])
   updatedByUser   User?                   @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+  declinedByUser  User?                   @relation("DeclinedByUser", fields: [declinedBy], references: [id])
 
   @@map("ItemRequestData")
 }

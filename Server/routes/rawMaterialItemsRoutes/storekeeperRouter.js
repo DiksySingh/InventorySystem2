@@ -19,9 +19,9 @@ router.get(
 );
 
 router.put(
-  "/approveIncomingItemRequest",
+  "/approveOrDeclineItemRequest",
   tokenVerification(["Store"]),
-  storekeeperController.approveIncomingItemRequest
+  storekeeperController.approveOrDeclineIncomingItemRequest
 );
 
 router.post(
