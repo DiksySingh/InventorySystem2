@@ -88,7 +88,7 @@ const getRawMaterialList = async (req, res) => {
     const filteredData = allRawMaterial.map((data) => ({
       id: data.id,
       name: data.name,
-      stock: data.stock,
+      stock: data.stock === null ? 0 : data.stock,
       unit: data.unit,
       outOfStock: data.stock === 0 ? true : false,
     }));
