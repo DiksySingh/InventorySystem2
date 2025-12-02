@@ -85,13 +85,24 @@ const getRawMaterialList = async (req, res) => {
       },
     });
 
-    const filteredData = allRawMaterial.map((data) => ({
-      id: data.id,
-      name: data.name,
-      stock: data.stock === null ? 0 : data.stock,
-      unit: data.unit,
-      outOfStock: data.stock === 0 ? true : false,
-    }));
+    // const filteredData = allRawMaterial.map((data) => ({
+    //   id: data.id,
+    //   name: data.name,
+    //   stock: data.stock === null ? 0 : data.stock,
+    //   unit: data.unit,
+    //   outOfStock: (data.stock === null || data.stock === 0) ? true : false,
+    // }));
+
+    const filteredData = allRawMaterial.map((data) => {
+      const stock = data.stock ?? 0; // null/undefined → 0
+      return {
+        id: data.id,
+        name: data.name,
+        stock,
+        unit: data.unit,
+        outOfStock: stock === 0,
+      };
+    });
 
     return res.status(200).json({
       success: true,
