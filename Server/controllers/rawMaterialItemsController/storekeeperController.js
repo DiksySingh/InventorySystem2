@@ -71,6 +71,13 @@ const getLineWorkerList = async (req, res) => {
   }
 };
 
+const formatStock = (value) => {
+  if (value % 1 === 0) {
+    return value; // integer → return as it is
+  }
+  return Number(value.toFixed(2)); // decimals → 2 digits
+};
+
 const getRawMaterialList = async (req, res) => {
   try {
     const allRawMaterial = await prisma.rawMaterial.findMany({
@@ -94,11 +101,12 @@ const getRawMaterialList = async (req, res) => {
     // }));
 
     const filteredData = allRawMaterial.map((data) => {
-      const stock = data.stock ?? 0; // null/undefined → 0
+      const stock = data.stock ?? 0;
+
       return {
         id: data.id,
         name: data.name,
-        stock,
+        stock: formatStock(stock),
         unit: data.unit,
         outOfStock: stock === 0,
       };
