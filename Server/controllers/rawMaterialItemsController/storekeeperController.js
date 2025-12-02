@@ -1,4 +1,8 @@
-const { ProcessStatus, FailureReason, ActivityStatus } = require("@prisma/client");
+const {
+  ProcessStatus,
+  FailureReason,
+  ActivityStatus,
+} = require("@prisma/client");
 const prisma = require("../../config/prismaClient");
 const fs = require("fs/promises");
 
@@ -146,7 +150,7 @@ const showIncomingItemRequest = async (req, res) => {
         declined: true,
         declinedBy: true,
         declinedAt: true,
-        declinedRemarks: true
+        declinedRemarks: true,
       },
       orderBy: {
         requestedAt: "desc",
@@ -257,12 +261,12 @@ const approveOrDeclineItemRequest = async (req, res) => {
       });
     }
 
-    if(action === "DECLINE") {
-      if(!remarks) {
+    if (action === "DECLINE") {
+      if (!remarks) {
         return res.status(400).json({
           success: false,
-          message: `Action - ${action}, remarks is required.`
-        })
+          message: `Action - ${action}, remarks is required.`,
+        });
       }
     }
 
@@ -359,11 +363,11 @@ const sanctionItemForRequest = async (req, res) => {
       throw new Error("Item request not found");
     }
 
-    if(itemRequestData.approved === null) {
+    if (itemRequestData.approved === null) {
       throw new Error("Item request is not approved.");
     }
 
-    if(itemRequestData.declined === true) {
+    if (itemRequestData.declined === true) {
       throw new Error("Item request is declined.");
     }
 
@@ -699,14 +703,13 @@ const showProcessData = async (req, res) => {
       itemTypeId,
       search,
       page = 1,
-      limit = 15
+      limit = 15,
     } = req.query;
 
     let filterConditions = { AND: [] };
 
     // ---------- UTIL ----------
-    const ISTtoUTC = (date) =>
-      new Date(date.getTime() - 5.5 * 60 * 60 * 1000);
+    const ISTtoUTC = (date) => new Date(date.getTime() - 5.5 * 60 * 60 * 1000);
 
     const now = new Date();
     const todayIST = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -730,7 +733,15 @@ const showProcessData = async (req, res) => {
 
         case "Month":
           startIST = new Date(now.getFullYear(), now.getMonth(), 1);
-          endIST = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          endIST = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999
+          );
           break;
 
         case "Year":
@@ -740,7 +751,9 @@ const showProcessData = async (req, res) => {
 
         case "Custom":
           if (!startDate || !endDate) {
-            throw new Error("Start date and end date required for Custom filter");
+            throw new Error(
+              "Start date and end date required for Custom filter"
+            );
           }
           startIST = new Date(startDate);
           endIST = new Date(endDate);
@@ -770,11 +783,7 @@ const showProcessData = async (req, res) => {
     if (search?.trim()) {
       const s = search.trim().toUpperCase();
       filterConditions.AND.push({
-        OR: [
-          { item: s },
-          { subItem: s },
-          { serialNumber: s }
-        ]
+        OR: [{ item: s }, { subItem: s }, { serialNumber: s }],
       });
     }
 
@@ -817,7 +826,7 @@ const showProcessData = async (req, res) => {
         },
       }),
 
-      prisma.service_Process_Record.count({ where: filterConditions })
+      prisma.service_Process_Record.count({ where: filterConditions }),
     ]);
 
     // ---------- FORMAT ----------
@@ -843,7 +852,7 @@ const showProcessData = async (req, res) => {
         acceptedAt: a.acceptedAt,
         startedAt: a.startedAt,
         completedAt: a.completedAt,
-      }))
+      })),
     }));
 
     return res.status(200).json({
@@ -855,7 +864,6 @@ const showProcessData = async (req, res) => {
       totalPages: Math.ceil(total / limit),
       data: modifiedData,
     });
-
   } catch (error) {
     console.log("ERROR:", error);
     return res.status(500).json({
@@ -924,7 +932,10 @@ const updateStock = async (req, res) => {
         await tx.rawMaterial.update({
           where: { id: rawMaterial.rawMaterialId },
           data: {
-            stock: { increment: rawMaterial.quantity },
+            stock:
+              existingRawMaterial.stock === null
+                ? rawMaterial.quantity
+                : { increment: rawMaterial.quantity },
           },
         });
       }
