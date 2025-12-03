@@ -1,8 +1,3 @@
-const {
-  ProcessStatus,
-  FailureReason,
-  ActivityStatus,
-} = require("@prisma/client");
 const prisma = require("../../config/prismaClient");
 const fs = require("fs/promises");
 

@@ -40,7 +40,7 @@ router.post(
 );
 
 router.get("/showProcessData", tokenVerification(['Store']), storekeeperController.showProcessData);
-router.get("/getRawMaterialList", tokenVerification(["Store"]), storekeeperController.getRawMaterialList);
+router.get("/getRawMaterialList", tokenVerification(["Store", "Purchase"]), storekeeperController.getRawMaterialList);
 router.get("/getStockMovementHistory", tokenVerification(["Store"]), storekeeperController.getStockMovementHistory);
 
 module.exports = router;
