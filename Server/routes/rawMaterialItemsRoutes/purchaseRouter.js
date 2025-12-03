@@ -4,6 +4,7 @@ const purchaseOrderController = require("../../controllers/rawMaterialItemsContr
 const {
   tokenVerification,
 } = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
+const uploadPurchaseOrderBill = require("../../middlewares/rawMaterialMiddlewares/multerConfigPurchase");
 
 router.post(
   "/companies",
@@ -96,8 +97,9 @@ router.get(
 );
 
 router.post(
-  "/purchase-orders/receive/:poId",
+  "/purchase-orders/receive",
   tokenVerification(['Purchase']),
+  uploadPurchaseOrderBill,
   purchaseOrderController.createOrUpdatePurchaseOrderReceipts
 );
 

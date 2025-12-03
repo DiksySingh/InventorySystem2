@@ -800,7 +800,7 @@ model DamagedStock {
 }
 
 model PurchaseOrderBill {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   purchaseOrderId String
   fileName        String
   fileUrl         String

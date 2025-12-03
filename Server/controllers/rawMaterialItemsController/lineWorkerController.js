@@ -1476,6 +1476,75 @@ const disassembleReusableItemsForm = async (req, res) => {
   }
 };
 
+const getRequestsByUser = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    const requests = await prisma.itemRequestData.findMany({
+      where: { requestedBy: userId },
+      select: {
+        id: true,
+        rawMaterialRequested: true,
+        requestedAt: true,
+        approved: true,
+        declined: true,
+        materialGiven: true
+      },
+      orderBy: {
+        requestedAt: "desc"
+      }
+    });
+
+    if (!requests.length) {
+      return res.status(200).json({
+        success: true,
+        message: "No requests found",
+        data: []
+      });
+    }
+
+    const allIds = [];
+    requests.forEach(reqItem => {
+      reqItem.rawMaterialRequested?.forEach(rm => {
+        if (rm.rawMaterialId) allIds.push(rm.rawMaterialId);
+      });
+    });
+
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      where: { id: { in: allIds } },
+      select: { id: true, name: true }
+    });
+
+    // Convert to map for faster lookup
+    const rawMaterialMap = {};
+    rawMaterials.forEach(rm => {
+      rawMaterialMap[rm.id] = rm.name;
+    });
+
+    // STEP 4: Attach names into each request item
+    const finalData = requests.map(reqItem => ({
+      ...reqItem,
+      rawMaterialRequested: reqItem.rawMaterialRequested.map(rm => ({
+        ...rm,
+        rawMaterialName: rawMaterialMap[rm.rawMaterialId]
+      }))
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Requests fetched successfully",
+      data: finalData
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
 module.exports = {
   showStorePersons,
   rawMaterialForItemRequest,
@@ -1489,4 +1558,5 @@ module.exports = {
   createItemUsageLog,
   getAssembleUsers,
   disassembleReusableItemsForm,
+  getRequestsByUser
 };
