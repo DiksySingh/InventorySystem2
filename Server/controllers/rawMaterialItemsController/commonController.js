@@ -705,7 +705,7 @@ const getItemsByProductId = async (req, res) => {
 
     mappings.sort(sortPumps);
     let data = [];
-    mappings.map((i) => data.push(i.item));
+    mappings.map((i) =>{if(i.item.name !== "MOTOR 10HP AC") data.push(i.item)});
 
     return res.status(200).json({
       success: true,
