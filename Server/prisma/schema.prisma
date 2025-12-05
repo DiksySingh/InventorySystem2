@@ -29,6 +29,8 @@ model User {
   role                  Role?                        @relation(fields: [roleId], references: [id])
   stageActivity         StageActivity[]
   itemUsage             ItemUsage[]
+  rawMaterialCreated    RawMaterial[]                @relation("ItemCreatedByUser")
+  rawMaterialUpdated    RawMaterial[]                @relation("ItemUpdatedByUser")
   requestedItemRequests ItemRequestData[]            @relation("RequestedByUser")
   approvedItemRequests  ItemRequestData[]            @relation("ApprovedByUser")
   updatedItemRequests   ItemRequestData[]            @relation("UpdatedByUser")
@@ -76,14 +78,20 @@ model Item {
 }
 
 model RawMaterial {
-  id    String  @id @default(uuid())
-  name  String? @unique
-  stock Float?
-  unit  String?
+  id     String   @id @default(uuid())
+  name   String?  @unique
+  stock  Float?
+  unit   String?
+  isUsed Boolean? @default(true)
+  minQty Float?
 
   createdAt DateTime @default(now())
+  createdBy String?
   updatedAt DateTime @updatedAt
+  updatedBy String?
 
+  createdByUser       User?                @relation("ItemCreatedByUser", fields: [createdBy], references: [id])
+  updatedByUser       User?                @relation("ItemUpdatedByUser", fields: [updatedBy], references: [id])
   ItemRawMaterial     ItemRawMaterial[]
   manufacturingUsages ManufacturingUsage[]
   serviceUsages       ServiceUsage[]
@@ -501,7 +509,6 @@ model BOMEntry {
   quantity      Float?
 }
 
-
 enum Country {
   INDIA
   USA
@@ -529,7 +536,6 @@ enum GSTType {
   IGST_28
   IGST_EXEMPTED
 
-
   LGST_5
   LGST_12
   LGST_18
@@ -555,7 +561,6 @@ enum PaymentMode {
   Cheque
 }
 
-
 model Product {
   id          String   @id @default(uuid())
   productName String
@@ -566,7 +571,6 @@ model Product {
   stageFlow       StageFlow[]
   failureRedirect FailureRedirect[]
 }
-
 
 model Product_Item_Map {
   id        String   @id @default(uuid())
@@ -581,7 +585,6 @@ model Product_Item_Map {
   @@unique([productId, itemId], name: "unique_product_item")
 }
 
-
 model PanelMaster {
   id         String   @id @default(uuid())
   panelType  String?
@@ -592,7 +595,6 @@ model PanelMaster {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
-
 
 model Company {
   id              String   @id @default(uuid())
@@ -628,6 +630,7 @@ model Vendor {
   pincode         String?
   country         Country  @default(INDIA)
   currency        Currency @default(INR)
+  exchangeRate    Decimal?
   contactNumber   String?
   alternateNumber String?
   createdBy       String
@@ -639,7 +642,6 @@ model Vendor {
   returnToVendor ReturnToVendor[]
   user           User             @relation(fields: [createdBy], references: [id])
 }
-
 
 model BankDetail {
   id            String   @id @default(uuid())
@@ -662,7 +664,6 @@ model BankDetail {
   purchaseOrders PurchaseOrder[]
 }
 
-
 model Counter {
   id            String  @id @default(uuid())
   name          String  @unique
@@ -673,7 +674,6 @@ model Counter {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
 
 model PurchaseOrder {
   id            String   @id @default(uuid())
@@ -689,13 +689,11 @@ model PurchaseOrder {
   gstType       GSTType
   gstRate       Decimal? @db.Decimal(5, 2)
 
-  
   currency     String?  @default("INR")
-  exchangeRate Decimal? @default(1.0000) @db.Decimal(12, 4) 
+  exchangeRate Decimal? @default(1.0000) @db.Decimal(12, 4)
 
-  foreignSubTotal   Decimal? @db.Decimal(12, 2) 
-  foreignGrandTotal Decimal? @db.Decimal(12, 2) 
-  
+  foreignSubTotal   Decimal? @db.Decimal(12, 2)
+  foreignGrandTotal Decimal? @db.Decimal(12, 2)
 
   subTotal          Decimal?  @db.Decimal(12, 2)
   totalCGST         Decimal?  @db.Decimal(12, 2)
@@ -718,11 +716,11 @@ model PurchaseOrder {
   contactPerson     String?
   cellNo            String?
   warranty          String?
- 
-  otherCharges      Json?
- 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+
+  otherCharges Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   company        Company                @relation(fields: [companyId], references: [id])
   vendor         Vendor                 @relation(fields: [vendorId], references: [id])
@@ -746,6 +744,8 @@ model PurchaseOrderItem {
   modelNumber     String?
   itemDetail      String?  @db.VarChar(500)
   unit            String?
+  rateInForeign   Decimal? @db.Decimal(12, 4) // optional, if PO currency != INR
+  amountInForeign Decimal? @db.Decimal(12, 2) // rate * quantity in foreign currency
   rate            Decimal  @db.Decimal(10, 2)
   gstRate         Decimal? @db.Decimal(5, 2)
   quantity        Decimal  @db.Decimal(10, 2)
@@ -767,15 +767,15 @@ model PurchaseOrderReceipt {
   itemId              String?
   itemSource          String?
   itemName            String?
-  receivedQty         Decimal? @db.Decimal(10, 2) 
-  goodQty             Decimal? @default(0) @db.Decimal(10, 2) 
-  damagedQty          Decimal? @default(0) @db.Decimal(10, 2) 
- 
-  receivingBill       String?
-  receivedDate        DateTime @default(now())
-  remarks             String?
-  createdBy           String?
-  createdAt           DateTime @default(now())
+  receivedQty         Decimal? @db.Decimal(10, 2)
+  goodQty             Decimal? @default(0) @db.Decimal(10, 2)
+  damagedQty          Decimal? @default(0) @db.Decimal(10, 2)
+
+  receivingBill String?
+  receivedDate  DateTime @default(now())
+  remarks       String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
 
   returnToVendor    ReturnToVendor[]
   purchaseOrder     PurchaseOrder?     @relation("PO_Receipts", fields: [purchaseOrderId], references: [id])
@@ -790,7 +790,7 @@ model DamagedStock {
   itemSource      String?
   itemName        String?
   quantity        Int      @default(0)
-  remarks         String? 
+  remarks         String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   createdBy       String?
@@ -811,7 +811,6 @@ model PurchaseOrderBill {
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
 }
 
-
 model ReturnToVendor {
   id                  String       @id @default(uuid())
   returnNumber        String       @unique
@@ -831,7 +830,6 @@ model ReturnToVendor {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
- 
   vendor            Vendor                @relation(fields: [vendorId], references: [id])
   purchaseOrder     PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
   purchaseOrderItem PurchaseOrderItem?    @relation(fields: [purchaseOrderItemId], references: [id])
@@ -839,9 +837,9 @@ model ReturnToVendor {
 }
 
 enum ReturnStatus {
-  Pending 
-  InTransit 
-  ReceivedByVendor 
+  Pending
+  InTransit
+  ReceivedByVendor
   Closed
 }
 
@@ -858,14 +856,13 @@ model Payment {
   purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id])
 }
 
-
 model AuditLog {
   id          String   @id @default(uuid())
-  entityType  String 
-  entityId    String 
-  action      String 
-  performedBy String? 
-  oldValue    Json? 
-  newValue    Json? 
+  entityType  String
+  entityId    String
+  action      String
+  performedBy String?
+  oldValue    Json?
+  newValue    Json?
   timestamp   DateTime @default(now())
 }

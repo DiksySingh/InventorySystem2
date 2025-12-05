@@ -76,6 +76,9 @@ const formatStock = (value) => {
 const getRawMaterialList = async (req, res) => {
   try {
     const allRawMaterial = await prisma.rawMaterial.findMany({
+      where: {
+        isUsed: true
+      },
       orderBy: {
         stock: "asc",
       },
@@ -202,58 +205,6 @@ const showIncomingItemRequest = async (req, res) => {
     });
   }
 };
-
-// const approveIncomingItemRequest = async (req, res) => {
-//   try {
-//     const { itemRequestId } = req.body;
-//     if (!itemRequestId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "ItemRequestId Not Found",
-//       });
-//     }
-
-//     const itemRequestData = await prisma.itemRequestData.findFirst({
-//       where: {
-//         id: itemRequestId,
-//       },
-//     });
-
-//     if (itemRequestData.approved) {
-//       throw new Error("Request is already approved");
-//     }
-
-//     if (itemRequestData.materialGiven) {
-//       throw new Error("Material already sanctioned");
-//     }
-//     const date = new Date();
-//     const updatedRequest = await prisma.itemRequestData.update({
-//       where: {
-//         id: itemRequestId,
-//       },
-//       data: {
-//         approved: true,
-//         approvedBy: req?.user?.id,
-//         approvedAt: date,
-//         updatedBy: req?.user?.id,
-//         updatedAt: date,
-//       },
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Item Request Approved Successfully",
-//       data: updatedRequest,
-//     });
-//   } catch (error) {
-//     console.error("ERROR: ", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
 
 const approveOrDeclineItemRequest = async (req, res) => {
   try {
@@ -509,194 +460,6 @@ const getUserItemStock = async (req, res) => {
     });
   }
 };
-
-// const showProcessData = async (req, res) => {
-//   try {
-//     const { filterType, startDate, endDate, status, stageId, itemTypeId, search, page = 1, limit = 15 } = req.query;
-
-//     let filterConditions = { AND: [] };
-//     let start, end;
-
-//     // ⭐ Convert IST → UTC
-//     const ISTtoUTC = (date) => new Date(date.getTime() - (5.5 * 60 * 60 * 1000));
-
-//     const now = new Date();
-//     const todayIST = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-//     const validFilters = ["Today", "Week", "Month", "Year", "Custom"];
-
-//     // ⭐ DATE FILTER
-//     if (validFilters.includes(filterType)) {
-//       switch (filterType) {
-//         case "Today": {
-//           const startIST = todayIST;
-//           const endIST = new Date(todayIST);
-//           endIST.setHours(23, 59, 59, 999);
-//           start = ISTtoUTC(startIST);
-//           end = ISTtoUTC(endIST);
-//           break;
-//         }
-
-//         case "Week": {
-//           const startIST = new Date(todayIST);
-//           startIST.setDate(todayIST.getDate() - 6);
-//           start = ISTtoUTC(startIST);
-//           end = ISTtoUTC(now);
-//           break;
-//         }
-
-//         case "Month": {
-//           const startIST = new Date(now.getFullYear(), now.getMonth(), 1);
-//           const endIST = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-//           start = ISTtoUTC(startIST);
-//           end = ISTtoUTC(endIST);
-//           break;
-//         }
-
-//         case "Year": {
-//           const startIST = new Date(now.getFullYear(), 0, 1);
-//           const endIST = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-//           start = ISTtoUTC(startIST);
-//           end = ISTtoUTC(endIST);
-//           break;
-//         }
-
-//         case "Custom": {
-//           if (!startDate || !endDate) {
-//             return res.status(400).json({
-//               success: false,
-//               message: "Start date and end date are required for custom filter.",
-//             });
-//           }
-//           const startIST = new Date(startDate);
-//           const endIST = new Date(endDate);
-//           endIST.setHours(23, 59, 59, 999);
-//           start = ISTtoUTC(startIST);
-//           end = ISTtoUTC(endIST);
-//           break;
-//         }
-//       }
-
-//       filterConditions.AND.push({
-//         createdAt: { gte: start, lte: end }
-//       });
-//     }
-
-//     // ⭐ STATUS
-//     if (status && ["IN_PROGRESS", "COMPLETED", "REDIRECTED"].includes(status)) {
-//       filterConditions.AND.push({ status });
-//     }
-
-//     // ⭐ STAGE
-//     if (stageId) {
-//       filterConditions.AND.push({ stageId });
-//     }
-
-//     // ⭐ ITEM TYPE
-//     if (itemTypeId) {
-//       filterConditions.AND.push({ itemTypeId });
-//     }
-
-//     // ⭐ SEARCH (your exact uppercase match logic)
-//     if (search && search.trim() !== "") {
-//       const searchUpper = search.trim().toUpperCase();
-
-//       filterConditions.AND.push({
-//         OR: [
-//           { item: searchUpper },
-//           { subItem: searchUpper },
-//           { serialNumber: searchUpper }
-//         ]
-//       });
-//     }
-
-//     // ⭐ PAGINATION
-//     const skip = (page - 1) * limit;
-
-//     // ⭐ FETCH DATA + COUNT parallel
-//     const [processData, total] = await Promise.all([
-//       prisma.service_Process_Record.findMany({
-//         where: filterConditions,
-//         orderBy: { createdAt: "asc" },
-//         skip,
-//         take: Number(limit),
-//         select: {
-//           id: true,
-//           productName: true,
-//           itemName: true,
-//           subItemName: true,
-//           itemType: { select: { id: true, name: true } },
-//           serialNumber: true,
-//           quantity: true,
-//           stage: { select: { id: true, name: true } },
-//           status: true,
-//           createdAt: true,
-//           stageActivity: {
-//             orderBy: { createdAt: "asc" },
-//             select: {
-//               id: true,
-//               status: true,
-//               acceptedAt: true,
-//               startedAt: true,
-//               completedAt: true,
-//               isCurrent: true,
-//               failureReason: true,
-//               remarks: true,
-//               stage: { select: { id: true, name: true } },
-//               user: { select: { id: true, name: true } },
-//             },
-//           },
-//         },
-//       }),
-
-//       prisma.service_Process_Record.count({ where: filterConditions })
-//     ]);
-
-//     // ⭐ FORMAT OUTPUT
-//     const modifiedData = processData.map((process) => ({
-//       serviceProcessId: process.id,
-//       productName: process.productName,
-//       itemName: process.itemName,
-//       subItemName: process.subItemName,
-//       itemType: process.itemType.name,
-//       serialNumber: process.serialNumber,
-//       quantity: process.quantity,
-//       currentStage: process.stage?.name,
-//       processStatus: process.status,
-//       createdAt: process.createdAt,
-//       stageActivities: process.stageActivity.map((activity) => ({
-//         activityId: activity.id,
-//         stageId: activity.stage.id,
-//         stageName: activity.stage.name,
-//         activityStatus: activity.status,
-//         isCurrent: activity.isCurrent,
-//         failureReason: activity.failureReason,
-//         remarks: activity.remarks,
-//         acceptedAt: activity.acceptedAt,
-//         startedAt: activity.startedAt,
-//         completedAt: activity.completedAt,
-//       }))
-//     }));
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Data fetched successfully",
-//       page,
-//       limit,
-//       total,
-//       totalPages: Math.ceil(total / limit),
-//       data: modifiedData,
-//     });
-
-//   } catch (error) {
-//     console.log("ERROR:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
 
 const showProcessData = async (req, res) => {
   try {
@@ -1024,6 +787,48 @@ const getStockMovementHistory = async (req, res) => {
   }
 };
 
+const markRawMaterialAsNotUsed = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const empId = req.user?.id;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "RawMaterial Id is required."
+      });
+    }
+
+    const existingRawMaterial = await prisma.rawMaterial.findUnique({
+      where: { id }
+    });
+
+    if (!existingRawMaterial) {
+      return res.status(404).json({
+        success: false,
+        message: "RawMaterial not found"
+      });
+    }
+
+    const updateData = await prisma.rawMaterial.update({
+      where: { id },
+      data: { isUsed: false, updatedBy: empId }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "RawMaterial marked as - Not Used.",
+      data: updateData
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+
 module.exports = {
   getLineWorkerList,
   getRawMaterialList,
@@ -1034,4 +839,5 @@ module.exports = {
   showProcessData,
   updateStock,
   getStockMovementHistory,
+  markRawMaterialAsNotUsed
 };

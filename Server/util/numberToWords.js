@@ -17,7 +17,7 @@ function numberToWords(num) {
   }
 
   if (num === 0) return "Zero Rupees";
-  return inWords(num) + " ONLY";
+  return inWords(num);
 }
 
 module.exports = numberToWords;

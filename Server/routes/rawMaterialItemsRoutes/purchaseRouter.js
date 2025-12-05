@@ -60,10 +60,16 @@ router.get(
   purchaseOrderController.getItemsList
 );
 
+// router.post(
+//   "/purchase-orders/create",
+//   tokenVerification(["Purchase"]),
+//   purchaseOrderController.createPurchaseOrder
+// );
+
 router.post(
   "/purchase-orders/create",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.createPurchaseOrder
+  purchaseOrderController.createPurchaseOrder2
 );
 
 router.get(
@@ -87,7 +93,7 @@ router.put(
 router.post(
   "/purchase-orders/download/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.downloadPOPDF
+  purchaseOrderController.downloadPOPDF2
 );
 
 router.get(
