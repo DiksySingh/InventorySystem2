@@ -631,6 +631,7 @@ const getVendorById = async (req, res) => {
         pincode: true,
         country: true,
         currency: true,
+        exchangeRate: true,
         contactNumber: true,
         alternateNumber: true,
       },
