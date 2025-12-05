@@ -60,14 +60,14 @@ router.get(
   purchaseOrderController.getItemsList
 );
 
-// router.post(
-//   "/purchase-orders/create",
-//   tokenVerification(["Purchase"]),
-//   purchaseOrderController.createPurchaseOrder
-// );
-
 router.post(
   "/purchase-orders/create",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.createPurchaseOrder
+);
+
+router.post(
+  "/purchase-orders/create2",
   tokenVerification(["Purchase"]),
   purchaseOrderController.createPurchaseOrder2
 );
@@ -84,26 +84,26 @@ router.get(
   purchaseOrderController.getPurchaseOrderDetails
 );
 
-// router.put(
-//   "/purchase-orders/update/:poId",
-//   tokenVerification(["Purchase"]),
-//   purchaseOrderController.updatePurchaseOrder
-// );
-
 router.put(
   "/purchase-orders/update/:poId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.updatePurchaseOrder
+);
+
+router.put(
+  "/purchase-orders/update2/:poId",
   tokenVerification(["Purchase"]),
   purchaseOrderController.updatePurchaseOrder2
 );
 
-// router.post(
-//   "/purchase-orders/download/:poId",
-//   tokenVerification(["Purchase"]),
-//   purchaseOrderController.downloadPOPDF
-// );
-
 router.post(
   "/purchase-orders/download/:poId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.downloadPOPDF
+);
+
+router.post(
+  "/purchase-orders/download2/:poId",
   tokenVerification(["Purchase"]),
   purchaseOrderController.downloadPOPDF2
 );

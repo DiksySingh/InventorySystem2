@@ -223,7 +223,7 @@ const createVendor = async (req, res) => {
       !email ||
       !country ||
       !currency ||
-      !exchangeRate ||
+      //!exchangeRate ||
       !pincode
     ) {
       return res.status(400).json({
@@ -300,7 +300,7 @@ const createVendor = async (req, res) => {
           pincode,
           country: country || "INDIA",
           currency: currency || "INR",
-          exchangeRate: exchangeRate || 1,
+          exchangeRate: exchangeRate || null,
           contactNumber,
           alternateNumber,
           createdBy: performedBy,

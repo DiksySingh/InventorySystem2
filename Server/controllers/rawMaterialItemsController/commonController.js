@@ -1050,6 +1050,70 @@ const getRawMaterialIdByName = async (req, res) => {
   }
 };
 
+const updateRawMaterialFromExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    // Read Excel File
+   const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    const rows = xlsx.utils.sheet_to_json(sheet); // Converts rows to JSON
+
+    // Example Excel Expected Columns:
+    // id | unit | minQty | stock
+
+    const results = [];
+    const errors = [];
+
+    for (let row of rows) {
+      const { id, unit, minQty, stock } = row;
+
+      if (!id) {
+        errors.push({ row, error: "ID is missing" });
+        continue;
+      }
+
+      // Update the RawMaterial
+      const updated = await prisma.rawMaterial.updateMany({
+        where: { id: id },
+        data: {
+          unit: unit ?? undefined,
+          minQty: minQty ?? undefined,
+          stock: stock ?? undefined,
+        },
+      });
+
+      if (updated.count === 0) {
+        errors.push({ id, error: "RawMaterial not found" });
+      } else {
+        results.push({ id, message: "Updated successfully" });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "RawMaterials updated",
+      updated: results,
+      errors,
+    });
+
+  } catch (error) {
+    console.log("Error updating raw materials:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -1072,5 +1136,6 @@ module.exports = {
   getItemType,
   addModel,
   showModel,
-  getRawMaterialIdByName
+  getRawMaterialIdByName,
+  updateRawMaterialFromExcel
 };
