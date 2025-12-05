@@ -26,6 +26,6 @@ router.post("/addModel", tokenVerification(['Admin', 'Store']), commonController
 router.get("/showModel", tokenVerification(['Admin', 'Store']), commonController.showModel);
 router.get("/getRawMaterialIdByName", commonController.upload.single('file'), commonController.getRawMaterialIdByName);
 router.post("/updateRawMaterialFromExcel", commonController.upload.single('file'), commonController.updateRawMaterialFromExcel);
-
+router.post("/updateRawMaterialUsageFromExcel", commonController.upload.single('file'), commonController.updateRawMaterialUsageFromExcel);
 
 module.exports = router;

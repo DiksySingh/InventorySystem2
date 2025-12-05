@@ -1114,6 +1114,59 @@ const updateRawMaterialFromExcel = async (req, res) => {
   }
 };
 
+const updateRawMaterialUsageFromExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    // Read Excel
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json(sheet);
+
+    // Extract only IDs from Excel
+    const excelIds = rows.map((row) => row.id).filter(Boolean);
+
+    if (excelIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel has no valid IDs",
+      });
+    }
+
+    // 1️⃣ Set ALL as isUsed = false
+    await prisma.rawMaterial.updateMany({
+      data: { isUsed: false },
+    });
+
+    // 2️⃣ Set only matched IDs as isUsed = true
+    await prisma.rawMaterial.updateMany({
+      where: {
+        id: { in: excelIds },
+      },
+      data: { isUsed: true },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Raw material usage status updated successfully",
+      totalIdsFound: excelIds.length,
+    });
+  } catch (err) {
+    console.error("Error updating usage:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -1137,5 +1190,6 @@ module.exports = {
   addModel,
   showModel,
   getRawMaterialIdByName,
-  updateRawMaterialFromExcel
+  updateRawMaterialFromExcel,
+  updateRawMaterialUsageFromExcel
 };
