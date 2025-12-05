@@ -84,11 +84,23 @@ router.get(
   purchaseOrderController.getPurchaseOrderDetails
 );
 
+// router.put(
+//   "/purchase-orders/update/:poId",
+//   tokenVerification(["Purchase"]),
+//   purchaseOrderController.updatePurchaseOrder
+// );
+
 router.put(
   "/purchase-orders/update/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.updatePurchaseOrder
+  purchaseOrderController.updatePurchaseOrder2
 );
+
+// router.post(
+//   "/purchase-orders/download/:poId",
+//   tokenVerification(["Purchase"]),
+//   purchaseOrderController.downloadPOPDF
+// );
 
 router.post(
   "/purchase-orders/download/:poId",

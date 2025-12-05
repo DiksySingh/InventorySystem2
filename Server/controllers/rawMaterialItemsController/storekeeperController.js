@@ -787,9 +787,9 @@ const getStockMovementHistory = async (req, res) => {
   }
 };
 
-const markRawMaterialAsNotUsed = async (req, res) => {
+const markRawMaterialUsedOrNotUsed = async (req, res) => {
   try {
-    const { id } = req.query;
+    const { id, isUsed} = req.query;
     const empId = req.user?.id;
     if (!id) {
       return res.status(400).json({
@@ -811,12 +811,12 @@ const markRawMaterialAsNotUsed = async (req, res) => {
 
     const updateData = await prisma.rawMaterial.update({
       where: { id },
-      data: { isUsed: false, updatedBy: empId }
+      data: { isUsed: isUsed, updatedBy: empId }
     });
 
     return res.status(200).json({
       success: true,
-      message: "RawMaterial marked as - Not Used.",
+      message: `RawMaterial marked as ${isUsed === true ? "Used." : "Not Used."}`,
       data: updateData
     });
 
@@ -839,5 +839,5 @@ module.exports = {
   showProcessData,
   updateStock,
   getStockMovementHistory,
-  markRawMaterialAsNotUsed
+  markRawMaterialUsedOrNotUsed
 };
