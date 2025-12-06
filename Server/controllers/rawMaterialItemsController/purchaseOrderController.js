@@ -1710,9 +1710,7 @@ const updatePurchaseOrder2 = async (req, res) => {
 
     const userId = req.user?.id;
     if (!userId)
-      return res
-        .status(400)
-        .json({ success: false, message: "User not found" });
+      return res.status(400).json({ success: false, message: "User not found" });
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -1785,14 +1783,18 @@ const updatePurchaseOrder2 = async (req, res) => {
     });
 
     if (!vendor)
-      return res.status(404).json({ success: false, message: "Vendor not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Vendor not found" });
 
     const finalCurrency = existingPO.currency || "INR";
     const finalExchangeRate =
-      finalCurrency === "INR" ? new Decimal(1) : new Decimal(vendor.exchangeRate || 1);
+      finalCurrency === "INR"
+        ? new Decimal(1)
+        : new Decimal(vendor.exchangeRate || 1);
 
     // -------------------------
-    // Calculate totals
+    // Totals
     // -------------------------
     let foreignSubTotal = new Decimal(0);
     let subTotalINR = new Decimal(0);
@@ -1803,6 +1805,9 @@ const updatePurchaseOrder2 = async (req, res) => {
     const normalItems = [];
     const itemWiseItems = [];
 
+    // -------------------------
+    // ⭐ UNIVERSAL GST LOGIC FOR EACH ITEM ⭐
+    // -------------------------
     const processedItems = items.map((item) => {
       const qty = new Decimal(item.quantity);
       const rateForeign = new Decimal(item.rate);
@@ -1814,6 +1819,26 @@ const updatePurchaseOrder2 = async (req, res) => {
 
       isItemWise ? itemWiseItems.push(item) : normalItems.push(item);
 
+      let itemGSTType = null;
+      let itemGSTRate = null;
+
+      const isExempted = gstType.includes("EXEMPTED");
+      const isItemWiseGST = gstType.includes("ITEMWISE");
+
+      if (isExempted) {
+        // CASE 1 — EXEMPTED
+        itemGSTType = null;
+        itemGSTRate = null;
+      } else if (isItemWiseGST) {
+        // CASE 2 — ITEMWISE
+        itemGSTType = gstType;
+        itemGSTRate = new Decimal(item.gstRate);
+      } else {
+        // CASE 3 — Normal IGST/LGST 5/12/18/28
+        itemGSTRate = null;
+        itemGSTType = null;
+      }
+
       return {
         itemId: item.id,
         itemSource: item.source,
@@ -1822,17 +1847,21 @@ const updatePurchaseOrder2 = async (req, res) => {
         modelNumber: item.modelNumber || null,
         itemDetail: item.itemDetail || null,
         unit: item.unit,
+
         rateInForeign: finalCurrency !== "INR" ? rateForeign : null,
         amountInForeign: finalCurrency !== "INR" ? amountForeign : null,
+
         rate: new Decimal(item.rate),
-        gstRate: isItemWise ? new Decimal(item.gstRate) : null,
         quantity: qty,
+
+        gstRate: itemGSTRate,
+        itemGSTType: itemGSTType,
+
         total: amountINR,
-        itemGSTType: isItemWise ? gstType : null,
       };
     });
 
-    // Other charges
+    // OTHER CHARGES
     let otherChargesTotal = new Decimal(0);
     if (Array.isArray(otherCharges)) {
       for (const ch of otherCharges) {
@@ -1844,25 +1873,37 @@ const updatePurchaseOrder2 = async (req, res) => {
     }
     subTotalINR = subTotalINR.plus(otherChargesTotal);
 
-    // GST for normal items
+    // GST FOR NORMAL ITEMS
     const poGSTPercent =
-      isItemWise || gstType.includes("EXEMPTED") ? null : getGSTPercent(gstType);
+      isItemWise || gstType.includes("EXEMPTED")
+        ? null
+        : getGSTPercent(gstType);
 
     if (normalItems.length && poGSTPercent) {
       const normalTotalINR = subTotalINR;
+
       if (gstType.startsWith("LGST")) {
-        totalCGST = totalCGST.plus(normalTotalINR.mul(poGSTPercent.div(200)));
-        totalSGST = totalSGST.plus(normalTotalINR.mul(poGSTPercent.div(200)));
+        totalCGST = totalCGST.plus(
+          normalTotalINR.mul(new Decimal(poGSTPercent).div(200))
+        );
+        totalSGST = totalSGST.plus(
+          normalTotalINR.mul(new Decimal(poGSTPercent).div(200))
+        );
       } else if (gstType.startsWith("IGST")) {
-        totalIGST = totalIGST.plus(normalTotalINR.mul(poGSTPercent.div(100)));
+        totalIGST = totalIGST.plus(
+          normalTotalINR.mul(new Decimal(poGSTPercent).div(100))
+        );
       }
     }
 
-    // Item-wise GST
+    // GST FOR ITEMWISE
     if (isItemWise) {
       for (const item of itemWiseItems) {
-        const totalINR = new Decimal(item.rate).mul(item.quantity).mul(finalExchangeRate);
+        const totalINR = new Decimal(item.rate)
+          .mul(item.quantity)
+          .mul(finalExchangeRate);
         const rate = new Decimal(item.gstRate);
+
         if (gstType === "LGST_ITEMWISE") {
           totalCGST = totalCGST.plus(totalINR.mul(rate.div(200)));
           totalSGST = totalSGST.plus(totalINR.mul(rate.div(200)));
@@ -1877,10 +1918,9 @@ const updatePurchaseOrder2 = async (req, res) => {
     const foreignGrandTotal = foreignSubTotal;
 
     // -------------------------
-    // Update PO in transaction
+    // UPDATE PO
     // -------------------------
     const updatedPO = await prisma.$transaction(async (tx) => {
-      // delete old items
       await tx.purchaseOrderItem.deleteMany({
         where: { purchaseOrderId: poId },
       });
@@ -2141,6 +2181,7 @@ const downloadPOPDF = async (req, res) => {
     const pdfBuffer = await generatePO(po, items);
 
     const vendor = po.vendor.name.split(" ")[0];
+    console.log(vendor);
     const fileName = `${vendor.toUpperCase()}-PO-${po.poNumber}.pdf`;
 
     // ✅ Transaction: Update PO + log audit
@@ -2255,7 +2296,7 @@ const downloadPOPDF2 = async (req, res) => {
     const pdfBuffer = await poGenerate(po, items);
 
     // sanitize vendor name
-    const vendor = po.vendor.name.replace(/\s+/g, "_").toUpperCase();
+    const vendor = po.vendor.name.split(" ")[0];
     const fileName = `${vendor}-PO-${po.poNumber}.pdf`;
 
     const now = new Date();
