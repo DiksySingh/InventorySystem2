@@ -1787,7 +1787,7 @@ const updatePurchaseOrder2 = async (req, res) => {
     if (!vendor)
       return res.status(404).json({ success: false, message: "Vendor not found" });
 
-    const finalCurrency = vendor.currency || "INR";
+    const finalCurrency = existingPO.currency || "INR";
     const finalExchangeRate =
       finalCurrency === "INR" ? new Decimal(1) : new Decimal(vendor.exchangeRate || 1);
 
