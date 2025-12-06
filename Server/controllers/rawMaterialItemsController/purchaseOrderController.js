@@ -1732,12 +1732,12 @@ const updatePurchaseOrder2 = async (req, res) => {
     if (!existingPO)
       return res.status(404).json({ success: false, message: "PO not found" });
 
-    if (existingPO.status !== "Draft") {
-      return res.status(400).json({
-        success: false,
-        message: "Only Draft PO can be updated",
-      });
-    }
+    // if (existingPO.status !== "Draft") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Only Draft PO can be updated",
+    //   });
+    // }
 
     if (!items?.length)
       return res.status(400).json({
