@@ -76,9 +76,6 @@ const formatStock = (value) => {
 const getRawMaterialList = async (req, res) => {
   try {
     const allRawMaterial = await prisma.rawMaterial.findMany({
-      where: {
-        isUsed: true
-      },
       orderBy: {
         stock: "asc",
       },
