@@ -789,8 +789,9 @@ const getStockMovementHistory = async (req, res) => {
 
 const markRawMaterialUsedOrNotUsed = async (req, res) => {
   try {
-    const { id, isUsed} = req.query;
+    const { id, isUsed } = req.query;
     const empId = req.user?.id;
+
     if (!id) {
       return res.status(400).json({
         success: false,
@@ -809,14 +810,34 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
       });
     }
 
+    const isUsedBoolean = isUsed === "true";
+
+    if (existingRawMaterial.isUsed === isUsedBoolean) {
+      return res.status(400).json({
+        success: false,
+        message: `RawMaterial is already marked as ${isUsedBoolean ? "Used" : "Not Used"}`
+      });
+    }
+
     const updateData = await prisma.rawMaterial.update({
       where: { id },
-      data: { isUsed: isUsed, updatedBy: empId }
+      data: { isUsed: isUsedBoolean, updatedBy: empId }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: "RawMaterial",
+        entityId: id,
+        action: "STATUS_UPDATED",
+        performedBy: empId || null,
+        oldValue: { isUsed: existingRawMaterial.isUsed },
+        newValue: { isUsed: updateData.isUsed }
+      }
     });
 
     return res.status(200).json({
       success: true,
-      message: `RawMaterial marked as ${isUsed === true ? "Used." : "Not Used."}`,
+      message: `RawMaterial marked as ${isUsedBoolean ? "Used." : "Not Used."}`,
       data: updateData
     });
 
