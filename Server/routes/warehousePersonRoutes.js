@@ -30,6 +30,7 @@ const {
   showItemsWithStockStatus,
   updateItemQuantity,
   addNewInstallationData,
+  addNewInstallationData2,
   getDispatchHistory,
   showInstallationDataToWarehouse,
   itemComingToWarehouse,
@@ -276,6 +277,12 @@ router.post(
   userVerification(["warehouseAdmin"]),
   fileHandler,
   addNewInstallationData
+);
+router.post(
+  "/add-new-installation2",
+  userVerification(["warehouseAdmin"]),
+  fileHandler,
+  addNewInstallationData2
 );
 router.get(
   "/get-dispatch-history",

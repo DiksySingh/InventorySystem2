@@ -610,6 +610,7 @@ model Company {
   email           String?
   country         Country  @default(INDIA)
   currency        Currency @default(INR)
+  isActive        Boolean? @default(true)
   createdBy       String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -633,6 +634,7 @@ model Vendor {
   exchangeRate    Decimal?
   contactNumber   String?
   alternateNumber String?
+  isActive        Boolean? @default(true)
   createdBy       String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

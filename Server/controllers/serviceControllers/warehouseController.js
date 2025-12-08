@@ -1807,13 +1807,11 @@ module.exports.showItemsWithStockStatus = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal Server Error",
-        error: error.message,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
 
@@ -2268,599 +2266,6 @@ module.exports.getControllerData = async (req, res) => {
   }
 };
 
-// module.exports.addNewInstallationData = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
-//       req.body;
-
-//     // Parse dispatched systems
-//     const dispatchedSystems =
-//       typeof dispatchedSystem === "string"
-//         ? JSON.parse(dispatchedSystem)
-//         : dispatchedSystem;
-
-//     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "No dispatched systems provided" });
-
-//     // Map uploaded files by fieldname: dispatchBillPhoto1, dispatchBillPhoto2, ...
-//     const uploadedFiles = req.files || [];
-//     if (uploadedFiles.length === 0)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "No bill photos uploaded" });
-
-//     const billPhotosMap = {};
-//     uploadedFiles.forEach((file) => {
-//       const match = file.fieldname.match(/dispatchBillPhoto(\d+)/);
-//       if (match) billPhotosMap[parseInt(match[1], 10) - 1] = file;
-//     });
-
-//     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
-//       return res.status(400).json({
-//         success: false,
-//         message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
-//       });
-
-//     // Validate transport details
-//     if (!driverName || !driverContact || !vehicleNumber)
-//       return res.status(400).json({
-//         success: false,
-//         message: "Driver name, contact, and vehicle number are required",
-//       });
-
-//     // Validate required keys in dispatched systems
-//     const requiredKeys = ["installerId", "farmerSaralId", "systemId", "pumpId"];
-//     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
-//     if (!keyValidation.success) return res.status(400).json(keyValidation);
-
-//     const warehousePersonId = req.user._id;
-//     const warehouseId = req.user.warehouse;
-//     const warehouseData =
-//       await Warehouse.findById(warehouseId).session(session);
-//     if (!warehouseData) throw new Error("Warehouse not found");
-
-//     const stateMap = {
-//       Bhiwani: "Haryana",
-//       "Maharashtra Warehouse - Ambad": "Maharashtra",
-//       "Korba Chhattisgarh": "Chhattisgarh",
-//     };
-//     const state = stateMap[warehouseData.warehouseName] || "";
-
-//     // Create dispatch record
-//     const dispatchDetails = new DispatchDetails({
-//       driverName,
-//       driverContact,
-//       vehicleNumber,
-//       dispatchedBy: warehousePersonId,
-//       warehouseId,
-//       dispatchedSystems: [],
-//     });
-//     await dispatchDetails.save({ session });
-
-//     const farmerActivities = [];
-//     const assignedEmps = [];
-
-//     for (let i = 0; i < dispatchedSystems.length; i++) {
-//       const system = dispatchedSystems[i];
-//       const billPhotoFile = billPhotosMap[i];
-//       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
-
-//       // Check existing activity
-//       const existingActivity = await FarmerItemsActivity.findOne({
-//         farmerSaralId: system.farmerSaralId,
-//       }).session(session);
-//       if (existingActivity)
-//         throw new Error(
-//           `Farmer ${system.farmerSaralId} system already dispatched`
-//         );
-
-//       // Find installer
-//       let empData = await ServicePerson.findById(system.installerId).session(
-//         session
-//       );
-//       let refType = "ServicePerson";
-//       if (!empData) {
-//         empData = await SurveyPerson.findById(system.installerId).session(
-//           session
-//         );
-//         if (!empData) throw new Error("Installer not found");
-//         refType = "SurveyPerson";
-//       }
-
-//       // Fetch system items
-//       const systemItems = await SystemItemMap.find({
-//         systemId: system.systemId,
-//       })
-//         .populate("systemItemId", "itemName")
-//         .session(session);
-//       if (!systemItems.length)
-//         throw new Error(
-//           `No system items found for systemId: ${system.systemId}`
-//         );
-
-//       // Identify pump
-//       const pumpItems = systemItems.filter((item) =>
-//         item.systemItemId?.itemName?.toLowerCase().includes("pump")
-//       );
-//       const matchingPump = pumpItems.find(
-//         (item) => item.systemItemId._id.toString() === system.pumpId.toString()
-//       );
-//       if (!matchingPump)
-//         throw new Error(`Pump with ID ${system.pumpId} not found`);
-
-//       // Filter other system items (non-pump)
-//       const filteredSystemItems = systemItems.filter((item) => {
-//         const isPump = pumpItems.some(
-//           (pump) =>
-//             pump.systemItemId._id.toString() ===
-//             item.systemItemId._id.toString()
-//         );
-//         return (
-//           !isPump ||
-//           item.systemItemId._id.toString() === system.pumpId.toString()
-//         );
-//       });
-
-//       // Pump components
-//       const pumpComponents = await ItemComponentMap.find({
-//         systemId: system.systemId,
-//         systemItemId: system.pumpId,
-//       }).session(session);
-
-//       const itemsList = [
-//         ...filteredSystemItems.map((item) => ({
-//           systemItemId: item.systemItemId._id,
-//           quantity: item.quantity,
-//         })),
-//         ...pumpComponents.map((comp) => ({
-//           systemItemId: comp.subItemId,
-//           quantity: comp.quantity,
-//         })),
-//       ];
-
-//       // Remove duplicates
-//       const uniqueItemsMap = new Map();
-//       itemsList.forEach((item) =>
-//         uniqueItemsMap.set(item.systemItemId.toString(), item)
-//       );
-//       const finalItemsList = Array.from(uniqueItemsMap.values());
-
-//       // Deduct stock
-//       for (const item of finalItemsList) {
-//         const stockDoc = await InstallationInventory.findOne({
-//           warehouseId,
-//           systemItemId: item.systemItemId,
-//         })
-//           .populate("systemItemId")
-//           .session(session);
-//         if (!stockDoc) throw new Error(`Item not found in inventory`);
-//         if (stockDoc.quantity < item.quantity)
-//           throw new Error(
-//             `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
-//           );
-//         // ✅ Decimal-safe rounding logic here
-//         const roundTo = (num, digits = 2) =>
-//           Math.round(num * Math.pow(10, digits)) / Math.pow(10, digits);
-
-//         console.log(
-//           `Deducting ${item.quantity} from ${stockDoc.systemItemId.itemName} (Old Qty: ${stockDoc.quantity})`
-//         );
-
-//         // perform the decimal-safe subtraction
-//         stockDoc.quantity = roundTo(stockDoc.quantity - item.quantity, 2);
-
-//         console.log(
-//           `New Qty for ${stockDoc.systemItemId.itemName}: ${stockDoc.quantity}`
-//         );
-//         stockDoc.updatedAt = new Date();
-//         stockDoc.updatedBy = warehousePersonId;
-//         await stockDoc.save({ session });
-//       }
-
-//       // Create Farmer Activity
-//       const farmerActivity = new FarmerItemsActivity({
-//         referenceType: refType,
-//         warehouseId,
-//         farmerSaralId: system.farmerSaralId,
-//         empId: system.installerId,
-//         systemId: system.systemId,
-//         itemsList: finalItemsList,
-//         panelNumbers: [],
-//         pumpNumber: "",
-//         controllerNumber: "",
-//         rmuNumber: "",
-//         motorNumber: "",
-//         state,
-//         createdBy: warehousePersonId,
-//       });
-//       await farmerActivity.save({ session });
-
-//       // Assign employee
-//       const assignedEmp = new InstallationAssignEmp({
-//         referenceType: refType,
-//         warehouseId,
-//         empId: system.installerId,
-//         farmerSaralId: system.farmerSaralId,
-//         systemId: system.systemId,
-//         itemsList: finalItemsList,
-//         extraItemsList: [],
-//         createdBy: warehousePersonId,
-//       });
-//       await assignedEmp.save({ session });
-
-//       // Save dispatch bill photo
-//       const dispatchBillPhoto = new DispatchBillPhoto({
-//         dispatchId: dispatchDetails._id,
-//         farmerActivityId: farmerActivity._id,
-//         billPhoto: billPhotoPath,
-//       });
-//       await dispatchBillPhoto.save({ session });
-
-//       farmerActivities.push(farmerActivity);
-//       assignedEmps.push(assignedEmp);
-//       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
-//     }
-
-//     await dispatchDetails.save({ session });
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `${farmerActivities.length} systems dispatched successfully`,
-//       data: { dispatchDetails },
-//     });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     session.endSession();
-
-//     // Safe cleanup using callback-based fs
-//     if (req.files) {
-//       req.files.forEach((file) => {
-//         fs.unlink(file.path, (err) => {
-//           if (err) console.error("File cleanup failed:", err.message);
-//         });
-//       });
-//     }
-
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Internal Server Error",
-//     });
-//   }
-// };
-
-// module.exports.addNewInstallationData = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
-//       req.body;
-
-//     // Parse the array if sent as JSON string (for form-data)
-//     const dispatchedSystems =
-//       typeof dispatchedSystem === "string"
-//         ? JSON.parse(dispatchedSystem)
-//         : dispatchedSystem;
-
-//     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "No dispatched systems provided" });
-
-//     const uploadedFiles = req.files || [];
-//     if (uploadedFiles.length === 0)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "No bill photos uploaded" });
-
-//     const billPhotosMap = {};
-//     uploadedFiles.forEach((file) => {
-//       const match = file.fieldname.match(/dispatchBillPhoto(\d+)/);
-//       if (match) billPhotosMap[parseInt(match[1], 10) - 1] = file;
-//     });
-
-//     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
-//       return res.status(400).json({
-//         success: false,
-//         message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
-//       });
-
-//     if (!driverName || !driverContact || !vehicleNumber)
-//       return res.status(400).json({
-//         success: false,
-//         message: "Driver name, contact, and vehicle number are required",
-//       });
-
-//     const requiredKeys = [
-//       "installerId",
-//       "farmerSaralId",
-//       "systemId",
-//       "pumpId",
-//       "controllerId",
-//     ];
-//     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
-//     if (!keyValidation.success) return res.status(400).json(keyValidation);
-
-//     const warehousePersonId = req.user._id;
-//     const warehouseId = req.user.warehouse;
-//     const warehouseData =
-//       await Warehouse.findById(warehouseId).session(session);
-//     if (!warehouseData) throw new Error("Warehouse not found");
-
-//     const stateMap = {
-//       Bhiwani: "Haryana",
-//       "Maharashtra Warehouse - Ambad": "Maharashtra",
-//       "Korba Chhattisgarh": "Chhattisgarh",
-//     };
-//     const state = stateMap[warehouseData.warehouseName] || "";
-
-//     const dispatchDetails = new DispatchDetails({
-//       driverName,
-//       driverContact,
-//       vehicleNumber,
-//       dispatchedBy: warehousePersonId,
-//       warehouseId,
-//       dispatchedSystems: [],
-//     });
-//     await dispatchDetails.save({ session });
-
-//     const farmerActivities = [];
-//     const assignedEmps = [];
-
-//     for (let i = 0; i < dispatchedSystems.length; i++) {
-//       const system = dispatchedSystems[i];
-//       const billPhotoFile = billPhotosMap[i];
-//       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
-
-//       // Ensure farmer not already dispatched
-//       const existingActivity = await FarmerItemsActivity.findOne({
-//         farmerSaralId: system.farmerSaralId,
-//       }).session(session);
-//       if (existingActivity)
-//         throw new Error(
-//           `Farmer ${system.farmerSaralId} system already dispatched`
-//         );
-
-//       // Identify installer
-//       let empData = await ServicePerson.findById(system.installerId).session(
-//         session
-//       );
-//       let refType = "ServicePerson";
-//       if (!empData) {
-//         empData = await SurveyPerson.findById(system.installerId).session(
-//           session
-//         );
-//         if (!empData) throw new Error("Installer not found");
-//         refType = "SurveyPerson";
-//       }
-
-//       // ------------------------------
-//       // 1️⃣ Fetch system items
-//       // ------------------------------
-//       const systemItems = await SystemItemMap.find({
-//         systemId: system.systemId,
-//       })
-//         .populate("systemItemId", "itemName")
-//         .session(session);
-
-//       if (!systemItems.length)
-//         throw new Error(
-//           `No system items found for systemId: ${system.systemId}`
-//         );
-
-//       // ------------------------------
-//       // 2️⃣ Keep only selected pump, remove others and controllers
-//       // ------------------------------
-//       const filteredSystemItems = systemItems.filter((item) => {
-//         const name = item.systemItemId?.itemName?.toLowerCase() || "";
-
-//         if (name.includes("controller")) return false; // ❌ Remove controllers
-//         if (
-//           name.includes("pump") &&
-//           item.systemItemId._id.toString() !== system.pumpId.toString()
-//         )
-//           return false; // ❌ Remove pumps other than selected
-
-//         return true;
-//       });
-
-//       // Ensure selected pump actually exists
-//       const selectedPump = systemItems.find(
-//         (item) => item.systemItemId._id.toString() === system.pumpId.toString()
-//       );
-//       if (!selectedPump)
-//         throw new Error(`Pump with ID ${system.pumpId} not found`);
-
-//       // ------------------------------
-//       // 3️⃣ Fetch pump components excluding controllers
-//       // ------------------------------
-//       const pumpComponents = await ItemComponentMap.find({
-//         systemId: system.systemId,
-//         systemItemId: system.pumpId,
-//       })
-//         .populate("subItemId", "itemName")
-//         .session(session);
-
-//       const filteredPumpComponents = pumpComponents.filter((comp) => {
-//         const name = comp.subItemId?.itemName?.toLowerCase() || "";
-//         if (name.includes("controller") || name.includes("rmu")) return false; // ❌ Remove controllers/RMUs
-//         return true;
-//       });
-
-//       // ------------------------------
-//       // 4️⃣ Merge lists
-//       // ------------------------------
-//       const itemsList = [
-//         ...filteredSystemItems.map((item) => ({
-//           systemItemId: item.systemItemId._id,
-//           quantity: item.quantity,
-//         })),
-//         ...filteredPumpComponents.map((comp) => ({
-//           systemItemId: comp.subItemId._id,
-//           quantity: comp.quantity,
-//         })),
-//       ];
-
-//       // ------------------------------
-//       // 5️⃣ Add the selected pump
-//       // ------------------------------
-//       itemsList.push({
-//         systemItemId: selectedPump.systemItemId._id,
-//         quantity: selectedPump.quantity,
-//       });
-
-//       // ------------------------------
-//       // 6️⃣ Add the controller from frontend
-//       // ------------------------------
-//       if (system.controllerId) {
-//         const controllerItem = await SystemItem.findById(
-//           system.controllerId
-//         ).session(session);
-//         if (!controllerItem) throw new Error("Controller not found");
-//         itemsList.push({
-//           systemItemId: controllerItem._id,
-//           quantity: 1,
-//         });
-//       }
-
-//       // ------------------------------
-//       // 7️⃣ Deduplicate items
-//       // ------------------------------
-//       const uniqueItemsMap = new Map();
-
-//       for (const item of itemsList) {
-//         const id = item.systemItemId.toString();
-//         if (uniqueItemsMap.has(id)) {
-//           uniqueItemsMap.get(id).quantity += item.quantity;
-//         } else {
-//           uniqueItemsMap.set(id, { ...item });
-//         }
-//       }
-
-//       // ✅ Add pump only if not already merged above
-//       if (!uniqueItemsMap.has(system.pumpId.toString())) {
-//         uniqueItemsMap.set(system.pumpId.toString(), {
-//           systemItemId: system.pumpId,
-//           quantity: selectedPump.quantity,
-//         });
-//       }
-
-//       const finalItemsList = Array.from(uniqueItemsMap.values());
-//       console.log("Final Items List: ", finalItemsList);
-//       // ------------------------------
-//       // 8️⃣ Deduct stock
-//       // ------------------------------
-//       for (const item of finalItemsList) {
-//         const stockDoc = await InstallationInventory.findOne({
-//           warehouseId,
-//           systemItemId: item.systemItemId,
-//         })
-//           .populate("systemItemId")
-//           .session(session);
-
-//         if (!stockDoc)
-//           throw new Error(`Item not found in inventory: ${item.systemItemId}`);
-
-//         if (stockDoc.quantity < item.quantity)
-//           throw new Error(
-//             `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
-//           );
-
-//         const roundTo = (num, digits = 2) =>
-//           Math.round(num * Math.pow(10, digits)) / Math.pow(10, digits);
-
-//         stockDoc.quantity = roundTo(stockDoc.quantity - item.quantity, 2);
-//         stockDoc.updatedAt = new Date();
-//         stockDoc.updatedBy = warehousePersonId;
-//         await stockDoc.save({ session });
-//       }
-
-//       // ------------------------------
-//       // 9️⃣ Save farmer activity
-//       // ------------------------------
-//       const farmerActivity = new FarmerItemsActivity({
-//         referenceType: refType,
-//         warehouseId,
-//         farmerSaralId: system.farmerSaralId,
-//         empId: system.installerId,
-//         systemId: system.systemId,
-//         itemsList: finalItemsList,
-//         panelNumbers: [],
-//         pumpNumber: "",
-//         controllerNumber: "",
-//         rmuNumber: "",
-//         motorNumber: "",
-//         state,
-//         createdBy: warehousePersonId,
-//       });
-//       await farmerActivity.save({ session });
-
-//       // ------------------------------
-//       // 🔟 Save assigned emp
-//       // ------------------------------
-//       const assignedEmp = new InstallationAssignEmp({
-//         referenceType: refType,
-//         warehouseId,
-//         empId: system.installerId,
-//         farmerSaralId: system.farmerSaralId,
-//         systemId: system.systemId,
-//         itemsList: finalItemsList,
-//         extraItemsList: [],
-//         createdBy: warehousePersonId,
-//       });
-//       await assignedEmp.save({ session });
-
-//       // ------------------------------
-//       // 11️⃣ Save bill photo
-//       // ------------------------------
-//       const dispatchBillPhoto = new DispatchBillPhoto({
-//         dispatchId: dispatchDetails._id,
-//         farmerActivityId: farmerActivity._id,
-//         billPhoto: billPhotoPath,
-//       });
-//       await dispatchBillPhoto.save({ session });
-
-//       farmerActivities.push(farmerActivity);
-//       assignedEmps.push(assignedEmp);
-//       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
-//     }
-
-//     await dispatchDetails.save({ session });
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `${farmerActivities.length} systems dispatched successfully`,
-//       data: { dispatchDetails },
-//     });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     session.endSession();
-
-//     if (req.files) {
-//       req.files.forEach((file) => {
-//         fs.unlink(file.path, (err) => {
-//           if (err) console.error("File cleanup failed:", err.message);
-//         });
-//       });
-//     }
-
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Internal Server Error",
-//     });
-//   }
-// };
-
-// ✅ Updated addNewInstallationData with fixed pump duplication
 module.exports.addNewInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -2892,20 +2297,16 @@ module.exports.addNewInstallationData = async (req, res) => {
     });
 
     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
+      });
 
     if (!driverName || !driverContact || !vehicleNumber)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Driver name, contact, and vehicle number are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Driver name, contact, and vehicle number are required",
+      });
 
     const requiredKeys = [
       "installerId",
@@ -3123,13 +2524,11 @@ module.exports.addNewInstallationData = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: `${farmerActivities.length} systems dispatched successfully`,
-        data: { dispatchDetails },
-      });
+    return res.status(200).json({
+      success: true,
+      message: `${farmerActivities.length} systems dispatched successfully`,
+      data: { dispatchDetails },
+    });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -3140,766 +2539,307 @@ module.exports.addNewInstallationData = async (req, res) => {
       });
     }
 
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message || "Internal Server Error",
-      });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
   }
 };
 
-// module.exports.getDispatchHistory = async (req, res) => {
-//   try {
-//     const baseUrl = `${req.protocol}://${req.get("host")}`;
-//     const warehouseId = req.user?.warehouse;
-//     const history = await DispatchDetails.aggregate([
-//       { $sort: { createdAt: -1 } },
-//       {
-//         $lookup: {
-//           from: "inFarmerItemsActivities",
-//           localField: "dispatchedSystems",
-//           foreignField: "_id",
-//           as: "farmerActivities",
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "inSystems",
-//           localField: "farmerActivities.systemId",
-//           foreignField: "_id",
-//           as: "systemsInfo",
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "inDispatchBillPhotos",
-//           localField: "farmerActivities._id",
-//           foreignField: "farmerActivityId",
-//           as: "billPhotos",
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "inSystemItems",
-//           localField: "farmerActivities.itemsList.systemItemId",
-//           foreignField: "_id",
-//           as: "systemItems",
-//         },
-//       },
-//       {
-//         $addFields: {
-//           farmers: {
-//             $map: {
-//               input: "$farmerActivities",
-//               as: "fa",
-//               in: {
-//                 farmerSaralId: "$$fa.farmerSaralId",
-//                 systemName: {
-//                   $first: {
-//                     $map: {
-//                       input: {
-//                         $filter: {
-//                           input: "$systemsInfo",
-//                           as: "s",
-//                           cond: { $eq: ["$$s._id", "$$fa.systemId"] },
-//                         },
-//                       },
-//                       as: "matched",
-//                       in: "$$matched.systemName",
-//                     },
-//                   },
-//                 },
-//                 pumpData: {
-//                   $first: {
-//                     $map: {
-//                       input: {
-//                         $filter: {
-//                           input: {
-//                             $map: {
-//                               input: "$$fa.itemsList",
-//                               as: "it",
-//                               in: {
-//                                 $mergeObjects: [
-//                                   "$$it",
-//                                   {
-//                                     systemItemId: {
-//                                       $first: {
-//                                         $filter: {
-//                                           input: "$systemItems",
-//                                           as: "si",
-//                                           cond: {
-//                                             $eq: [
-//                                               "$$si._id",
-//                                               "$$it.systemItemId",
-//                                             ],
-//                                           },
-//                                         },
-//                                       },
-//                                     },
-//                                   },
-//                                 ],
-//                               },
-//                             },
-//                           },
-//                           as: "item",
-//                           cond: {
-//                             $regexMatch: {
-//                               input: "$$item.systemItemId.itemName",
-//                               regex: /pump/i,
-//                             },
-//                           },
-//                         },
-//                       },
-//                       as: "matched",
-//                       in: {
-//                         name: "$$matched.systemItemId.itemName",
-//                       },
-//                     },
-//                   },
-//                 },
-//                 billPhoto: {
-//                   $first: {
-//                     $map: {
-//                       input: {
-//                         $filter: {
-//                           input: "$billPhotos",
-//                           as: "bp",
-//                           cond: { $eq: ["$$bp.farmerActivityId", "$$fa._id"] },
-//                         },
-//                       },
-//                       as: "matched",
-//                       in: { $concat: [baseUrl, "$$matched.billPhoto"] }, // prepend full URL
-//                     },
-//                   },
-//                 },
-//               },
-//             },
-//           },
-//         },
-//       },
-//       {
-//         $project: {
-//           _id: 0,
-//           dispatchDate: "$createdAt",
-//           driverName: 1,
-//           driverContact: 1,
-//           vehicleNumber: 1,
-//           farmers: 1,
-//         },
-//       },
-//     ]);
+module.exports.addNewInstallationData2 = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-//     if (!history.length)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "No dispatch history found" });
+  try {
+    const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
+      req.body;
 
-//     return res.status(200).json({
-//       success: true,
-//       message: "Dispatch history fetched successfully",
-//       data: history,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     return res
-//       .status(500)
-//       .json({
-//         success: false,
-//         message: error.message || "Internal Server Error",
-//       });
-//   }
-// };
+    const dispatchedSystems =
+      typeof dispatchedSystem === "string"
+        ? JSON.parse(dispatchedSystem)
+        : dispatchedSystem;
 
-// module.exports.addNewInstallationData = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
+    if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
+      return res
+        .status(400)
+        .json({ success: false, message: "No dispatched systems provided" });
 
-//   try {
-//     const {
-//       farmerSaralId,
-//       empId,
-//       systemId,
-//       itemsList,
-//       extraItemsList,
-//       extraPanelNumbers,
-//       panelNumbers,
-//       pumpNumber,
-//       motorNumber,
-//       controllerNumber,
-//       rmuNumber,
-//     } = req.body;
-//     console.log(req.body);
-//     const warehousePersonId = req.user._id;
-//     const warehouseId = req.user.warehouse;
+    const uploadedFiles = req.files || [];
+    if (uploadedFiles.length === 0)
+      return res
+        .status(400)
+        .json({ success: false, message: "No bill photos uploaded" });
 
-//     // ✅ Fetch warehouse data
-//     const warehouseData =
-//       await Warehouse.findById(warehouseId).session(session);
-//     if (!warehouseData) {
-//       throw new Error("Warehouse Not Found");
-//     }
+    const billPhotosMap = {};
+    uploadedFiles.forEach((file) => {
+      const match = file.fieldname.match(/dispatchBillPhoto(\d+)/);
+      if (match) billPhotosMap[parseInt(match[1], 10) - 1] = file;
+    });
 
-//     // ✅ Determine State
-//     let state;
-//     const whName = warehouseData.warehouseName;
-//     if (["Bhiwani", "Jind", "Hisar", "Sirsa"].includes(whName)) {
-//       state = "Haryana";
-//     } else if (whName === "Maharashtra Warehouse - Ambad") {
-//       state = "Maharashtra";
-//     } else if (whName === "Korba Chhattisgarh") {
-//       state = "Chhattisgarh";
-//     }
-//     console.log("Determined state:", state);
-//     // ✅ Basic Validations
-//     if (
-//       !farmerSaralId ||
-//       !empId ||
-//       !systemId ||
-//       !itemsList ||
-//       !panelNumbers ||
-//       !pumpNumber ||
-//       !controllerNumber ||
-//       !rmuNumber ||
-//       !motorNumber
-//     ) {
-//       throw new Error("All fields are required");
-//     }
+    if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
+      return res.status(400).json({
+        success: false,
+        message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
+      });
 
-//     if (!Array.isArray(itemsList) || itemsList.length === 0) {
-//       throw new Error("ItemsList is empty");
-//     }
+    if (!driverName || !driverContact || !vehicleNumber)
+      return res.status(400).json({
+        success: false,
+        message: "Driver name, contact, and vehicle number are required",
+      });
 
-//     // ✅ Check if farmer activity already exists
-//     const existingFarmerActivity = await FarmerItemsActivity.findOne({
-//       farmerSaralId,
-//       systemId,
-//     }).session(session);
-//     if (existingFarmerActivity) {
-//       throw new Error("Farmer activity for this system already exists");
-//     }
+    const requiredKeys = [
+      "installerId",
+      "farmerSaralId",
+      "systemId",
+      "pumpId",
+      "controllerId",
+      "submersibleClampId",
+    ];
+    const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
+    if (!keyValidation.success) return res.status(400).json(keyValidation);
 
-//     // ✅ Determine Reference Type
-//     let refType;
-//     let empData = await ServicePerson.findById(empId).session(session);
-//     if (empData) {
-//       refType = "ServicePerson";
-//     } else {
-//       empData = await SurveyPerson.findById(empId).session(session);
-//       if (!empData) {
-//         throw new Error("EmpID Not Found In Database");
-//       }
-//       refType = "SurveyPerson";
-//     }
+    const warehousePersonId = req.user._id;
+    const warehouseId = req.user.warehouse;
+    const warehouseData =
+      await Warehouse.findById(warehouseId).session(session);
+    if (!warehouseData) throw new Error("Warehouse not found");
 
-//     // ✅ Merge itemsList + extraItemsList
-//     const combinedItemsMap = new Map();
-//     const accumulateItems = (list = []) => {
-//       for (const { systemItemId, quantity } of list) {
-//         if (!systemItemId || !quantity) continue;
-//         const key = systemItemId.toString();
-//         const prevQty = combinedItemsMap.get(key) || 0;
-//         combinedItemsMap.set(key, prevQty + parseInt(quantity));
-//       }
-//     };
-//     accumulateItems(itemsList);
-//     accumulateItems(extraItemsList);
+    const stateMap = {
+      Bhiwani: "Haryana",
+      "Maharashtra Warehouse - Ambad": "Maharashtra",
+      "Maharashtra Warehouse - Badnapur": "Maharashtra",
+      "Korba Chhattisgarh": "Chhattisgarh",
+    };
+    const state = stateMap[warehouseData.warehouseName] || "";
 
-//     const mergedItemList = Array.from(combinedItemsMap.entries()).map(
-//       ([systemItemId, quantity]) => ({
-//         systemItemId,
-//         quantity,
-//       })
-//     );
+    const dispatchDetails = new DispatchDetails({
+      driverName,
+      driverContact,
+      vehicleNumber,
+      dispatchedBy: warehousePersonId,
+      warehouseId,
+      dispatchedSystems: [],
+    });
+    await dispatchDetails.save({ session });
 
-//     // ✅ Process inventory updates
-//     let warehouseItemsData;
-//     if (state === "Haryana") {
-//       warehouseItemsData = await WarehouseItems.findOne({
-//         warehouse: warehouseId,
-//       }).session(session);
-//       if (!warehouseItemsData) {
-//         throw new Error("Warehouse Data Not Found");
-//       }
-//     }
+    const farmerActivities = [];
+    const assignedEmps = [];
 
-//     for (const { systemItemId, quantity } of mergedItemList) {
-//       const systemItemData =
-//         await SystemItem.findById(systemItemId).session(session);
-//       if (!systemItemData) {
-//         throw new Error("SystemItem Not Found");
-//       }
+    for (let i = 0; i < dispatchedSystems.length; i++) {
+      const system = dispatchedSystems[i];
+      const billPhotoFile = billPhotosMap[i];
+      const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
 
-//       const systemItemName = systemItemData.itemName || "";
-//       console.log("Processing item:", systemItemName, "Qty:", quantity);
+      const existingActivity = await FarmerItemsActivity.findOne({
+        farmerSaralId: system.farmerSaralId,
+      }).session(session);
 
-//       const inventoryItems = await InstallationInventory.find({ warehouseId })
-//         .populate({ path: "systemItemId", select: { itemName: 1 } })
-//         .session(session);
+      if (existingActivity)
+        throw new Error(
+          `Farmer ${system.farmerSaralId} system already dispatched`
+        );
 
-//       const inventoryItem = inventoryItems.find(
-//         (inv) =>
-//           inv.systemItemId?.itemName?.toLowerCase() ===
-//           systemItemName.toLowerCase()
-//       );
-//       if (!inventoryItem) {
-//         throw new Error(
-//           `SubItem "${systemItemName}" not found in warehouse inventory`
-//         );
-//       }
+      let empData = await ServicePerson.findById(system.installerId).session(
+        session
+      );
+      let refType = "ServicePerson";
 
-//       // if (inventoryItem.quantity < quantity) {
-//       //   throw new Error(`Insufficient stock for item "${systemItemName}"`);
-//       // }
+      if (!empData) {
+        empData = await SurveyPerson.findById(system.installerId).session(
+          session
+        );
+        if (!empData) throw new Error("Installer not found");
+        refType = "SurveyPerson";
+      }
 
-//       // ✅ Deduct from InstallationInventory (always)
-//       inventoryItem.quantity -= quantity;
-//       inventoryItem.updatedAt = new Date();
-//       inventoryItem.updatedBy = warehousePersonId;
-//       await inventoryItem.save({ session });
+      const systemItems = await SystemItemMap.find({
+        systemId: system.systemId,
+      })
+        .populate("systemItemId", "itemName")
+        .session(session);
+      if (!systemItems.length)
+        throw new Error(
+          `No system items found for systemId: ${system.systemId}`
+        );
 
-//       console.log("Condition check:", { state, systemItemName });
+      const filteredSystemItems = systemItems.filter((item) => {
+        const name = item.systemItemId?.itemName?.toLowerCase() || "";
+        if (name.includes("controller")) return false;
+        if (
+          name.includes("pump") &&
+          item.systemItemId._id.toString() !== system.pumpId.toString()
+        )
+          return false;
+        return true;
+      });
 
-//       // 🔹 Normalize helper
-//       const normalizeWords = (str) => (str || "").toLowerCase().split(/\s+/);
+      const selectedPump = systemItems.find(
+        (item) => item.systemItemId._id.toString() === system.pumpId.toString()
+      );
+      if (!selectedPump)
+        throw new Error(`Pump with ID ${system.pumpId} not found`);
 
-//       // 🔹 Motor condition
-//       if (state === "Haryana" && systemItemName === "MOTOR 10HP AC 440V") {
-//         console.log(
-//           "Applying Haryana-specific warehouse deduction for Motor:",
-//           systemItemName
-//         );
+      const pumpComponents = await ItemComponentMap.find({
+        systemId: system.systemId,
+        systemItemId: system.pumpId,
+      })
+        .populate("subItemId", "itemName")
+        .session(session);
+      const filteredPumpComponents = pumpComponents.filter((comp) => {
+        const name = comp.subItemId?.itemName?.toLowerCase() || "";
+        if (name.includes("controller") || name.includes("rmu")) return false;
+        return true;
+      });
 
-//         const motorNameNormalized = systemItemName.trim().toUpperCase();
-//         const updateResult = await WarehouseItems.updateOne(
-//           { _id: warehouseItemsData._id },
-//           { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
-//           {
-//             arrayFilters: [
-//               {
-//                 "elem.itemName": motorNameNormalized,
-//                 "elem.newStock": { $gte: parseInt(quantity, 10) },
-//               },
-//             ],
-//             session,
-//           }
-//         );
+      const itemsList = [
+        ...filteredSystemItems.map((item) => ({
+          systemItemId: item.systemItemId._id,
+          quantity: item.quantity,
+        })),
+        ...filteredPumpComponents.map((comp) => ({
+          systemItemId: comp.subItemId._id,
+          quantity: comp.quantity,
+        })),
+      ];
 
-//         console.log("Motor updateResult:", updateResult);
-//         if (updateResult.modifiedCount === 0) {
-//           throw new Error(
-//             `Motor update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check itemName/stock for "${motorNameNormalized}"`
-//           );
-//         }
+      // ✅ Controller add only once
+      if (system.controllerId) {
+        const controllerItem = await SystemItem.findById(
+          system.controllerId
+        ).session(session);
+        if (!controllerItem) throw new Error("Controller not found");
+        itemsList.push({ systemItemId: controllerItem._id, quantity: 1 });
+      }
 
-//         const updatedDoc = await WarehouseItems.findOne(
-//           { _id: warehouseItemsData._id },
-//           { items: { $elemMatch: { itemName: motorNameNormalized } } }
-//         ).session(session);
+      // ✅ Deduplicate
+      const uniqueItemsMap = new Map();
+      for (const item of itemsList) {
+        const id = item.systemItemId.toString();
+        uniqueItemsMap.set(
+          id,
+          uniqueItemsMap.has(id)
+            ? {
+                ...item,
+                quantity: uniqueItemsMap.get(id).quantity + item.quantity,
+              }
+            : { ...item }
+        );
+      }
 
-//         console.log("Updated Motor Item:", updatedDoc?.items?.[0]);
-//       }
+      // ✅ Ensure pump exists only once
+      if (!uniqueItemsMap.has(system.pumpId.toString())) {
+        uniqueItemsMap.set(system.pumpId.toString(), {
+          systemItemId: system.pumpId,
+          quantity: selectedPump.quantity,
+        });
+      }
 
-//       // 🔹 Pump condition
-//       if (
-//         state === "Haryana" &&
-//         systemItemName.toUpperCase().startsWith("PUMP")
-//       ) {
-//         console.log(
-//           "Applying Haryana-specific warehouse deduction for Pump:",
-//           systemItemName
-//         );
+      let finalItemsList = Array.from(uniqueItemsMap.values());
+      //console.log("Before Final Item List: ", finalItemsList);
+      console.log("Before Length: ", finalItemsList.length);
+      if (
+        system.submersibleClampId === null ||
+        system.submersibleClampId === ""
+      ) {
+        finalItemsList = finalItemsList.filter((item) => {
+          return (
+            item.systemItemId.toString() !==
+            system.submersibleClampId.toString()
+          );
+        });
+      }
+      //console.log("After Final Item List: ", finalItemsList);
+      console.log("After Length: ", finalItemsList.length);
 
-//         const mustHaveWords = normalizeWords(systemItemName);
-//         const regex = new RegExp(
-//           mustHaveWords.map((w) => `(?=.*${w})`).join(""),
-//           "i"
-//         );
+      for (const item of finalItemsList) {
+        const stockDoc = await InstallationInventory.findOne({
+          warehouseId,
+          systemItemId: item.systemItemId,
+        })
+          .populate("systemItemId")
+          .session(session);
 
-//         // Find actual pump name from warehouse data
-//         const matchedPump = warehouseItemsData.items.find((it) =>
-//           regex.test(it.itemName)
-//         );
-//         if (!matchedPump) {
-//           throw new Error(
-//             `Pump "${systemItemName}" not found in warehouse items`
-//           );
-//         }
-//         const pumpItemName = matchedPump.itemName;
+        if (!stockDoc)
+          throw new Error(`Item not found in inventory: ${item.systemItemId}`);
+        if (stockDoc.quantity < item.quantity)
+          throw new Error(
+            `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
+          );
 
-//         const updateResult = await WarehouseItems.updateOne(
-//           { _id: warehouseItemsData._id },
-//           { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
-//           {
-//             arrayFilters: [
-//               {
-//                 "elem.itemName": pumpItemName,
-//                 "elem.newStock": { $gte: parseInt(quantity, 10) },
-//               },
-//             ],
-//             session,
-//           }
-//         );
+        stockDoc.quantity =
+          Math.round((stockDoc.quantity - item.quantity) * 100) / 100;
+        stockDoc.updatedAt = new Date();
+        stockDoc.updatedBy = warehousePersonId;
+        await stockDoc.save({ session });
+      }
 
-//         console.log("Pump updateResult:", updateResult);
-//         if (updateResult.modifiedCount === 0) {
-//           throw new Error(
-//             `Pump update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount}). Check "${pumpItemName}" and stock`
-//           );
-//         }
+      const farmerActivity = new FarmerItemsActivity({
+        referenceType: refType,
+        warehouseId,
+        farmerSaralId: system.farmerSaralId,
+        empId: system.installerId,
+        systemId: system.systemId,
+        itemsList: finalItemsList,
+        panelNumbers: [],
+        pumpNumber: "",
+        controllerNumber: "",
+        rmuNumber: "",
+        motorNumber: "",
+        state,
+        createdBy: warehousePersonId,
+      });
+      await farmerActivity.save({ session });
 
-//         const updatedDoc = await WarehouseItems.findOne(
-//           { _id: warehouseItemsData._id },
-//           { items: { $elemMatch: { itemName: pumpItemName } } }
-//         ).session(session);
+      const assignedEmp = new InstallationAssignEmp({
+        referenceType: refType,
+        warehouseId,
+        empId: system.installerId,
+        farmerSaralId: system.farmerSaralId,
+        systemId: system.systemId,
+        itemsList: finalItemsList,
+        extraItemsList: [],
+        createdBy: warehousePersonId,
+      });
+      await assignedEmp.save({ session });
 
-//         console.log("Updated Pump Item:", updatedDoc?.items?.[0]);
-//       }
+      const dispatchBillPhoto = new DispatchBillPhoto({
+        dispatchId: dispatchDetails._id,
+        farmerActivityId: farmerActivity._id,
+        billPhoto: billPhotoPath,
+      });
+      await dispatchBillPhoto.save({ session });
 
-//       // 🔹 Controller condition
-//       if (
-//         state === "Haryana" &&
-//         systemItemName === "Controller - RMU - 10HP AC GALO"
-//       ) {
-//         console.log(
-//           "Applying Haryana-specific warehouse deduction for Controller:",
-//           systemItemName
-//         );
+      farmerActivities.push(farmerActivity);
+      assignedEmps.push(assignedEmp);
+      dispatchDetails.dispatchedSystems.push(farmerActivity._id);
+    }
+    return;
+    await dispatchDetails.save({ session });
+    await session.commitTransaction();
+    session.endSession();
 
-//         const normalizedName = "CONTROLLER 10HP AC GALO";
+    return res.status(200).json({
+      success: true,
+      message: `${farmerActivities.length} systems dispatched successfully`,
+      data: { dispatchDetails },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
 
-//         const updateResult = await WarehouseItems.updateOne(
-//           { _id: warehouseItemsData._id },
-//           { $inc: { "items.$[elem].newStock": -parseInt(quantity, 10) } },
-//           {
-//             arrayFilters: [
-//               {
-//                 "elem.itemName": normalizedName,
-//                 "elem.newStock": { $gte: parseInt(quantity, 10) },
-//               },
-//             ],
-//             session,
-//           }
-//         );
+    if (req.files) {
+      req.files.forEach((file) => {
+        fs.unlink(file.path, () => {});
+      });
+    }
 
-//         console.log("Controller updateResult:", updateResult);
-//         if (updateResult.modifiedCount === 0) {
-//           throw new Error(
-//             `Controller update failed (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount})`
-//           );
-//         }
-
-//         const updatedDoc = await WarehouseItems.findOne(
-//           { _id: warehouseItemsData._id },
-//           { items: { $elemMatch: { itemName: normalizedName } } }
-//         ).session(session);
-
-//         console.log("Updated Controller Item:", updatedDoc?.items?.[0]);
-//       }
-//     }
-
-//     // ✅ Save Farmer Activity
-//     const farmerActivity = new FarmerItemsActivity({
-//       warehouseId,
-//       referenceType: refType,
-//       farmerSaralId,
-//       empId,
-//       systemId,
-//       itemsList,
-//       extraItemsList: extraItemsList || [],
-//       extraPanelNumbers: extraPanelNumbers || [],
-//       panelNumbers,
-//       pumpNumber: pumpNumber.trim().toUpperCase(),
-//       motorNumber: motorNumber.trim().toUpperCase(),
-//       controllerNumber: controllerNumber.trim().toUpperCase(),
-//       rmuNumber: rmuNumber.trim().toUpperCase(),
-//       state,
-//       createdBy: warehousePersonId,
-//     });
-
-//     await farmerActivity.save({ session });
-
-//     // ✅ Save Installation Assignment
-//     const empAccountData = new InstallationAssignEmp({
-//       warehouseId,
-//       referenceType: refType,
-//       empId,
-//       farmerSaralId,
-//       systemId,
-//       itemsList,
-//       extraItemsList,
-//       createdBy: warehousePersonId,
-//     });
-
-//     await empAccountData.save({ session });
-
-//     // ✅ Mark serial numbers as used (inside transaction)
-//     const updates = [];
-
-//     // Panel Numbers (multiple)
-//     if (Array.isArray(panelNumbers)) {
-//       panelNumbers.forEach((sn) => {
-//         updates.push({
-//           updateOne: {
-//             filter: {
-//               productType: "panel",
-//               serialNumber: sn.toUpperCase(),
-//               state,
-//             },
-//             update: { $set: { isUsed: true } },
-//           },
-//         });
-//       });
-//     }
-
-//     // Pump
-//     updates.push({
-//       updateOne: {
-//         filter: {
-//           productType: "pump",
-//           serialNumber: pumpNumber.toUpperCase(),
-//           state,
-//         },
-//         update: { $set: { isUsed: true } },
-//       },
-//     });
-
-//     // Motor
-//     updates.push({
-//       updateOne: {
-//         filter: {
-//           productType: "motor",
-//           serialNumber: motorNumber.toUpperCase(),
-//           state,
-//         },
-//         update: { $set: { isUsed: true } },
-//       },
-//     });
-
-//     // Controller
-//     updates.push({
-//       updateOne: {
-//         filter: {
-//           productType: "controller",
-//           serialNumber: controllerNumber.toUpperCase(),
-//           state,
-//         },
-//         update: { $set: { isUsed: true } },
-//       },
-//     });
-
-//     // RMU
-//     updates.push({
-//       updateOne: {
-//         filter: {
-//           productType: "rmu",
-//           serialNumber: rmuNumber.toUpperCase(),
-//           state,
-//         },
-//         update: { $set: { isUsed: true } },
-//       },
-//     });
-
-//     if (updates.length > 0) {
-//       await SerialNumber.bulkWrite(updates, { session });
-//     }
-
-//     // ✅ Commit transaction
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Data Saved Successfully & Serial Numbers Marked as Used",
-//     });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     console.error("Error in addNewInstallationData:", error.message);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
-
-// module.exports.getDispatchHistory = async (req, res) => {
-//   try {
-//     const baseUrl = `${req.protocol}://${req.get("host")}`;
-//     const warehouseId = req.user?.warehouse;
-
-//     const history = await DispatchDetails.aggregate([
-//       // ✅ Filter by warehouseId (convert to ObjectId)
-//       {
-//         $match: {
-//           warehouseId: new mongoose.Types.ObjectId(warehouseId),
-//         },
-//       },
-
-//       // Sort by newest first
-//       { $sort: { createdAt: -1 } },
-
-//       // Lookups
-//       {
-//         $lookup: {
-//           from: "inFarmerItemsActivities",
-//           localField: "dispatchedSystems",
-//           foreignField: "_id",
-//           as: "farmerActivities",
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "inSystems",
-//           localField: "farmerActivities.systemId",
-//           foreignField: "_id",
-//           as: "systemsInfo",
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "inDispatchBillPhotos",
-//           localField: "farmerActivities._id",
-//           foreignField: "farmerActivityId",
-//           as: "billPhotos",
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "inSystemItems",
-//           localField: "farmerActivities.itemsList.systemItemId",
-//           foreignField: "_id",
-//           as: "systemItems",
-//         },
-//       },
-
-//       // Add combined farmer and item info
-//       {
-//         $addFields: {
-//           farmers: {
-//             $map: {
-//               input: "$farmerActivities",
-//               as: "fa",
-//               in: {
-//                 farmerSaralId: "$$fa.farmerSaralId",
-//                 systemName: {
-//                   $first: {
-//                     $map: {
-//                       input: {
-//                         $filter: {
-//                           input: "$systemsInfo",
-//                           as: "s",
-//                           cond: { $eq: ["$$s._id", "$$fa.systemId"] },
-//                         },
-//                       },
-//                       as: "matched",
-//                       in: "$$matched.systemName",
-//                     },
-//                   },
-//                 },
-//                 pumpData: {
-//                   $first: {
-//                     $map: {
-//                       input: {
-//                         $filter: {
-//                           input: {
-//                             $map: {
-//                               input: "$$fa.itemsList",
-//                               as: "it",
-//                               in: {
-//                                 $mergeObjects: [
-//                                   "$$it",
-//                                   {
-//                                     systemItemId: {
-//                                       $first: {
-//                                         $filter: {
-//                                           input: "$systemItems",
-//                                           as: "si",
-//                                           cond: {
-//                                             $eq: [
-//                                               "$$si._id",
-//                                               "$$it.systemItemId",
-//                                             ],
-//                                           },
-//                                         },
-//                                       },
-//                                     },
-//                                   },
-//                                 ],
-//                               },
-//                             },
-//                           },
-//                           as: "item",
-//                           cond: {
-//                             $regexMatch: {
-//                               input: "$$item.systemItemId.itemName",
-//                               regex: /pump/i,
-//                             },
-//                           },
-//                         },
-//                       },
-//                       as: "matched",
-//                       in: {
-//                         name: "$$matched.systemItemId.itemName",
-//                       },
-//                     },
-//                   },
-//                 },
-//                 billPhoto: {
-//                   $first: {
-//                     $map: {
-//                       input: {
-//                         $filter: {
-//                           input: "$billPhotos",
-//                           as: "bp",
-//                           cond: { $eq: ["$$bp.farmerActivityId", "$$fa._id"] },
-//                         },
-//                       },
-//                       as: "matched",
-//                       in: { $concat: [baseUrl, "$$matched.billPhoto"] },
-//                     },
-//                   },
-//                 },
-//               },
-//             },
-//           },
-//         },
-//       },
-
-//       // Only show the necessary fields
-//       {
-//         $project: {
-//           _id: 0,
-//           dispatchDate: "$createdAt",
-//           driverName: 1,
-//           driverContact: 1,
-//           vehicleNumber: 1,
-//           farmers: 1,
-//         },
-//       },
-//     ]);
-
-//     if (!history.length) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "No dispatch history found for this warehouse",
-//       });
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Dispatch history fetched successfully",
-//       data: history,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Internal Server Error",
-//     });
-//   }
-// };
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
 
 module.exports.getDispatchHistory = async (req, res) => {
   try {
@@ -4499,7 +3439,8 @@ module.exports.warehouse2WarehouseTransaction = async (req, res) => {
           throw new Error(`Invalid systemItemId: ${systemItemId}`);
         }
 
-        const systemItemData = await SystemItem.findById(systemItemId).session(session);
+        const systemItemData =
+          await SystemItem.findById(systemItemId).session(session);
         if (!systemItemData) {
           throw new Error(`SystemItem not found for ID: ${systemItemId}`);
         }
@@ -4690,7 +3631,9 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
       });
     }
 
-    let incomingSystemItems = await SystemInventoryWToW.findOne({ _id: transactionId })
+    let incomingSystemItems = await SystemInventoryWToW.findOne({
+      _id: transactionId,
+    })
       .populate({
         path: "fromWarehouse",
         select: { _id: 1, warehouseName: 1 },
@@ -4733,7 +3676,8 @@ module.exports.acceptingWToWIncomingItems = async (req, res) => {
           throw new Error(`Invalid systemItemId: ${systemItemId}`);
         }
 
-        const systemItemData = await SystemItem.findById(systemItemId).session(session);
+        const systemItemData =
+          await SystemItem.findById(systemItemId).session(session);
         if (!systemItemData) {
           throw new Error(`SystemItem not found for ID: ${systemItemId}`);
         }
@@ -5579,15 +4523,30 @@ module.exports.addOutgoingItemsData = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { fromWarehouse, toServiceCenter, farmers, driverName, driverContact, vehicleNumber } = req.body;
+    const {
+      fromWarehouse,
+      toServiceCenter,
+      farmers,
+      driverName,
+      driverContact,
+      vehicleNumber,
+    } = req.body;
 
     // 🔹 Step 1: Validate required fields
-    if (!fromWarehouse || !toServiceCenter || !farmers || !driverName || !driverContact || !vehicleNumber) {
+    if (
+      !fromWarehouse ||
+      !toServiceCenter ||
+      !farmers ||
+      !driverName ||
+      !driverContact ||
+      !vehicleNumber
+    ) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: "fromWarehouse, toServiceCenter, farmers, driver name, driver contact and vehicle number are required.",
+        message:
+          "fromWarehouse, toServiceCenter, farmers, driver name, driver contact and vehicle number are required.",
       });
     }
 
@@ -5616,12 +4575,17 @@ module.exports.addOutgoingItemsData = async (req, res) => {
 
     // 🔹 Step 3: Validate each farmer's items
     for (const farmer of farmers) {
-      if (!farmer.farmerSaralId || !Array.isArray(farmer.items) || farmer.items.length === 0) {
+      if (
+        !farmer.farmerSaralId ||
+        !Array.isArray(farmer.items) ||
+        farmer.items.length === 0
+      ) {
         await session.abortTransaction();
         session.endSession();
         return res.status(400).json({
           success: false,
-          message: "Each farmer must have a farmerSaralId and a non-empty items array.",
+          message:
+            "Each farmer must have a farmerSaralId and a non-empty items array.",
         });
       }
 
@@ -5734,13 +4698,16 @@ module.exports.showOutgoingItemsData = async (req, res) => {
       const docObj = doc.toObject();
 
       // 🔹 Find all receiving batches for this outgoing record
-      const receivingBatches = await ReceivingItems.find({ outgoingId: docObj._id });
+      const receivingBatches = await ReceivingItems.find({
+        outgoingId: docObj._id,
+      });
 
       // 🔹 Create map of received quantities for comparison
       const receivedMap = {};
       receivingBatches.forEach((batch) => {
         batch.farmers.forEach((farmer) => {
-          if (!receivedMap[farmer.farmerSaralId]) receivedMap[farmer.farmerSaralId] = {};
+          if (!receivedMap[farmer.farmerSaralId])
+            receivedMap[farmer.farmerSaralId] = {};
           farmer.receivedItems.forEach((item) => {
             if (!receivedMap[farmer.farmerSaralId][item.itemName])
               receivedMap[farmer.farmerSaralId][item.itemName] = 0;
@@ -5810,7 +4777,14 @@ module.exports.addReceivingItemsData = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { outgoingId, farmers, remarks, driverName, driverContact, vehicleNumber } = req.body;
+    const {
+      outgoingId,
+      farmers,
+      remarks,
+      driverName,
+      driverContact,
+      vehicleNumber,
+    } = req.body;
     const warehouseId = req.user?.warehouse;
 
     // 🔹 Step 1: Basic validation
@@ -5843,18 +4817,21 @@ module.exports.addReceivingItemsData = async (req, res) => {
       });
     }
 
-    if(outgoing.status === "Fully Received") {
+    if (outgoing.status === "Fully Received") {
       await session.abortTransaction();
       session.endSession();
       return res.status(404).json({
         success: false,
-        message: "Status - Fully Received for the outgoing record. Cannot accept any item for this record now.",
+        message:
+          "Status - Fully Received for the outgoing record. Cannot accept any item for this record now.",
       });
     }
 
     // 🔹 Step 3: Validate each farmer and item exist in outgoing
     for (const farmer of farmers) {
-      const outgoingFarmer = outgoing.farmers.find(f => f.farmerSaralId === farmer.farmerSaralId);
+      const outgoingFarmer = outgoing.farmers.find(
+        (f) => f.farmerSaralId === farmer.farmerSaralId
+      );
 
       if (!outgoingFarmer) {
         await session.abortTransaction();
@@ -5867,7 +4844,7 @@ module.exports.addReceivingItemsData = async (req, res) => {
 
       for (const recvItem of farmer.receivedItems) {
         const outItem = outgoingFarmer.items.find(
-          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+          (i) => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
         );
 
         if (!outItem) {
@@ -5882,7 +4859,9 @@ module.exports.addReceivingItemsData = async (req, res) => {
     }
 
     // 🔹 Step 4: Find warehouse
-    const warehouse = await WarehouseItems.findOne({ warehouse: warehouseId }).session(session);
+    const warehouse = await WarehouseItems.findOne({
+      warehouse: warehouseId,
+    }).session(session);
     if (!warehouse) {
       await session.abortTransaction();
       session.endSession();
@@ -5896,7 +4875,7 @@ module.exports.addReceivingItemsData = async (req, res) => {
     for (const farmer of farmers) {
       for (const recvItem of farmer.receivedItems) {
         const itemInWarehouse = warehouse.items.find(
-          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+          (i) => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
         );
 
         if (!itemInWarehouse) {
@@ -5911,21 +4890,23 @@ module.exports.addReceivingItemsData = async (req, res) => {
     }
 
     // 🔹 Step 5.5: Prevent duplicate receiving for already fully received items
-    const previousReceivings = await ReceivingItems.find({ outgoingId }).session(session);
+    const previousReceivings = await ReceivingItems.find({
+      outgoingId,
+    }).session(session);
 
     // Build cumulative map
     const totalReceivedMap = {};
-    outgoing.farmers.forEach(farmer => {
+    outgoing.farmers.forEach((farmer) => {
       totalReceivedMap[farmer.farmerSaralId] = {};
-      farmer.items.forEach(item => {
+      farmer.items.forEach((item) => {
         totalReceivedMap[farmer.farmerSaralId][item.itemName.toLowerCase()] = 0;
       });
     });
 
     // Add all previous received quantities
-    previousReceivings.forEach(rec => {
-      rec.farmers.forEach(farmerRec => {
-        farmerRec.receivedItems.forEach(recvItem => {
+    previousReceivings.forEach((rec) => {
+      rec.farmers.forEach((farmerRec) => {
+        farmerRec.receivedItems.forEach((recvItem) => {
           const key = recvItem.itemName.toLowerCase();
           if (
             totalReceivedMap[farmerRec.farmerSaralId] &&
@@ -5939,17 +4920,21 @@ module.exports.addReceivingItemsData = async (req, res) => {
 
     // Validate that new items don’t exceed remaining quantity
     for (const farmer of farmers) {
-      const outgoingFarmer = outgoing.farmers.find(f => f.farmerSaralId === farmer.farmerSaralId);
+      const outgoingFarmer = outgoing.farmers.find(
+        (f) => f.farmerSaralId === farmer.farmerSaralId
+      );
       if (!outgoingFarmer) continue;
 
       for (const recvItem of farmer.receivedItems) {
         const outItem = outgoingFarmer.items.find(
-          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+          (i) => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
         );
         if (!outItem) continue;
 
         const alreadyReceived =
-          totalReceivedMap[farmer.farmerSaralId][recvItem.itemName.toLowerCase()] || 0;
+          totalReceivedMap[farmer.farmerSaralId][
+            recvItem.itemName.toLowerCase()
+          ] || 0;
         const remainingQty = outItem.quantity - alreadyReceived;
 
         if (remainingQty <= 0) {
@@ -5987,7 +4972,7 @@ module.exports.addReceivingItemsData = async (req, res) => {
     for (const farmer of farmers) {
       for (const recvItem of farmer.receivedItems) {
         const warehouseItem = warehouse.items.find(
-          i => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
+          (i) => i.itemName.toLowerCase() === recvItem.itemName.toLowerCase()
         );
         warehouseItem.quantity += recvItem.quantity;
       }
@@ -5995,22 +4980,28 @@ module.exports.addReceivingItemsData = async (req, res) => {
     await warehouse.save({ session });
 
     // 🔹 Step 8: Recalculate total received quantities and outgoing status
-    const allReceivings = await ReceivingItems.find({ outgoingId }).session(session);
+    const allReceivings = await ReceivingItems.find({ outgoingId }).session(
+      session
+    );
 
     const receivedMap = {};
-    outgoing.farmers.forEach(farmer => {
+    outgoing.farmers.forEach((farmer) => {
       receivedMap[farmer.farmerSaralId] = {};
-      farmer.items.forEach(item => {
+      farmer.items.forEach((item) => {
         receivedMap[farmer.farmerSaralId][item.itemName] = 0;
       });
     });
 
-    allReceivings.forEach(rec => {
-      rec.farmers.forEach(farmerRec => {
+    allReceivings.forEach((rec) => {
+      rec.farmers.forEach((farmerRec) => {
         if (!receivedMap[farmerRec.farmerSaralId]) return;
-        farmerRec.receivedItems.forEach(recvItem => {
-          if (receivedMap[farmerRec.farmerSaralId][recvItem.itemName] !== undefined) {
-            receivedMap[farmerRec.farmerSaralId][recvItem.itemName] += recvItem.quantity;
+        farmerRec.receivedItems.forEach((recvItem) => {
+          if (
+            receivedMap[farmerRec.farmerSaralId][recvItem.itemName] !==
+            undefined
+          ) {
+            receivedMap[farmerRec.farmerSaralId][recvItem.itemName] +=
+              recvItem.quantity;
           }
         });
       });
@@ -6060,7 +5051,9 @@ module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
 
     const warehouseData = await Warehouse.findById(warehouseId);
     if (!warehouseData) {
-      return res.status(404).json({ success: false, message: "Warehouse Not Found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Warehouse Not Found." });
     }
 
     // Fetch all receiving records with outgoing info
@@ -6068,19 +5061,22 @@ module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
       .populate({
         path: "outgoingId",
         match: { fromWarehouse: warehouseData.warehouseName },
-        select: "fromWarehouse toServiceCenter farmers receivedDate driverName driverContact vehicleNumber",
+        select:
+          "fromWarehouse toServiceCenter farmers receivedDate driverName driverContact vehicleNumber",
       })
       .sort({ receivedDate: -1 });
 
-    receivingRecords = receivingRecords.filter(rec => rec.outgoingId);
+    receivingRecords = receivingRecords.filter((rec) => rec.outgoingId);
 
     if (receivingRecords.length === 0) {
-      return res.status(404).json({ success: false, message: "No receiving records found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "No receiving records found." });
     }
 
     const groupedData = {};
 
-    receivingRecords.forEach(rec => {
+    receivingRecords.forEach((rec) => {
       const outgoingId = rec.outgoingId._id.toString();
 
       if (!groupedData[outgoingId]) {
@@ -6102,23 +5098,28 @@ module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
 
         // Initialize farmers/items
         if (Array.isArray(rec.outgoingId.farmers)) {
-          rec.outgoingId.farmers.forEach(farmer => {
+          rec.outgoingId.farmers.forEach((farmer) => {
             groupedData[outgoingId].farmers[farmer.farmerSaralId] = {
               items: {},
             };
             if (Array.isArray(farmer.items)) {
-              farmer.items.forEach(item => {
-                groupedData[outgoingId].farmers[farmer.farmerSaralId].items[item.itemName] = {
+              farmer.items.forEach((item) => {
+                groupedData[outgoingId].farmers[farmer.farmerSaralId].items[
+                  item.itemName
+                ] = {
                   quantity: item.quantity || 0,
                   receivedQuantity: 0,
                   pendingQuantity: item.quantity || 0,
                 };
                 groupedData[outgoingId].summary.totalItems += 1;
-                groupedData[outgoingId].summary.totalQuantitySent += item.quantity || 0;
+                groupedData[outgoingId].summary.totalQuantitySent +=
+                  item.quantity || 0;
               });
             }
           });
-          groupedData[outgoingId].summary.totalFarmers = Object.keys(groupedData[outgoingId].farmers).length;
+          groupedData[outgoingId].summary.totalFarmers = Object.keys(
+            groupedData[outgoingId].farmers
+          ).length;
         }
       }
 
@@ -6135,17 +5136,23 @@ module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
 
       // Accumulate received quantities
       if (Array.isArray(rec.farmers)) {
-        rec.farmers.forEach(farmerReceived => {
-          const farmerData = groupedData[outgoingId].farmers[farmerReceived.farmerSaralId];
-          if (!farmerData || !Array.isArray(farmerReceived.receivedItems)) return;
+        rec.farmers.forEach((farmerReceived) => {
+          const farmerData =
+            groupedData[outgoingId].farmers[farmerReceived.farmerSaralId];
+          if (!farmerData || !Array.isArray(farmerReceived.receivedItems))
+            return;
 
-          farmerReceived.receivedItems.forEach(recvItem => {
-            if (!recvItem?.itemName || typeof recvItem.quantity !== "number") return;
+          farmerReceived.receivedItems.forEach((recvItem) => {
+            if (!recvItem?.itemName || typeof recvItem.quantity !== "number")
+              return;
 
             const itemData = farmerData.items[recvItem.itemName];
             if (itemData) {
               itemData.receivedQuantity += recvItem.quantity;
-              itemData.pendingQuantity = Math.max(itemData.quantity - itemData.receivedQuantity, 0);
+              itemData.pendingQuantity = Math.max(
+                itemData.quantity - itemData.receivedQuantity,
+                0
+              );
             }
           });
         });
@@ -6153,50 +5160,59 @@ module.exports.receivingDataGroupedByOutgoing = async (req, res) => {
     });
 
     // Flatten farmers/items and calculate summary
-    const result = Object.values(groupedData).map(outgoing => {
-      let totalReceived = 0;
-      let totalPending = 0;
-      let fullyReceived = true;
-      let partiallyReceived = false;
+    const result = Object.values(groupedData)
+      .map((outgoing) => {
+        let totalReceived = 0;
+        let totalPending = 0;
+        let fullyReceived = true;
+        let partiallyReceived = false;
 
-      // Convert farmers object to array, keep only items received
-      const farmersArray = Object.entries(outgoing.farmers)
-        .map(([farmerId, farmerData]) => {
-          const itemsArray = Object.entries(farmerData.items)
-            .filter(([_, item]) => item.receivedQuantity > 0) // only received items
-            .map(([itemName, item]) => {
-              totalReceived += item.receivedQuantity;
-              totalPending += item.pendingQuantity;
+        // Convert farmers object to array, keep only items received
+        const farmersArray = Object.entries(outgoing.farmers)
+          .map(([farmerId, farmerData]) => {
+            const itemsArray = Object.entries(farmerData.items)
+              .filter(([_, item]) => item.receivedQuantity > 0) // only received items
+              .map(([itemName, item]) => {
+                totalReceived += item.receivedQuantity;
+                totalPending += item.pendingQuantity;
 
-              if (item.receivedQuantity === 0) fullyReceived = false;
-              if (item.receivedQuantity > 0 && item.receivedQuantity < item.quantity) {
-                fullyReceived = false;
-                partiallyReceived = true;
-              }
-              if (item.receivedQuantity === item.quantity) partiallyReceived = true;
+                if (item.receivedQuantity === 0) fullyReceived = false;
+                if (
+                  item.receivedQuantity > 0 &&
+                  item.receivedQuantity < item.quantity
+                ) {
+                  fullyReceived = false;
+                  partiallyReceived = true;
+                }
+                if (item.receivedQuantity === item.quantity)
+                  partiallyReceived = true;
 
-              return { itemName, ...item };
-            });
+                return { itemName, ...item };
+              });
 
-          if (itemsArray.length === 0) return null; // skip farmer with no received items
-          return { farmerSaralId: farmerId, items: itemsArray };
-        })
-        .filter(f => f !== null); // remove nulls
+            if (itemsArray.length === 0) return null; // skip farmer with no received items
+            return { farmerSaralId: farmerId, items: itemsArray };
+          })
+          .filter((f) => f !== null); // remove nulls
 
-      outgoing.farmers = farmersArray;
-      outgoing.outgoingStatus = fullyReceived ? "Fully Received" : partiallyReceived ? "Partially Received" : "Pending";
-      outgoing.summary.totalQuantityReceived = totalReceived;
-      outgoing.summary.totalQuantityPending = totalPending;
+        outgoing.farmers = farmersArray;
+        outgoing.outgoingStatus = fullyReceived
+          ? "Fully Received"
+          : partiallyReceived
+            ? "Partially Received"
+            : "Pending";
+        outgoing.summary.totalQuantityReceived = totalReceived;
+        outgoing.summary.totalQuantityPending = totalPending;
 
-      return outgoing;
-    }).filter(out => out.farmers.length > 0); // only outgoings with received items
+        return outgoing;
+      })
+      .filter((out) => out.farmers.length > 0); // only outgoings with received items
 
     return res.status(200).json({
       success: true,
       message: "Receiving records grouped by outgoing fetched successfully.",
       data: result,
     });
-
   } catch (error) {
     console.error("❌ Error fetching grouped receiving data:", error);
     return res.status(500).json({

@@ -504,9 +504,13 @@ const updateVendor = async (req, res) => {
   }
 };
 
+//for dropdown 
 const getCompaniesList = async (req, res) => {
   try {
     const companies = await prisma.company.findMany({
+      where: {
+        isActive: true
+      },
       select: {
         id: true,
         name: true,
@@ -526,6 +530,35 @@ const getCompaniesList = async (req, res) => {
       success: true,
       message: "Companies fetched successfully.",
       data: formattedCompanies || [],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const getCompaniesData = async (req, res) => {
+    try {
+    const companies = await prisma.company.findMany({
+      select: {
+        id: true,
+        name: true,
+        gstNumber: true,
+        state: true,
+        address: true,
+        isActive: true
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Companies fetched successfully.",
+      data: companies || [],
     });
   } catch (error) {
     return res.status(500).json({
@@ -559,6 +592,7 @@ const getCompanyById = async (req, res) => {
         email: true,
         country: true,
         currency: true,
+        isActive: true
       },
     });
 
@@ -582,6 +616,9 @@ const getCompanyById = async (req, res) => {
 const getVendorsList = async (req, res) => {
   try {
     const vendors = await prisma.vendor.findMany({
+      where: {
+        isActive: true
+      },
       select: {
         id: true,
         name: true,
@@ -601,6 +638,35 @@ const getVendorsList = async (req, res) => {
       success: true,
       message: "Vendors fetched successfully.",
       data: formattedVendors || [],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const getVendorsData = async (req, res) => {
+    try {
+    const vendors = await prisma.vendor.findMany({
+      select: {
+        id: true,
+        name: true,
+        gstNumber: true,
+        state: true,
+        address: true,
+        isActive: true
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Vendors fetched successfully.",
+      data: vendors || [],
     });
   } catch (error) {
     return res.status(500).json({
@@ -634,6 +700,7 @@ const getVendorById = async (req, res) => {
         exchangeRate: true,
         contactNumber: true,
         alternateNumber: true,
+        isActive: true
       },
     });
 
@@ -2359,7 +2426,6 @@ const downloadPOPDF2 = async (req, res) => {
   }
 };
 
-
 //----------------- Send PO -------------------//
 // const sendPO = async (req, res) => {
 //   try {
@@ -3054,7 +3120,6 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   }
 };
 
-
 function getFinancialYearRange() {
   const now = getISTDate();
   const year = now.getFullYear();
@@ -3187,6 +3252,8 @@ module.exports = {
   getVendorById,
   createOrUpdatePurchaseOrderReceipts,
   getPODashboard,
+  getCompaniesData,
+  getVendorsData
 };
 
 // [{

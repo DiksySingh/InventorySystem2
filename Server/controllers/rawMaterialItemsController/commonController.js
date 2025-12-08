@@ -1167,6 +1167,71 @@ const updateRawMaterialUsageFromExcel = async (req, res) => {
   }
 };
 
+const markCompanyOrVendorNotActive = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { isActive } = req.params;
+
+    isActive = isActive === "true";
+
+    const [company, vendor] = await Promise.all([
+      prisma.company.findUnique({ where: { id } }),
+      prisma.vendor.findUnique({ where: { id } })
+    ]);
+
+    if (!company && !vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "No company or vendor found with this ID"
+      });
+    }
+
+    let entityType = company ? "Company" : "Vendor";
+    let existingRecord = company || vendor;
+
+    if (existingRecord.isActive === isActive) {
+      return res.status(400).json({
+        success: false,
+        message: `${entityType} is already ${isActive ? "Active" : "Not Active"}`
+      });
+    }
+
+    const updatedRecord = company
+      ? await prisma.company.update({
+          where: { id },
+          data: { isActive }
+        })
+      : await prisma.vendor.update({
+          where: { id },
+          data: { isActive }
+        });
+
+    await prisma.auditLog.create({
+      data: {
+        entityType: entityType,
+        entityId: id,
+        action: `STATUS_UPDATED`,
+        performedBy: req.user?.id || null,
+        oldValue: { isActive: existingRecord.isActive },
+        newValue: { isActive: updatedRecord.isActive }
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: `${entityType} marked as ${isActive ? "Active" : "Not Active"}`,
+      data: updatedRecord
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+
 module.exports = {
   addRole,
   showRole,
@@ -1191,5 +1256,6 @@ module.exports = {
   showModel,
   getRawMaterialIdByName,
   updateRawMaterialFromExcel,
-  updateRawMaterialUsageFromExcel
+  updateRawMaterialUsageFromExcel,
+  markCompanyOrVendorNotActive
 };

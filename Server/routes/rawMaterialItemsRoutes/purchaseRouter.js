@@ -25,9 +25,21 @@ router.get(
 );
 
 router.get(
+  "/companies/data",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getCompaniesData
+);
+
+router.get(
   "/vendors",
   tokenVerification(["Purchase"]),
   purchaseOrderController.getVendorsList
+);
+
+router.get(
+  "/vendors/data",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getVendorsData
 );
 
 router.get(
@@ -116,7 +128,7 @@ router.get(
 
 router.post(
   "/purchase-orders/receive",
-  tokenVerification(['Purchase']),
+  tokenVerification(["Purchase"]),
   uploadPurchaseOrderBill,
   purchaseOrderController.createOrUpdatePurchaseOrderReceipts
 );
