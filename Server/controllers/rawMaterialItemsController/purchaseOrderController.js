@@ -548,6 +548,7 @@ const getCompaniesData = async (req, res) => {
         gstNumber: true,
         state: true,
         address: true,
+        country: true,
         isActive: true
       },
       orderBy: {
@@ -656,6 +657,7 @@ const getVendorsData = async (req, res) => {
         gstNumber: true,
         state: true,
         address: true,
+        country: true,
         isActive: true
       },
       orderBy: {
