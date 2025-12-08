@@ -84,28 +84,40 @@ const getRawMaterialList = async (req, res) => {
         name: true,
         stock: true,
         unit: true,
+        isUsed: true
       },
     });
 
-    const filteredData = allRawMaterial.map((data) => {
+    const formattedData = allRawMaterial.map((data) => {
       const stock = data.stock ?? 0;
 
       return {
         id: data.id,
         name: data.name,
         stock: formatStock(stock),
+        rawStock: stock, // used only for sorting
         unit: data.unit,
+        isUsed: data.isUsed,
         outOfStock: stock === 0,
       };
     });
 
+    const sortedData = formattedData.sort((a, b) => {
+      if (a.isUsed === b.isUsed) {
+        return a.rawStock - b.rawStock; 
+      }
+      return a.isUsed ? -1 : 1;
+    });
+
+    const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
+
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: filteredData || [],
+      data: cleanedData,
     });
+
   } catch (error) {
-    console.log("ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
