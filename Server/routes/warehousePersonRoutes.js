@@ -64,6 +64,7 @@ const {
   importDispatchedSystemExcelData,
   getInstallerData,
   getControllerData,
+  getClampData,
   addReceivingItemsData,
   receivingDataGroupedByOutgoing,
 } = require("../controllers/serviceControllers/warehouseController");
@@ -251,7 +252,16 @@ router.get(
   userVerification(["warehouseAdmin", "admin"]),
   getSystemItemsFromItemComponentMap
 );
-router.get("/show-controller-data", getControllerData);
+router.get(
+  "/show-controller-data",
+  userVerification(["warehouseAdmin"]),
+  getControllerData
+);
+router.get(
+  "/show-clamp-data",
+  userVerification(["warehouseAdmin"]),
+  getClampData
+);
 router.get(
   "/show-inventory-items",
   userVerification(["warehouseAdmin"]),

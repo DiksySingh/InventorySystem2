@@ -1421,27 +1421,6 @@ module.exports.showItemComponents = async (req, res) => {
   }
 };
 
-// module.exports.addInventoryItem = async (req, res) => {
-//     try {
-//         const {itemName} = req.body;
-//         if(!itemName) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "ItemName is required"
-//             });
-//         }
-
-//         const newInventoryItem = new InstallationInventory({itemName, quantity});
-
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error",
-//             error: error.message
-//         })
-//     }
-// };
-
 module.exports.showInstallationInventoryItems = async (req, res) => {
   try {
     const warehouseId = req.user.warehouse;
@@ -1472,129 +1451,6 @@ module.exports.showInstallationInventoryItems = async (req, res) => {
     });
   }
 };
-
-// module.exports.showItemsWithStockStatus = async (req, res) => {
-//   try {
-//     const warehouseId = req.user?.warehouse;
-//     const systemId = req.query.systemId;
-//     const systemCount = 25; // target systems to plan
-
-//     if (!systemId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "systemId is required",
-//       });
-//     }
-
-//     // Step 1: Get required components & quantities for the system
-//     const [systemItemMaps, subItemMaps] = await Promise.all([
-//       SystemItemMap.find({ systemId }).select("systemItemId quantity").lean(),
-//       ItemComponentMap.find({ systemId }).select("subItemId quantity").lean(),
-//     ]);
-
-//     const requiredQtyMap = new Map();
-//     const itemIdSet = new Set();
-
-//     systemItemMaps.forEach(({ systemItemId, quantity }) => {
-//       const id = systemItemId.toString();
-//       requiredQtyMap.set(id, quantity);
-//       itemIdSet.add(id);
-//     });
-
-//     subItemMaps.forEach(({ subItemId, quantity }) => {
-//       const id = subItemId.toString();
-//       requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
-//       itemIdSet.add(id);
-//     });
-
-//     const itemIds = Array.from(itemIdSet);
-
-//     // Step 2: Fetch inventory in warehouse for these items
-//     const inventoryItems = await InstallationInventory.find({
-//       warehouseId,
-//       systemItemId: { $in: itemIds },
-//     })
-//       .populate({
-//         path: "systemItemId",
-//         select: "_id itemName",
-//       })
-//       .select("systemItemId quantity")
-//       .lean();
-
-//     const inventoryMap = new Map();
-
-//     inventoryItems.forEach((item) => {
-//       const id = item.systemItemId._id.toString();
-//       if (!inventoryMap.has(id)) {
-//         inventoryMap.set(id, {
-//           systemItemId: item.systemItemId,
-//           quantity: 0,
-//         });
-//       }
-//       inventoryMap.get(id).quantity += item.quantity;
-//     });
-
-//     // Step 3: Build response
-//     const result = [];
-//     let minPossibleSystems = Infinity;
-
-//     for (const id of itemIds) {
-//       const requiredPerSystem = requiredQtyMap.get(id) || 0;
-//       const inv = inventoryMap.get(id);
-//       const availableQty = inv?.quantity || 0;
-
-//       const possibleSystems =
-//         requiredPerSystem > 0
-//           ? Math.floor(availableQty / requiredPerSystem)
-//           : Infinity;
-
-//       if (possibleSystems < minPossibleSystems) {
-//         minPossibleSystems = possibleSystems;
-//       }
-
-//       const itemData = inv?.systemItemId || {
-//         _id: id,
-//         itemName: "Unknown Item",
-//       };
-
-//       const shortageUnits =
-//         requiredPerSystem > 0
-//           ? Math.max(0, requiredPerSystem * systemCount - availableQty)
-//           : 0;
-
-//       const materialShortSystems =
-//         possibleSystems === Infinity
-//           ? 0
-//           : Math.max(0, systemCount - possibleSystems);
-
-//       result.push({
-//         systemItemId: itemData,
-//         quantity: availableQty,
-//         requiredQuantity: requiredPerSystem,
-//         materialShort: shortageUnits,
-//         stockLow: availableQty < requiredPerSystem * systemCount,
-//       });
-//     }
-
-//     if (minPossibleSystems === Infinity) minPossibleSystems = 0;
-
-//     // ✅ Sort by available stock (ascending)
-//     result.sort((a, b) => a.quantity - b.quantity);
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Inventory fetched with stock status",
-//       dispatchableSystems: minPossibleSystems,
-//       data: result,
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
 
 // Helper to extract pump head from itemName
 function getPumpHead(itemName) {
@@ -1863,315 +1719,6 @@ module.exports.updateItemQuantity = async (req, res) => {
   }
 };
 
-// module.exports.addNewInstallationData = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const {
-//       farmerSaralId,
-//       empId,
-//       systemId,
-//       itemsList,
-//       extraItemsList,
-//       extraPanelNumbers,
-//       panelNumbers,
-//       pumpNumber,
-//       motorNumber,
-//       controllerNumber,
-//       rmuNumber,
-//     } = req.body;
-
-//     const warehousePersonId = req.user._id;
-//     const warehouseId = req.user.warehouse;
-
-//     // ✅ Fetch warehouse data
-//     const warehouseData = await Warehouse.findById(warehouseId).session(
-//       session
-//     );
-//     if (!warehouseData) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Warehouse Not Found" });
-//     }
-
-//     // ✅ Determine State
-//     let state;
-//     const whName = warehouseData.warehouseName;
-//     if (["Bhiwani", "Jind", "Hisar", "Sirsa"].includes(whName)) {
-//       state = "Haryana";
-//     } else if (whName === "Maharashtra Warehouse - Ambad") {
-//       state = "Maharashtra";
-//     } else if (whName === "Korba Chhattisgarh") {
-//       state = "Chhattisgarh";
-//     }
-
-//     // ✅ Basic Validations
-//     if (
-//       !farmerSaralId ||
-//       !empId ||
-//       !systemId ||
-//       !itemsList ||
-//       !panelNumbers ||
-//       !pumpNumber ||
-//       !controllerNumber ||
-//       !rmuNumber ||
-//       !motorNumber
-//     ) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "All fields are required" });
-//     }
-
-//     if (!Array.isArray(itemsList) || itemsList.length === 0) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "ItemsList is empty" });
-//     }
-
-//     // ✅ Check if farmer activity already exists
-//     const existingFarmerActivity = await FarmerItemsActivity.findOne({
-//       farmerSaralId,
-//       systemId,
-//     }).session(session);
-//     if (existingFarmerActivity) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({
-//         success: false,
-//         message: "Farmer activity for this system already exists",
-//       });
-//     }
-
-//     // ✅ Determine Reference Type
-//     let refType;
-//     let empData = await ServicePerson.findById(empId).session(session);
-//     if (empData) {
-//       refType = "ServicePerson";
-//     } else {
-//       empData = await SurveyPerson.findById(empId).session(session);
-//       if (!empData) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res
-//           .status(400)
-//           .json({ success: false, message: "EmpID Not Found In Database" });
-//       }
-//       refType = "SurveyPerson";
-//     }
-
-//     // ✅ Merge itemsList + extraItemsList
-//     const combinedItemsMap = new Map();
-//     const accumulateItems = (list = []) => {
-//       for (const { systemItemId, quantity } of list) {
-//         if (!systemItemId || !quantity) continue;
-//         const key = systemItemId.toString();
-//         const prevQty = combinedItemsMap.get(key) || 0;
-//         combinedItemsMap.set(key, prevQty + parseInt(quantity));
-//       }
-//     };
-//     accumulateItems(itemsList);
-//     accumulateItems(extraItemsList);
-
-//     const mergedItemList = Array.from(combinedItemsMap.entries()).map(
-//       ([systemItemId, quantity]) => ({
-//         systemItemId,
-//         quantity,
-//       })
-//     );
-
-//     // ✅ Process inventory updates
-//     let warehouseItemsData;
-//     if (state === "Haryana") {
-//       warehouseItemsData = await WarehouseItems.findById(warehouseId).session(
-//         session
-//       );
-//       if (!warehouseItemsData) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res
-//           .status(404)
-//           .json({ success: false, message: "Warehouse Data Not Found" });
-//       }
-//     }
-
-//     for (const { systemItemId, quantity } of mergedItemList) {
-//       const systemItemData = await SystemItem.findById(systemItemId).session(
-//         session
-//       );
-//       if (!systemItemData) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res
-//           .status(400)
-//           .json({ success: false, message: "SystemItem Not Found" });
-//       }
-
-//       const systemItemName = systemItemData.itemName || "";
-//       const inventoryItems = await InstallationInventory.find({ warehouseId })
-//         .populate({ path: "systemItemId", select: { itemName: 1 } })
-//         .session(session);
-
-//       const inventoryItem = inventoryItems.find(
-//         (inv) =>
-//           inv.systemItemId?.itemName?.toLowerCase() ===
-//           systemItemName.toLowerCase()
-//       );
-//       if (!inventoryItem) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res.status(404).json({
-//           success: false,
-//           message: `SubItem "${systemItemName}" not found in warehouse inventory`,
-//         });
-//       }
-
-//       if (inventoryItem.quantity < quantity) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         return res.status(400).json({
-//           success: false,
-//           message: `Insufficient stock for item "${systemItemName}"`,
-//         });
-//       }
-
-//       // ✅ Deduct from InstallationInventory (always)
-//       inventoryItem.quantity -= quantity;
-//       inventoryItem.updatedAt = new Date();
-//       inventoryItem.updatedBy = warehousePersonId;
-//       await inventoryItem.save({ session });
-
-//       // ✅ Extra Haryana-specific logic
-//       if (state === "Haryana") {
-//         let existingItemData;
-
-//         // MOTOR logic
-//         if (systemItemName === "MOTOR 10HP AC 440V") {
-//           existingItemData = warehouseItemsData.items.find(
-//             (item) => item.itemName === systemItemName
-//           );
-//         }
-
-//         // PUMP logic
-//         if (
-//           [
-//             "PUMP 10HP AC 30MTR",
-//             "PUMP 10HP AC 50MTR",
-//             "PUMP 10HP AC 70MTR",
-//             "PUMP 10HP AC 100MTR",
-//           ].includes(systemItemName)
-//         ) {
-//           const normalizeWords = (str) =>
-//             (str || "").toLowerCase().split(/\s+/);
-//           const haveCommonBase = (name1, name2, minCommonWords = 3) => {
-//             const words1 = normalizeWords(name1);
-//             const words2 = normalizeWords(name2);
-//             const common = words1.filter((word) => words2.includes(word));
-//             return common.length >= minCommonWords;
-//           };
-
-//           existingItemData = warehouseItemsData.items.find((item) =>
-//             haveCommonBase(item.itemName, systemItemName)
-//           );
-//         }
-
-//         // Controller logic
-//         if (systemItemName === "Controller - RMU - 10HP AC GALO") {
-//           existingItemData = warehouseItemsData.items.find(
-//             (item) => item.itemName === "CONTROLLER 10HP AC GALO"
-//           );
-//         }
-
-//         if (!existingItemData) {
-//           await session.abortTransaction();
-//           session.endSession();
-//           return res.status(404).json({
-//             success: false,
-//             message: `Item "${systemItemName}" Not Found In Warehouse`,
-//           });
-//         }
-
-//         if (existingItemData.newStock < quantity) {
-//           await session.abortTransaction();
-//           session.endSession();
-//           return res.status(400).json({
-//             success: false,
-//             message: `Insufficient stock for the ${systemItemName}`,
-//           });
-//         }
-
-//         // ✅ Deduct from WarehouseItems (Haryana only)
-//         existingItemData.newStock =
-//           parseInt(existingItemData.newStock) - parseInt(quantity);
-//       }
-//     }
-
-//     // ✅ Save Farmer Activity
-//     const farmerActivity = new FarmerItemsActivity({
-//       warehouseId,
-//       referenceType: refType,
-//       farmerSaralId,
-//       empId,
-//       systemId,
-//       itemsList,
-//       extraItemsList: extraItemsList || [],
-//       extraPanelNumbers: extraPanelNumbers || [],
-//       panelNumbers,
-//       pumpNumber,
-//       motorNumber,
-//       controllerNumber,
-//       rmuNumber,
-//       state,
-//       createdBy: warehousePersonId,
-//     });
-
-//     const savedFarmerActivity = await farmerActivity.save({ session });
-//     if (!savedFarmerActivity) throw new Error("Failed to save farmer activity");
-
-//     // ✅ Save Installation Assignment
-//     const empAccountData = new InstallationAssignEmp({
-//       warehouseId,
-//       referenceType: refType,
-//       empId,
-//       farmerSaralId,
-//       systemId,
-//       itemsList,
-//       extraItemsList,
-//       createdBy: warehousePersonId,
-//     });
-
-//     const savedEmpAccountData = await empAccountData.save({ session });
-//     if (!savedEmpAccountData)
-//       throw new Error("Failed to save employee account data");
-
-//     // ✅ Commit transaction
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Data Saved Successfully",
-//       farmerActivity,
-//       empAccountData,
-//     });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     console.error("Error in addNewInstallationData:", error.message);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
-
 function validateKeys(arr, requiredKeys) {
   for (let i = 0; i < arr.length; i++) {
     const obj = arr[i];
@@ -2259,6 +1806,50 @@ module.exports.getControllerData = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching controller data:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+module.exports.getClampData = async (req, res) => {
+  try {
+    const systemId = req.query?.systemId?.trim();
+    if (!systemId) {
+      return res.status(400).json({
+        success: false,
+        message: "SystemId is required",
+      });
+    }
+
+    const systemData = await System.findById(systemId).select("systemName");
+    if (!systemData) {
+      return res.status(400).json({
+        success: false,
+        message: "System Not Found",
+      });
+    }
+
+    const systemItemMap = await SystemItemMap.find({ systemId })
+      .populate("systemItemId", "_id itemName");
+
+    const clampData = systemItemMap
+      .filter(item =>
+        item.systemItemId?.itemName?.toLowerCase().includes("submersible clamp")
+      )
+      .map(item => ({
+        _id: item.systemItemId._id,
+        itemName: item.systemItemId.itemName
+      }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Submersible clamp data fetched successfully",
+      data: clampData
+    });
+
+  } catch (error) {
     return res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
@@ -2738,17 +2329,23 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       let finalItemsList = Array.from(uniqueItemsMap.values());
       //console.log("Before Final Item List: ", finalItemsList);
       console.log("Before Length: ", finalItemsList.length);
-      if (
-        system.submersibleClampId === null ||
-        system.submersibleClampId === ""
-      ) {
-        finalItemsList = finalItemsList.filter((item) => {
-          return (
-            item.systemItemId.toString() !==
-            system.submersibleClampId.toString()
-          );
-        });
+
+      let clampItemId = null;
+      for (const it of systemItems) {
+        const name = it.systemItemId?.itemName?.toLowerCase() || "";
+        if (name.includes("submersible clamp")) {
+          clampItemId = it.systemItemId._id.toString();
+          break;
+        }
       }
+
+      // 2️⃣ Remove clamp if no clampId provided in request
+      if (!system.submersibleClampId && clampItemId) {
+        finalItemsList = finalItemsList.filter(
+          (item) => item.systemItemId.toString() !== clampItemId
+        );
+      }
+
       //console.log("After Final Item List: ", finalItemsList);
       console.log("After Length: ", finalItemsList.length);
 
