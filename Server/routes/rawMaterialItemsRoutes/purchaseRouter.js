@@ -126,6 +126,12 @@ router.get(
   purchaseOrderController.getPODashboard
 );
 
+router.get(
+  "/warehouses",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getWarehouses
+);
+
 router.post(
   "/purchase-orders/receive",
   tokenVerification(["Purchase"]),
