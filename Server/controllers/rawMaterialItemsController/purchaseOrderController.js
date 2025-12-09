@@ -2276,7 +2276,7 @@ const downloadPOPDF = async (req, res) => {
       await tx.purchaseOrder.update({
         where: { id: poId },
         data: {
-          status: "Generated_Downloaded",
+          //status: "Generated_Downloaded",
           pdfName: fileName,
           pdfGeneratedAt: new Date(),
           pdfGeneratedBy: userId,
@@ -2391,7 +2391,7 @@ const downloadPOPDF2 = async (req, res) => {
       await tx.purchaseOrder.update({
         where: { id: poId },
         data: {
-          status: "Generated_Downloaded",
+          //status: "Generated_Downloaded",
           pdfName: fileName,
           pdfGeneratedAt: now,
           pdfGeneratedBy: userId,
@@ -2960,9 +2960,7 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
     });
 
     if (!po) throw new Error("Purchase Order not found.");
-    if (!["Generated_Downloaded", "PartiallyReceived"].includes(po.status)) {
-      throw new Error(`PO cannot receive items in its current status (${po.status}).`);
-    }
+    
     if (["Received", "Cancelled"].includes(po.status)) {
       throw new Error(`PO already ${po.status}.`);
     }
