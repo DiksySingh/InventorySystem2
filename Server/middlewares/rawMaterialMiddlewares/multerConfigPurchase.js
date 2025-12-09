@@ -25,7 +25,7 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|mp4|mov|avi|mkv/;
+  const allowedTypes = /jpeg|jpg|png|pdf/;
   const extValid = allowedTypes.test(
     path.extname(file.originalname).toLowerCase()
   );
@@ -35,7 +35,7 @@ const fileFilter = (req, file, cb) => {
   } else {
     cb(
       new Error(
-        "Only image (.jpeg, .jpg, .png) and video (.mp4, .mov, .avi, .mkv) files are allowed!"
+        "Only image (.jpeg, .jpg, .png) and pdf files are allowed!"
       )
     );
   }
@@ -54,7 +54,7 @@ const uploadPurchaseOrderBill = (req, res, next) => {
         success: false,
         message:
           err.code === "LIMIT_FILE_SIZE"
-            ? "File too large! Must be under 5MB."
+            ? "File too large!"
             : err.message,
       });
     }
