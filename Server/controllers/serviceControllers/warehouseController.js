@@ -1864,7 +1864,7 @@ module.exports.addNewInstallationData = async (req, res) => {
   try {
     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
       req.body;
-
+    console.log(req.body);
     const dispatchedSystems =
       typeof dispatchedSystem === "string"
         ? JSON.parse(dispatchedSystem)
@@ -1876,6 +1876,7 @@ module.exports.addNewInstallationData = async (req, res) => {
         .json({ success: false, message: "No dispatched systems provided" });
 
     const uploadedFiles = req.files || [];
+    console.log(uploadedFiles);
     if (uploadedFiles.length === 0)
       return res
         .status(400)
