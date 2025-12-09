@@ -2169,7 +2169,7 @@ const getPurchaseOrderDetails = async (req, res) => {
             gstRate: true,
             quantity: true,
             amountInForeign: true,
-            //receivedQty: true,
+            receivedQty: true,
             //itemGSTType: true,
             total: true,
             //createdAt: true,

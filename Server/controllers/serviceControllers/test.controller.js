@@ -12,6 +12,7 @@ const WarehousePerson = require("../../models/serviceInventoryModels/warehousePe
 const bulkMessage = require("../../helpers/whatsapp/bulkMessageEng");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 const multer = require("multer");
 
 // 📦 Multer config — store in memory
@@ -888,6 +889,79 @@ const updateInstallationInventoryFromExcel = async (req, res) => {
   }
 };
 
+const exportInstallationInventoryExcel = async (req, res) => {
+  try {
+    const warehouseId = req.query?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId is required"
+      });
+    }
+
+    // Check warehouse exists
+    const warehouse = await Warehouse.findById(warehouseId);
+    if (!warehouse) {
+      return res.status(404).json({
+        success: false,
+        message: "Warehouse not found"
+      });
+    }
+
+    // Fetch inventory + item details
+    const inventory = await InstallationInventory.find({ warehouseId })
+      .populate("systemItemId", "itemName");
+
+    if (!inventory.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No inventory data found for this warehouse"
+      });
+    }
+
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Installation Inventory");
+
+    // Header row
+    worksheet.columns = [
+      { header: "Item Name", key: "itemName", width: 30 },
+      { header: "Quantity", key: "quantity", width: 15 },
+    ];
+
+    // Fill rows
+    inventory.forEach(inv => {
+      worksheet.addRow({
+        itemName: inv.systemItemId?.itemName || "",
+        quantity: inv.quantity,
+      });
+    });
+
+    // Set headers for Excel download
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${warehouse.warehouseName}_Stock.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.status(200).end();
+
+  } catch (error) {
+    console.log("Excel Export Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+
 module.exports = {
   exportActiveUsers,
   W2W,
@@ -903,5 +977,6 @@ module.exports = {
   exportFarmerItemsActivityToExcel,
   sendWhatsAppMessage,
   matchSystemItemsFromExcel,
-  updateInstallationInventoryFromExcel
+  updateInstallationInventoryFromExcel,
+  exportInstallationInventoryExcel
 };

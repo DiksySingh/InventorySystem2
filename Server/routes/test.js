@@ -16,5 +16,7 @@ router.get("/exportFarmerItemsActivityToExcel", test.exportFarmerItemsActivityTo
 router.post("/sendWhatsAppMessage", test.sendWhatsAppMessage);
 router.post("/match-system-items", test.matchSystemItemsFromExcel);
 router.post("/installation-inventory/update-excel", upload.single('file'), test.updateInstallationInventoryFromExcel);
+router.get("/installation-inventory/stock", test.exportInstallationInventoryExcel);
+
 
 module.exports = router;
