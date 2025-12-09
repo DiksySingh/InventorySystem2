@@ -504,12 +504,12 @@ const updateVendor = async (req, res) => {
   }
 };
 
-//for dropdown 
+//for dropdown
 const getCompaniesList = async (req, res) => {
   try {
     const companies = await prisma.company.findMany({
       where: {
-        isActive: true
+        isActive: true,
       },
       select: {
         id: true,
@@ -540,7 +540,7 @@ const getCompaniesList = async (req, res) => {
 };
 
 const getCompaniesData = async (req, res) => {
-    try {
+  try {
     const companies = await prisma.company.findMany({
       select: {
         id: true,
@@ -549,7 +549,7 @@ const getCompaniesData = async (req, res) => {
         state: true,
         address: true,
         country: true,
-        isActive: true
+        isActive: true,
       },
       orderBy: {
         name: "asc",
@@ -593,7 +593,7 @@ const getCompanyById = async (req, res) => {
         email: true,
         country: true,
         currency: true,
-        isActive: true
+        isActive: true,
       },
     });
 
@@ -618,7 +618,7 @@ const getVendorsList = async (req, res) => {
   try {
     const vendors = await prisma.vendor.findMany({
       where: {
-        isActive: true
+        isActive: true,
       },
       select: {
         id: true,
@@ -649,7 +649,7 @@ const getVendorsList = async (req, res) => {
 };
 
 const getVendorsData = async (req, res) => {
-    try {
+  try {
     const vendors = await prisma.vendor.findMany({
       select: {
         id: true,
@@ -658,7 +658,7 @@ const getVendorsData = async (req, res) => {
         state: true,
         address: true,
         country: true,
-        isActive: true
+        isActive: true,
       },
       orderBy: {
         name: "asc",
@@ -702,7 +702,7 @@ const getVendorById = async (req, res) => {
         exchangeRate: true,
         contactNumber: true,
         alternateNumber: true,
-        isActive: true
+        isActive: true,
       },
     });
 
@@ -727,7 +727,7 @@ const getItemsList = async (req, res) => {
   try {
     const mysqlItems = await prisma.rawMaterial.findMany({
       where: {
-        isUsed: true
+        isUsed: true,
       },
       select: {
         id: true,
@@ -1329,6 +1329,63 @@ const createPurchaseOrder2 = async (req, res) => {
       }
     }
 
+    const mongoIds = [];
+    const mysqlIds = [];
+
+    // Separate IDs by source
+    for (const item of items) {
+      if (!item.source) {
+        return res.status(400).json({
+          success: false,
+          message: "item.source is required (mongo/mysql)",
+        });
+      }
+
+      if (item.source === "mongo") {
+        mongoIds.push(item.id);
+      } else if (item.source === "mysql") {
+        mysqlIds.push(item.id);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid item.source '${item.source}'. Use 'mongo' or 'mysql'.`,
+        });
+      }
+    }
+
+    // Fetch all mongo items in one query
+    let existingMongoItems = [];
+    if (mongoIds.length) {
+      existingMongoItems = await SystemItem.find({ _id: { $in: mongoIds } })
+        .select("_id")
+        .lean();
+    }
+
+    // Fetch all mysql items in one query
+    let existingMysqlItems = [];
+    if (mysqlIds.length) {
+      existingMysqlItems = await prisma.rawMaterial.findMany({
+        where: { id: { in: mysqlIds } },
+        select: { id: true },
+      });
+    }
+
+    // Convert to fast lookup sets
+    const mongoSet = new Set(existingMongoItems.map((m) => String(m._id)));
+    const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
+
+    // Validate each item
+    for (const item of items) {
+      if (item.source === "mongo" && !mongoSet.has(item.id)) {
+        throw new Error(
+          `System Item with id '${item.id}' Not Found in`
+        );
+      }
+
+      if (item.source === "mysql" && !mysqlSet.has(item.id)) {
+        throw new Error(`Raw Material with id '${item.id}' Not Found`);
+      }
+    }
     // Fetch company & vendor
     const [company, vendor] = await Promise.all([
       prisma.company.findUnique({ where: { id: companyId } }),
@@ -1408,7 +1465,9 @@ const createPurchaseOrder2 = async (req, res) => {
 
     // GST for normal items
     const poGSTPercent =
-      isItemWise || gstType.includes("EXEMPTED") ? null : getGSTPercent(gstType);
+      isItemWise || gstType.includes("EXEMPTED")
+        ? null
+        : getGSTPercent(gstType);
 
     if (normalItems.length && poGSTPercent) {
       const normalTotalINR = subTotalINR;
@@ -1779,7 +1838,9 @@ const updatePurchaseOrder2 = async (req, res) => {
 
     const userId = req.user?.id;
     if (!userId)
-      return res.status(400).json({ success: false, message: "User not found" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -2322,7 +2383,7 @@ const downloadPOPDF2 = async (req, res) => {
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized: User not found."
+        message: "Unauthorized: User not found.",
       });
     }
 
@@ -2334,7 +2395,7 @@ const downloadPOPDF2 = async (req, res) => {
     if (!user || user.role?.name !== "Purchase") {
       return res.status(403).json({
         success: false,
-        message: "Access Denied: Only Purchase Department can generate PO."
+        message: "Access Denied: Only Purchase Department can generate PO.",
       });
     }
 
@@ -2417,7 +2478,6 @@ const downloadPOPDF2 = async (req, res) => {
     });
 
     return res.end(pdfBuffer);
-
   } catch (err) {
     console.error("❌ Error generating PO PDF:", err.stack || err);
     return res.status(500).json({
@@ -2914,7 +2974,9 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
         const systemItem = await SystemItem.findById(itemId);
         if (!systemItem) throw new Error(`SystemItem ${itemId} not found.`);
       } else if (itemSource === "mysql") {
-        const rawMat = await prisma.rawMaterial.findUnique({ where: { id: itemId } });
+        const rawMat = await prisma.rawMaterial.findUnique({
+          where: { id: itemId },
+        });
         if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
       } else {
         throw new Error(`Invalid itemSource for ${itemId}.`);
@@ -2928,14 +2990,19 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
       try {
         req.body.items = JSON.parse(req.body.items);
       } catch (err) {
-        return res.status(400).json({ success: false, message: "Invalid JSON format for items." });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid JSON format for items." });
       }
     }
 
     const { purchaseOrderId, items, warehouseId } = req.body;
     const billFile = req.files?.billFile?.[0];
 
-    if (!billFile) return res.status(400).json({ success: false, message: "Bill file is required." });
+    if (!billFile)
+      return res
+        .status(400)
+        .json({ success: false, message: "Bill file is required." });
 
     uploadedFilePath = path.join(
       __dirname,
@@ -2943,7 +3010,12 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
       billFile.filename
     );
 
-    if (!purchaseOrderId || !Array.isArray(items) || items.length === 0 || !warehouseId) {
+    if (
+      !purchaseOrderId ||
+      !Array.isArray(items) ||
+      items.length === 0 ||
+      !warehouseId
+    ) {
       deleteUploadedFile();
       return res.status(400).json({
         success: false,
@@ -2960,7 +3032,7 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
     });
 
     if (!po) throw new Error("Purchase Order not found.");
-    
+
     if (["Received", "Cancelled"].includes(po.status)) {
       throw new Error(`PO already ${po.status}.`);
     }
@@ -2968,144 +3040,185 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
     // Validate all items before processing
     await validateItems(items, po);
 
-    const { receiptResults, stockUpdates } = await prisma.$transaction(async (tx) => {
-      const receiptResults = [];
-      const stockUpdates = [];
-      let allFullyDamaged = true;
-      let poStatusFlags = { allReceived: true, someReceived: false };
+    const { receiptResults, stockUpdates } = await prisma.$transaction(
+      async (tx) => {
+        const receiptResults = [];
+        const stockUpdates = [];
+        let allFullyDamaged = true;
+        let poStatusFlags = { allReceived: true, someReceived: false };
 
-      // Save uploaded bill
-      await tx.purchaseOrderBill.create({
-        data: {
-          purchaseOrderId,
-          fileName: billFile.filename,
-          fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
-          mimeType: billFile.mimetype,
-          uploadedBy: userId,
-        },
-      });
-
-      for (const item of items) {
-        const {
-          purchaseOrderItemId,
-          itemId,
-          itemSource,
-          itemName,
-          receivedQty = 0,
-          goodQty = 0,
-          damagedQty = 0,
-          remarks = "",
-        } = item;
-
-        const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
-        const poQty = Number(poItem.quantity);
-        const poUnit = poItem.unit?.toLowerCase();
-        const alreadyReceived = Number(poItem.receivedQty || 0);
-
-        // Prevent over-receiving
-        if (alreadyReceived >= poQty) throw new Error(`${itemName} already fully received (${poQty}).`);
-        if (alreadyReceived + receivedQty > poQty)
-          throw new Error(`Cannot receive ${receivedQty} of ${itemName}. Only ${poQty - alreadyReceived} remaining.`);
-
-        if (goodQty > 0) allFullyDamaged = false;
-
-        const totalReceived = alreadyReceived + receivedQty;
-
-        // Create receipt
-        await tx.purchaseOrderReceipt.create({
+        // Save uploaded bill
+        await tx.purchaseOrderBill.create({
           data: {
             purchaseOrderId,
+            fileName: billFile.filename,
+            fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
+            mimeType: billFile.mimetype,
+            uploadedBy: userId,
+          },
+        });
+
+        for (const item of items) {
+          const {
             purchaseOrderItemId,
             itemId,
             itemSource,
             itemName,
+            receivedQty = 0,
+            goodQty = 0,
+            damagedQty = 0,
+            remarks = "",
+          } = item;
+
+          const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+          const poQty = Number(poItem.quantity);
+          const poUnit = poItem.unit?.toLowerCase();
+          const alreadyReceived = Number(poItem.receivedQty || 0);
+
+          // Prevent over-receiving
+          if (alreadyReceived >= poQty)
+            throw new Error(`${itemName} already fully received (${poQty}).`);
+          if (alreadyReceived + receivedQty > poQty)
+            throw new Error(
+              `Cannot receive ${receivedQty} of ${itemName}. Only ${poQty - alreadyReceived} remaining.`
+            );
+
+          if (goodQty > 0) allFullyDamaged = false;
+
+          const totalReceived = alreadyReceived + receivedQty;
+
+          // Create receipt
+          await tx.purchaseOrderReceipt.create({
+            data: {
+              purchaseOrderId,
+              purchaseOrderItemId,
+              itemId,
+              itemSource,
+              itemName,
+              receivedQty,
+              goodQty,
+              damagedQty,
+              remarks,
+              createdBy: userId,
+              receivedDate: new Date(),
+            },
+          });
+
+          // Update PO item receivedQty
+          await tx.purchaseOrderItem.update({
+            where: { id: purchaseOrderItemId },
+            data: { receivedQty: totalReceived },
+          });
+
+          // Damaged stock handling
+          if (damagedQty > 0) {
+            const existingDamage = await tx.damagedStock.findFirst({
+              where: { itemId, itemSource, purchaseOrderId },
+            });
+
+            if (existingDamage) {
+              await tx.damagedStock.update({
+                where: { id: existingDamage.id },
+                data: {
+                  quantity: { increment: damagedQty },
+                  remarks: `${existingDamage.remarks || ""}${existingDamage.remarks ? "; " : ""}${remarks}`,
+                },
+              });
+            } else {
+              await tx.damagedStock.create({
+                data: {
+                  purchaseOrderId,
+                  itemId,
+                  itemSource,
+                  itemName,
+                  quantity: damagedQty,
+                  remarks,
+                },
+              });
+            }
+          }
+
+          // Stock updates
+          if (goodQty > 0)
+            stockUpdates.push({
+              itemSource,
+              itemId,
+              goodQty,
+              warehouseId,
+              poUnit,
+            });
+
+          // Track PO status flags
+          poStatusFlags.someReceived =
+            poStatusFlags.someReceived || totalReceived > 0;
+          poStatusFlags.allReceived =
+            poStatusFlags.allReceived && totalReceived >= poQty;
+
+          receiptResults.push({
+            itemId,
+            itemName,
             receivedQty,
             goodQty,
             damagedQty,
-            remarks,
-            createdBy: userId,
-            receivedDate: new Date(),
-          },
-        });
-
-        // Update PO item receivedQty
-        await tx.purchaseOrderItem.update({
-          where: { id: purchaseOrderItemId },
-          data: { receivedQty: totalReceived },
-        });
-
-        // Damaged stock handling
-        if (damagedQty > 0) {
-          const existingDamage = await tx.damagedStock.findFirst({
-            where: { itemId, itemSource, purchaseOrderId },
+            remainingQty: poQty - totalReceived,
           });
-
-          if (existingDamage) {
-            await tx.damagedStock.update({
-              where: { id: existingDamage.id },
-              data: {
-                quantity: { increment: damagedQty },
-                remarks: `${existingDamage.remarks || ""}${existingDamage.remarks ? "; " : ""}${remarks}`,
-              },
-            });
-          } else {
-            await tx.damagedStock.create({
-              data: { purchaseOrderId, itemId, itemSource, itemName, quantity: damagedQty, remarks },
-            });
-          }
         }
 
-        // Stock updates
-        if (goodQty > 0) stockUpdates.push({ itemSource, itemId, goodQty, warehouseId, poUnit });
+        // Update PO status
+        let newPOStatus = po.status;
+        if (allFullyDamaged) newPOStatus = "Cancelled";
+        else if (poStatusFlags.allReceived) newPOStatus = "Received";
+        else if (poStatusFlags.someReceived) newPOStatus = "PartiallyReceived";
 
-        // Track PO status flags
-        poStatusFlags.someReceived = poStatusFlags.someReceived || totalReceived > 0;
-        poStatusFlags.allReceived = poStatusFlags.allReceived && totalReceived >= poQty;
+        if (newPOStatus !== po.status) {
+          await tx.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: newPOStatus },
+          });
+        }
 
-        receiptResults.push({
-          itemId,
-          itemName,
-          receivedQty,
-          goodQty,
-          damagedQty,
-          remainingQty: poQty - totalReceived,
-        });
+        return { receiptResults, stockUpdates };
       }
-
-      // Update PO status
-      let newPOStatus = po.status;
-      if (allFullyDamaged) newPOStatus = "Cancelled";
-      else if (poStatusFlags.allReceived) newPOStatus = "Received";
-      else if (poStatusFlags.someReceived) newPOStatus = "PartiallyReceived";
-
-      if (newPOStatus !== po.status) {
-        await tx.purchaseOrder.update({ where: { id: purchaseOrderId }, data: { status: newPOStatus } });
-      }
-
-      return { receiptResults, stockUpdates };
-    });
+    );
 
     // Update warehouse and raw materials
     await Promise.all(
-      stockUpdates.map(async ({ itemSource, itemId, goodQty, warehouseId, poUnit }) => {
-        if (itemSource === "mongo") {
-          const inventoryItem = await InstallationInventory.findOne({ warehouseId, systemItemId: itemId });
-          if (inventoryItem) {
-            inventoryItem.quantity += goodQty;
-            await inventoryItem.save();
-          } else {
-            await InstallationInventory.create({ warehouseId, systemItemId: itemId, quantity: goodQty });
+      stockUpdates.map(
+        async ({ itemSource, itemId, goodQty, warehouseId, poUnit }) => {
+          if (itemSource === "mongo") {
+            const inventoryItem = await InstallationInventory.findOne({
+              warehouseId,
+              systemItemId: itemId,
+            });
+            if (inventoryItem) {
+              inventoryItem.quantity += goodQty;
+              await inventoryItem.save();
+            } else {
+              await InstallationInventory.create({
+                warehouseId,
+                systemItemId: itemId,
+                quantity: goodQty,
+              });
+            }
+          }
+
+          if (itemSource === "mysql") {
+            const rawMat = await prisma.rawMaterial.findUnique({
+              where: { id: itemId },
+            });
+            if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
+            const dbUnit = rawMat.unit?.toLowerCase();
+            const convertedQty =
+              dbUnit === poUnit
+                ? goodQty
+                : convertUnit(goodQty, poUnit, dbUnit);
+            await prisma.rawMaterial.update({
+              where: { id: itemId },
+              data: { stock: { increment: convertedQty } },
+            });
           }
         }
-
-        if (itemSource === "mysql") {
-          const rawMat = await prisma.rawMaterial.findUnique({ where: { id: itemId } });
-          if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
-          const dbUnit = rawMat.unit?.toLowerCase();
-          const convertedQty = dbUnit === poUnit ? goodQty : convertUnit(goodQty, poUnit, dbUnit);
-          await prisma.rawMaterial.update({ where: { id: itemId }, data: { stock: { increment: convertedQty } } });
-        }
-      })
+      )
     );
 
     return res.status(200).json({
@@ -3116,7 +3229,12 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   } catch (error) {
     console.error("❌ Error in PO Receipt creation:", error);
     deleteUploadedFile();
-    return res.status(500).json({ success: false, message: error.message || "Server error while processing PO Receipts." });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: error.message || "Server error while processing PO Receipts.",
+      });
   }
 };
 
@@ -3232,7 +3350,7 @@ const getPODashboard = async (req, res) => {
 };
 
 const getWarehouses = async (req, res) => {
-   try {
+  try {
     const allWarehouses = await Warehouse.find({
       warehouseName: { $nin: ["Sirsa", "Hisar", "Jind", "Fatehabad"] },
     }).select("_id warehouseName");
@@ -3281,7 +3399,7 @@ module.exports = {
   getPODashboard,
   getCompaniesData,
   getVendorsData,
-  getWarehouses
+  getWarehouses,
 };
 
 // [{
