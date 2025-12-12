@@ -302,23 +302,35 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     const stage = await prisma.stage.findFirst({ where: { name: role.name } });
     if (!stage) throw new Error("Stage not found for this role");
     console.log(stage);
-    const whereFilter = {
-      stageId: stage.id,
-      OR: [
-        {
-          status: "PENDING",
-          empId: null, // unassigned tasks
-        },
-        {
-          status: "IN_PROGRESS",
-          empId: empId, // tasks assigned to this employee
-        },
-      ],
-    };
-    console.log(whereFilter);
+    // const whereFilter = {
+    //   stageId: stage.id,
+    //   OR: [
+    //     {
+    //       status: "PENDING",
+    //       empId: null, // unassigned tasks
+    //     },
+    //     {
+    //       status: "IN_PROGRESS",
+    //       empId: empId, // tasks assigned to this employee
+    //     },
+    //   ],
+    // };
+    //console.log(whereFilter);
     // Fetch data
     const pendingActivities = await prisma.stageActivity.findMany({
-      where: whereFilter,
+      where: {
+        stageId: stage.id,
+        OR: [
+          {
+            status: "PENDING",
+            empId: null, // unassigned tasks
+          },
+          {
+            status: "IN_PROGRESS",
+            empId: empId, // tasks assigned to this employee
+          },
+        ],
+      },
       include: {
         serviceProcess: {
           select: {
@@ -1335,11 +1347,14 @@ const disassembleReusableItemsForm = async (req, res) => {
       const idx = warehouse.items.findIndex(
         (it) =>
           it.itemName &&
-          it.itemName.trim().toLowerCase() === serviceProcess.subItemName.trim().toLowerCase()
+          it.itemName.trim().toLowerCase() ===
+            serviceProcess.subItemName.trim().toLowerCase()
       );
 
       if (idx === -1) {
-        throw new Error(`⚠ Item '${serviceProcess.subItemName}' not found in warehouse`);
+        throw new Error(
+          `⚠ Item '${serviceProcess.subItemName}' not found in warehouse`
+        );
       } else {
         warehouse.items[idx].defective =
           (warehouse.items[idx].defective || 0) - qty;
