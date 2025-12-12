@@ -416,88 +416,92 @@ const getPendingActivitiesForUserStage = async (req, res) => {
 
     if (!role?.name) throw new Error("User role not found");
 
+    // Step 1: Get the stage
     const stage = await prisma.stage.findFirst({ where: { name: role.name } });
     if (!stage) throw new Error("Stage not found for this role");
 
-    console.log("Stage:", stage);
-
-    // STEP 1: Fetch ALL stage activities for this stage
-    const allActivities = await prisma.stageActivity.findMany({
-      where: { stageId: stage.id },
-      include: {
-        serviceProcess: {
-          select: {
-            id: true,
-            productName: true,
-            itemName: true,
-            subItemName: true,
-            serialNumber: true,
-            quantity: true,
-            status: true,
-            finalStatus: true,
-            isClosed: true,
-            isRepaired: true,
-            finalRemarks: true,
-            isDisassemblePending: true,
-            disassembleSessionId: true,
-            disassembleStatus: true,
-            itemType: { select: { id: true, name: true } },
-            stage: { select: { id: true, name: true } },
-            initialStage: { select: { id: true, name: true } },
-            restartedFromStage: { select: { id: true, name: true } },
-          },
-        },
-        stage: { select: { id: true, name: true } },
+    // Step 2: Fetch StageActivity first (without including ServiceProcess)
+    const activities = await prisma.stageActivity.findMany({
+      where: {
+        stageId: stage.id,
+        OR: [
+          { status: "PENDING", empId: null },
+          { status: "IN_PROGRESS", empId: empId },
+        ],
       },
       orderBy: { createdAt: "asc" },
     });
-
-    // STEP 2: Manual filtering (NO enum errors)
-    const filteredActivities = allActivities.filter((activity) => {
-      if (activity.status === "PENDING" && activity.empId === null) return true;
-      if (activity.status === "IN_PROGRESS" && activity.empId === empId)
-        return true;
-      return false;
+    console.log(activities);
+    // Step 3: Fetch all related Service_Process_Record by serviceProcessId
+    const serviceProcessIds = activities
+      .map((a) => a.serviceProcessId)
+      .filter(Boolean); // remove nulls
+    console.log(serviceProcessIds);
+    const serviceProcesses = await prisma.service_Process_Record.findMany({
+      where: { id: { in: serviceProcessIds } },
+      select: {
+        id: true,
+        productName: true,
+        itemName: true,
+        subItemName: true,
+        serialNumber: true,
+        quantity: true,
+        status: true,
+        finalStatus: true,
+        isClosed: true,
+        isRepaired: true,
+        finalRemarks: true,
+        isDisassemblePending: true,
+        disassembleSessionId: true,
+        disassembleStatus: true,
+        itemType: { select: { id: true, name: true } },
+        stage: { select: { id: true, name: true } },
+        initialStage: { select: { id: true, name: true } },
+        restartedFromStage: { select: { id: true, name: true } },
+      },
     });
-
-    console.log("Filtered:", filteredActivities.length);
-
-    // STEP 3: Manual count
-    const totalCount = filteredActivities.length;
-
-    // STEP 4: Transform → Same format as before (NO CHANGE IN KEYS)
-    const response = filteredActivities.map((activity) => ({
-      activityId: activity.id,
-      processAccepted: activity.acceptedAt !== null,
-      processStarted: activity.startedAt !== null,
-      processCompleted: activity.completedAt !== null,
-      serviceProcessId: activity.serviceProcess.id,
-      productName: activity.serviceProcess.productName,
-      itemName: activity.serviceProcess.itemName,
-      subItemName: activity.serviceProcess.subItemName,
-      serialNumber: activity.serviceProcess.serialNumber,
-      quantity: activity.serviceProcess.quantity,
-      status: activity.serviceProcess.status,
-      finalStatus: activity.serviceProcess.finalStatus,
-      isClosed: activity.serviceProcess.isClosed,
-      isRepaired: activity.serviceProcess.isRepaired,
-      finalRemarks: activity.serviceProcess.finalRemarks,
-      isDisassemblePending: activity.serviceProcess.isDisassemblePending,
-      disassembleSessionId: activity.serviceProcess.disassembleSessionId,
-      disassembleStatus: activity.serviceProcess.disassembleStatus,
-      itemType: activity.serviceProcess.itemType?.name || null,
-      processStage: activity.serviceProcess.stage?.name || null,
-      initialStage: activity.serviceProcess.initialStage?.name || null,
-      restartedFromStage:
-        activity.serviceProcess.restartedFromStage?.name || null,
-      activityStage: activity.stage?.name || null,
-      createdAt: activity.createdAt,
-    }));
-
+    console.log(serviceProcesses);
+    // Step 4: Map service processes by id for quick lookup
+    const serviceProcessMap = {};
+    serviceProcesses.forEach((sp) => {
+      serviceProcessMap[sp.id] = sp;
+    });
+    console.log(serviceProcessMap);
+    // Step 5: Transform final response
+    const response = activities.map((activity) => {
+      const sp = serviceProcessMap[activity.serviceProcessId];
+      return {
+        activityId: activity.id,
+        processAccepted: activity.acceptedAt !== null,
+        processStarted: activity.startedAt !== null,
+        processCompleted: activity.completedAt !== null,
+        serviceProcessId: sp?.id || null,
+        productName: sp?.productName || null,
+        itemName: sp?.itemName || null,
+        subItemName: sp?.subItemName || null,
+        serialNumber: sp?.serialNumber || null,
+        quantity: sp?.quantity || null,
+        status: sp?.status || null,
+        finalStatus: sp?.finalStatus || null,
+        isClosed: sp?.isClosed || null,
+        isRepaired: sp?.isRepaired || null,
+        finalRemarks: sp?.finalRemarks || null,
+        isDisassemblePending: sp?.isDisassemblePending || null,
+        disassembleSessionId: sp?.disassembleSessionId || null,
+        disassembleStatus: sp?.disassembleStatus || null,
+        itemType: sp?.itemType?.name || null,
+        processStage: sp?.stage?.name || null,
+        initialStage: sp?.initialStage?.name || null,
+        restartedFromStage: sp?.restartedFromStage?.name || null,
+        activityStage: activity.stageId ? stage.name : null,
+        createdAt: activity.createdAt,
+      };
+    });
+    console.log(response);
     return res.status(200).json({
       success: true,
       message: "Pending activities fetched successfully",
-      count: totalCount,
+      count: response.length,
       data: response,
     });
   } catch (error) {
@@ -508,6 +512,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     });
   }
 };
+
 
 const acceptServiceProcess = async (req, res) => {
   try {

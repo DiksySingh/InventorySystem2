@@ -47,6 +47,7 @@ model User {
   DamagedStock          DamagedStock[]
   disassembleTasks      Disassemble_Reusable_Items[] @relation("DisassembleEmployee")
   assembleStockReceives Disassemble_Reusable_Items[] @relation("AssembleEmployee")
+  debitNotes            DebitNote[]
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -382,7 +383,7 @@ model Service_Process_Record {
   finalRemarks         String?
   isDisassemblePending Boolean?       @default(false)
   disassembleSessionId String?
-  disassembleStatus    ProcessStatus?
+  disassembleStatus    String?
   createdAt            DateTime       @default(now())
   createdBy            String?
   updatedAt            DateTime       @updatedAt
@@ -618,6 +619,7 @@ model Company {
   purchaseOrders PurchaseOrder[]
   bankAccounts   BankDetail[]
   user           User            @relation(fields: [createdBy], references: [id])
+  debitNotes     DebitNote[]
 }
 
 model Vendor {
@@ -643,6 +645,7 @@ model Vendor {
   bankAccounts   BankDetail[]
   returnToVendor ReturnToVendor[]
   user           User             @relation(fields: [createdBy], references: [id])
+  debitNotes     DebitNote[]
 }
 
 model BankDetail {
@@ -664,6 +667,7 @@ model BankDetail {
   company        Company?        @relation(fields: [companyId], references: [id])
   user           User?           @relation(fields: [createdBy], references: [id])
   purchaseOrders PurchaseOrder[]
+  debitNotes     DebitNote[]
 }
 
 model Counter {
@@ -760,12 +764,15 @@ model PurchaseOrderItem {
   returnToVendor ReturnToVendor[]
   purchaseOrder  PurchaseOrder          @relation(fields: [purchaseOrderId], references: [id])
   receipts       PurchaseOrderReceipt[] @relation("Item_Receipts") // Item → Receipts
+  debitNote      DebitNote?             @relation(fields: [debitNoteId], references: [id])
+  debitNoteId    String?
 }
 
 model PurchaseOrderReceipt {
   id                  String   @id @default(uuid())
   purchaseOrderId     String?
   purchaseOrderItemId String?
+  invoiceNumber       String?
   itemId              String?
   itemSource          String?
   itemName            String?
@@ -783,27 +790,40 @@ model PurchaseOrderReceipt {
   purchaseOrder     PurchaseOrder?     @relation("PO_Receipts", fields: [purchaseOrderId], references: [id])
   purchaseOrderItem PurchaseOrderItem? @relation("Item_Receipts", fields: [purchaseOrderItemId], references: [id])
   user              User?              @relation(fields: [createdBy], references: [id])
+  debitNote         DebitNote?         @relation(fields: [debitNoteId], references: [id])
+  debitNoteId       String?
+}
+
+enum DamageStatus {
+  Pending
+  Resolved
 }
 
 model DamagedStock {
-  id              String   @id @default(uuid())
+  id              String       @id @default(uuid())
   purchaseOrderId String?
+  debitNoteId   String?
+  invoiceNumber   String?
   itemId          String?
   itemSource      String?
   itemName        String?
-  quantity        Int      @default(0)
+  quantity        Int          @default(0)
   remarks         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status          DamageStatus @default(Pending)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   createdBy       String?
 
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
   user          User?          @relation(fields: [createdBy], references: [id])
+  debitNote     DebitNote?     @relation(fields: [debitNoteId], references: [id])
+  
 }
 
 model PurchaseOrderBill {
   id              String   @id @default(uuid())
   purchaseOrderId String
+  invoiceNumber   String?
   fileName        String
   fileUrl         String
   mimeType        String
@@ -811,6 +831,70 @@ model PurchaseOrderBill {
   createdAt       DateTime @default(now())
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  debitNote     DebitNote?    @relation(fields: [debitNoteId], references: [id])
+  debitNoteId   String?
+}
+
+enum DebitNoteStatus {
+  Pending
+  Received
+}
+
+model DebitNote {
+  id              String   @id @default(uuid())
+  debitNoteNo     String   @unique
+  financialYear   String?
+  purchaseOrderId String?
+  companyId       String
+  companyName     String?
+  vendorId        String
+  vendorName      String?
+  bankDetailId    String?
+  createdBy       String?
+  drNoteDate      DateTime @default(now())
+  gstType         GSTType
+  gstRate         Decimal? @db.Decimal(5, 2)
+
+  currency     String?  @default("INR")
+  exchangeRate Decimal? @default(1.0000) @db.Decimal(12, 4)
+
+  foreignSubTotal   Decimal? @db.Decimal(12, 2)
+  foreignGrandTotal Decimal? @db.Decimal(12, 2)
+
+  subTotal       Decimal?        @db.Decimal(12, 2)
+  totalCGST      Decimal?        @db.Decimal(12, 2)
+  totalSGST      Decimal?        @db.Decimal(12, 2)
+  totalIGST      Decimal?        @db.Decimal(12, 2)
+  totalGST       Decimal?        @db.Decimal(12, 2)
+  grandTotal     Decimal?        @db.Decimal(12, 2)
+  status         DebitNoteStatus @default(Pending)
+  remarks        String?
+  pdfUrl         String?
+  pdfName        String?
+  pdfGeneratedAt DateTime?
+  pdfGeneratedBy String?
+  orgInvoiceNo   String?
+  orgInvoiceDate DateTime?
+  gr_rr_no       String?
+  transport      String?
+  vehicleNumber  String?
+  station        String?
+
+  otherCharges Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company               Company                @relation(fields: [companyId], references: [id])
+  vendor                Vendor                 @relation(fields: [vendorId], references: [id])
+  bankDetail            BankDetail?            @relation(fields: [bankDetailId], references: [id])
+  payments              Payment[]
+  returnToVendor        ReturnToVendor[]
+  damagedStock          DamagedStock[]
+  bills                 PurchaseOrderBill[]
+  user                  User?                  @relation(fields: [createdBy], references: [id])
+  purchaseOrderItems    PurchaseOrderItem[]
+  purchaseOrderReceipts PurchaseOrderReceipt[]
 }
 
 model ReturnToVendor {
@@ -836,6 +920,8 @@ model ReturnToVendor {
   purchaseOrder     PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
   purchaseOrderItem PurchaseOrderItem?    @relation(fields: [purchaseOrderItemId], references: [id])
   receipt           PurchaseOrderReceipt? @relation(fields: [receiptId], references: [id])
+  debitNote         DebitNote?            @relation(fields: [debitNoteId], references: [id])
+  debitNoteId       String?
 }
 
 enum ReturnStatus {
@@ -856,6 +942,8 @@ model Payment {
   createdAt   DateTime    @default(now())
 
   purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id])
+  debitNote     DebitNote?    @relation(fields: [debitNoteId], references: [id])
+  debitNoteId   String?
 }
 
 model AuditLog {
