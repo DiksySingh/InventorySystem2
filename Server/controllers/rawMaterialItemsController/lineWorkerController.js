@@ -292,6 +292,123 @@ const createServiceProcess = async (req, res) => {
   }
 };
 
+// const getPendingActivitiesForUserStage = async (req, res) => {
+//   try {
+//     const { role } = req.user;
+//     const empId = req.user?.id;
+
+//     if (!role?.name) throw new Error("User role not found");
+
+//     const stage = await prisma.stage.findFirst({ where: { name: role.name } });
+//     if (!stage) throw new Error("Stage not found for this role");
+//     console.log(stage);
+//     // const whereFilter = {
+//     //   stageId: stage.id,
+//     //   OR: [
+//     //     {
+//     //       status: "PENDING",
+//     //       empId: null, // unassigned tasks
+//     //     },
+//     //     {
+//     //       status: "IN_PROGRESS",
+//     //       empId: empId, // tasks assigned to this employee
+//     //     },
+//     //   ],
+//     // };
+//     //console.log(whereFilter);
+//     // Fetch data
+//     const pendingActivities = await prisma.stageActivity.findMany({
+//       where: {
+//         stageId: stage.id,
+//         OR: [
+//           {
+//             status: "PENDING",
+//             empId: null, // unassigned tasks
+//           },
+//           {
+//             status: "IN_PROGRESS",
+//             empId: empId, // tasks assigned to this employee
+//           },
+//         ],
+//       },
+//       include: {
+//         serviceProcess: {
+//           select: {
+//             id: true,
+//             productName: true,
+//             itemName: true,
+//             subItemName: true,
+//             serialNumber: true,
+//             quantity: true,
+//             status: true,
+//             finalStatus: true,
+//             isClosed: true,
+//             isRepaired: true,
+//             finalRemarks: true,
+//             isDisassemblePending: true,
+//             disassembleSessionId: true,
+//             disassembleStatus: true,
+//             itemType: { select: { id: true, name: true } },
+//             stage: { select: { id: true, name: true } },
+//             initialStage: { select: { id: true, name: true } },
+//             restartedFromStage: { select: { id: true, name: true } },
+//           },
+//         },
+//         stage: { select: { id: true, name: true } },
+//       },
+//       orderBy: { createdAt: "asc" },
+//     });
+//     console.log(pendingActivities);
+
+//     // Count only — much faster than fetching full data again
+//     const totalCount = await prisma.stageActivity.count({
+//       where: whereFilter,
+//     });
+
+//     // Transform for frontend
+//     const response = pendingActivities.map((activity) => ({
+//       activityId: activity.id,
+//       processAccepted: activity.acceptedAt !== null,
+//       processStarted: activity.startedAt !== null,
+//       processCompleted: activity.completedAt !== null,
+//       serviceProcessId: activity.serviceProcess.id,
+//       productName: activity.serviceProcess.productName,
+//       itemName: activity.serviceProcess.itemName,
+//       subItemName: activity.serviceProcess.subItemName,
+//       serialNumber: activity.serviceProcess.serialNumber,
+//       quantity: activity.serviceProcess.quantity,
+//       status: activity.serviceProcess.status,
+//       finalStatus: activity.serviceProcess.finalStatus,
+//       isClosed: activity.serviceProcess.isClosed,
+//       isRepaired: activity.serviceProcess.isRepaired,
+//       finalRemarks: activity.serviceProcess.finalRemarks,
+//       isDisassemblePending: activity.serviceProcess.isDisassemblePending,
+//       disassembleSessionId: activity.serviceProcess.disassembleSessionId,
+//       disassembleStatus: activity.serviceProcess.disassembleStatus,
+//       itemType: activity.serviceProcess.itemType?.name || null,
+//       processStage: activity.serviceProcess.stage?.name || null,
+//       initialStage: activity.serviceProcess.initialStage?.name || null,
+//       restartedFromStage:
+//         activity.serviceProcess.restartedFromStage?.name || null,
+//       activityStage: activity.stage?.name || null,
+//       createdAt: activity.createdAt,
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Pending activities fetched successfully",
+//       count: totalCount, // 🔥 count included
+//       data: response,
+//     });
+//   } catch (error) {
+//     console.error("❌ Error in getPendingActivitiesForUserStage:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal Server Error",
+//     });
+//   }
+// };
+
 const getPendingActivitiesForUserStage = async (req, res) => {
   try {
     const { role } = req.user;
@@ -301,36 +418,12 @@ const getPendingActivitiesForUserStage = async (req, res) => {
 
     const stage = await prisma.stage.findFirst({ where: { name: role.name } });
     if (!stage) throw new Error("Stage not found for this role");
-    console.log(stage);
-    // const whereFilter = {
-    //   stageId: stage.id,
-    //   OR: [
-    //     {
-    //       status: "PENDING",
-    //       empId: null, // unassigned tasks
-    //     },
-    //     {
-    //       status: "IN_PROGRESS",
-    //       empId: empId, // tasks assigned to this employee
-    //     },
-    //   ],
-    // };
-    //console.log(whereFilter);
-    // Fetch data
-    const pendingActivities = await prisma.stageActivity.findMany({
-      where: {
-        stageId: stage.id,
-        OR: [
-          {
-            status: "PENDING",
-            empId: null, // unassigned tasks
-          },
-          {
-            status: "IN_PROGRESS",
-            empId: empId, // tasks assigned to this employee
-          },
-        ],
-      },
+
+    console.log("Stage:", stage);
+
+    // STEP 1: Fetch ALL stage activities for this stage
+    const allActivities = await prisma.stageActivity.findMany({
+      where: { stageId: stage.id },
       include: {
         serviceProcess: {
           select: {
@@ -358,15 +451,22 @@ const getPendingActivitiesForUserStage = async (req, res) => {
       },
       orderBy: { createdAt: "asc" },
     });
-    console.log(pendingActivities);
 
-    // Count only — much faster than fetching full data again
-    const totalCount = await prisma.stageActivity.count({
-      where: whereFilter,
+    // STEP 2: Manual filtering (NO enum errors)
+    const filteredActivities = allActivities.filter((activity) => {
+      if (activity.status === "PENDING" && activity.empId === null) return true;
+      if (activity.status === "IN_PROGRESS" && activity.empId === empId)
+        return true;
+      return false;
     });
 
-    // Transform for frontend
-    const response = pendingActivities.map((activity) => ({
+    console.log("Filtered:", filteredActivities.length);
+
+    // STEP 3: Manual count
+    const totalCount = filteredActivities.length;
+
+    // STEP 4: Transform → Same format as before (NO CHANGE IN KEYS)
+    const response = filteredActivities.map((activity) => ({
       activityId: activity.id,
       processAccepted: activity.acceptedAt !== null,
       processStarted: activity.startedAt !== null,
@@ -397,7 +497,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Pending activities fetched successfully",
-      count: totalCount, // 🔥 count included
+      count: totalCount,
       data: response,
     });
   } catch (error) {
