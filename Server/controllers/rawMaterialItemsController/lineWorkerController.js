@@ -1334,11 +1334,11 @@ const disassembleReusableItemsForm = async (req, res) => {
       const idx = warehouse.items.findIndex(
         (it) =>
           it.itemName &&
-          it.itemName.trim().toLowerCase() === subItemName.trim().toLowerCase()
+          it.itemName.trim().toLowerCase() === serviceProcess.subItemName.trim().toLowerCase()
       );
 
       if (idx === -1) {
-        throw new Error(`⚠ Item '${subItemName}' not found in warehouse`);
+        throw new Error(`⚠ Item '${serviceProcess.subItemName}' not found in warehouse`);
       } else {
         warehouse.items[idx].defective =
           (warehouse.items[idx].defective || 0) - qty;
