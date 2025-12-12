@@ -29,6 +29,7 @@ const commonController = require("../controllers/commonModelController/commonCon
 const systemInstallationReport = require("../helpers/pdf/systemInstallationReport");
 const warehouseReports = require("../helpers/pdf/warehouseInOutReport");
 const storage = multer.memoryStorage();
+const installationInventoryReport = require("../helpers/pdf/installationInventoryReport");
 const upload = multer({ storage });
 
 router.put("/upload-excel", upload.single('file'), updateLatitudeLongitude);
@@ -71,4 +72,5 @@ router.get("/installationInventoryStockReport", systemInstallationReport.install
 router.get("/systemSetReport", systemInstallationReport.systemSetReport);
 router.get("/generateJalnaReport", warehouseReports.generateJalnaReport)
 router.post("/updateInstallationInventory", upload.single('file'), commonController.updateInstallationInventoryFromExcel);
+router.get("/systemInventoryReport", installationInventoryReport); // Badnapur Inventory Stock Report - Anirudh Sir
 module.exports = router;
