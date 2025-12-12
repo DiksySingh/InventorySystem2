@@ -301,7 +301,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
 
     const stage = await prisma.stage.findFirst({ where: { name: role.name } });
     if (!stage) throw new Error("Stage not found for this role");
-
+    console.log(stage);
     const whereFilter = {
       stageId: stage.id,
       OR: [
@@ -315,7 +315,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
         },
       ],
     };
-
+    console.log(whereFilter);
     // Fetch data
     const pendingActivities = await prisma.stageActivity.findMany({
       where: whereFilter,
