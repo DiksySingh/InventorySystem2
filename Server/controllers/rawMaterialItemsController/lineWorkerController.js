@@ -43,7 +43,7 @@ const rawMaterialForItemRequest = async (req, res) => {
   try {
     const allRawMaterial = await prisma.rawMaterial.findMany({
       where: {
-        isUsed: true
+        isUsed: true,
       },
       orderBy: {
         stock: "asc",
@@ -172,23 +172,25 @@ const createServiceProcess = async (req, res) => {
     todayEnd.setHours(23, 59, 59, 999);
 
     let itemType;
-    if(empRole === "Disassemble") {
+    if (empRole === "Disassemble") {
       itemType = await prisma.itemType.findFirst({
         where: {
-          name: "SERVICE"
-        }, select: {
+          name: "SERVICE",
+        },
+        select: {
           id: true,
-          name: true
-        }
+          name: true,
+        },
       });
     } else if (empRole === "SFG Work") {
       itemType = await prisma.itemType.findFirst({
         where: {
-          name: "NEW"
-        }, select: {
+          name: "NEW",
+        },
+        select: {
           id: true,
-          name: true
-        }
+          name: true,
+        },
       });
     }
 
@@ -382,7 +384,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Pending activities fetched successfully",
-      count: totalCount,   // 🔥 count included
+      count: totalCount, // 🔥 count included
       data: response,
     });
   } catch (error) {
@@ -947,6 +949,66 @@ const completeServiceProcess = async (req, res) => {
     // After transaction: update warehouse stock only when Testing stage + completed
     const { stage: updatedStage, serviceProcess } = updatedActivity;
 
+    // if (updatedStage.name === "Testing" && status === "COMPLETED") {
+    //   const normalize = (str) =>
+    //     str
+    //       ?.toLowerCase()
+    //       .trim()
+    //       .replace(/\s+/g, "")
+    //       .replace(/[^a-z0-9.]/g, "");
+
+    //   const subItemName = serviceProcess.subItemName;
+    //   const freshWarehouse = await WarehouseItems.findOne({
+    //     warehouse: new mongoose.Types.ObjectId(warehouseId),
+    //   });
+    //   console.log(subItemName);
+
+    //   const normalizedSub = normalize(subItemName);
+    //   const existingItem = freshWarehouse.items.find((it) => {
+    //     if (!it.itemName) return false;
+    //     return normalize(it.itemName) === normalizedSub;
+    //   });
+
+    //   if (!existingItem) {
+    //     throw new Error(
+    //       `Warehouse item not found for "${subItemName}" (normalized: "${normalizedSub}")`
+    //     );
+    //   }
+
+    //   // decide field and amount
+    //   const incField =
+    //     serviceProcess.itemType.name === "SERVICE" ? "quantity" : "newStock";
+    //   const incAmount = Number(serviceProcess.quantity) || 1;
+    //   const matchedItemName = existingItem.itemName;
+
+    //   // atomic update using positional operator
+    //   const updateResult = await WarehouseItems.updateOne(
+    //     { _id: freshWarehouse._id, "items.itemName": matchedItemName },
+    //     { $inc: { [`items.$.${incField}`]: incAmount } }
+    //   );
+
+    //   console.log("warehouse updateResult:", updateResult);
+
+    //   if (!updateResult.acknowledged || updateResult.modifiedCount === 0) {
+    //     console.warn(
+    //       "Atomic update didn't modify any document; running fallback save..."
+    //     );
+    //     const idx = freshWarehouse.items.findIndex(
+    //       (it) => it.itemName === matchedItemName
+    //     );
+    //     if (idx !== -1) {
+    //       freshWarehouse.items[idx][incField] =
+    //         (freshWarehouse.items[idx][incField] || 0) + incAmount;
+    //       await freshWarehouse.save();
+    //       console.log("Fallback save completed.");
+    //     } else {
+    //       throw new Error(
+    //         "Failed to update warehouse: item disappeared between read and update."
+    //       );
+    //     }
+    //   }
+    // }
+
     if (updatedStage.name === "Testing" && status === "COMPLETED") {
       const normalize = (str) =>
         str
@@ -960,6 +1022,8 @@ const completeServiceProcess = async (req, res) => {
         warehouse: new mongoose.Types.ObjectId(warehouseId),
       });
 
+      console.log(subItemName);
+
       const normalizedSub = normalize(subItemName);
       const existingItem = freshWarehouse.items.find((it) => {
         if (!it.itemName) return false;
@@ -972,30 +1036,46 @@ const completeServiceProcess = async (req, res) => {
         );
       }
 
-      // decide field and amount
+      // Increase field
       const incField =
         serviceProcess.itemType.name === "SERVICE" ? "quantity" : "newStock";
-      const incAmount = Number(serviceProcess.quantity) || 1;
+
+      const amount = Number(serviceProcess.quantity) || 1;
       const matchedItemName = existingItem.itemName;
 
-      // atomic update using positional operator
       const updateResult = await WarehouseItems.updateOne(
-        { _id: freshWarehouse._id, "items.itemName": matchedItemName },
-        { $inc: { [`items.$.${incField}`]: incAmount } }
+        {
+          _id: freshWarehouse._id,
+          "items.itemName": matchedItemName,
+        },
+        {
+          $inc: {
+            [`items.$.${incField}`]: amount, // Increase qty/newStock
+            "items.$.defective": -amount, // Decrease defective
+          },
+        }
       );
 
       console.log("warehouse updateResult:", updateResult);
-
+      
       if (!updateResult.acknowledged || updateResult.modifiedCount === 0) {
         console.warn(
           "Atomic update didn't modify any document; running fallback save..."
         );
+
         const idx = freshWarehouse.items.findIndex(
           (it) => it.itemName === matchedItemName
         );
+
         if (idx !== -1) {
+          // Increase qty / newStock
           freshWarehouse.items[idx][incField] =
-            (freshWarehouse.items[idx][incField] || 0) + incAmount;
+            (freshWarehouse.items[idx][incField] || 0) + amount;
+
+          // Decrease defective
+          freshWarehouse.items[idx].defective =
+            (freshWarehouse.items[idx].defective || 0) - amount;
+
           await freshWarehouse.save();
           console.log("Fallback save completed.");
         } else {
@@ -1057,7 +1137,7 @@ const getAssembleUsers = async (req, res) => {
 
     // 2️⃣ Fetch all users with Assemble role
     const users = await prisma.user.findMany({
-      where: { roleId: assembleRole.id, isActive: true},
+      where: { roleId: assembleRole.id, isActive: true },
       select: {
         id: true,
         name: true,
@@ -1271,62 +1351,60 @@ const getRequestsByUser = async (req, res) => {
         requestedAt: true,
         approved: true,
         declined: true,
-        materialGiven: true
+        materialGiven: true,
       },
       orderBy: {
-        requestedAt: "desc"
-      }
+        requestedAt: "desc",
+      },
     });
 
     if (!requests.length) {
       return res.status(200).json({
         success: true,
         message: "No requests found",
-        data: []
+        data: [],
       });
     }
 
     const allIds = [];
-    requests.forEach(reqItem => {
-      reqItem.rawMaterialRequested?.forEach(rm => {
+    requests.forEach((reqItem) => {
+      reqItem.rawMaterialRequested?.forEach((rm) => {
         if (rm.rawMaterialId) allIds.push(rm.rawMaterialId);
       });
     });
 
     const rawMaterials = await prisma.rawMaterial.findMany({
       where: { id: { in: allIds } },
-      select: { id: true, name: true }
+      select: { id: true, name: true },
     });
 
     // Convert to map for faster lookup
     const rawMaterialMap = {};
-    rawMaterials.forEach(rm => {
+    rawMaterials.forEach((rm) => {
       rawMaterialMap[rm.id] = rm.name;
     });
 
     // STEP 4: Attach names into each request item
-    const finalData = requests.map(reqItem => ({
+    const finalData = requests.map((reqItem) => ({
       ...reqItem,
-      rawMaterialRequested: reqItem.rawMaterialRequested.map(rm => ({
+      rawMaterialRequested: reqItem.rawMaterialRequested.map((rm) => ({
         ...rm,
-        rawMaterialName: rawMaterialMap[rm.rawMaterialId]
-      }))
+        rawMaterialName: rawMaterialMap[rm.rawMaterialId],
+      })),
     }));
 
     return res.status(200).json({
       success: true,
       message: "Requests fetched successfully",
-      data: finalData
+      data: finalData,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
-
 
 module.exports = {
   showStorePersons,
@@ -1341,5 +1419,5 @@ module.exports = {
   createItemUsageLog,
   getAssembleUsers,
   disassembleReusableItemsForm,
-  getRequestsByUser
+  getRequestsByUser,
 };
