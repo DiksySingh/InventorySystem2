@@ -346,6 +346,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
       },
       orderBy: { createdAt: "asc" },
     });
+    console.log(pendingActivities);
 
     // Count only — much faster than fetching full data again
     const totalCount = await prisma.stageActivity.count({
