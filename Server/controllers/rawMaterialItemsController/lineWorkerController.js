@@ -1057,7 +1057,7 @@ const completeServiceProcess = async (req, res) => {
       );
 
       console.log("warehouse updateResult:", updateResult);
-      
+
       if (!updateResult.acknowledged || updateResult.modifiedCount === 0) {
         console.warn(
           "Atomic update didn't modify any document; running fallback save..."
@@ -1163,6 +1163,7 @@ const getAssembleUsers = async (req, res) => {
 const disassembleReusableItemsForm = async (req, res) => {
   try {
     const empId = req.user.id;
+    const warehouseId = "67446a8b27dae6f7f4d985dd";
     const {
       serviceProcessId,
       disassembleSessionId,
@@ -1322,6 +1323,35 @@ const disassembleReusableItemsForm = async (req, res) => {
 
       return disassembleEntry;
     });
+
+    const warehouse = await WarehouseItems.findOne({
+      warehouse: warehouseId,
+    });
+    const qty = Number(serviceProcess.quantity) || 1;
+    if (!warehouse) {
+      throw new Error(`⚠ Warehouse items data not found.`);
+    } else {
+      const idx = warehouse.items.findIndex(
+        (it) =>
+          it.itemName &&
+          it.itemName.trim().toLowerCase() === subItemName.trim().toLowerCase()
+      );
+
+      if (idx === -1) {
+        throw new Error(`⚠ Item '${subItemName}' not found in warehouse`);
+      } else {
+        warehouse.items[idx].defective =
+          (warehouse.items[idx].defective || 0) - qty;
+
+        // Prevent negative values
+        if (warehouse.items[idx].defective < 0) {
+          warehouse.items[idx].defective = 0;
+        }
+
+        await warehouse.save();
+        console.log("✅ Warehouse defective count updated");
+      }
+    }
 
     // ------------------- RESPONSE -------------------
     return res.status(200).json({
