@@ -29,5 +29,6 @@ router.post("/updateRawMaterialFromExcel", commonController.upload.single('file'
 router.post("/updateRawMaterialUsageFromExcel", commonController.upload.single('file'), commonController.updateRawMaterialUsageFromExcel);
 
 router.put("/update/:id/:isActive", tokenVerification(['Purchase']), commonController.markCompanyOrVendorNotActive);
+router.post("/raw-material/create", tokenVerification(['Purchase', 'Store']), commonController.createRawMaterial);
 
 module.exports = router;

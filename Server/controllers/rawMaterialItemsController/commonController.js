@@ -1231,6 +1231,52 @@ const markCompanyOrVendorNotActive = async (req, res) => {
   }
 };
 
+const createRawMaterial = async (req, res) => {
+  try {
+    const { rawMaterialName, unit } = req.body;
+    if (!rawMaterialName || !unit) {
+      return res.status(400).json({
+        success: false,
+        message: "rawMaterialName is required",
+      });
+    }
+
+    const name = rawMaterialName.trim(); // Trim only once
+
+    // Check if item already exists
+    const existingItem = await prisma.rawMaterial.findUnique({
+      where: { name },
+    });
+
+    if (existingItem) {
+      return res.status(400).json({
+        success: false,
+        message: "RawMaterial Already Exists",
+      });
+    }
+
+    const addRawMaterial = await prisma.rawMaterial.create({
+      data: {
+        name: rawMaterialName,
+        stock: 0,
+        unit: unit,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Raw-Material Added Successfully",
+      data: addRawMaterial,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   addRole,
@@ -1257,5 +1303,6 @@ module.exports = {
   getRawMaterialIdByName,
   updateRawMaterialFromExcel,
   updateRawMaterialUsageFromExcel,
-  markCompanyOrVendorNotActive
+  markCompanyOrVendorNotActive,
+  createRawMaterial
 };
