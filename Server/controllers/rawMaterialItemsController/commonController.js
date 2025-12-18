@@ -1277,6 +1277,29 @@ const createRawMaterial = async (req, res) => {
   }
 };
 
+const showUnit = async (req, res) => {
+  try {
+    const getUnit = await prisma.unit.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Units Fetched Successfully`,
+      data: getUnit,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   addRole,
@@ -1304,5 +1327,6 @@ module.exports = {
   updateRawMaterialFromExcel,
   updateRawMaterialUsageFromExcel,
   markCompanyOrVendorNotActive,
-  createRawMaterial
+  createRawMaterial,
+  showUnit
 };
