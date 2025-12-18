@@ -78,7 +78,7 @@ async function generateDebitNoteNumber(company) {
   });
 
   const nextSeq = counter.seq.toString().padStart(4, "0");
-  return `${prefix}DN${fy}${nextSeq}`;
+  return `${prefix}-DN-${fy}-${nextSeq}`;
 }
 
 const createCompany = async (req, res) => {
