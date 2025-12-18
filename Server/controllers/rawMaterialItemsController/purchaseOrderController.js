@@ -15,7 +15,7 @@ function getISTDate() {
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
   // IST = UTC + 5 hours 30 minutes
   return new Date(utc + 5.5 * 60 * 60 * 1000);
-};
+}
 
 function getFinancialYear(date = getISTDate()) {
   const year = date.getFullYear();
@@ -23,7 +23,7 @@ function getFinancialYear(date = getISTDate()) {
   const startYear = month >= 4 ? year : year - 1;
   const endYear = startYear + 1;
   return `${startYear.toString().slice(-2)}${endYear.toString().slice(-2)}`;
-};
+}
 
 function getStateCode(stateName) {
   if (!stateName) return "XX";
@@ -36,7 +36,7 @@ function getStateCode(stateName) {
   if (s.includes("rajasthan")) return "RJ";
   if (s.includes("delhi")) return "DL";
   return s.substring(0, 2).toUpperCase();
-};
+}
 
 async function generatePONumber(company) {
   const fy = getFinancialYear();
@@ -58,7 +58,7 @@ async function generatePONumber(company) {
 
   const nextSeq = counter.seq.toString().padStart(4, "0");
   return `${prefix}${fy}${nextSeq}`;
-};
+}
 
 async function generateDebitNoteNumber(company) {
   const fy = getFinancialYear(); // e.g. "2024-2025"
@@ -79,7 +79,7 @@ async function generateDebitNoteNumber(company) {
 
   const nextSeq = counter.seq.toString().padStart(4, "0");
   return `${prefix}DN${fy}${nextSeq}`;
-};
+}
 
 const createCompany = async (req, res) => {
   try {
@@ -1079,6 +1079,41 @@ const createPurchaseOrder2 = async (req, res) => {
       });
     }
 
+    let normalizedOtherCharges = [];
+
+    // Case 1: Frontend sends single empty object → treat as empty
+    if (
+      Array.isArray(otherCharges) &&
+      otherCharges.length === 1 &&
+      otherCharges[0]?.name === "" &&
+      otherCharges[0]?.amount === ""
+    ) {
+      normalizedOtherCharges = [];
+    }
+    // Case 2: Validate proper other charges
+    else if (Array.isArray(otherCharges) && otherCharges.length > 0) {
+      for (const ch of otherCharges) {
+        if (
+          !ch.name ||
+          ch.name.trim() === "" ||
+          ch.amount === "" ||
+          ch.amount == null ||
+          isNaN(ch.amount)
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid otherCharges: name and amount are required for each charge",
+          });
+        }
+
+        normalizedOtherCharges.push({
+          name: ch.name.trim(),
+          amount: new Decimal(ch.amount),
+        });
+      }
+    }
+
     const isItemWise = gstType.includes("ITEMWISE");
 
     // Validate items
@@ -1233,8 +1268,8 @@ const createPurchaseOrder2 = async (req, res) => {
 
     // Add otherCharges to subtotal
     let otherChargesTotal = new Decimal(0);
-    if (Array.isArray(otherCharges) && otherCharges.length > 0) {
-      for (const ch of otherCharges) {
+    if (Array.isArray(normalizedOtherCharges) && normalizedOtherCharges.length > 0) {
+      for (const ch of normalizedOtherCharges) {
         if (!ch.amount || isNaN(ch.amount)) continue;
         otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount));
       }
@@ -1310,7 +1345,7 @@ const createPurchaseOrder2 = async (req, res) => {
           contactPerson,
           cellNo,
           createdBy: userId,
-          otherCharges,
+          otherCharges: normalizedOtherCharges,
           items: {
             create: processedItems,
           },
@@ -2450,7 +2485,7 @@ function convertUnit(value, fromUnit, toUnit) {
 
   const baseValue = value * unitMap[f]; // convert to base
   return baseValue / unitMap[t]; // convert to target
-};
+}
 
 const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   const userId = req.user?.id;
@@ -3116,7 +3151,7 @@ const getPurchaseOrderDetailsWithDamagedItems = async (req, res) => {
     return res.json({
       success: true,
       message: "PO details with damaged stock fetched successfully",
-      data: po,
+      data: po || [],
     });
   } catch (error) {
     console.error("❌ Error fetching PO details:", error);
@@ -3182,10 +3217,17 @@ const createDebitNote = async (req, res) => {
 
     // Validate items
     for (const item of damagedItems) {
-      if (!item.damagedStockId || !item.itemId || !item.name || !item.source || !item.unit) {
+      if (
+        !item.damagedStockId ||
+        !item.itemId ||
+        !item.name ||
+        !item.source ||
+        !item.unit
+      ) {
         return res.status(400).json({
           success: false,
-          message: "DamagedItems must include damagedStockId, itemId, name, source, unit",
+          message:
+            "DamagedItems must include damagedStockId, itemId, name, source, unit",
         });
       }
       if (!item.rate || !item.quantity || Number(item.quantity) <= 0) {
@@ -3439,7 +3481,7 @@ const createDebitNote = async (req, res) => {
           vehicleNumber: vehicleNumber || null,
           station: station || null,
           createdBy: userId,
-          otherCharges
+          otherCharges,
         },
       });
 
@@ -3518,8 +3560,8 @@ const downloadDebitNote = async (req, res) => {
   try {
     const { poId, debitNoteId } = req.params;
     const userId = req.user?.id;
-    if(!poId || !debitNoteId) {
-       return res.status(400).json({
+    if (!poId || !debitNoteId) {
+      return res.status(400).json({
         success: false,
         message: "Missing Data: PO Id or Debit Note Id",
       });
@@ -3544,12 +3586,14 @@ const downloadDebitNote = async (req, res) => {
     }
 
     const debitNote = await prisma.debitNote.findUnique({
-      where: { id: debitNoteId , purchaseOrderId: poId},
+      where: { id: debitNoteId, purchaseOrderId: poId },
       include: { company: true, vendor: true, damagedStock: true },
     });
 
     if (!debitNote) {
-      return res.status(404).json({ success: false, message: "Debit Note not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Debit Note not found." });
     }
 
     // Freeze item values exactly as stored
@@ -3777,7 +3821,9 @@ const updateDebitNote = async (req, res) => {
     });
 
     if (!existingDebitNote)
-      return res.status(404).json({ success: false, message: "Debit Note not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Debit Note not found" });
 
     // if (existingPO.status !== "Draft") {
     //   return res.status(400).json({
@@ -4055,8 +4101,13 @@ const debitNoteReceivingBill = async (req, res) => {
       }
     }
 
-    const { purchaseOrderId, debitNoteId, damagedItems, warehouseId, invoiceNumber } =
-      req.body;
+    const {
+      purchaseOrderId,
+      debitNoteId,
+      damagedItems,
+      warehouseId,
+      invoiceNumber,
+    } = req.body;
     const billFile = req.files?.billFile?.[0];
 
     if (
@@ -4283,7 +4334,7 @@ function getFinancialYearRange() {
     startFY: new Date(fyStartYear, 3, 1),
     endFY: new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999),
   };
-};
+}
 
 // ----------------------- Date Ranges -----------------------
 function getDateRanges() {
@@ -4305,7 +4356,7 @@ function getDateRanges() {
   const { startFY, endFY } = getFinancialYearRange();
 
   return { startOfToday, startOfMonth, startOfWeek, startFY, endFY };
-};
+}
 
 const getPODashboard = async (req, res) => {
   try {
@@ -4440,7 +4491,7 @@ module.exports = {
   downloadDebitNote,
   getDebitNoteDetails,
   updateDebitNote,
-  debitNoteReceivingBill
+  debitNoteReceivingBill,
 };
 
 // [{
