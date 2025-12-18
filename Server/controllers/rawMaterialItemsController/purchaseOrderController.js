@@ -7,6 +7,7 @@ const SystemItem = require("../../models/systemInventoryModels/systemItemSchema"
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const generatePO = require("../../util/generatePO");
 const poGenerate = require("../../util/poGenerate");
+const debitNoteGenerate = require("../../util/debitNoteGenerate");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 
 function getISTDate() {
@@ -14,7 +15,7 @@ function getISTDate() {
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
   // IST = UTC + 5 hours 30 minutes
   return new Date(utc + 5.5 * 60 * 60 * 1000);
-}
+};
 
 function getFinancialYear(date = getISTDate()) {
   const year = date.getFullYear();
@@ -22,7 +23,7 @@ function getFinancialYear(date = getISTDate()) {
   const startYear = month >= 4 ? year : year - 1;
   const endYear = startYear + 1;
   return `${startYear.toString().slice(-2)}${endYear.toString().slice(-2)}`;
-}
+};
 
 function getStateCode(stateName) {
   if (!stateName) return "XX";
@@ -35,7 +36,7 @@ function getStateCode(stateName) {
   if (s.includes("rajasthan")) return "RJ";
   if (s.includes("delhi")) return "DL";
   return s.substring(0, 2).toUpperCase();
-}
+};
 
 async function generatePONumber(company) {
   const fy = getFinancialYear();
@@ -57,7 +58,7 @@ async function generatePONumber(company) {
 
   const nextSeq = counter.seq.toString().padStart(4, "0");
   return `${prefix}${fy}${nextSeq}`;
-}
+};
 
 async function generateDebitNoteNumber(company) {
   const fy = getFinancialYear(); // e.g. "2024-2025"
@@ -65,7 +66,7 @@ async function generateDebitNoteNumber(company) {
   const prefix = `${company.companyCode}${stateCode}`;
   const counterName = `DN_${company.id}_${fy}`;
 
-   const counter = await prisma.counter.upsert({
+  const counter = await prisma.counter.upsert({
     where: { name: counterName },
     update: { seq: { increment: 1 } },
     create: {
@@ -78,8 +79,7 @@ async function generateDebitNoteNumber(company) {
 
   const nextSeq = counter.seq.toString().padStart(4, "0");
   return `${prefix}DN${fy}${nextSeq}`;
-}
-
+};
 
 const createCompany = async (req, res) => {
   try {
@@ -785,248 +785,6 @@ const getItemsList = async (req, res) => {
     });
   }
 };
-
-// const createPurchaseOrder = async (req, res) => {
-//   try {
-//     const {
-//       companyId,
-//       vendorId,
-//       gstType,
-//       items,
-//       remarks,
-//       paymentTerms,
-//       deliveryTerms,
-//       warranty,
-//       contactPerson,
-//       cellNo,
-//     } = req.body;
-
-//     const userId = req.user?.id;
-//     if (!userId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "User data is missing",
-//       });
-//     }
-
-//     const userData = await prisma.user.findUnique({
-//       where: {
-//         id: userId,
-//       },
-//       include: {
-//         role: {
-//           select: {
-//             name: true,
-//           },
-//         },
-//       },
-//     });
-
-//     if (!userData) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User data not found in database",
-//       });
-//     }
-
-//     if (userData.role.name !== "Purchase") {
-//       return res.status(400).json({
-//         success: false,
-//         message:
-//           "Only Purchase Department is allowed to create purchase order.",
-//       });
-//     }
-
-//     if (!companyId || !vendorId || !gstType || !items)
-//       return res.status(400).json({
-//         success: false,
-//         message: "Company, Vendor, GST Type, Items are required",
-//       });
-
-//     if (!items?.length)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Items are required" });
-
-//     for (const item of items) {
-//       if (!item.id || !item.source || !item.name || !item.unit || !item.itemGSTType) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Each item must include id, source, name, unit, itemGSTType",
-//         });
-//       }
-
-//       if (!item.rate || !item.quantity || Number(item.quantity) <= 0) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Item quantity and rate must be greater than zero.",
-//         });
-//       }
-//     }
-
-//     const company = await prisma.company.findUnique({
-//       where: { id: companyId },
-//     });
-//     if (!company)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Company not found" });
-
-//     const vendor = await prisma.vendor.findUnique({
-//       where: {
-//         id: vendorId,
-//       },
-//     });
-//     if (!vendor)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Vendor not found" });
-
-//     const poNumber = await generatePONumber(company);
-
-//     // Check duplicate (extra safety)
-//     if (await prisma.purchaseOrder.findUnique({ where: { poNumber } }))
-//       return res
-//         .status(400)
-//         .json({ success: false, message: `PO ${poNumber} already exists.` });
-
-//     // -------- GST Calculation --------
-//     let subTotal = new Decimal(0);
-//     let totalCGST = new Decimal(0);
-//     let totalSGST = new Decimal(0);
-//     let totalIGST = new Decimal(0);
-
-//     const normalItems = [];
-//     const itemWiseItems = [];
-
-//     for (const item of items) {
-//       const total = new Decimal(item.rate).mul(item.quantity);
-//       subTotal = subTotal.plus(total);
-
-//       const itype = item.itemGSTType || gstType;
-//       itype.includes("ITEMWISE")
-//         ? itemWiseItems.push(item)
-//         : normalItems.push(item);
-//     }
-
-//     // 🌍 Global GST on combined total of normal items
-//     if (normalItems.length) {
-//       const normalTotal = normalItems.reduce(
-//         (sum, i) => sum.plus(new Decimal(i.rate).mul(i.quantity)),
-//         new Decimal(0)
-//       );
-
-//       switch (gstType) {
-//         case "LGST_18":
-//           totalCGST = totalCGST.plus(normalTotal.mul(0.09));
-//           totalSGST = totalSGST.plus(normalTotal.mul(0.09));
-//           break;
-//         case "LGST_5":
-//           totalCGST = totalCGST.plus(normalTotal.mul(0.025));
-//           totalSGST = totalSGST.plus(normalTotal.mul(0.025));
-//           break;
-//         case "IGST_18":
-//           totalIGST = totalIGST.plus(normalTotal.mul(0.18));
-//           break;
-//         case "IGST_5":
-//           totalIGST = totalIGST.plus(normalTotal.mul(0.05));
-//           break;
-//         case "LGST_EXEMPTED":
-//         case "IGST_EXEMPTED":
-//           break;
-//       }
-//     }
-
-//     // 🧮 Itemwise GST
-//     for (const item of itemWiseItems) {
-//       const total = new Decimal(item.rate).mul(item.quantity);
-//       const rate = new Decimal(item.gstRate || 0);
-//       const type = item.itemGSTType;
-
-//       if (type === "LGST_ITEMWISE") {
-//         totalCGST = totalCGST.plus(total.mul(rate.div(200)));
-//         totalSGST = totalSGST.plus(total.mul(rate.div(200)));
-//       } else if (type === "IGST_ITEMWISE") {
-//         totalIGST = totalIGST.plus(total.mul(rate.div(100)));
-//       }
-//     }
-
-//     const totalGST = totalCGST.plus(totalSGST).plus(totalIGST);
-//     const grandTotal = subTotal.plus(totalGST);
-
-//     // -------- Persist PO + Audit Log Tx --------
-//     const newPO = await prisma.$transaction(async (tx) => {
-//       const po = await tx.purchaseOrder.create({
-//         data: {
-//           poNumber,
-//           financialYear: getFinancialYear(),
-//           companyId,
-//           companyName: company.name,
-//           vendorId,
-//           vendorName: vendor.name,
-//           gstType,
-//           subTotal,
-//           totalCGST,
-//           totalSGST,
-//           totalIGST,
-//           totalGST,
-//           grandTotal,
-//           remarks,
-//           paymentTerms,
-//           deliveryTerms,
-//           warranty,
-//           contactPerson,
-//           cellNo,
-//           createdBy: req.user?.id,
-//           items: {
-//             create: items.map((i) => ({
-//               itemId: i.id,
-//               itemSource: i.source,
-//               itemName: i.name,
-//               hsnCode: i.hsnCode || null,
-//               modelNumber: i.modelNumber || null,
-//               unit: i.unit || "Nos",
-//               rate: new Decimal(i.rate),
-//               gstRate: new Decimal(i.gstRate || 0),
-//               quantity: new Decimal(i.quantity),
-//               total: new Decimal(i.rate).mul(i.quantity),
-//               itemGSTType: i.itemGSTType || gstType,
-//             })),
-//           },
-//         },
-//         include: { items: true, vendor: true, company: true },
-//       });
-
-//       await tx.auditLog.create({
-//         data: {
-//           entityType: "PurchaseOrder",
-//           entityId: po.id,
-//           action: "CREATED",
-//           performedBy: req.user?.id,
-//           newValue: po,
-//         },
-//       });
-
-//       return po;
-//     });
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "✅ Purchase Order Created Successfully",
-//       data: newPO,
-//     });
-//   } catch (err) {
-//     console.error("PO Create Error:", err);
-//     if (err.code === "P2002" && err.meta?.target?.includes("poNumber")) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Duplicate PO number detected. Please retry.",
-//       });
-//     }
-
-//     return res.status(500).json({ message: err.message || "Server error" });
-//   }
-// };
 
 const getGSTPercent = (type) => {
   if (!type) return new Decimal(0);
@@ -2508,274 +2266,6 @@ const downloadPOPDF2 = async (req, res) => {
   }
 };
 
-//----------------- Send PO -------------------//
-// const sendPO = async (req, res) => {
-//   try {
-//     const { poId } = req.query;
-//     const userId = req?.user?.id;
-//     if (!poId) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "PO-Id is required",
-//       });
-//     }
-//     const userData = await prisma.user.findUnique({
-//       where: {
-//         id: userId,
-//       },
-//       include: {
-//         role: {
-//           select: {
-//             name: true,
-//           },
-//         },
-//       },
-//     });
-
-//     if (!userData) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User not found",
-//       });
-//     }
-
-//     if (userData.role?.name !== "Purchase") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Only purchase department is allowed to send mail.",
-//       });
-//     }
-
-//     const po = await prisma.purchaseOrder.findUnique({
-//       where: { id: poId },
-//       include: { vendor: true, company: true },
-//     });
-
-//     if (!po)
-//       return res.status(404).json({ success: false, message: "PO not found" });
-//     if (!po.vendor.email)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Vendor email missing" });
-//     if (!po.pdfName || !po.pdfUrl) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "PDF not generated yet" });
-//     }
-
-//     const pdfPath = path.join(
-//       __dirname,
-//       "../../uploads/purchaseOrder",
-//       po.pdfName
-//     );
-//     if (!fs.existsSync(pdfPath)) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "PDF file missing on server" });
-//     }
-
-//     // ✅ Prepare email transporter
-//     const transporter = nodemailer.createTransport({
-//       service: "gmail",
-//       auth: {
-//         user: process.env.EMAIL_USER,
-//         pass: process.env.EMAIL_PASSWORD,
-//       },
-//     });
-
-//     const mailOptions = {
-//       from: process.env.EMAIL_USER,
-//       to: po.vendor.email,
-//       subject: `Purchase Order - ${po.poNumber}`,
-//       text: `Dear ${po.vendor.name},
-
-// Please find the attached Purchase Order.
-
-// Regards,
-// ${req.user?.name || "Team"}
-// ${po.company.name}
-// ${po.company.address}
-//       `,
-//       attachments: [{ filename: po.pdfName, path: pdfPath }],
-//     };
-
-//     // ✅ Send Email First (outside transaction)
-//     const emailResponse = await transporter.sendMail(mailOptions);
-
-//     if (!emailResponse.accepted || emailResponse.accepted.length === 0) {
-//       throw new Error("Email not accepted by SMTP server");
-//     }
-//     console.log("Email sent:", emailResponse.messageId);
-//     // ✅ Transaction — only runs if email was successful
-//     await prisma.$transaction(async (tx) => {
-//       await tx.purchaseOrder.update({
-//         where: { id: poId },
-//         data: {
-//           status: "Sent",
-//           emailSentAt: new Date(),
-//           emailSentBy: req.user?.id || null,
-//         },
-//       });
-
-//       await tx.auditLog.create({
-//         data: {
-//           entityType: "PurchaseOrder",
-//           entityId: poId,
-//           action: "EMAIL_SENT",
-//           performedBy: req.user?.id || null,
-//           oldValue: { status: po.status },
-//           newValue: { status: "Sent", emailTo: po.vendor.email },
-//         },
-//       });
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "PO emailed successfully & status updated.",
-//     });
-//   } catch (err) {
-//     console.error("Email/DB Error:", err);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to email PO",
-//       error: err.message,
-//     });
-//   }
-// };
-
-// const resendPO = async (req, res) => {
-//   try {
-//     const { poId } = req.query;
-//     const userId = req?.user?.id;
-//     if (!poId) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "PO-Id is required",
-//       });
-//     }
-//     const userData = await prisma.user.findUnique({
-//       where: {
-//         id: userId,
-//       },
-//       include: {
-//         role: {
-//           select: {
-//             name: true,
-//           },
-//         },
-//       },
-//     });
-
-//     if (!userData) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User not found",
-//       });
-//     }
-
-//     if (userData.role?.name !== "Purchase") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Only purchase department is allowed to send mail.",
-//       });
-//     }
-
-//     const po = await prisma.purchaseOrder.findUnique({
-//       where: { id: poId },
-//       include: { vendor: true, company: true },
-//     });
-
-//     if (!po)
-//       return res.status(404).json({ success: false, message: "PO not found" });
-//     if (!po.vendor.email)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Vendor email missing" });
-//     if (!po.pdfName || !po.pdfUrl) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "PDF not generated yet" });
-//     }
-
-//     const pdfPath = path.join(
-//       __dirname,
-//       "../../uploads/purchaseOrder",
-//       po.pdfName
-//     );
-//     if (!fs.existsSync(pdfPath)) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "PDF file missing on server" });
-//     }
-
-//     // ✅ Email transporter
-//     const transporter = nodemailer.createTransport({
-//       service: "gmail",
-//       auth: {
-//         user: process.env.EMAIL_USER,
-//         pass: process.env.EMAIL_PASS,
-//       },
-//     });
-
-//     const mailOptions = {
-//       from: process.env.EMAIL_USER,
-//       to: po.vendor.email,
-//       subject: `RESEND: Purchase Order - ${po.poNumber}`,
-//       text: `Dear ${po.vendor.name},
-
-// This is a re-sent copy of the Purchase Order.
-
-// Regards,
-// ${req.user?.name || "Team"}
-// ${po.company.name}
-// ${po.company.state}, ${po.company.pincode}`,
-//       attachments: [{ filename: po.pdfName, path: pdfPath }],
-//     };
-
-//     // ✅ Send email first
-//     const emailResponse = await transporter.sendMail(mailOptions);
-
-//     if (!emailResponse.accepted || emailResponse.accepted.length === 0) {
-//       throw new Error("Email not accepted by SMTP server");
-//     }
-//     console.log("Email sent:", emailResponse.messageId);
-
-//     // ✅ TX only after email success
-//     await prisma.$transaction(async (tx) => {
-//       await tx.purchaseOrder.update({
-//         where: { id: poId },
-//         data: {
-//           emailResentCount: { increment: 1 },
-//           emailLastResentAt: new Date(),
-//         },
-//       });
-
-//       await tx.auditLog.create({
-//         data: {
-//           entityType: "PurchaseOrder",
-//           entityId: poId,
-//           action: "EMAIL_RESENT",
-//           performedBy: req.user?.id || null,
-//           oldValue: { resentCount: po.emailResentCount },
-//           newValue: { resentCount: po.emailResentCount + 1 },
-//         },
-//       });
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "PO resent successfully.",
-//     });
-//   } catch (err) {
-//     console.error("Email Resend Error:", err);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to resend PO",
-//       error: err.message,
-//     });
-//   }
-// };
-
 const sendOrResendPO = async (req, res) => {
   try {
     const { poId } = req.query;
@@ -2960,7 +2450,7 @@ function convertUnit(value, fromUnit, toUnit) {
 
   const baseValue = value * unitMap[f]; // convert to base
   return baseValue / unitMap[t]; // convert to target
-}
+};
 
 const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   const userId = req.user?.id;
@@ -3152,6 +2642,7 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
                   itemSource,
                   itemName,
                   quantity: damagedQty,
+                  unit,
                   remarks,
                 },
               });
@@ -3256,328 +2747,7 @@ const createOrUpdatePurchaseOrderReceipts = async (req, res) => {
   }
 };
 
-// const createOrUpdatePurchaseOrderReceipts2 = async (req, res) => {
-//   const userId = req.user?.id;
-//   let uploadedFilePath = null;
-
-//   const deleteUploadedFile = () => {
-//     if (uploadedFilePath) {
-//       try {
-//         fs.unlinkSync(uploadedFilePath);
-//         console.log("🗑️ Uploaded bill file deleted due to error.");
-//       } catch (err) {
-//         console.error("⚠️ File delete failed:", err);
-//       }
-//     }
-//   };
-
-//   const validateItems = async (items, po) => {
-//     for (const item of items) {
-//       const { itemId, itemSource, purchaseOrderItemId } = item;
-
-//       if (!itemId || !itemSource || !purchaseOrderItemId) {
-//         throw new Error("Invalid item data.");
-//       }
-
-//       const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
-//       if (!poItem) {
-//         throw new Error(`PO item ${purchaseOrderItemId} not found.`);
-//       }
-
-//       if (itemSource === "mongo") {
-//         const systemItem = await SystemItem.findById(itemId);
-//         if (!systemItem) throw new Error(`SystemItem ${itemId} not found.`);
-//       } else if (itemSource === "mysql") {
-//         const rawMat = await prisma.rawMaterial.findUnique({
-//           where: { id: itemId },
-//         });
-//         if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
-//       } else {
-//         throw new Error(`Invalid itemSource for ${itemId}.`);
-//       }
-//     }
-//   };
-
-//   try {
-//     // Parse items if sent as JSON string
-//     if (req.body.items) {
-//       try {
-//         req.body.items = JSON.parse(req.body.items);
-//       } catch (err) {
-//         return res
-//           .status(400)
-//           .json({ success: false, message: "Invalid JSON format for items." });
-//       }
-//     }
-
-//     const { purchaseOrderId, items, warehouseId, invoiceNumber} = req.body;
-//     const billFile = req.files?.billFile?.[0];
-
-//     if (!billFile)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Bill file is required." });
-
-//     uploadedFilePath = path.join(
-//       __dirname,
-//       "../../uploads/purchaseOrder/receivingBill",
-//       billFile.filename
-//     );
-
-//     if (
-//       !purchaseOrderId ||
-//       !invoiceNumber ||
-//       !Array.isArray(items) ||
-//       items.length === 0 ||
-//       !warehouseId
-//     ) {
-//       deleteUploadedFile();
-//       return res.status(400).json({
-//         success: false,
-//         message: "purchaseOrderId, warehouseId, invoiceNumber and items[] are required.",
-//       });
-//     }
-
-//     const warehouseData = await Warehouse.findById(warehouseId);
-//     if (!warehouseData) throw new Error("Warehouse not found.");
-
-//     const po = await prisma.purchaseOrder.findUnique({
-//       where: { id: purchaseOrderId },
-//       include: { items: true },
-//     });
-
-//     if (!po) throw new Error("Purchase Order not found.");
-
-//     if (["Received", "Cancelled"].includes(po.status)) {
-//       throw new Error(`PO already ${po.status}.`);
-//     }
-
-//     // Validate all items before processing
-//     await validateItems(items, po);
-
-//     const { receiptResults, stockUpdates } = await prisma.$transaction(
-//       async (tx) => {
-//         const receiptResults = [];
-//         const stockUpdates = [];
-//         let allFullyDamaged = true;
-//         let poStatusFlags = { allReceived: true, someReceived: false };
-
-//         // Save uploaded bill
-//         await tx.purchaseOrderBill.create({
-//           data: {
-//             purchaseOrderId,
-//             invoiceNumber,
-//             fileName: billFile.filename,
-//             fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
-//             mimeType: billFile.mimetype,
-//             uploadedBy: userId,
-//           },
-//         });
-
-//         for (const item of items) {
-//           const {
-//             purchaseOrderItemId,
-//             itemId,
-//             itemSource,
-//             itemName,
-//             receivedQty = 0,
-//             goodQty = 0,
-//             damagedQty = 0,
-//             remarks = "",
-//           } = item;
-
-//           const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
-//           const poQty = Number(poItem.quantity);
-//           const poUnit = poItem.unit?.toLowerCase();
-//           const alreadyReceived = Number(poItem.receivedQty || 0);
-
-//           // Prevent over-receiving
-//           if (alreadyReceived >= poQty)
-//             throw new Error(`${itemName} already fully received (${poQty}).`);
-//           if (alreadyReceived + receivedQty > poQty)
-//             throw new Error(
-//               `Cannot receive ${receivedQty} of ${itemName}. Only ${poQty - alreadyReceived} remaining.`
-//             );
-
-//           if (goodQty > 0) allFullyDamaged = false;
-
-//           const totalReceived = alreadyReceived + receivedQty;
-
-//           // Create receipt
-//           await tx.purchaseOrderReceipt.create({
-//             data: {
-//               purchaseOrderId,
-//               purchaseOrderItemId,
-//               invoiceNumber,
-//               itemId,
-//               itemSource,
-//               itemName,
-//               receivedQty,
-//               goodQty,
-//               damagedQty,
-//               remarks,
-//               createdBy: userId,
-//               receivedDate: new Date(),
-//             },
-//           });
-
-//           // Update PO item receivedQty
-//           await tx.purchaseOrderItem.update({
-//             where: { id: purchaseOrderItemId },
-//             data: { receivedQty: totalReceived },
-//           });
-
-//           // Damaged stock handling
-//           if (damagedQty > 0) {
-//             const existingDamage = await tx.damagedStock.findFirst({
-//               where: { itemId, itemSource, purchaseOrderId },
-//             });
-
-//             if (existingDamage) {
-//               await tx.damagedStock.update({
-//                 where: { id: existingDamage.id },
-//                 data: {
-//                   quantity: { increment: damagedQty },
-//                   status: "Pending", // <-- IMPORTANT
-//                   remarks: `${existingDamage.remarks || ""}${existingDamage.remarks ? "; " : ""}${remarks}`,
-//                 },
-//               });
-//             } else {
-//               await tx.damagedStock.create({
-//                 data: {
-//                   purchaseOrderId,
-//                   invoiceNumber,
-//                   itemId,
-//                   itemSource,
-//                   itemName,
-//                   quantity: damagedQty,
-//                   status: "Pending", // <-- IMPORTANT
-//                   remarks,
-//                 },
-//               });
-//             }
-
-//             hasDamage = true; // <-- Add this flag for later status logic
-//           }
-
-//           // Stock updates
-//           if (goodQty > 0)
-//             stockUpdates.push({
-//               itemSource,
-//               itemId,
-//               goodQty,
-//               warehouseId,
-//               poUnit,
-//             });
-
-//           // Track PO status flags
-//           poStatusFlags.someReceived =
-//             poStatusFlags.someReceived || totalReceived > 0;
-//           poStatusFlags.allReceived =
-//             poStatusFlags.allReceived && totalReceived >= poQty;
-
-//           receiptResults.push({
-//             itemId,
-//             itemName,
-//             receivedQty,
-//             goodQty,
-//             damagedQty,
-//             remainingQty: poQty - totalReceived,
-//           });
-//         }
-
-//         // Check if any damage is still pending
-//         const pendingDamage = await prisma.damagedStock.findMany({
-//           where: {
-//             purchaseOrderId,
-//             status: "Pending",
-//           },
-//         });
-
-//         const hasPendingDamage = pendingDamage.length > 0;
-
-//         // Update PO status
-//         let newPOStatus = po.status;
-
-//         if (allFullyDamaged) {
-//           newPOStatus = "Cancelled";
-//         }
-//         // All items received AND no pending damage
-//         else if (poStatusFlags.allReceived && !hasPendingDamage) {
-//           newPOStatus = "Received";
-//         }
-//         // Otherwise keep PartiallyReceived
-//         else {
-//           newPOStatus = "PartiallyReceived";
-//         }
-
-//         if (newPOStatus !== po.status) {
-//           await tx.purchaseOrder.update({
-//             where: { id: purchaseOrderId },
-//             data: { status: newPOStatus },
-//           });
-//         }
-
-//         return { receiptResults, stockUpdates };
-//       }
-//     );
-
-//     // Update warehouse and raw materials
-//     await Promise.all(
-//       stockUpdates.map(
-//         async ({ itemSource, itemId, goodQty, warehouseId, poUnit }) => {
-//           if (itemSource === "mongo") {
-//             const inventoryItem = await InstallationInventory.findOne({
-//               warehouseId,
-//               systemItemId: itemId,
-//             });
-//             if (inventoryItem) {
-//               inventoryItem.quantity += goodQty;
-//               await inventoryItem.save();
-//             } else {
-//               await InstallationInventory.create({
-//                 warehouseId,
-//                 systemItemId: itemId,
-//                 quantity: goodQty,
-//               });
-//             }
-//           }
-
-//           if (itemSource === "mysql") {
-//             const rawMat = await prisma.rawMaterial.findUnique({
-//               where: { id: itemId },
-//             });
-//             if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
-//             const dbUnit = rawMat.unit?.toLowerCase();
-//             const convertedQty =
-//               dbUnit === poUnit
-//                 ? goodQty
-//                 : convertUnit(goodQty, poUnit, dbUnit);
-//             await prisma.rawMaterial.update({
-//               where: { id: itemId },
-//               data: { stock: { increment: convertedQty } },
-//             });
-//           }
-//         }
-//       )
-//     );
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Purchase Order Receipts processed successfully.",
-//       data: receiptResults,
-//     });
-//   } catch (error) {
-//     console.error("❌ Error in PO Receipt creation:", error);
-//     deleteUploadedFile();
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Server error while processing PO Receipts.",
-//     });
-//   }
-// };
-
-const createOrUpdatePurchaseOrderReceipts2 = async (req, res) => {
+const purchaseOrderReceivingBill = async (req, res) => {
   const userId = req.user?.id;
   let uploadedFilePath = null;
 
@@ -3778,6 +2948,7 @@ const createOrUpdatePurchaseOrderReceipts2 = async (req, res) => {
                   itemId,
                   itemSource,
                   itemName,
+                  unit,
                   quantity: damagedQty,
                   status: "Pending",
                   remarks,
@@ -3895,8 +3066,63 @@ const createOrUpdatePurchaseOrderReceipts2 = async (req, res) => {
     deleteUploadedFile();
     return res.status(500).json({
       success: false,
-      message:
-        error.message || "Server error while processing PO Receipts.",
+      message: error.message || "Server error while processing PO Receipts.",
+    });
+  }
+};
+
+const getPurchaseOrderDetailsWithDamagedItems = async (req, res) => {
+  try {
+    const { poId } = req.params;
+
+    if (!poId) {
+      return res.status(400).json({
+        success: false,
+        message: "Purchase Order ID is required",
+      });
+    }
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      select: {
+        id: true,
+        poNumber: true,
+        companyId: true,
+        companyName: true,
+        vendorId: true,
+        vendorName: true,
+        // gstType: true,
+        // 🔥 THIS IS THE CHANGE
+        damagedStock: {
+          select: {
+            id: true,
+            itemId: true,
+            itemSource: true,
+            itemName: true,
+            quantity: true,
+            unit: true,
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase Order not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "PO details with damaged stock fetched successfully",
+      data: po,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching PO details:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -3908,7 +3134,7 @@ const createDebitNote = async (req, res) => {
       companyId,
       vendorId,
       gstType,
-      items,
+      damagedItems,
       remarks,
       orgInvoiceNo,
       orgInvoiceDate,
@@ -3938,21 +3164,28 @@ const createDebitNote = async (req, res) => {
       });
     }
 
-    if (!purchaseOrderId || !companyId || !vendorId || !gstType || !items?.length) {
+    if (
+      !purchaseOrderId ||
+      !companyId ||
+      !vendorId ||
+      !gstType ||
+      !damagedItems?.length
+    ) {
       return res.status(400).json({
         success: false,
-        message: "PurchaseOrderId, Company, Vendor, GST Type & Items are required",
+        message:
+          "PurchaseOrderId, Company, Vendor, GST Type & damagedItems are required",
       });
     }
 
     const isItemWise = gstType.includes("ITEMWISE");
 
     // Validate items
-    for (const item of items) {
-      if (!item.id || !item.name || !item.unit) {
+    for (const item of damagedItems) {
+      if (!item.damagedStockId || !item.itemId || !item.name || !item.source || !item.unit) {
         return res.status(400).json({
           success: false,
-          message: "Items must include id, name, unit",
+          message: "DamagedItems must include damagedStockId, itemId, name, source, unit",
         });
       }
       if (!item.rate || !item.quantity || Number(item.quantity) <= 0) {
@@ -3970,7 +3203,8 @@ const createDebitNote = async (req, res) => {
       if (!isItemWise && item.gstRate) {
         return res.status(400).json({
           success: false,
-          message: "gstRate is only allowed when Debit Note GST type is ITEMWISE",
+          message:
+            "gstRate is only allowed when Debit Note GST type is ITEMWISE",
         });
       }
     }
@@ -3979,7 +3213,7 @@ const createDebitNote = async (req, res) => {
     const mysqlIds = [];
 
     // Separate IDs by source
-    for (const item of items) {
+    for (const item of damagedItems) {
       if (!item.source) {
         return res.status(400).json({
           success: false,
@@ -3988,9 +3222,9 @@ const createDebitNote = async (req, res) => {
       }
 
       if (item.source === "mongo") {
-        mongoIds.push(item.id);
+        mongoIds.push(item.itemId);
       } else if (item.source === "mysql") {
-        mysqlIds.push(item.id);
+        mysqlIds.push(item.itemId);
       } else {
         return res.status(400).json({
           success: false,
@@ -4021,13 +3255,13 @@ const createDebitNote = async (req, res) => {
     const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
 
     // Validate each item
-    for (const item of items) {
-      if (item.source === "mongo" && !mongoSet.has(item.id)) {
-        throw new Error(`System Item with id '${item.id}' Not Found in`);
+    for (const item of damagedItems) {
+      if (item.source === "mongo" && !mongoSet.has(item.itemId)) {
+        throw new Error(`System Item with id '${item.itemId}' Not Found in`);
       }
 
-      if (item.source === "mysql" && !mysqlSet.has(item.id)) {
-        throw new Error(`Raw Material with id '${item.id}' Not Found`);
+      if (item.source === "mysql" && !mysqlSet.has(item.itemId)) {
+        throw new Error(`Raw Material with id '${item.itemId}' Not Found`);
       }
     }
     // Fetch company & vendor
@@ -4068,7 +3302,7 @@ const createDebitNote = async (req, res) => {
     const itemWiseItems = [];
 
     // Process items for DB
-    const processedItems = items.map((item) => {
+    const processedItems = damagedItems.map((item) => {
       const qty = new Decimal(item.quantity);
       const rateForeign = new Decimal(item.rate);
       const amountForeign = rateForeign.mul(qty);
@@ -4081,8 +3315,7 @@ const createDebitNote = async (req, res) => {
 
       return {
         purchaseOrderId,
-        debitNoteId,
-        itemId: item.id,
+        itemId: item.itemId,
         itemSource: item.source,
         itemName: item.name,
         hsnCode: item.hsnCode || null,
@@ -4119,10 +3352,16 @@ const createDebitNote = async (req, res) => {
       const normalTotalINR = subTotalINR;
 
       if (gstType.startsWith("LGST")) {
-        totalCGST = totalCGST.plus(normalTotalINR.mul(debitNoteGSTPercent.div(200)));
-        totalSGST = totalSGST.plus(normalTotalINR.mul(debitNoteGSTPercent.div(200)));
+        totalCGST = totalCGST.plus(
+          normalTotalINR.mul(debitNoteGSTPercent.div(200))
+        );
+        totalSGST = totalSGST.plus(
+          normalTotalINR.mul(debitNoteGSTPercent.div(200))
+        );
       } else if (gstType.startsWith("IGST")) {
-        totalIGST = totalIGST.plus(normalTotalINR.mul(debitNoteGSTPercent.div(100)));
+        totalIGST = totalIGST.plus(
+          normalTotalINR.mul(debitNoteGSTPercent.div(100))
+        );
       }
     }
 
@@ -4150,6 +3389,26 @@ const createDebitNote = async (req, res) => {
     // ------------------------------------
     // 💾 Save Purchase Order
     // ------------------------------------
+    const existingDamagedStocks = await prisma.damagedStock.findMany({
+      where: {
+        purchaseOrderId,
+        status: "Pending",
+        debitNoteId: null,
+      },
+    });
+
+    if (!existingDamagedStocks.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No pending damaged stock found for this Purchase Order",
+      });
+    }
+
+    const damagedStockMap = new Map();
+    for (const ds of existingDamagedStocks) {
+      damagedStockMap.set(`${ds.itemId}_${ds.itemSource}`, ds);
+    }
+
     const newDebitNote = await prisma.$transaction(async (tx) => {
       const debitNote = await tx.debitNote.create({
         data: {
@@ -4180,8 +3439,561 @@ const createDebitNote = async (req, res) => {
           vehicleNumber: vehicleNumber || null,
           station: station || null,
           createdBy: userId,
+          otherCharges
+        },
+      });
+
+      // ✅ UPDATE existing DamagedStock
+      for (const item of processedItems) {
+        const key = `${item.itemId}_${item.itemSource}`;
+        const damaged = damagedStockMap.get(key);
+
+        if (!damaged) {
+          throw new Error(`Damaged stock not found for ${item.itemName}`);
+        }
+
+        if (new Decimal(item.quantity).gt(damaged.quantity)) {
+          throw new Error(
+            `Debit quantity exceeds damaged quantity for ${item.itemName}`
+          );
+        }
+
+        await tx.damagedStock.update({
+          where: { id: damaged.id },
+          data: {
+            debitNoteId: debitNote.id,
+            hsnCode: item.hsnCode || null,
+            modelNumber: item.modelNumber || null,
+            itemDetail: item.itemDetail || null,
+            rate: item.rate,
+            gstRate: item.gstRate,
+            rateInForeign: item.rateInForeign,
+            amountInForeign: item.amountInForeign,
+            total: item.total,
+            itemGSTType: item.itemGSTType,
+            status: "Debited",
+            updatedBy: userId,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            entityType: "DamagedStock",
+            entityId: damaged.id,
+            action: "DEBITED",
+            performedBy: userId,
+            newValue: { debitNoteId: debitNote.id, status: "Debited" },
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "DebitNote",
+          entityId: debitNote.id,
+          action: "CREATED",
+          performedBy: userId,
+          newValue: debitNote,
+        },
+      });
+
+      return debitNote;
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "✅ Debit Note created successfully",
+      data: newDebitNote,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error while creating debit note",
+    });
+  }
+};
+
+const downloadDebitNote = async (req, res) => {
+  try {
+    const { poId, debitNoteId } = req.params;
+    const userId = req.user?.id;
+    if(!poId || !debitNoteId) {
+       return res.status(400).json({
+        success: false,
+        message: "Missing Data: PO Id or Debit Note Id",
+      });
+    }
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: User not found.",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Only Purchase Department can generate PO.",
+      });
+    }
+
+    const debitNote = await prisma.debitNote.findUnique({
+      where: { id: debitNoteId , purchaseOrderId: poId},
+      include: { company: true, vendor: true, damagedStock: true },
+    });
+
+    if (!debitNote) {
+      return res.status(404).json({ success: false, message: "Debit Note not found." });
+    }
+
+    // Freeze item values exactly as stored
+    const items = debitNote.damagedStock.map((it) => ({
+      itemName: it.itemName,
+      hsnCode: it.hsnCode || "-",
+      quantity: Number(it.quantity),
+      modelNumber: it.modelNumber || null,
+      itemDetail: it.itemDetail || null,
+      unit: it.unit || "Nos",
+      rate: Number(it.rate),
+      total: Number(it.total),
+      gstRate: it.gstRate ? Number(it.gstRate) : 0,
+      rateInForeign: it.rateInForeign ? Number(it.rateInForeign) : null,
+      amountInForeign: it.amountInForeign ? Number(it.amountInForeign) : null,
+    }));
+
+    const pdfBuffer = await debitNoteGenerate(debitNote, items);
+
+    // sanitize vendor name
+    const vendor = debitNote.vendor.name.split(" ")[0];
+    const fileName = `${vendor}-DEBIT-${debitNote.debitNoteNo}.pdf`;
+
+    const now = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      const oldPdfData =
+        debitNote.pdfUrl || debitNote.pdfName || debitNote.pdfGeneratedAt
+          ? {
+              pdfName: debitNote.pdfName,
+              pdfUrl: debitNote.pdfUrl,
+              generatedAt: debitNote.pdfGeneratedAt,
+              generatedBy: debitNote.pdfGeneratedBy,
+            }
+          : null;
+
+      const newPdfData = {
+        pdfName: fileName,
+        pdfUrl: null,
+        generatedAt: now,
+        generatedBy: userId,
+      };
+
+      await tx.debitNote.update({
+        where: { id: debitNoteId },
+        data: {
+          //status: "Generated_Downloaded",
+          pdfName: fileName,
+          pdfGeneratedAt: now,
+          pdfGeneratedBy: userId,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "DebitNote",
+          entityId: debitNoteId,
+          action: "Generated PDF",
+          performedBy: userId,
+          oldValue: oldPdfData,
+          newValue: newPdfData,
+        },
+      });
+    });
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Length": Buffer.byteLength(pdfBuffer),
+      "Content-Disposition": `attachment; filename="${fileName}"`,
+    });
+
+    return res.end(pdfBuffer);
+  } catch (err) {
+    console.error("❌ Error generating Debit Note PDF:", err.stack || err);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error while generating Debite Note PDF",
+      error: err.message,
+    });
+  }
+};
+
+const getDebitNoteDetails = async (req, res) => {
+  try {
+    const { debitNoteId } = req.params;
+
+    if (!debitNoteId) {
+      return res.status(400).json({
+        success: false,
+        message: "Debit Note ID is required",
+      });
+    }
+
+    const debitNote = await prisma.debitNote.findUnique({
+      where: { id: debitNoteId },
+      select: {
+        id: true,
+        purchaseOrderId: true,
+        debitNoteNo: true,
+        //financialYear: true,
+        companyId: true,
+        companyName: true,
+        vendorId: true,
+        vendorName: true,
+        //bankDetailId: true,
+        //createdBy: true,
+        drNoteDate: true,
+        gstType: true,
+        gstRate: true,
+        currency: true,
+        exchangeRate: true,
+        foreignSubTotal: true,
+        foreignGrandTotal: true,
+        subTotal: true,
+        //totalCGST: true,
+        //totalSGST: true,
+        //totalIGST: true,
+        //totalGST: true,
+        grandTotal: true,
+        status: true,
+        remarks: true,
+        //pdfUrl: true,
+        //pdfName: true,
+        //pdfGeneratedAt: true,
+        //pdfGeneratedBy: true,
+        //emailSentAt: true,
+        //emailSentBy: true,
+        //emailResentCount: true,
+        //emailLastResentAt: true,
+        orgInvoiceNo: true,
+        orgInvoiceDate: true,
+        gr_rr_no: true,
+        transport: true,
+        vehicleNumber: true,
+        station: true,
+        createdAt: true,
+        otherCharges: true,
+        //updatedAt: true,
+        damagedStock: {
+          select: {
+            id: true,
+            purchaseOrderId: true,
+            debitNoteId: true,
+            itemId: true,
+            itemSource: true,
+            itemName: true,
+            hsnCode: true,
+            modelNumber: true,
+            itemDetail: true,
+            unit: true,
+            rate: true,
+            gstRate: true,
+            quantity: true,
+            amountInForeign: true,
+            receivedQty: true,
+            //itemGSTType: true,
+            total: true,
+            //createdAt: true,
+            //updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!debitNote) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase Order not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Debit Note details fetched successfully",
+      data: debitNote,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching Debit Note details:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const updateDebitNote = async (req, res) => {
+  try {
+    const { debitNoteId } = req.params;
+    const {
+      companyId,
+      vendorId,
+      gstType,
+      damagedItems,
+      remarks,
+      orgInvoiceNo,
+      orgInvoiceDate,
+      gr_rr_no,
+      transport,
+      vehicleNumber,
+      station,
+      otherCharges = [],
+    } = req.body;
+
+    const userId = req.user?.id;
+    if (!userId)
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Department can update PO",
+      });
+    }
+
+    const existingDebitNote = await prisma.debitNote.findUnique({
+      where: { id: debitNoteId },
+      include: { damagedItems: true },
+    });
+
+    if (!existingDebitNote)
+      return res.status(404).json({ success: false, message: "Debit Note not found" });
+
+    // if (existingPO.status !== "Draft") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Only Draft PO can be updated",
+    //   });
+    // }
+
+    if (!damagedItems?.length)
+      return res.status(400).json({
+        success: false,
+        message: "At least one item is required",
+      });
+
+    const isItemWise = gstType.includes("ITEMWISE");
+
+    // Validate items
+    for (const item of damagedItems) {
+      if (!item.itemId || !item.name || !item.unit)
+        return res.status(400).json({
+          success: false,
+          message: "Each item must include id, name, and unit",
+        });
+
+      if (!item.rate || !item.quantity || Number(item.quantity) <= 0)
+        return res.status(400).json({
+          success: false,
+          message: "Each item must have valid rate and quantity",
+        });
+
+      if (isItemWise && (item.gstRate == null || item.gstRate === ""))
+        return res.status(400).json({
+          success: false,
+          message: "Each item must have gstRate for item-wise GST PO",
+        });
+
+      if (!isItemWise && item.gstRate)
+        return res.status(400).json({
+          success: false,
+          message: "gstRate is only allowed when PO GST type is ITEMWISE",
+        });
+    }
+
+    const oldValue = JSON.parse(JSON.stringify(existingPO));
+
+    // Fetch vendor
+    const vendorToUseId = vendorId || existingDebitNote.vendorId;
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: vendorToUseId },
+    });
+
+    if (!vendor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Vendor not found" });
+
+    const finalCurrency = existingDebitNote.currency || "INR";
+    const finalExchangeRate =
+      finalCurrency === "INR"
+        ? new Decimal(1)
+        : new Decimal(vendor.exchangeRate || 1);
+
+    let foreignSubTotal = new Decimal(0);
+    let subTotalINR = new Decimal(0);
+    let totalCGST = new Decimal(0);
+    let totalSGST = new Decimal(0);
+    let totalIGST = new Decimal(0);
+
+    const normalItems = [];
+    const itemWiseItems = [];
+
+    // -------------------------
+    // ⭐ UNIVERSAL GST LOGIC FOR EACH ITEM ⭐
+    // -------------------------
+    const processedItems = damagedItems.map((item) => {
+      const qty = new Decimal(item.quantity);
+      const rateForeign = new Decimal(item.rate);
+      const amountForeign = rateForeign.mul(qty);
+      const amountINR = amountForeign.mul(finalExchangeRate);
+
+      foreignSubTotal = foreignSubTotal.plus(amountForeign);
+      subTotalINR = subTotalINR.plus(amountINR);
+
+      isItemWise ? itemWiseItems.push(item) : normalItems.push(item);
+
+      let itemGSTType = null;
+      let itemGSTRate = null;
+
+      const isExempted = gstType.includes("EXEMPTED");
+      const isItemWiseGST = gstType.includes("ITEMWISE");
+
+      if (isExempted) {
+        // CASE 1 — EXEMPTED
+        itemGSTType = null;
+        itemGSTRate = null;
+      } else if (isItemWiseGST) {
+        // CASE 2 — ITEMWISE
+        itemGSTType = gstType;
+        itemGSTRate = new Decimal(item.gstRate);
+      } else {
+        // CASE 3 — Normal IGST/LGST 5/12/18/28
+        itemGSTRate = null;
+        itemGSTType = null;
+      }
+
+      return {
+        itemId: item.id,
+        itemSource: item.source,
+        itemName: item.name,
+        hsnCode: item.hsnCode || null,
+        modelNumber: item.modelNumber || null,
+        itemDetail: item.itemDetail || null,
+        unit: item.unit,
+
+        rateInForeign: finalCurrency !== "INR" ? rateForeign : null,
+        amountInForeign: finalCurrency !== "INR" ? amountForeign : null,
+
+        rate: new Decimal(item.rate),
+        quantity: qty,
+
+        gstRate: itemGSTRate,
+        itemGSTType: itemGSTType,
+
+        total: amountINR,
+      };
+    });
+
+    // OTHER CHARGES
+    let otherChargesTotal = new Decimal(0);
+    if (Array.isArray(otherCharges)) {
+      for (const ch of otherCharges) {
+        if (ch == null) continue;
+        const amt = ch.amount ?? ch.value ?? null;
+        if (amt == null || isNaN(amt)) continue;
+        otherChargesTotal = otherChargesTotal.plus(new Decimal(amt));
+      }
+    }
+    subTotalINR = subTotalINR.plus(otherChargesTotal);
+
+    // GST FOR NORMAL ITEMS
+    const poGSTPercent =
+      isItemWise || gstType.includes("EXEMPTED")
+        ? null
+        : getGSTPercent(gstType);
+
+    if (normalItems.length && poGSTPercent) {
+      const normalTotalINR = subTotalINR;
+
+      if (gstType.startsWith("LGST")) {
+        totalCGST = totalCGST.plus(
+          normalTotalINR.mul(new Decimal(poGSTPercent).div(200))
+        );
+        totalSGST = totalSGST.plus(
+          normalTotalINR.mul(new Decimal(poGSTPercent).div(200))
+        );
+      } else if (gstType.startsWith("IGST")) {
+        totalIGST = totalIGST.plus(
+          normalTotalINR.mul(new Decimal(poGSTPercent).div(100))
+        );
+      }
+    }
+
+    // GST FOR ITEMWISE
+    if (isItemWise) {
+      for (const item of itemWiseItems) {
+        const totalINR = new Decimal(item.rate)
+          .mul(item.quantity)
+          .mul(finalExchangeRate);
+        const rate = new Decimal(item.gstRate);
+
+        if (gstType === "LGST_ITEMWISE") {
+          totalCGST = totalCGST.plus(totalINR.mul(rate.div(200)));
+          totalSGST = totalSGST.plus(totalINR.mul(rate.div(200)));
+        } else if (gstType === "IGST_ITEMWISE") {
+          totalIGST = totalIGST.plus(totalINR.mul(rate.div(100)));
+        }
+      }
+    }
+
+    const totalGST = totalCGST.plus(totalSGST).plus(totalIGST);
+    const grandTotalINR = subTotalINR.plus(totalGST);
+    const foreignGrandTotal = foreignSubTotal;
+
+    // -------------------------
+    // UPDATE PO
+    // -------------------------
+    const updateddebitNote = await prisma.$transaction(async (tx) => {
+      await tx.purchaseOrderItem.deleteMany({
+        where: { purchaseOrderId: poId },
+      });
+
+      const po = await tx.purchaseOrder.update({
+        where: { id: poId },
+        data: {
+          companyId: companyId || existingPO.companyId,
+          vendorId: vendorId || existingPO.vendorId,
+          gstType,
+          gstRate: poGSTPercent,
+          currency: finalCurrency,
+          exchangeRate: finalExchangeRate.toString(),
+          foreignSubTotal,
+          foreignGrandTotal,
+          subTotal: subTotalINR,
+          totalCGST,
+          totalSGST,
+          totalIGST,
+          totalGST,
+          grandTotal: grandTotalINR,
+          remarks,
+          paymentTerms,
+          deliveryTerms,
+          warranty,
+          contactPerson,
+          cellNo,
           otherCharges,
-          items: {
+          damagedItems: {
             create: processedItems,
           },
         },
@@ -4190,10 +4002,11 @@ const createDebitNote = async (req, res) => {
 
       await tx.auditLog.create({
         data: {
-          entityType: "PurchaseOrder",
-          entityId: po.id,
-          action: "CREATED",
+          entityType: "DebitNote",
+          entityId: debitNote.id,
+          action: "UPDATED",
           performedBy: userId,
+          oldValue,
           newValue: po,
         },
       });
@@ -4201,16 +4014,259 @@ const createDebitNote = async (req, res) => {
       return po;
     });
 
-    return res.status(201).json({
+    res.json({
       success: true,
-      message: "✅ Purchase Order created successfully",
-      data: newPO,
+      message: "✅ Debit Note updated successfully",
+      data: updatedPO,
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({
+    console.error("Debit Note Update Error:", err);
+    res.status(500).json({
       success: false,
-      message: err.message || "Server error while creating PO",
+      message: err.message || "Server error while updating Debit Note",
+    });
+  }
+};
+
+const debitNoteReceivingBill = async (req, res) => {
+  const userId = req.user?.id;
+  let uploadedFilePath = null;
+
+  const deleteUploadedFile = () => {
+    if (uploadedFilePath) {
+      try {
+        fs.unlinkSync(uploadedFilePath);
+        console.log("🗑️ Uploaded bill file deleted due to error.");
+      } catch (err) {
+        console.error("⚠️ File delete failed:", err);
+      }
+    }
+  };
+
+  try {
+    // Parse items JSON
+    if (req.body.items) {
+      try {
+        req.body.items = JSON.parse(req.body.items);
+      } catch (err) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid JSON format for items." });
+      }
+    }
+
+    const { purchaseOrderId, debitNoteId, damagedItems, warehouseId, invoiceNumber } =
+      req.body;
+    const billFile = req.files?.billFile?.[0];
+
+    if (
+      !purchaseOrderId ||
+      !debitNoteId ||
+      !Array.isArray(damagedItems) ||
+      items.length === 0 ||
+      !warehouseId ||
+      !billFile
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId, items[] and a single bill file are required.",
+      });
+    }
+
+    uploadedFilePath = path.join(
+      __dirname,
+      "../../uploads/debitNote/receivingBill",
+      billFile.filename
+    );
+
+    // let purchaseOrderId = null;
+    // let debitNoteId = null;
+
+    const stockUpdates = []; // collect stock updates to perform later
+
+    const receiptResults = await prisma.$transaction(async (tx) => {
+      const results = [];
+
+      // Use the first item's damagedStock to get PO & DebitNote
+      // const firstDamaged = await tx.damagedStock.findUnique({
+      //   where: { id: items[0].damagedStockId },
+      // });
+
+      // if (!firstDamaged) throw new Error("Damaged stock not found");
+      // purchaseOrderId = firstDamaged.purchaseOrderId;
+      // debitNoteId = firstDamaged.debitNoteId;
+
+      // 1️⃣ Create a single bill for the debit note
+      await tx.damagedStockBill.create({
+        data: {
+          debitNoteId,
+          fileName: billFile.filename,
+          fileUrl: `/uploads/debitNote/receivingBill/${billFile.filename}`,
+          mimeType: billFile.mimetype,
+          uploadedBy: userId,
+          invoiceNumber: invoiceNumber || null,
+        },
+      });
+
+      // 2️⃣ Process each damaged stock item
+      for (const item of damagedItems) {
+        const {
+          damagedStockId,
+          goodQty = 0,
+          damagedQty = 0,
+          remarks = "",
+        } = item;
+
+        const damaged = await tx.damagedStock.findUnique({
+          where: { id: damagedStockId },
+          include: {
+            purchaseOrder: { include: { items: true } },
+          },
+        });
+
+        if (!damaged) throw new Error("Damaged stock not found");
+        if (damaged.status === "Resolved")
+          throw new Error("Damaged stock already resolved");
+
+        const remainingQty =
+          Number(damaged.quantity) - Number(damaged.receivedQty || 0);
+        if (goodQty > remainingQty)
+          throw new Error(
+            "Total received quantity exceeds pending damaged quantity"
+          );
+
+        // Update damaged stock
+        const newReceivedQty = Number(damaged.receivedQty || 0) + goodQty;
+        const newStatus =
+          newReceivedQty >= Number(damaged.quantity) ? "Resolved" : "Pending";
+
+        await tx.damagedStock.update({
+          where: { id: damagedStockId },
+          data: {
+            receivedQty: newReceivedQty,
+            status: newStatus,
+            remarks,
+            updatedBy: userId,
+          },
+        });
+
+        const poItem = damaged.purchaseOrder.items.find(
+          (i) =>
+            i.itemId === damaged.itemId && i.itemSource === damaged.itemSource
+        );
+
+        if (!poItem) throw new Error("Purchase order item not found");
+
+        const poQty = Number(poItem.quantity);
+        const alreadyReceived = Number(poItem.receivedQty || 0);
+
+        // ❗ CRITICAL VALIDATION
+        if (alreadyReceived >= poQty) {
+          throw new Error(
+            `${damaged.itemName} already fully received (${poQty}).`
+          );
+        }
+
+        if (alreadyReceived + goodQty > poQty) {
+          throw new Error(
+            `Cannot receive goodQty ${goodQty} for ${damaged.itemName}. 
+     Only ${poQty - alreadyReceived} quantity can be received.`
+          );
+        }
+
+        if (goodQty > 0) {
+          await tx.purchaseOrderItem.update({
+            where: { id: poItem.id },
+            data: { receivedQty: { increment: goodQty } },
+          });
+
+          // Collect stock updates for later
+          stockUpdates.push({
+            itemSource: damaged.itemSource,
+            itemId: damaged.itemId,
+            qty: goodQty,
+            warehouseId,
+            unit: damaged.unit?.toLowerCase(),
+          });
+        }
+
+        results.push({
+          damagedStockId,
+          itemName: damaged.itemName,
+          goodQty,
+          damagedQty,
+          remainingQty: Number(damaged.quantity) - newReceivedQty,
+          status: newStatus,
+          debitNoteId,
+        });
+      }
+
+      // 3️⃣ Auto-close Debit Note & PO if all damages resolved
+      const pendingDamageCount = await tx.damagedStock.count({
+        where: { purchaseOrderId, status: "Pending" },
+      });
+
+      if (pendingDamageCount === 0) {
+        await tx.debitNote.updateMany({
+          where: { purchaseOrderId, status: "Pending" },
+          data: { status: "Received", updatedBy: userId },
+        });
+
+        await tx.purchaseOrder.update({
+          where: { id: purchaseOrderId },
+          data: { status: "Received", updatedBy: userId },
+        });
+      }
+
+      return results;
+    });
+
+    // 4️⃣ Update stock outside transaction
+    for (const s of stockUpdates) {
+      const { itemSource, itemId, qty, warehouseId, unit } = s;
+
+      if (itemSource === "mongo") {
+        const inventoryItem = await InstallationInventory.findOne({
+          warehouseId,
+          systemItemId: itemId,
+        });
+        if (inventoryItem) {
+          inventoryItem.quantity += qty;
+          await inventoryItem.save();
+        } else {
+          await InstallationInventory.create({
+            warehouseId,
+            systemItemId: itemId,
+            quantity: qty,
+          });
+        }
+      } else if (itemSource === "mysql") {
+        const rawMat = await prisma.rawMaterial.findUnique({
+          where: { id: itemId },
+        });
+        if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
+        const dbUnit = rawMat.unit?.toLowerCase();
+        const convertedQty =
+          dbUnit === unit ? qty : convertUnit(qty, unit, dbUnit);
+        await prisma.rawMaterial.update({
+          where: { id: itemId },
+          data: { stock: { increment: convertedQty } },
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Damaged stock receipt completed with single bill and stock updated",
+      data: receiptResults,
+    });
+  } catch (error) {
+    console.error("Damaged receipt error:", error);
+    deleteUploadedFile();
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Damaged stock receipt failed",
     });
   }
 };
@@ -4227,7 +4283,7 @@ function getFinancialYearRange() {
     startFY: new Date(fyStartYear, 3, 1),
     endFY: new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999),
   };
-}
+};
 
 // ----------------------- Date Ranges -----------------------
 function getDateRanges() {
@@ -4249,7 +4305,7 @@ function getDateRanges() {
   const { startFY, endFY } = getFinancialYearRange();
 
   return { startOfToday, startOfMonth, startOfWeek, startFY, endFY };
-}
+};
 
 const getPODashboard = async (req, res) => {
   try {
@@ -4374,11 +4430,17 @@ module.exports = {
   getCompanyById,
   getVendorById,
   createOrUpdatePurchaseOrderReceipts,
-  createOrUpdatePurchaseOrderReceipts2,
+  purchaseOrderReceivingBill,
   getPODashboard,
   getCompaniesData,
   getVendorsData,
   getWarehouses,
+  getPurchaseOrderDetailsWithDamagedItems,
+  createDebitNote,
+  downloadDebitNote,
+  getDebitNoteDetails,
+  updateDebitNote,
+  debitNoteReceivingBill
 };
 
 // [{

@@ -5,6 +5,7 @@ const {
   tokenVerification,
 } = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 const uploadPurchaseOrderBill = require("../../middlewares/rawMaterialMiddlewares/multerConfigPurchase");
+const uploadDebitNoteBill = require("../../middlewares/rawMaterialMiddlewares/multerConfigDebitNote");
 
 router.post(
   "/companies",
@@ -136,7 +137,45 @@ router.post(
   "/purchase-orders/receive",
   tokenVerification(["Purchase"]),
   uploadPurchaseOrderBill,
-  purchaseOrderController.createOrUpdatePurchaseOrderReceipts
+  purchaseOrderController.purchaseOrderReceivingBill
+);
+
+//------------ Debit Note Section --------------
+router.get(
+  "/purchase-orders/damaged-stock/details/:poId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getPurchaseOrderDetailsWithDamagedItems
+);
+
+router.post(
+  "/debit-note/create",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.createDebitNote
+);
+
+router.post(
+  "/:poId/debit-note/download/:debitNoteId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.downloadDebitNote
+);
+
+router.get(
+  "/debit-note/details/:debitNoteId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getDebitNoteDetails
+);
+
+router.put(
+  "/debit-note/update/:debitNoteId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.updateDebitNote
+);
+
+router.post(
+  "/debit-note/receive",
+  tokenVerification(["Purchase"]),
+  uploadDebitNoteBill,
+  purchaseOrderController.debitNoteReceivingBill
 );
 
 module.exports = router;

@@ -14,7 +14,8 @@ const {
     allFieldPersonData,
     showAllWarehouses,
     stateWiseServiceSurveyPersons,
-    getFarmerInstallationDetails
+    getFarmerInstallationDetails,
+    allFieldEmployeeData
 } = require("../controllers/serviceControllers/serviceTeamController");
 const {
     showNewInstallationDataToInstaller,
@@ -53,6 +54,7 @@ router.post("/update-installation-data", uploadHandler, updateInstallationDataWi
 router.get("/show-emp-dashboard", empDashboard);
 router.post("/update-farmer-activity-serial-numbers", updateFarmerActivitySerialNumbers)
 
-router.get("/get-installation-data", getFarmerInstallationDetails)
+router.get("/get-installation-data", getFarmerInstallationDetails);
+router.get("/field-employee-data", allFieldEmployeeData);
 
 module.exports = router;
