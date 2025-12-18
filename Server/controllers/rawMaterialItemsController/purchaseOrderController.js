@@ -1268,7 +1268,10 @@ const createPurchaseOrder2 = async (req, res) => {
 
     // Add otherCharges to subtotal
     let otherChargesTotal = new Decimal(0);
-    if (Array.isArray(normalizedOtherCharges) && normalizedOtherCharges.length > 0) {
+    if (
+      Array.isArray(normalizedOtherCharges) &&
+      normalizedOtherCharges.length > 0
+    ) {
       for (const ch of normalizedOtherCharges) {
         if (!ch.amount || isNaN(ch.amount)) continue;
         otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount));
@@ -2983,7 +2986,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
                   itemId,
                   itemSource,
                   itemName,
-                  unit,
+                  unit: poItem.unit,
                   quantity: damagedQty,
                   status: "Pending",
                   remarks,
@@ -3073,19 +3076,44 @@ const purchaseOrderReceivingBill = async (req, res) => {
           }
 
           if (itemSource === "mysql") {
+            // 1️⃣ Get raw material
             const rawMat = await prisma.rawMaterial.findUnique({
               where: { id: itemId },
             });
             if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
+
+            // 2️⃣ Unit conversion
             const dbUnit = rawMat.unit?.toLowerCase();
             const convertedQty =
               dbUnit === poUnit
                 ? goodQty
                 : convertUnit(goodQty, poUnit, dbUnit);
-            await prisma.rawMaterial.update({
-              where: { id: itemId },
-              data: { stock: { increment: convertedQty } },
+
+            // 3️⃣ Find warehouse stock (composite unique key)
+            const warehouseStock = await prisma.warehouseStock.findUnique({
+              where: {
+                warehouseId_rawMaterialId: {
+                  warehouseId,
+                  rawMaterialId: itemId,
+                },
+              },
             });
+
+            if (warehouseStock) {
+              // 4️⃣ Update quantity
+              await prisma.warehouseStock.update({
+                where: {
+                  warehouseId_rawMaterialId: {
+                    warehouseId,
+                    rawMaterialId: itemId,
+                  },
+                },
+                data: {
+                  quantity: { increment: convertedQty },
+                  unit: dbUnit, // keep unit in sync
+                },
+              });
+            }
           }
         }
       )
