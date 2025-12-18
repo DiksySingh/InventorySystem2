@@ -3584,6 +3584,53 @@ const createDebitNote = async (req, res) => {
   }
 };
 
+const getDebitNoteListByPO = async (req, res) => {
+  try {
+    const { poId } = req.params;
+
+    if (!poId) {
+      return res.status(400).json({
+        success: false,
+        message: "poId is required",
+      });
+    }
+
+    const userId = req.user?.id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || !["Purchase", "Admin"].includes(user.role?.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const debitNoteList = await prisma.debitNote.findMany({
+      where: { purchaseOrderId: poId },
+      select: {
+        id: true,
+        debitNoteNo: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Debit Note list fetched successfully",
+      data: debitNoteList || [],
+    });
+  } catch (error) {
+    console.error("Error fetching Debit Note list:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 const downloadDebitNote = async (req, res) => {
   try {
     const { poId, debitNoteId } = req.params;
@@ -4516,6 +4563,7 @@ module.exports = {
   getWarehouses,
   getPurchaseOrderDetailsWithDamagedItems,
   createDebitNote,
+  getDebitNoteListByPO,
   downloadDebitNote,
   getDebitNoteDetails,
   updateDebitNote,

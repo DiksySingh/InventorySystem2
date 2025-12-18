@@ -153,6 +153,12 @@ router.post(
   purchaseOrderController.createDebitNote
 );
 
+router.get(
+  "/:poId/debit-note",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getDebitNoteListByPO
+);
+
 router.post(
   "/:poId/debit-note/download/:debitNoteId",
   tokenVerification(["Purchase"]),
