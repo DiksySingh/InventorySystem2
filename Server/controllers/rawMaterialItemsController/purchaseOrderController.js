@@ -791,6 +791,55 @@ const getItemsList = async (req, res) => {
   }
 };
 
+const getItemDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const mysqlItem = await prisma.rawMaterial.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        description: true,
+      },
+    });
+
+    if (mysqlItem) {
+      return res.status(200).json({
+        success: true,
+        source: "mysql",
+        item: mysqlItem,
+      });
+    }
+
+    const mongoItem = await SystemItem.findById(id, { itemName: 1, unit: 1, description: 1 }).lean();
+
+    if (mongoItem) {
+      return res.status(200).json({
+        success: true,
+        source: "mongo",
+        item: {
+          id: mongoItem._id.toString(),
+          name: mongoItem.itemName,
+          unit: mongoItem.unit || "",
+          description: mongoItem.description || "",
+        },
+      });
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "Item data not found",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch item details",
+    });
+  }
+};
+
 const getGSTPercent = (type) => {
   if (!type) return new Decimal(0);
   if (type.includes("EXEMPTED")) return new Decimal(0);
@@ -4684,6 +4733,7 @@ module.exports = {
   getCompaniesList,
   getVendorsList,
   getItemsList,
+  getItemDetails,
   createPurchaseOrder,
   createPurchaseOrder2,
   updatePurchaseOrder,

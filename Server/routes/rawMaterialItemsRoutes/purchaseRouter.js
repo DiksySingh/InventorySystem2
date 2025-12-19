@@ -73,6 +73,12 @@ router.get(
   purchaseOrderController.getItemsList
 );
 
+router.get(
+  "/items/details/:id",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getItemDetails
+);
+
 router.post(
   "/purchase-orders/create",
   tokenVerification(["Purchase"]),
