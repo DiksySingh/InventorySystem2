@@ -247,6 +247,7 @@
 const fs = require("fs");
 const path = require("path");
 const ejs = require("ejs");
+const Decimal = require("decimal.js");
 const puppeteer = require("puppeteer");
 const numberToWords = require("./numberToWords"); // INR words
 
@@ -286,7 +287,6 @@ function amountToWords(amount, currencyCode = "INR") {
   }
 }
 
-
 function getGSTLabel(po) {
   const gstType = (po.gstType || "").toString();
   if (gstType.includes("ITEMWISE") || gstType.includes("EXEMPTED")) return "";
@@ -298,23 +298,43 @@ function getGSTLabel(po) {
   return "";
 }
 
-function fix(val, d = 4) {
-  return Number(Number(val || 0).toFixed(d));
+function fixNum(val, d = 4) {
+  return new Decimal(val ?? "0") // STRING OR DECIMAL
+    .toDecimalPlaces(d, Decimal.ROUND_DOWN)
+    .toNumber();
+}
+
+function addNum(a, b, d = 4) {
+  return new Decimal(a ?? "0")
+    .plus(new Decimal(b ?? "0"))
+    .toDecimalPlaces(d, Decimal.ROUND_DOWN)
+    .toNumber();
+}
+
+function formatNumberOnly(val, currencyCode, decimals) {
+  const meta = getCurrencyMeta(currencyCode);
+
+  const str = new Decimal(val || 0)
+    .toDecimalPlaces(decimals, Decimal.ROUND_DOWN)
+    .toFixed(decimals);
+
+  return Number(str).toLocaleString(meta.locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 function formatWithDecimals(val, currencyCode, decimals) {
   const meta = getCurrencyMeta(currencyCode);
-  return `${meta.symbol} ${Number(val || 0).toLocaleString(meta.locale, {
+
+  const str = new Decimal(val || 0)
+    .toDecimalPlaces(decimals, Decimal.ROUND_DOWN)
+    .toFixed(decimals);
+
+  return `${meta.symbol} ${Number(str).toLocaleString(meta.locale, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })}`;
-}
-function formatNumberOnly(val, currencyCode, decimals) {
-  const meta = getCurrencyMeta(currencyCode);
-  return Number(val || 0).toLocaleString(meta.locale, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
 }
 
 async function generatePOBuffer(po, items = []) {
@@ -337,24 +357,25 @@ async function generatePOBuffer(po, items = []) {
 
   // Prepare item rows
   const preparedRows = (items || []).map((it, i) => {
-    const qty = fix(it.quantity, 2);
-    const rate = fix(it.rate, 4);
-    const lineAmount = fix(
+    const qty = fixNum(it.quantity, 4);
+    const rate = fixNum(it.rate, 4);
+    const lineAmount = fixNum(
       po.currency === "INR" ? it.total : it.amountInForeign,
       4
     );
 
-    totalQty += qty;
-    subtotalCurrency = fix(subtotalCurrency + lineAmount, 4);
+    totalQty = addNum(totalQty, qty, 4);
+    subtotalCurrency = addNum(subtotalCurrency, lineAmount, 4);
 
-    let gstRate = 0,
-      gstAmount = 0,
-      finalAmount = lineAmount;
+    let gstRate = 0;
+    let gstAmount = 0;
+    let finalAmount = lineAmount;
 
     if (isItemWise) {
       gstRate = Number(it.gstRate || 0);
-      gstAmount = fix((lineAmount * gstRate) / 100, 2);
-      finalAmount = fix(finalAmount + gstAmount, 2);
+      gstAmount = fixNum(new Decimal(lineAmount).mul(gstRate).div(100), 4);
+
+      finalAmount = addNum(finalAmount, gstAmount, 4);
     }
 
     return {
@@ -371,7 +392,7 @@ async function generatePOBuffer(po, items = []) {
       lineAmount: formatNumberOnly(lineAmount, currencyCode, 4),
       gstRate: isItemWise ? `${gstRate}%` : "",
       gstAmountRaw: gstAmount,
-      gstAmount: isItemWise ? formatNumberOnly(gstAmount, currencyCode, 2) : "",
+      gstAmount: isItemWise ? formatNumberOnly(gstAmount, currencyCode, 4) : "",
       amountRaw: finalAmount,
       amount: formatNumberOnly(finalAmount, currencyCode, 4),
     };
@@ -380,8 +401,8 @@ async function generatePOBuffer(po, items = []) {
   // Other charges
   const otherCharges = po.otherCharges || [];
   for (const ch of otherCharges) {
-    const amt = Number(ch?.amount ?? ch?.value ?? 0);
-    totalOtherChargesCurrency = fix(totalOtherChargesCurrency + amt, 4);
+    const amt = ch?.amount ?? ch?.value ?? "0";
+    totalOtherChargesCurrency = addNum(totalOtherChargesCurrency, amt, 4);
   }
 
   const subTotalCurrency = subtotalCurrency;
@@ -393,26 +414,38 @@ async function generatePOBuffer(po, items = []) {
     grandTotalCurrency = 0;
 
   if (isItemWise) {
-    totalGST = preparedRows.reduce((acc, r) => acc + (r.gstAmountRaw || 0), 0);
-    grandTotalCurrency =
-      preparedRows.reduce((acc, r) => acc + (r.amountRaw || 0), 0) +
-      totalOtherChargesCurrency;
+    totalGST = preparedRows.reduce(
+      (acc, r) => addNum(acc, r.gstAmountRaw || 0, 4),
+      0
+    );
+
+    grandTotalCurrency = preparedRows.reduce(
+      (acc, r) => addNum(acc, r.amountRaw || 0, 4),
+      0
+    );
   } else if (isExempted) {
     totalGST = 0;
-    grandTotalCurrency = subTotalCurrency + totalOtherChargesCurrency;
+    grandTotalCurrency = fixNum(
+      subTotalCurrency + totalOtherChargesCurrency,
+      4
+    );
   } else {
-    const taxableAmount = subTotalCurrency + totalOtherChargesCurrency;
-    const rate = Number(po.gstRate || gstType.split("_")[1] || 0);
-    if (isIGST) {
-      totalIGST = fix((taxableAmount * rate) / 100, 2);
-      totalGST = totalIGST;
-      grandTotalCurrency = fix(taxableAmount + totalGST, 2);
-    } else if (isLGST) {
-      totalCGST = fix((taxableAmount * rate) / 2 / 100, 2);
-      totalSGST = fix((taxableAmount * rate) / 2 / 100, 2);
+    const taxableAmount = fixNum(
+      subTotalCurrency + totalOtherChargesCurrency,
+      4
+    );
 
-      totalGST = totalCGST + totalSGST;
-      grandTotalCurrency = taxableAmount + totalGST;
+    const rate = Number(po.gstRate || gstType.split("_")[1] || 0);
+
+    if (isIGST) {
+      totalIGST = fixNum(new Decimal(taxableAmount).mul(rate).div(100), 4);
+      totalGST = totalIGST;
+      grandTotalCurrency = addNum(taxableAmount, totalGST, 4);
+    } else if (isLGST) {
+      totalCGST = fixNum((taxableAmount * rate) / 2 / 100, 4);
+      totalSGST = fixNum((taxableAmount * rate) / 2 / 100, 4);
+      totalGST = fixNum(totalCGST + totalSGST, 4);
+      grandTotalCurrency = fixNum(taxableAmount + totalGST, 4);
     } else {
       totalGST = 0;
       grandTotalCurrency = taxableAmount;
@@ -456,17 +489,17 @@ async function generatePOBuffer(po, items = []) {
   const grandTotalFormatted = formatWithDecimals(
     grandTotalCurrency,
     currencyCode,
-    2
+    4
   );
   const totalOtherChargesFormatted = formatNumberOnly(
     totalOtherChargesCurrency,
     currencyCode,
-    2
+    4
   );
-  const totalGSTFormatted = formatNumberOnly(totalGST, currencyCode, 2);
-  const cgstFormatted = formatNumberOnly(totalCGST, currencyCode, 2);
-  const sgstFormatted = formatNumberOnly(totalSGST, currencyCode, 2);
-  const igstFormatted = formatNumberOnly(totalIGST, currencyCode, 2);
+  const totalGSTFormatted = formatNumberOnly(totalGST, currencyCode, 4);
+  const cgstFormatted = formatNumberOnly(totalCGST, currencyCode, 4);
+  const sgstFormatted = formatNumberOnly(totalSGST, currencyCode, 4);
+  const igstFormatted = formatNumberOnly(totalIGST, currencyCode, 4);
 
   const html = ejs.render(tpl, {
     companyName: po.company?.name,
@@ -514,7 +547,7 @@ async function generatePOBuffer(po, items = []) {
       amount: formatNumberOnly(
         Number(c.amount || c.value || 0),
         currencyCode,
-        2
+        4
       ),
     })),
     gstLabel,

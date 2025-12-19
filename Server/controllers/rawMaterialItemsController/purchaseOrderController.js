@@ -1271,7 +1271,7 @@ const createPurchaseOrder2 = async (req, res) => {
     const finalCurrency = currency || "INR";
     const finalExchangeRate =
       exchangeRate && Number(exchangeRate) > 0
-        ? new Decimal(exchangeRate).toDecimalPlaces(4)
+        ? new Decimal(exchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN)
         : new Decimal(1);
 
     const poNumber = await generatePONumber(company);
@@ -1296,10 +1296,10 @@ const createPurchaseOrder2 = async (req, res) => {
 
     // Process items for DB
     const processedItems = items.map((item) => {
-      const qty = new Decimal(item.quantity).toDecimalPlaces(2);
-      const rateForeign = new Decimal(item.rate).toDecimalPlaces(4);
-      const amountForeign = rateForeign.mul(qty).toDecimalPlaces(4);
-      const amountINR = amountForeign.mul(finalExchangeRate).toDecimalPlaces(4);
+      const qty = new Decimal(item.quantity).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountForeign = rateForeign.mul(qty).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
       foreignSubTotal = foreignSubTotal.plus(amountForeign);
       subTotalINR = subTotalINR.plus(amountINR);
@@ -1332,7 +1332,7 @@ const createPurchaseOrder2 = async (req, res) => {
     ) {
       for (const ch of normalizedOtherCharges) {
         if (!ch.amount || isNaN(ch.amount)) continue;
-        otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount)).toDecimalPlaces(4);
+        otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount)).toDecimalPlaces(4, Decimal.ROUND_DOWN);
       }
     }
     subTotalINR = subTotalINR.plus(otherChargesTotal);
@@ -1347,10 +1347,10 @@ const createPurchaseOrder2 = async (req, res) => {
       const normalTotalINR = subTotalINR;
 
       if (gstType.startsWith("LGST")) {
-        totalCGST = totalCGST.plus(normalTotalINR.mul(poGSTPercent.div(200))).toDecimalPlaces(2);
-        totalSGST = totalSGST.plus(normalTotalINR.mul(poGSTPercent.div(200))).toDecimalPlaces(2);
+        totalCGST = totalCGST.plus(normalTotalINR.mul(poGSTPercent.div(200))).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        totalSGST = totalSGST.plus(normalTotalINR.mul(poGSTPercent.div(200))).toDecimalPlaces(4, Decimal.ROUND_DOWN);
       } else if (gstType.startsWith("IGST")) {
-        totalIGST = totalIGST.plus(normalTotalINR.mul(poGSTPercent.div(100))).toDecimalPlaces(2);
+        totalIGST = totalIGST.plus(normalTotalINR.mul(poGSTPercent.div(100))).toDecimalPlaces(4, Decimal.ROUND_DOWN);
       }
     }
 
@@ -1359,21 +1359,21 @@ const createPurchaseOrder2 = async (req, res) => {
       for (const item of itemWiseItems) {
         const totalINR = new Decimal(item.rate)
           .mul(item.quantity)
-          .mul(finalExchangeRate).toDecimalPlaces(4);;
-        const rate = new Decimal(item.gstRate).toDecimalPlaces(2);;
+          .mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        const rate = new Decimal(item.gstRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
         if (gstType === "LGST_ITEMWISE") {
-          totalCGST = totalCGST.plus(totalINR.mul(rate.div(200))).toDecimalPlaces(2);;
-          totalSGST = totalSGST.plus(totalINR.mul(rate.div(200))).toDecimalPlaces(2);;
+          totalCGST = totalCGST.plus(totalINR.mul(rate.div(200))).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+          totalSGST = totalSGST.plus(totalINR.mul(rate.div(200))).toDecimalPlaces(4, Decimal.ROUND_DOWN);
         } else if (gstType === "IGST_ITEMWISE") {
-          totalIGST = totalIGST.plus(totalINR.mul(rate.div(100))).toDecimalPlaces(2);;
+          totalIGST = totalIGST.plus(totalINR.mul(rate.div(100))).toDecimalPlaces(4, Decimal.ROUND_DOWN);
         }
       }
     }
 
-    const totalGST = totalCGST.plus(totalSGST).plus(totalIGST).toDecimalPlaces(2);
-    const grandTotalINR = subTotalINR.plus(totalGST).toDecimalPlaces(2);
-    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(4);
+    const totalGST = totalCGST.plus(totalSGST).plus(totalIGST).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const grandTotalINR = subTotalINR.plus(totalGST).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
     // ------------------------------------
     // 💾 Save Purchase Order
@@ -1391,9 +1391,9 @@ const createPurchaseOrder2 = async (req, res) => {
           gstRate: poGSTPercent,
           currency: finalCurrency,
           exchangeRate: finalExchangeRate,
-          foreignSubTotal: foreignSubTotal.toDecimalPlaces(4),
+          foreignSubTotal: foreignSubTotal.toDecimalPlaces(4, Decimal.ROUND_DOWN),
           foreignGrandTotal,
-          subTotal: subTotalINR.toDecimalPlaces(4),
+          subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
           totalCGST,
           totalSGST,
           totalIGST,

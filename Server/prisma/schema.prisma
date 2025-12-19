@@ -544,7 +544,6 @@ enum Country {
   UK
   CHINA
   RUSSIA
-  OTHER
 }
 
 enum Currency {
@@ -554,7 +553,6 @@ enum Currency {
   GBP
   AED
   CNY
-  OTHER
 }
 
 enum GSTType {
@@ -721,7 +719,7 @@ model PurchaseOrder {
   createdBy     String?
   poDate        DateTime @default(now())
   gstType       GSTType
-  gstRate       Decimal? @db.Decimal(5, 2)
+  gstRate       Decimal? @db.Decimal(7, 4)
 
   currency     String?  @default("INR")
   exchangeRate Decimal? @default(1.0000) @db.Decimal(12, 4)
@@ -730,11 +728,11 @@ model PurchaseOrder {
   foreignGrandTotal Decimal? @db.Decimal(12, 4)
 
   subTotal          Decimal?  @db.Decimal(12, 4)
-  totalCGST         Decimal?  @db.Decimal(12, 2)
-  totalSGST         Decimal?  @db.Decimal(12, 2)
-  totalIGST         Decimal?  @db.Decimal(12, 2)
-  totalGST          Decimal?  @db.Decimal(12, 2)
-  grandTotal        Decimal?  @db.Decimal(12, 2)
+  totalCGST         Decimal?  @db.Decimal(12, 4)
+  totalSGST         Decimal?  @db.Decimal(12, 4)
+  totalIGST         Decimal?  @db.Decimal(12, 4)
+  totalGST          Decimal?  @db.Decimal(12, 4)
+  grandTotal        Decimal?  @db.Decimal(12, 4)
   status            POStatus  @default(Draft)
   remarks           String?
   pdfUrl            String?
@@ -781,9 +779,9 @@ model PurchaseOrderItem {
   rateInForeign   Decimal? @db.Decimal(12, 4) // optional, if PO currency != INR
   amountInForeign Decimal? @db.Decimal(12, 4) // rate * quantity in foreign currency
   rate            Decimal  @db.Decimal(12, 4)
-  gstRate         Decimal? @db.Decimal(5, 2)
-  quantity        Decimal  @db.Decimal(10, 2)
-  receivedQty     Decimal? @default(0) @db.Decimal(10, 2)
+  gstRate         Decimal? @db.Decimal(7, 4)
+  quantity        Decimal  @db.Decimal(12, 4)
+  receivedQty     Decimal? @default(0) @db.Decimal(12, 4)
   itemGSTType     String?
   total           Decimal  @db.Decimal(12, 4)
   createdAt       DateTime @default(now())
