@@ -50,7 +50,9 @@ model User {
   debitNotes            DebitNote[]
   damagedStocksCreated  DamagedStock[]               @relation("Damaged_Stock_CreatedBy")
   damagedStocksUpdated  DamagedStock[]               @relation("Damaged_Stock_UpdatedBy")
-
+  termsCreatedBy        Terms_Conditions[] @relation("TermsCreatedBy")
+  termsUpdatedBy        Terms_Conditions[] @relation("TermsUpdatedBy")
+ 
   @@index([roleId], map: "User_roleId_fkey")
 }
 
@@ -85,8 +87,11 @@ model RawMaterial {
   name   String?  @unique
   stock  Float?
   unit   String?
+  conversionUnit  String?
+  conversionFactor  Float?
   isUsed Boolean? @default(true)
   minQty Float?
+  description   String?
 
   createdAt DateTime @default(now())
   createdBy String?
@@ -656,6 +661,7 @@ model Vendor {
   country         Country  @default(INDIA)
   currency        Currency @default(INR)
   exchangeRate    Decimal?
+  contactPerson   String?
   contactNumber   String?
   alternateNumber String?
   isActive        Boolean? @default(true)
@@ -720,10 +726,10 @@ model PurchaseOrder {
   currency     String?  @default("INR")
   exchangeRate Decimal? @default(1.0000) @db.Decimal(12, 4)
 
-  foreignSubTotal   Decimal? @db.Decimal(12, 2)
-  foreignGrandTotal Decimal? @db.Decimal(12, 2)
+  foreignSubTotal   Decimal? @db.Decimal(12, 4)
+  foreignGrandTotal Decimal? @db.Decimal(12, 4)
 
-  subTotal          Decimal?  @db.Decimal(12, 2)
+  subTotal          Decimal?  @db.Decimal(12, 4)
   totalCGST         Decimal?  @db.Decimal(12, 2)
   totalSGST         Decimal?  @db.Decimal(12, 2)
   totalIGST         Decimal?  @db.Decimal(12, 2)
@@ -773,13 +779,13 @@ model PurchaseOrderItem {
   itemDetail      String?  @db.VarChar(500)
   unit            String?
   rateInForeign   Decimal? @db.Decimal(12, 4) // optional, if PO currency != INR
-  amountInForeign Decimal? @db.Decimal(12, 2) // rate * quantity in foreign currency
-  rate            Decimal  @db.Decimal(10, 2)
+  amountInForeign Decimal? @db.Decimal(12, 4) // rate * quantity in foreign currency
+  rate            Decimal  @db.Decimal(12, 4)
   gstRate         Decimal? @db.Decimal(5, 2)
   quantity        Decimal  @db.Decimal(10, 2)
   receivedQty     Decimal? @default(0) @db.Decimal(10, 2)
   itemGSTType     String?
-  total           Decimal  @db.Decimal(12, 2)
+  total           Decimal  @db.Decimal(12, 4)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -944,6 +950,18 @@ model DebitNoteBill {
   createdAt     DateTime @default(now())
 
   debitNote DebitNote @relation(fields: [debitNoteId], references: [id])
+}
+
+model Terms_Conditions {
+  id String @id @default(uuid())
+  term  String? @db.VarChar(500)
+  createdAt DateTime @default(now())
+  createdBy String?
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  TermsCreatedBy  User? @relation("TermsCreatedBy", fields: [createdBy], references: [id])
+  TermsUpdatedBy  User? @relation("TermsUpdatedBy", fields: [updatedBy], references: [id])
 }
 
 model ReturnToVendor {

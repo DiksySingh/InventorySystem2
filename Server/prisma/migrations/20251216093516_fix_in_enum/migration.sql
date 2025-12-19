@@ -17,6 +17,9 @@
 
 -- DropIndex
 -- DROP INDEX `PurchaseOrderBill_debitNoteId_fkey` ON `PurchaseOrderBill`;
+-- Drop foreign key first
+ALTER TABLE `DamagedStock`
+DROP FOREIGN KEY `DamagedStock_userId_fkey`;
 
 -- AlterTable
 ALTER TABLE `DamagedStock` DROP COLUMN `userId`,

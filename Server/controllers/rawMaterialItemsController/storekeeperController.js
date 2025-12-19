@@ -84,7 +84,7 @@ const getRawMaterialList = async (req, res) => {
         name: true,
         stock: true,
         unit: true,
-        isUsed: true
+        isUsed: true,
       },
     });
 
@@ -104,7 +104,7 @@ const getRawMaterialList = async (req, res) => {
 
     const sortedData = formattedData.sort((a, b) => {
       if (a.isUsed === b.isUsed) {
-        return a.rawStock - b.rawStock; 
+        return a.rawStock - b.rawStock;
       }
       return a.isUsed ? -1 : 1;
     });
@@ -116,7 +116,6 @@ const getRawMaterialList = async (req, res) => {
       message: "Data fetched successfully",
       data: cleanedData,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -156,6 +155,7 @@ const showIncomingItemRequest = async (req, res) => {
       },
       select: {
         id: true,
+        warehouseId: true,
         serviceProcessId: true,
         isProcessRequest: true,
         rawMaterialRequested: true,
@@ -804,18 +804,18 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
     if (!id) {
       return res.status(400).json({
         success: false,
-        message: "RawMaterial Id is required."
+        message: "RawMaterial Id is required.",
       });
     }
 
     const existingRawMaterial = await prisma.rawMaterial.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingRawMaterial) {
       return res.status(404).json({
         success: false,
-        message: "RawMaterial not found"
+        message: "RawMaterial not found",
       });
     }
 
@@ -824,13 +824,13 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
     if (existingRawMaterial.isUsed === isUsedBoolean) {
       return res.status(400).json({
         success: false,
-        message: `RawMaterial is already marked as ${isUsedBoolean ? "Used" : "Not Used"}`
+        message: `RawMaterial is already marked as ${isUsedBoolean ? "Used" : "Not Used"}`,
       });
     }
 
     const updateData = await prisma.rawMaterial.update({
       where: { id },
-      data: { isUsed: isUsedBoolean, updatedBy: empId }
+      data: { isUsed: isUsedBoolean, updatedBy: empId },
     });
 
     await prisma.auditLog.create({
@@ -840,20 +840,672 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
         action: "STATUS_UPDATED",
         performedBy: empId || null,
         oldValue: { isUsed: existingRawMaterial.isUsed },
-        newValue: { isUsed: updateData.isUsed }
-      }
+        newValue: { isUsed: updateData.isUsed },
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: `RawMaterial marked as ${isUsedBoolean ? "Used." : "Not Used."}`,
-      data: updateData
+      data: updateData,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const getLineWorkerList2 = async (req, res) => {
+  try {
+    const empId = req.user?.id;
+    const userWarehouseId = emp.user?.warehouseId;
+    if (!empId) {
+      return res.status(400).json({
+        success: false,
+        message: "EmpId Not Found",
+      });
+    }
+
+    const empData = await prisma.user.findFirst({
+      where: {
+        id: empId,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    if (empData?.role?.name !== "Store") {
+      return res.status(400).json({
+        success: false,
+        message: "Only Store Keeper Have Access To The Line-Workers",
+      });
+    }
+
+    const userData = await prisma.user.findMany({
+      where: {
+        warehouseId: userWarehouseId,
+        role: {
+          is: {
+            name: {
+              notIn: ["Admin", "SuperAdmin", "Store", "Purchase"],
+            },
+          },
+        },
+      },
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: userData || [],
+    });
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const getRawMaterialList2 = async (req, res) => {
+  try {
+    const warehouseId = req.user?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
+    const allRawMaterial = await prisma.rawMaterial.findMany({
+      orderBy: {
+        stock: "asc", // kept for DB-level consistency
+      },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        isUsed: true,
+        warehouseStock: {
+          where: {
+            warehouseId,
+          },
+          select: {
+            quantity: true,
+          },
+        },
+      },
+    });
+
+    const formattedData = allRawMaterial.map((data) => {
+      const stock =
+        data.warehouseStocks.length > 0
+          ? (data.warehouseStocks[0].quantity ?? 0)
+          : 0;
+
+      return {
+        id: data.id,
+        name: data.name,
+        stock: formatStock(stock),
+        rawStock: stock, // used only for sorting
+        unit: data.unit,
+        isUsed: data.isUsed,
+        outOfStock: stock === 0,
+      };
+    });
+
+    const sortedData = formattedData.sort((a, b) => {
+      if (a.isUsed === b.isUsed) {
+        return a.rawStock - b.rawStock;
+      }
+      return a.isUsed ? -1 : 1;
+    });
+
+    const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: cleanedData,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const sanctionItemForRequest2 = async (req, res) => {
+  try {
+    const { itemRequestId } = req.body;
+    const warehouseId = req.user?.warehouseId;
+
+    if (!itemRequestId) {
+      return res.status(400).json({
+        success: false,
+        message: "ItemRequestId Not Found",
+      });
+    }
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
+    const itemRequestData = await prisma.itemRequestData.findFirst({
+      where: { id: itemRequestId },
+    });
+
+    if (!itemRequestData) throw new Error("Item request not found");
+    if (itemRequestData.approved === null)
+      throw new Error("Item request is not approved.");
+    if (itemRequestData.declined === true)
+      throw new Error("Item request is declined.");
+    if (itemRequestData.materialGiven)
+      throw new Error("Material already sanctioned");
+
+    const rawMaterials = itemRequestData.rawMaterialRequested;
+    if (!Array.isArray(rawMaterials) || rawMaterials.length === 0) {
+      throw new Error("No raw material data found in the request");
+    }
+
+    const date = new Date();
+
+    const result = await prisma.$transaction(async (tx) => {
+      for (const rawMaterial of rawMaterials) {
+        // 1️⃣ Validate raw material master
+        const rawMaterialData = await tx.rawMaterial.findFirst({
+          where: { id: rawMaterial.rawMaterialId },
+        });
+
+        if (!rawMaterialData) {
+          throw new Error(
+            `Raw material not found for ID: ${rawMaterial.rawMaterialId}`
+          );
+        }
+
+        // 2️⃣ Get warehouse stock
+        const warehouseStock = await tx.warehouseStock.findFirst({
+          where: {
+            warehouseId,
+            rawMaterialId: rawMaterial.rawMaterialId,
+          },
+        });
+
+        if (!warehouseStock) {
+          throw new Error(
+            `Stock not available in warehouse for ${rawMaterialData.name}`
+          );
+        }
+
+        if (Number(warehouseStock.quantity) < Number(rawMaterial.quantity)) {
+          throw new Error(
+            `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds warehouse stock`
+          );
+        }
+
+        // 3️⃣ Decrease warehouse stock
+        await tx.warehouseStock.update({
+          where: { id: warehouseStock.id },
+          data: {
+            quantity: {
+              decrement: Number(rawMaterial.quantity),
+            },
+          },
+        });
+
+        // 4️⃣ Credit user stock
+        const existingUserItemStock = await tx.userItemStock.findFirst({
+          where: {
+            empId: itemRequestData.requestedBy,
+            rawMaterialId: rawMaterial.rawMaterialId,
+          },
+        });
+
+        if (existingUserItemStock) {
+          await tx.userItemStock.update({
+            where: { id: existingUserItemStock.id },
+            data: {
+              quantity: {
+                increment: Number(rawMaterial.quantity),
+              },
+            },
+          });
+        } else {
+          await tx.userItemStock.create({
+            data: {
+              empId: itemRequestData.requestedBy,
+              rawMaterialId: rawMaterial.rawMaterialId,
+              quantity: Number(rawMaterial.quantity),
+              unit: rawMaterial.unit,
+            },
+          });
+        }
+      }
+
+      // 5️⃣ Mark request as sanctioned
+      return tx.itemRequestData.update({
+        where: { id: itemRequestId },
+        data: {
+          materialGiven: true,
+          updatedAt: date,
+          updatedBy: req.user.id,
+        },
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Material sanctioned from warehouse successfully",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const showProcessData2 = async (req, res) => {
+  try {
+    const {
+      filterType,
+      startDate,
+      endDate,
+      status,
+      stageId,
+      itemTypeId,
+      search,
+      page = 1,
+      limit = 15,
+    } = req.query;
+
+    const warehouseId = req.user?.warehouseId;
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
+    let filterConditions = { AND: [] };
+
+    // ---------- UTIL ----------
+    const ISTtoUTC = (date) => new Date(date.getTime() - 5.5 * 60 * 60 * 1000);
+
+    const now = new Date();
+    const todayIST = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // ---------- DATE FILTER ----------
+    const setDateFilter = () => {
+      let startIST, endIST;
+
+      switch (filterType) {
+        case "Today":
+          startIST = todayIST;
+          endIST = new Date(todayIST);
+          endIST.setHours(23, 59, 59, 999);
+          break;
+
+        case "Week":
+          startIST = new Date(todayIST);
+          startIST.setDate(todayIST.getDate() - 6);
+          endIST = now;
+          break;
+
+        case "Month":
+          startIST = new Date(now.getFullYear(), now.getMonth(), 1);
+          endIST = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999
+          );
+          break;
+
+        case "Year":
+          startIST = new Date(now.getFullYear(), 0, 1);
+          endIST = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+          break;
+
+        case "Custom":
+          if (!startDate || !endDate) {
+            throw new Error(
+              "Start date and end date required for Custom filter"
+            );
+          }
+          startIST = new Date(startDate);
+          endIST = new Date(endDate);
+          endIST.setHours(23, 59, 59, 999);
+          break;
+
+        default:
+          return;
+      }
+
+      filterConditions.AND.push({
+        createdAt: {
+          gte: ISTtoUTC(startIST),
+          lte: ISTtoUTC(endIST),
+        },
+      });
+    };
+
+    setDateFilter();
+
+    filterConditions.AND.push({
+      warehouseId,
+    });
+
+    // ---------- BASIC FILTERS ----------
+    if (status) filterConditions.AND.push({ status });
+    if (stageId) filterConditions.AND.push({ stageId });
+    if (itemTypeId) filterConditions.AND.push({ itemTypeId });
+
+    // ---------- SEARCH ----------
+    if (search?.trim()) {
+      const s = search.trim().toUpperCase();
+      filterConditions.AND.push({
+        OR: [{ item: s }, { subItem: s }, { serialNumber: s }],
+      });
+    }
+
+    // ---------- PAGINATION ----------
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // ---------- QUERY ----------
+    const [processData, total] = await Promise.all([
+      prisma.service_Process_Record.findMany({
+        where: filterConditions,
+        orderBy: { createdAt: "asc" },
+        skip,
+        take: Number(limit),
+        select: {
+          id: true,
+          productName: true,
+          itemName: true,
+          subItemName: true,
+          itemType: { select: { id: true, name: true } },
+          serialNumber: true,
+          quantity: true,
+          stage: { select: { id: true, name: true } },
+          status: true,
+          createdAt: true,
+          stageActivity: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              status: true,
+              acceptedAt: true,
+              startedAt: true,
+              completedAt: true,
+              isCurrent: true,
+              failureReason: true,
+              remarks: true,
+              stage: { select: { id: true, name: true } },
+              user: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+
+      prisma.service_Process_Record.count({ where: filterConditions }),
+    ]);
+
+    // ---------- FORMAT ----------
+    const modifiedData = processData.map((p) => ({
+      serviceProcessId: p.id,
+      productName: p.productName,
+      itemName: p.itemName,
+      subItemName: p.subItemName,
+      itemType: p.itemType?.name,
+      serialNumber: p.serialNumber,
+      quantity: p.quantity,
+      currentStage: p.stage?.name,
+      processStatus: p.status,
+      createdAt: p.createdAt,
+      stageActivities: p.stageActivity.map((a) => ({
+        activityId: a.id,
+        stageId: a.stage.id,
+        stageName: a.stage.name,
+        activityStatus: a.status,
+        isCurrent: a.isCurrent,
+        failureReason: a.failureReason,
+        remarks: a.remarks,
+        acceptedAt: a.acceptedAt,
+        startedAt: a.startedAt,
+        completedAt: a.completedAt,
+      })),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      totalPages: Math.ceil(total / limit),
+      data: modifiedData,
+    });
+  } catch (error) {
+    console.log("ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const updateStock2 = async (req, res) => {
+  const uploadFiles = [];
+  try {
+    const empId = req?.user?.id;
+    const warehouseId = req?.user?.warehouseId;
+    const rawMaterialList = req?.body?.rawMaterialList;
+
+    if (!empId || !warehouseId) {
+      throw new Error("User or Warehouse not found");
+    }
+
+    if (!rawMaterialList || rawMaterialList.length === 0) {
+      throw new Error("Data not found");
+    }
+
+    if (!req.files || !req.files.billPhoto) {
+      throw new Error("File not uploaded");
+    }
+
+    const billPhotoUrl = req.files.billPhoto.map((file) => {
+      uploadFiles.push(file.path);
+      return `/uploads/rawMaterial/billPhoto/${file.filename}`;
+    });
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Create batch
+      const addBillPhoto = await tx.stockMovementBatch.create({
+        data: {
+          billPhotos: billPhotoUrl,
+          createdBy: empId,
+        },
+      });
+
+      const parsedRawMaterialList = JSON.parse(rawMaterialList);
+
+      for (const rawMaterial of parsedRawMaterialList) {
+        rawMaterial.quantity = Number(rawMaterial.quantity);
+
+        if (
+          !rawMaterial.rawMaterialId ||
+          isNaN(rawMaterial.quantity) ||
+          rawMaterial.quantity <= 0
+        ) {
+          throw new Error(
+            "Invalid rawMaterial data: rawMaterialId and valid quantity required"
+          );
+        }
+
+        const existingRawMaterial = await tx.rawMaterial.findFirst({
+          where: { id: rawMaterial.rawMaterialId },
+        });
+
+        if (!existingRawMaterial) {
+          throw new Error("Raw Material Not Found");
+        }
+
+        // 🔹 Stock Movement (Warehouse-based)
+        await tx.stockMovement.create({
+          data: {
+            batchId: addBillPhoto.id,
+            rawMaterialId: rawMaterial.rawMaterialId,
+            userId: empId,
+            warehouseId,
+            quantity: rawMaterial.quantity,
+            unit: existingRawMaterial.unit,
+            type: "IN",
+          },
+        });
+
+        // 🔹 Warehouse Stock UPSERT
+        await tx.warehouseStock.upsert({
+          where: {
+            warehouseId_rawMaterialId: {
+              warehouseId,
+              rawMaterialId: rawMaterial.rawMaterialId,
+            },
+          },
+          update: {
+            quantity: { increment: rawMaterial.quantity },
+            unit: existingRawMaterial.unit,
+          },
+          create: {
+            warehouseId,
+            rawMaterialId: rawMaterial.rawMaterialId,
+            quantity: rawMaterial.quantity,
+            unit: existingRawMaterial.unit,
+            isUsed: true,
+          },
+        });
+      }
+
+      return addBillPhoto;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Stock updated successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.log("ERROR: ", error);
+
+    // Cleanup uploaded files if transaction fails
+    if (uploadFiles.length > 0) {
+      await Promise.all(
+        uploadFiles.map(async (filePath) => {
+          try {
+            await fs.unlink(filePath);
+            console.log(`🗑 Deleted uploaded file: ${filePath}`);
+          } catch (unlinkErr) {
+            console.error(`Failed to delete file ${filePath}:`, unlinkErr);
+          }
+        })
+      );
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const getStockMovementHistory2 = async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const warehouseId = req?.user?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not found for user",
+      });
+    }
+
+    const batches = await prisma.stockMovementBatch.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        stockMovement: {
+          where: {
+            warehouseId: warehouseId, // ✅ FILTER HERE
+          },
+          select: {
+            rawMaterial: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            quantity: true,
+            unit: true,
+            type: true,
+          },
+        },
+      },
+    });
+
+    // Optional (recommended):
+    // remove batches with no movements for this warehouse
+    const filteredBatches = batches.filter(
+      (batch) => batch.stockMovement.length > 0
+    );
+
+    const formattedBatches = filteredBatches.map((batch) => ({
+      ...batch,
+      billPhotos: batch.billPhotos
+        ? batch.billPhotos.map((photo) => `${baseUrl}${photo}`)
+        : [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Stock movement history fetched successfully",
+      data: formattedBatches,
+    });
+  } catch (error) {
+    console.error("Error fetching stock movement history:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
@@ -869,5 +1521,5 @@ module.exports = {
   showProcessData,
   updateStock,
   getStockMovementHistory,
-  markRawMaterialUsedOrNotUsed
+  markRawMaterialUsedOrNotUsed,
 };

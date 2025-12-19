@@ -17,19 +17,6 @@ async function generateInventoryPDF(data, outputFile) {
   data.hdpe.forEach((row) => {
     const newRow = { PN: row.PN, HP: row.HP };
 
-    // lengths.forEach((len) => {
-    //   const val = row[len] || 0;
-    //   if (val === 0) {
-    //     newRow[len] = { value: 0, rowspan: 1 };
-    //   } else if (addedHDPE[len].has(val)) {
-    //     newRow[len] = { value: "", rowspan: 0 };
-    //     addedHDPE[len].get(val).rowspan++;
-    //   } else {
-    //     newRow[len] = { value: val, rowspan: 1 };
-    //     addedHDPE[len].set(val, newRow[len]);
-    //   }
-    // });
-
     lengths.forEach((len) => {
     const val = row[len] || 0;
 
@@ -152,21 +139,21 @@ async function generateInventoryPDF(data, outputFile) {
 `;
 
   const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox"],
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
+
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: "networkidle0" });
 
-  await page.pdf({
-    path: outputFile,
+  const pdfBuffer = await page.pdf({
     format: "A4",
     printBackground: true,
     margin: { top: "10px", bottom: "10px", left: "10px", right: "10px" },
   });
 
   await browser.close();
-  return { success: true, pdf: outputFile };
+  return pdfBuffer;
 }
 
 const installationInventoryReport = async (req, res) => {
@@ -176,7 +163,6 @@ const installationInventoryReport = async (req, res) => {
     const inventoryData = await InstallationInventory.find({
       warehouseId: new mongoose.Types.ObjectId(warehouseId),
     }).populate("systemItemId");
-
     const solar = [];
     const hdpe = [];
     const rope = [];
@@ -403,12 +389,18 @@ const installationInventoryReport = async (req, res) => {
 
     // Convert hdpeRows to array
     const hdpeForPDF = Object.values(hdpeRows);
-
+    //return res.json({ solar, hdpe: hdpeForPDF, rope, cable, structure });
     // Generate PDF
     const mongoData = { solar, hdpe: hdpeForPDF, rope, cable, structure };
-    await generateInventoryPDF(mongoData, "Badnapur_Inventory.pdf");
+     const pdfBuffer = await generateInventoryPDF(mongoData);
 
-    res.download("Badnapur_Inventory.pdf");
+    // Set proper headers
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'attachment; filename="Badnapur_Inventory.pdf"');
+    res.setHeader("Content-Length", pdfBuffer.length);
+
+    // Send PDF buffer
+    res.end(pdfBuffer);
   } catch (err) {
     console.error(err);
     res

@@ -5,6 +5,7 @@ const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
+const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 
 const addRole = async (req, res) => {
   try {
@@ -545,7 +546,7 @@ const getProduct = async (req, res) => {
       },
     });
 
-    const formatted = product.map(p => ({
+    const formatted = product.map((p) => ({
       id: p.id,
       name: p.productName,
     }));
@@ -705,7 +706,9 @@ const getItemsByProductId = async (req, res) => {
 
     mappings.sort(sortPumps);
     let data = [];
-    mappings.map((i) =>{if(i.item.name !== "MOTOR 10HP AC") data.push(i.item)});
+    mappings.map((i) => {
+      if (i.item.name !== "MOTOR 10HP AC") data.push(i.item);
+    });
 
     return res.status(200).json({
       success: true,
@@ -893,66 +896,64 @@ const getItemType = async (req, res) => {
     const data = await prisma.itemType.findMany({
       select: {
         id: true,
-        name: true
-      }
+        name: true,
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: "Data fetched successfully",
-      data: data
+      data: data,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
 
 const addModel = async (req, res) => {
   try {
-    const {model} = req.body;
-    
-    if(!model) {
+    const { model } = req.body;
+
+    if (!model) {
       return res.status(400).json({
         success: false,
-        message: "Model name is required."
+        message: "Model name is required.",
       });
     }
 
     const upperCaseModel = model.trim().toUpperCase();
     const existingModel = await prisma.item_Model.findFirst({
       where: {
-        model: upperCaseModel
-      }
+        model: upperCaseModel,
+      },
     });
 
-    if(existingModel) {
+    if (existingModel) {
       return res.status(400).json({
         success: false,
-        message: "Model already exists"
+        message: "Model already exists",
       });
     }
 
     const createModel = await prisma.item_Model.create({
       data: {
-        model: upperCaseModel
-      }
+        model: upperCaseModel,
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: "Model created successfully",
-      data: createModel
+      data: createModel,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
-    })
+      message: error.message || "Internal Server Error",
+    });
   }
 };
 
@@ -961,20 +962,19 @@ const showModel = async (req, res) => {
     const modelData = await prisma.item_Model.findMany({
       select: {
         id: true,
-        model: true
-      }
+        model: true,
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: "Model's fetched successfully",
-      data: modelData || []
+      data: modelData || [],
     });
-    
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -1060,7 +1060,7 @@ const updateRawMaterialFromExcel = async (req, res) => {
     }
 
     // Read Excel File
-   const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
@@ -1103,7 +1103,6 @@ const updateRawMaterialFromExcel = async (req, res) => {
       updated: results,
       errors,
     });
-
   } catch (error) {
     console.log("Error updating raw materials:", error);
     return res.status(500).json({
@@ -1176,13 +1175,13 @@ const markCompanyOrVendorNotActive = async (req, res) => {
 
     const [company, vendor] = await Promise.all([
       prisma.company.findUnique({ where: { id } }),
-      prisma.vendor.findUnique({ where: { id } })
+      prisma.vendor.findUnique({ where: { id } }),
     ]);
 
     if (!company && !vendor) {
       return res.status(404).json({
         success: false,
-        message: "No company or vendor found with this ID"
+        message: "No company or vendor found with this ID",
       });
     }
 
@@ -1192,18 +1191,18 @@ const markCompanyOrVendorNotActive = async (req, res) => {
     if (existingRecord.isActive === isActive) {
       return res.status(400).json({
         success: false,
-        message: `${entityType} is already ${isActive ? "Active" : "Not Active"}`
+        message: `${entityType} is already ${isActive ? "Active" : "Not Active"}`,
       });
     }
 
     const updatedRecord = company
       ? await prisma.company.update({
           where: { id },
-          data: { isActive }
+          data: { isActive },
         })
       : await prisma.vendor.update({
           where: { id },
-          data: { isActive }
+          data: { isActive },
         });
 
     await prisma.auditLog.create({
@@ -1213,37 +1212,62 @@ const markCompanyOrVendorNotActive = async (req, res) => {
         action: `STATUS_UPDATED`,
         performedBy: req.user?.id || null,
         oldValue: { isActive: existingRecord.isActive },
-        newValue: { isActive: updatedRecord.isActive }
-      }
+        newValue: { isActive: updatedRecord.isActive },
+      },
     });
 
     return res.json({
       success: true,
       message: `${entityType} marked as ${isActive ? "Active" : "Not Active"}`,
-      data: updatedRecord
+      data: updatedRecord,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
 
 const createRawMaterial = async (req, res) => {
   try {
-    const { rawMaterialName, unit } = req.body;
-    if (!rawMaterialName || !unit) {
+    const {
+      rawMaterialName,
+      description,
+      unit,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
+
+    if (
+      !rawMaterialName ||
+      !unit ||
+      !description ||
+      !conversionUnit ||
+      !conversionFactor
+    ) {
       return res.status(400).json({
         success: false,
-        message: "rawMaterialName is required",
+        message:
+          "rawMaterialName, description, unit, conversionUnit, conversionFactor are required.",
       });
     }
 
-    const name = rawMaterialName.trim(); // Trim only once
+    const name = rawMaterialName.trim();
 
-    // Check if item already exists
+    if (conversionUnit) {
+      if (!conversionFactor || conversionFactor <= 0) {
+        throw new Error("Valid conversionFactor is required");
+      }
+
+      if (unit === conversionUnit && conversionFactor !== 1) {
+        throw new Error(
+          "conversionFactor must be 1 when unit and conversionUnit are same"
+        );
+      }
+    }
+
+    // 1️⃣ Check if raw material already exists
     const existingItem = await prisma.rawMaterial.findUnique({
       where: { name },
     });
@@ -1255,20 +1279,59 @@ const createRawMaterial = async (req, res) => {
       });
     }
 
-    const addRawMaterial = await prisma.rawMaterial.create({
-      data: {
-        name: rawMaterialName,
-        stock: 0,
-        unit: unit,
-      },
+    /**
+     * 🔹 Fetch all warehouses from MongoDB
+     * This should return something like:
+     * [{ _id: "abc" }, { _id: "xyz" }]
+     */
+    const warehouses = await Warehouse.find({}); // 👈 YOU already have this
+
+    if (!warehouses || warehouses.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No warehouses found",
+      });
+    }
+
+    // 2️⃣ Transaction: create rawMaterial + warehouseStock
+    const result = await prisma.$transaction(async (tx) => {
+      // Create RawMaterial
+      const rawMaterial = await tx.rawMaterial.create({
+        data: {
+          name,
+          stock: 0,
+          description,
+          unit,
+          conversionUnit,
+          conversionFactor,
+        },
+      });
+
+      // Prepare warehouse stock entries
+      const warehouseStockData = warehouses.map((wh) => ({
+        warehouseId: wh._id.toString(),
+        rawMaterialId: rawMaterial.id,
+        quantity: 0,
+        unit,
+        isUsed: true,
+      }));
+
+      // Create WarehouseStock for ALL warehouses
+      await tx.warehouseStock.createMany({
+        data: warehouseStockData,
+        skipDuplicates: true, // safety for @@unique
+      });
+
+      return rawMaterial;
     });
 
     return res.status(201).json({
       success: true,
-      message: "Raw-Material Added Successfully",
-      data: addRawMaterial,
+      message: "Raw-Material added and initialized for all warehouses",
+      data: result,
     });
   } catch (error) {
+    console.error("Create RawMaterial Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -1300,6 +1363,177 @@ const showUnit = async (req, res) => {
   }
 };
 
+const createRawMaterial2 = async (req, res) => {
+  try {
+    const {
+      rawMaterialName,
+      description,
+      unit,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
+
+    if (
+      !rawMaterialName ||
+      !unit ||
+      !description ||
+      !conversionUnit ||
+      !conversionFactor
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "rawMaterialName, description, unit, conversionUnit, conversionFactor are required.",
+      });
+    }
+
+    const name = rawMaterialName.trim();
+
+    if (conversionUnit) {
+      if (!conversionFactor || conversionFactor <= 0) {
+        throw new Error("Valid conversionFactor is required");
+      }
+
+      if (unit === conversionUnit && conversionFactor !== 1) {
+        throw new Error(
+          "conversionFactor must be 1 when unit and conversionUnit are same"
+        );
+      }
+    }
+
+    // 1️⃣ Check if raw material already exists
+    const existingItem = await prisma.rawMaterial.findUnique({
+      where: { name },
+    });
+
+    if (existingItem) {
+      return res.status(400).json({
+        success: false,
+        message: "RawMaterial Already Exists",
+      });
+    }
+
+    /**
+     * 🔹 Fetch all warehouses from MongoDB
+     * This should return something like:
+     * [{ _id: "abc" }, { _id: "xyz" }]
+     */
+    const warehouses = await Warehouse.find({}); // 👈 YOU already have this
+
+    if (!warehouses || warehouses.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No warehouses found",
+      });
+    }
+
+    // 2️⃣ Transaction: create rawMaterial + warehouseStock
+    const result = await prisma.$transaction(async (tx) => {
+      // Create RawMaterial
+      const rawMaterial = await tx.rawMaterial.create({
+        data: {
+          name,
+          stock: 0,
+          description,
+          unit,
+          conversionUnit,
+          conversionFactor,
+        },
+      });
+
+      // Prepare warehouse stock entries
+      const warehouseStockData = warehouses.map((wh) => ({
+        warehouseId: wh._id.toString(),
+        rawMaterialId: rawMaterial.id,
+        quantity: 0,
+        unit,
+        isUsed: true,
+      }));
+
+      // Create WarehouseStock for ALL warehouses
+      await tx.warehouseStock.createMany({
+        data: warehouseStockData,
+        skipDuplicates: true, // safety for @@unique
+      });
+
+      return rawMaterial;
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Raw-Material added and initialized for all warehouses",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Create RawMaterial Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const syncRawMaterialsToWarehouses = async (req, res) => {
+  try {
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      select: {
+        id: true,
+        unit: true,
+        isUsed: true,
+      },
+    });
+
+    if (!rawMaterials.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No raw materials found",
+      });
+    }
+
+    // 2️⃣ Fetch all warehouses (MongoDB)
+    const warehouses = await Warehouse.find({});
+    if (!warehouses.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No warehouses found",
+      });
+    }
+
+    const warehouseStockData = [];
+
+    for (const warehouse of warehouses) {
+      for (const rawMaterial of rawMaterials) {
+        warehouseStockData.push({
+          warehouseId: warehouse._id.toString(),
+          rawMaterialId: rawMaterial.id,
+          quantity: 0,
+          unit: rawMaterial.unit,
+          isUsed: rawMaterial.isUsed,
+        });
+      }
+    }
+
+    // 4️⃣ Insert safely (no duplicates)
+    const result = await prisma.warehouseStock.createMany({
+      data: warehouseStockData,
+      skipDuplicates: true, // 🔥 KEY
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "All raw materials synced to all warehouses successfully",
+      insertedCount: result.count,
+    });
+  } catch (error) {
+    console.error("Sync Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   addRole,
@@ -1328,5 +1562,7 @@ module.exports = {
   updateRawMaterialUsageFromExcel,
   markCompanyOrVendorNotActive,
   createRawMaterial,
-  showUnit
+  showUnit,
+  createRawMaterial2,
+  syncRawMaterialsToWarehouses,
 };

@@ -140,6 +140,12 @@ router.post(
   purchaseOrderController.purchaseOrderReceivingBill
 );
 
+router.put(
+  "/purchase-orders/cancel/:poId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.cancelPurchaseOrder
+);
+
 //------------ Debit Note Section --------------
 router.get(
   "/purchase-orders/damaged-stock/details/:poId",

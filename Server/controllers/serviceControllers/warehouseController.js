@@ -1,6 +1,7 @@
 const axios = require("axios");
 const mongoose = require("mongoose");
 const XLSX = require("xlsx");
+const prisma = require("../../config/prismaClient");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 const WarehousePerson = require("../../models/serviceInventoryModels/warehousePersonSchema");
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
@@ -32,35 +33,117 @@ const ExcelJS = require("exceljs");
 //****************** Admin Access ******************//
 
 module.exports.addWarehouse = async (req, res) => {
-  const { warehouseName, createdAt } = req.body;
+  const { warehouseName } = req.body;
+  const createdBy = req.user?.id;
+
   if (!warehouseName) {
     return res.status(400).json({
       success: false,
-      message: "All fields are required",
+      message: "Warehouse name is required",
     });
   }
 
   try {
-    const existingWarehouse = await Warehouse.findOne({ warehouseName });
+    // ---------- CHECK EXISTING ----------
+    const trimmedWarehouseName = warehouseName.trim();
+    const existingWarehouse = await Warehouse.findOne({
+      warehouseName: trimmedWarehouseName,
+    });
+
     if (existingWarehouse) {
       return res.status(400).json({
         success: false,
         message: "Warehouse already exists",
       });
     }
-    const trimmedWarehouseName = warehouseName.trim();
-    const newWarehouse = new Warehouse({
+
+    // ---------- CREATE WAREHOUSE ----------
+    const savedWarehouse = await new Warehouse({
       warehouseName: trimmedWarehouseName,
-      createdAt: createdAt || Date.now(),
+    }).save();
+
+    const warehouseId = savedWarehouse._id.toString();
+
+    // ======================================================
+    // 1️⃣ RAW MATERIAL → WAREHOUSE STOCK (MYSQL) [FAST]
+    // ======================================================
+    const [rawMaterials, existingStocks] = await Promise.all([
+      prisma.rawMaterial.findMany({
+        select: { id: true, unit: true, isUsed: true },
+      }),
+      prisma.warehouseStock.findMany({
+        where: { warehouseId },
+        select: { id: true, rawMaterialId: true, isUsed: true },
+      }),
+    ]);
+
+    const stockMap = new Map();
+    existingStocks.forEach((s) => {
+      stockMap.set(s.rawMaterialId, s);
     });
-    await newWarehouse.save();
+
+    const createData = [];
+    const updatePromises = [];
+
+    for (const rm of rawMaterials) {
+      const stock = stockMap.get(rm.id);
+
+      if (!stock) {
+        // 🆕 create missing
+        createData.push({
+          warehouseId,
+          rawMaterialId: rm.id,
+          quantity: 0,
+          unit: rm.unit,
+          isUsed: rm.isUsed,
+        });
+      } else if (stock.isUsed !== rm.isUsed) {
+        // 🔁 update ONLY isUsed
+        updatePromises.push(
+          prisma.warehouseStock.update({
+            where: { id: stock.id },
+            data: { isUsed: rm.isUsed },
+          })
+        );
+      }
+    }
+
+    if (createData.length) {
+      await prisma.warehouseStock.createMany({
+        data: createData,
+        skipDuplicates: true,
+      });
+    }
+
+    if (updatePromises.length) {
+      await Promise.all(updatePromises);
+    }
+
+    // ======================================================
+    // 2️⃣ SYSTEM ITEM → INSTALLATION INVENTORY (MONGODB)
+    // ======================================================
+    const systemItems = await SystemItem.find({}, { _id: 1 });
+
+    if (systemItems.length) {
+      await InstallationInventory.insertMany(
+        systemItems.map((item) => ({
+          warehouseId: savedWarehouse._id,
+          systemItemId: item._id,
+          quantity: 0,
+          createdBy,
+        })),
+        { ordered: false }
+      );
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Warehouse Added Successfully",
-      newWarehouse,
+      message: "Warehouse added and inventories initialized",
+      data: savedWarehouse,
     });
   } catch (error) {
+    console.error("Add Warehouse Error:", error);
+
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -68,6 +151,7 @@ module.exports.addWarehouse = async (req, res) => {
     });
   }
 };
+
 
 module.exports.showWarehouses = async (req, res) => {
   try {
@@ -1831,24 +1915,25 @@ module.exports.getClampData = async (req, res) => {
       });
     }
 
-    const systemItemMap = await SystemItemMap.find({ systemId })
-      .populate("systemItemId", "_id itemName");
+    const systemItemMap = await SystemItemMap.find({ systemId }).populate(
+      "systemItemId",
+      "_id itemName"
+    );
 
     const clampData = systemItemMap
-      .filter(item =>
+      .filter((item) =>
         item.systemItemId?.itemName?.toLowerCase().includes("submersible clamp")
       )
-      .map(item => ({
+      .map((item) => ({
         _id: item.systemItemId._id,
-        itemName: item.systemItemId.itemName
+        itemName: item.systemItemId.itemName,
       }));
 
     return res.status(200).json({
       success: true,
       message: "Submersible clamp data fetched successfully",
-      data: clampData
+      data: clampData,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
