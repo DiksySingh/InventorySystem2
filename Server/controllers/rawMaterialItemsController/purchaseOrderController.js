@@ -326,7 +326,7 @@ const createVendor = async (req, res) => {
           exchangeRate: exchangeRate || null,
           contactPerson,
           contactNumber,
-          alternateNumber: alternateNumber || null,
+          alternateNumber: null,
           createdBy: performedBy,
         },
       });
