@@ -3,7 +3,6 @@
 // const ejs = require("ejs");
 // const puppeteer = require("puppeteer");
 // const numberToWords = require("./numberToWords"); // INR words
-// const englishNumberToWords = require("./numberToWords"); // fallback
 
 // const CURRENCY_META = {
 //   INR: { locale: "en-IN", symbol: "₹", fractionDigits: 2 },
@@ -30,7 +29,7 @@
 //   const rounded = Math.round(Number(amount || 0) * 100) / 100;
 //   try {
 //     if (currencyCode === "INR") return numberToWords(rounded);
-//     return `${englishNumberToWords(rounded)} ${currencyCode}`;
+//     return `${numberToWords(rounded)} ${currencyCode}`; // fallback
 //   } catch {
 //     return `${rounded} ${currencyCode}`;
 //   }
@@ -47,13 +46,24 @@
 //   return "";
 // }
 
+// function fix(val, d = 4) {
+//   return Number(Number(val || 0).toFixed(d));
+// }
+
+// function formatWithDecimals(val, currencyCode, decimals) {
+//   const meta = getCurrencyMeta(currencyCode);
+//   return `${meta.symbol} ${Number(val || 0).toLocaleString(meta.locale, {
+//     minimumFractionDigits: decimals,
+//     maximumFractionDigits: decimals,
+//   })}`;
+// }
+
 // async function generatePOBuffer(po, items = []) {
 //   const tplPath = path.join(__dirname, "../templates/poTemplate2.ejs");
 //   const tpl = fs.readFileSync(tplPath, "utf8");
 
 //   const currencyCode = po.currency?.toString() || "INR";
 //   const meta = getCurrencyMeta(currencyCode);
-//   const isINR = currencyCode === "INR";
 //   const exchangeRate = Number(po.exchangeRate || 1);
 
 //   const gstType = (po.gstType || "").toUpperCase();
@@ -70,7 +80,7 @@
 //   const preparedRows = (items || []).map((it, i) => {
 //     const qty = Number(it.quantity || 0);
 //     const rate = Number(it.rate || 0);
-//     const lineAmount = Number(it.total || qty * rate);
+//     const lineAmount = Number(po.currency === "INR" ? it.total : it.amountInForeign);
 
 //     totalQty += qty;
 //     subtotalCurrency += lineAmount;
@@ -139,7 +149,7 @@
 //   }
 
 //   const gstLabel = getGSTLabel(po);
-//   const inWords = amountToWords(grandTotalCurrency, currencyCode);
+//   const grandTotalInWords = amountToWords(grandTotalCurrency, currencyCode);
 
 //   // Paginate rows
 //   const pages = (function paginateRows(preparedRowsLocal) {
@@ -173,7 +183,8 @@
 //     vendorAddress: po.vendor?.address,
 //     vendorGST: po.vendor?.gstNumber,
 //     vendorEmail: po.vendor?.email,
-//     vendorPhone: po.vendor?.phone,
+//     vendorContactPerson: po.vendor?.contactPerson,
+//     vendorPhone: po.vendor?.contactNumber,
 //     poNumber: po.poNumber,
 //     poDate: new Date(po.createdAt).toLocaleDateString("en-IN"),
 //     paymentTerms: po.paymentTerms,
@@ -196,7 +207,7 @@
 //     igst: igstFormatted,
 //     grandTotalCurrency,
 //     grandTotal: grandTotalFormatted,
-//     grandTotalInWords: inWords,
+//     grandTotalInWords,
 //     currencyCode,
 //     currencySymbol: meta.symbol,
 //     currencyLocale: meta.locale,
@@ -208,7 +219,8 @@
 //       amountRaw: Number(c.amount || c.value || 0),
 //       amount: formatCurrencyWithCode(Number(c.amount || c.value || 0), currencyCode, true),
 //     })),
-//     gstLabel
+//     gstLabel,
+
 //   });
 
 //   const browser = await puppeteer.launch({
@@ -247,10 +259,16 @@ const CURRENCY_META = {
 };
 
 function getCurrencyMeta(code = "INR") {
-  return CURRENCY_META[code] || { locale: "en-US", symbol: code, fractionDigits: 2 };
+  return (
+    CURRENCY_META[code] || { locale: "en-US", symbol: code, fractionDigits: 2 }
+  );
 }
 
-function formatCurrencyWithCode(value, currencyCode = "INR", displaySymbol = true) {
+function formatCurrencyWithCode(
+  value,
+  currencyCode = "INR",
+  displaySymbol = true
+) {
   const meta = getCurrencyMeta(currencyCode);
   const formattedNumber = Number(value || 0).toLocaleString(meta.locale, {
     minimumFractionDigits: meta.fractionDigits,
@@ -262,12 +280,12 @@ function formatCurrencyWithCode(value, currencyCode = "INR", displaySymbol = tru
 function amountToWords(amount, currencyCode = "INR") {
   const rounded = Math.round(Number(amount || 0) * 100) / 100;
   try {
-    if (currencyCode === "INR") return numberToWords(rounded);
-    return `${numberToWords(rounded)} ${currencyCode}`; // fallback
+    return numberToWords(rounded, currencyCode);
   } catch {
     return `${rounded} ${currencyCode}`;
   }
 }
+
 
 function getGSTLabel(po) {
   const gstType = (po.gstType || "").toString();
@@ -280,8 +298,27 @@ function getGSTLabel(po) {
   return "";
 }
 
+function fix(val, d = 4) {
+  return Number(Number(val || 0).toFixed(d));
+}
+
+function formatWithDecimals(val, currencyCode, decimals) {
+  const meta = getCurrencyMeta(currencyCode);
+  return `${meta.symbol} ${Number(val || 0).toLocaleString(meta.locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
+}
+function formatNumberOnly(val, currencyCode, decimals) {
+  const meta = getCurrencyMeta(currencyCode);
+  return Number(val || 0).toLocaleString(meta.locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
 async function generatePOBuffer(po, items = []) {
-  const tplPath = path.join(__dirname, "../templates/poTemplate2.ejs");
+  const tplPath = path.join(__dirname, "../templates/poTemplate3.ejs");
   const tpl = fs.readFileSync(tplPath, "utf8");
 
   const currencyCode = po.currency?.toString() || "INR";
@@ -300,19 +337,24 @@ async function generatePOBuffer(po, items = []) {
 
   // Prepare item rows
   const preparedRows = (items || []).map((it, i) => {
-    const qty = Number(it.quantity || 0);
-    const rate = Number(it.rate || 0);
-    const lineAmount = Number(po.currency === "INR" ? it.total : it.amountInForeign);
+    const qty = fix(it.quantity, 2);
+    const rate = fix(it.rate, 4);
+    const lineAmount = fix(
+      po.currency === "INR" ? it.total : it.amountInForeign,
+      4
+    );
 
     totalQty += qty;
-    subtotalCurrency += lineAmount;
+    subtotalCurrency = fix(subtotalCurrency + lineAmount, 4);
 
-    let gstRate = 0, gstAmount = 0, finalAmount = lineAmount;
+    let gstRate = 0,
+      gstAmount = 0,
+      finalAmount = lineAmount;
 
     if (isItemWise) {
       gstRate = Number(it.gstRate || 0);
-      gstAmount = (lineAmount * gstRate) / 100;
-      finalAmount += gstAmount;
+      gstAmount = fix((lineAmount * gstRate) / 100, 2);
+      finalAmount = fix(finalAmount + gstAmount, 2);
     }
 
     return {
@@ -324,14 +366,14 @@ async function generatePOBuffer(po, items = []) {
       qty,
       unit: it.unit || "Nos",
       rateRaw: rate,
-      rate: formatCurrencyWithCode(rate, currencyCode, true),
+      rate: formatNumberOnly(rate, currencyCode, 4),
       lineAmountRaw: lineAmount,
-      lineAmount: formatCurrencyWithCode(lineAmount, currencyCode, true),
+      lineAmount: formatNumberOnly(lineAmount, currencyCode, 4),
       gstRate: isItemWise ? `${gstRate}%` : "",
       gstAmountRaw: gstAmount,
-      gstAmount: isItemWise ? formatCurrencyWithCode(gstAmount, currencyCode, true) : "",
+      gstAmount: isItemWise ? formatNumberOnly(gstAmount, currencyCode, 2) : "",
       amountRaw: finalAmount,
-      amount: formatCurrencyWithCode(finalAmount, currencyCode, true),
+      amount: formatNumberOnly(finalAmount, currencyCode, 4),
     };
   });
 
@@ -339,29 +381,36 @@ async function generatePOBuffer(po, items = []) {
   const otherCharges = po.otherCharges || [];
   for (const ch of otherCharges) {
     const amt = Number(ch?.amount ?? ch?.value ?? 0);
-    totalOtherChargesCurrency += amt;
+    totalOtherChargesCurrency = fix(totalOtherChargesCurrency + amt, 4);
   }
 
   const subTotalCurrency = subtotalCurrency;
 
-  let totalCGST = 0, totalSGST = 0, totalIGST = 0, totalGST = 0, grandTotalCurrency = 0;
+  let totalCGST = 0,
+    totalSGST = 0,
+    totalIGST = 0,
+    totalGST = 0,
+    grandTotalCurrency = 0;
 
   if (isItemWise) {
     totalGST = preparedRows.reduce((acc, r) => acc + (r.gstAmountRaw || 0), 0);
-    grandTotalCurrency = preparedRows.reduce((acc, r) => acc + (r.amountRaw || 0), 0) + totalOtherChargesCurrency;
+    grandTotalCurrency =
+      preparedRows.reduce((acc, r) => acc + (r.amountRaw || 0), 0) +
+      totalOtherChargesCurrency;
   } else if (isExempted) {
     totalGST = 0;
     grandTotalCurrency = subTotalCurrency + totalOtherChargesCurrency;
   } else {
     const taxableAmount = subTotalCurrency + totalOtherChargesCurrency;
-    const rate = Number(po.gstRate || (gstType.split("_")[1] || 0));
+    const rate = Number(po.gstRate || gstType.split("_")[1] || 0);
     if (isIGST) {
-      totalIGST = (taxableAmount * rate) / 100;
+      totalIGST = fix((taxableAmount * rate) / 100, 2);
       totalGST = totalIGST;
-      grandTotalCurrency = taxableAmount + totalIGST;
+      grandTotalCurrency = fix(taxableAmount + totalGST, 2);
     } else if (isLGST) {
-      totalCGST = (taxableAmount * rate) / 2 / 100;
-      totalSGST = (taxableAmount * rate) / 2 / 100;
+      totalCGST = fix((taxableAmount * rate) / 2 / 100, 2);
+      totalSGST = fix((taxableAmount * rate) / 2 / 100, 2);
+
       totalGST = totalCGST + totalSGST;
       grandTotalCurrency = taxableAmount + totalGST;
     } else {
@@ -379,23 +428,46 @@ async function generatePOBuffer(po, items = []) {
     const FOOTER_PAGE = 4;
     let rows = [...preparedRowsLocal];
     let pagesArr = [];
-    const pushPage = (arr, padTo = FULL_PAGE) => { while (arr.length < padTo) arr.push(null); pagesArr.push(arr); };
-    if (rows.length < FULL_PAGE) { pushPage(rows.splice(0), FOOTER_PAGE); return pagesArr; }
-    if (rows.length === FULL_PAGE) { pushPage(rows.splice(0, FULL_PAGE - 1), FULL_PAGE); pushPage(rows.splice(0, 1), FOOTER_PAGE); return pagesArr; }
-    if (rows.length % FULL_PAGE === 0) { while (rows.length > FULL_PAGE) pushPage(rows.splice(0, FULL_PAGE)); pushPage(rows.splice(0, FULL_PAGE - 1)); pushPage(rows.splice(0, 1), FOOTER_PAGE); return pagesArr; }
+    const pushPage = (arr, padTo = FULL_PAGE) => {
+      while (arr.length < padTo) arr.push(null);
+      pagesArr.push(arr);
+    };
+    if (rows.length < FULL_PAGE) {
+      pushPage(rows.splice(0), FOOTER_PAGE);
+      return pagesArr;
+    }
+    if (rows.length === FULL_PAGE) {
+      pushPage(rows.splice(0, FULL_PAGE - 1), FULL_PAGE);
+      pushPage(rows.splice(0, 1), FOOTER_PAGE);
+      return pagesArr;
+    }
+    if (rows.length % FULL_PAGE === 0) {
+      while (rows.length > FULL_PAGE) pushPage(rows.splice(0, FULL_PAGE));
+      pushPage(rows.splice(0, FULL_PAGE - 1));
+      pushPage(rows.splice(0, 1), FOOTER_PAGE);
+      return pagesArr;
+    }
     while (rows.length > FULL_PAGE) pushPage(rows.splice(0, FULL_PAGE));
     if (rows.length > 0) pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
     return pagesArr;
   })(preparedRows);
 
   // Formatted totals
-  const grandTotalFormatted = formatCurrencyWithCode(grandTotalCurrency, currencyCode, true);
-  const totalOtherChargesFormatted = formatCurrencyWithCode(totalOtherChargesCurrency, currencyCode, true);
-  const totalGSTFormatted = formatCurrencyWithCode(totalGST, currencyCode, true);
-  const cgstFormatted = formatCurrencyWithCode(totalCGST, currencyCode, true);
-  const sgstFormatted = formatCurrencyWithCode(totalSGST, currencyCode, true);
-  const igstFormatted = formatCurrencyWithCode(totalIGST, currencyCode, true);
-  
+  const grandTotalFormatted = formatWithDecimals(
+    grandTotalCurrency,
+    currencyCode,
+    2
+  );
+  const totalOtherChargesFormatted = formatNumberOnly(
+    totalOtherChargesCurrency,
+    currencyCode,
+    2
+  );
+  const totalGSTFormatted = formatNumberOnly(totalGST, currencyCode, 2);
+  const cgstFormatted = formatNumberOnly(totalCGST, currencyCode, 2);
+  const sgstFormatted = formatNumberOnly(totalSGST, currencyCode, 2);
+  const igstFormatted = formatNumberOnly(totalIGST, currencyCode, 2);
+
   const html = ejs.render(tpl, {
     companyName: po.company?.name,
     companySub: po.company?.subtitle,
@@ -405,7 +477,8 @@ async function generatePOBuffer(po, items = []) {
     vendorAddress: po.vendor?.address,
     vendorGST: po.vendor?.gstNumber,
     vendorEmail: po.vendor?.email,
-    vendorPhone: po.vendor?.phone,
+    vendorContactPerson: po.vendor?.contactPerson,
+    vendorPhone: po.vendor?.contactNumber,
     poNumber: po.poNumber,
     poDate: new Date(po.createdAt).toLocaleDateString("en-IN"),
     paymentTerms: po.paymentTerms,
@@ -438,18 +511,24 @@ async function generatePOBuffer(po, items = []) {
     otherCharges: otherCharges.map((c) => ({
       ...c,
       amountRaw: Number(c.amount || c.value || 0),
-      amount: formatCurrencyWithCode(Number(c.amount || c.value || 0), currencyCode, true),
+      amount: formatNumberOnly(
+        Number(c.amount || c.value || 0),
+        currencyCode,
+        2
+      ),
     })),
     gstLabel,
-    
   });
 
   const browser = await puppeteer.launch({
     headless: true,
     args: [
-      "--no-sandbox", "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage", "--disable-extensions",
-      "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows",
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-extensions",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
     ],
   });
 
@@ -457,7 +536,12 @@ async function generatePOBuffer(po, items = []) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 800 });
     await page.setContent(html, { waitUntil: "domcontentloaded" });
-    return await page.pdf({ format: "A4", printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true });
+    return await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: 0, bottom: 0, left: 0, right: 0 },
+      preferCSSPageSize: true,
+    });
   } finally {
     await browser.close();
   }

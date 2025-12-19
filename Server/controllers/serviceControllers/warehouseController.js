@@ -1213,13 +1213,13 @@ module.exports.addSystem = async (req, res) => {
 
 module.exports.addSystemItem = async (req, res) => {
   try {
-    const { itemName } = req.body;
+    const { itemName, unit, description, conversionUnit, conversionFactor } = req.body;
     const empId = req.user._id;
 
-    if (!itemName) {
+    if (!itemName || !unit || !description || !conversionFactor || !conversionUnit) {
       return res.status(400).json({
         success: false,
-        message: "Item name is required",
+        message: "Item name, unit, description, conversionUnit, conversionFactor is required",
       });
     }
 
@@ -1239,6 +1239,10 @@ module.exports.addSystemItem = async (req, res) => {
     // Save new system item
     const newSystemItem = new SystemItem({
       itemName: trimmedName,
+      unit: unit,
+      description: description,
+      converionUnit: conversionUnit,
+      conversionFactor: conversionFactor,
       createdBy: empId,
     });
     const savedSystemItem = await newSystemItem.save();

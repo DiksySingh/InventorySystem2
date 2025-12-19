@@ -262,39 +262,20 @@
         }
 
         // Format a numeric value or a preformatted string according to currencyLocale & currencySymbol
+      
+
         function formatCurrencyVal(val) {
-            const symbol = (typeof currencySymbol !== 'undefined' && currencySymbol !== null) ? currencySymbol : '';
-            const locale = (typeof currencyLocale !== 'undefined' && currencyLocale) ? currencyLocale : 'en-IN';
-
-            if (val === undefined || val === null) {
-                return symbol +" "+ (0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-
-            // If already a string containing the symbol, return as-is
-            if (typeof val === 'string') {
-                const s = val.trim();
-                if (symbol && s.indexOf(symbol) !== -1) return s;
-                // if looks numeric, parse and format
-                const numeric = parseFloat(s.replace(/,/g, '').replace(/[^\d.\-]/g, ''));
-                if (!isNaN(numeric)) return symbol + numeric.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                return symbol + ' ' + s;
-            }
-
-            if (typeof val === 'number') {
-                return symbol +" "+ val.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-
-            return symbol + " " +  String(val);
+            const locale = currencyLocale || "en-IN";
+            const num = Number(
+                typeof val === "string"
+                    ? val.replace(/,/g, "").replace(/[^\d.-]/g, "")
+                    : val
+            );
+            return (isNaN(num) ? 0 : num).toLocaleString(locale, {
+                minimumFractionDigits: 4,
+                maximumFractionDigits: 4
+            });
         }
-
-        // Format plain number without symbol (useful for previousTotal calculation display if needed)
-        function formatNumberLocale(n) {
-            const locale = (typeof currencyLocale !== 'undefined' && currencyLocale) ? currencyLocale : 'en-IN';
-            const num = Number(n || 0);
-            if (isNaN(num)) return (0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
         // Parse amount whether raw numeric or formatted string (strip non-numeric except dot & minus)
         function parseAmount(val) {
             if (val === undefined || val === null) return 0;
@@ -353,7 +334,7 @@
 
             <% if (pages.length > 1 && pageIndex > 0) {
                 let safeTotal = parseAmount(previousTotal);
-                const displayPrev = (currencySymbol || '') + formatNumberLocale(safeTotal);
+                const displayPrev = (currencySymbol || '') + formatCurrencyVal(safeTotal);
             %>
             <div class="note" style="text-align: right;">
                 Total Amount till Previous Pages:&nbsp;&nbsp; <%= displayPrev %>
@@ -365,11 +346,11 @@
                 <thead>
                     <tr>
                         <th style="width:5%;">S.No.</th>
-                        <th style="width:42%;">Description</th>
+                        <th style="width:40%;">Description</th>
                         <th style="width:8%;">HSN</th>
-                        <th style="width:8%;">Qty</th>
+                        <th style="width:7%;">Qty</th>
                         <th style="width:5%;">Unit</th>
-                        <th style="width:8%;">Price/Unit (<%= (currencySymbol || '') %>)</th>
+                        <th style="width:11%;">Price/Unit (<%= (currencySymbol || '') %>)</th>
                         <% if(isIGSTItemwise) { %><th style="width:6%;">GST%</th><% } %>
                         <% if(isLGSTItemwise) { %><th style="width:6%;">CGST</th><th style="width:6%;">SGST</th><% } %>
                         <th style="width:14%;">Amount (<%= (currencySymbol || '') %>)</th>
@@ -463,11 +444,11 @@
                     <% otherCharges.forEach(ch => { %>
                     <tr>
                         <td style="width: 5%;"></td>
-                        <td style="text-align:right; width: 42%;">Add: <%= ch.name %></td>
+                        <td style="text-align:right; width: 40%;">Add: <%= ch.name %></td>
                         <td style="width: 8%;"></td>
-                        <td style="width: 8%;"></td>
+                        <td style="width: 7%;"></td>
                         <td style="width: 5%;"></td>
-                        <td style="width: 8%;"></td>
+                        <td style="width: 11%;"></td>
                         <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
                         <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
                         <td style="text-align:right; width: 14%;">
@@ -487,11 +468,11 @@
             <table class="total-amount-rows" style="margin-top:0px;">
                 <tr>
                     <td style="width: 5%;"></td>
-                    <td style="text-align:right; width: 42%;">Sub Total:</td>
+                    <td style="text-align:right; width: 40%;">Sub Total:</td>
                     <td style="width: 8%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 7%;"></td>
                     <td style="width: 5%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 11%;"></td>
                     <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
                     <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
                     <td style="text-align:right; width: 14%;"><%= formatCurrencyVal(subTotalWithOther) %></td>
@@ -503,11 +484,11 @@
             <table class="total-amount-rows">
                 <tr>
                     <td style="width: 5%;"></td>
-                    <td style="text-align:right; width: 42%;">Add - IGST @ <%= gstRate %>%</td>
+                    <td style="text-align:right; width: 40%;">Add - IGST @ <%= gstRate %>%</td>
                     <td style="width: 8%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 7%;"></td>
                     <td style="width: 5%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 11%;"></td>
                     <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
                     <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
                     <td style="text-align:right; width: 14%;"><%= (typeof igst === 'string' && igst.indexOf((currencySymbol || '')) !== -1) ? igst : formatCurrencyVal(igst) %></td>
@@ -520,22 +501,22 @@
             <table class="total-amount-rows">
                 <tr>
                     <td style="width: 5%;"></td>
-                    <td style="text-align:right; width: 42%;">Add - CGST @ <%= parseFloat(gstRate / 2).toFixed(1) %>%</td>
+                    <td style="text-align:right; width: 40%;">Add - CGST @ <%= parseFloat(gstRate / 2).toFixed(1) %>%</td>
                     <td style="width: 8%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 7%;"></td>
                     <td style="width: 5%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 11%;"></td>
                     <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
                     <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
                     <td style="text-align:right; width: 14%;"><%= (typeof cgst === 'string' && cgst.indexOf((currencySymbol || '')) !== -1) ? cgst : formatCurrencyVal(cgst) %></td>
                 </tr>
                 <tr>
                     <td style="width: 5%;"></td>
-                    <td style="text-align:right; width: 42%;">SGST @ <%= parseFloat(gstRate / 2).toFixed(1) %>%</td>
+                    <td style="text-align:right; width: 40%;">SGST @ <%= parseFloat(gstRate / 2).toFixed(1) %>%</td>
                     <td style="width: 8%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 7%;"></td>
                     <td style="width: 5%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 11%;"></td>
                     <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
                     <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
                     <td style="text-align:right; width: 14%;"><%= (typeof sgst === 'string' && sgst.indexOf((currencySymbol || '')) !== -1) ? sgst : formatCurrencyVal(sgst) %></td>
@@ -546,11 +527,11 @@
             <table class="bottom-rows">
                 <tr>
                     <td style="width: 5%;"></td>
-                    <td style="text-align:right; width: 42%;">Total Quantity:</td>
+                    <td style="text-align:right; width: 40%;">Total Quantity:</td>
                     <td style="width: 8%;"></td>
-                    <td style="text-align:center; width: 8%;"><%= (typeof totalQty !== 'undefined' ? totalQty : '') %></td>
+                    <td style="text-align:center; width: 7%;"><%= (typeof totalQty !== 'undefined' ? totalQty : '') %></td>
                     <td style="width: 5%;"></td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 11%;"></td>
                     <% if(isIGSTItemwise) { %><td style="width: 6%;"></td><% } %>
                     <% if(isLGSTItemwise) { %><td style="width: 6%;"></td><td style="width: 6%;"></td><% } %>
                     <td style="width: 14%;"></td>
@@ -560,7 +541,7 @@
             <table class="total-amount-rows">
                 <tr>
                     <td style="width: 12%;">Grand Total:</td>
-                    <td style="text-align:left; padding-left: 10px; width:80%;">
+                    <td style="text-align:left; padding-left: 10px; width:75%;">
                         <%- (typeof grandTotalInWords !== 'undefined' && grandTotalInWords !== null) ? grandTotalInWords : '' %>
                     </td>
                     <td></td>

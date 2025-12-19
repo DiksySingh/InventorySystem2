@@ -3259,10 +3259,10 @@ const cancelPurchaseOrder = async (req, res) => {
       });
     }
 
-    if (userData.role.name !== "Store") {
+    if (userData.role.name !== "Purchase") {
       return res.status(403).json({
         success: false,
-        message: "Only Store users are allowed to cancel purchase orders.",
+        message: "Only purchase department are allowed to cancel purchase orders.",
       });
     }
 
@@ -3274,6 +3274,12 @@ const cancelPurchaseOrder = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Purchase order not found.",
+      });
+    }
+    if(existingPO.status === "Received" || existingPO.status === "PartiallyReceived") {
+       return res.status(400).json({
+        success: false,
+        message: `Purchase order status - ${existingPO.status}. Cannot be cancelled`,
       });
     }
 

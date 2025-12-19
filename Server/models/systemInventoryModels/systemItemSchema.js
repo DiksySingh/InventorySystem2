@@ -15,6 +15,21 @@ const systemItemSchema = new Schema({
     //     type: Number,
     //     required: true
     // },
+    unit: {
+        type: String,
+        default: ""
+    },
+    converionUnit: {
+        type: String,
+        default: ""
+    },
+    conversionFactor: {
+        type: Number,
+    },
+    description: {
+        type: String,
+        default: ""
+    },
     createdAt: {
         type: Date,
         default: Date.now,
