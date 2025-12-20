@@ -2390,13 +2390,11 @@ const getPurchaseOrderDetails = async (req, res) => {
       select: {
         id: true,
         poNumber: true,
-        //financialYear: true,
         companyId: true,
         companyName: true,
         vendorId: true,
         vendorName: true,
-        //bankDetailId: true,
-        //createdBy: true,
+        warehouseId: true,
         poDate: true,
         gstType: true,
         gstRate: true,
@@ -2405,21 +2403,9 @@ const getPurchaseOrderDetails = async (req, res) => {
         foreignSubTotal: true,
         foreignGrandTotal: true,
         subTotal: true,
-        //totalCGST: true,
-        //totalSGST: true,
-        //totalIGST: true,
-        //totalGST: true,
         grandTotal: true,
         status: true,
         remarks: true,
-        //pdfUrl: true,
-        //pdfName: true,
-        //pdfGeneratedAt: true,
-        //pdfGeneratedBy: true,
-        //emailSentAt: true,
-        //emailSentBy: true,
-        //emailResentCount: true,
-        //emailLastResentAt: true,
         paymentTerms: true,
         deliveryTerms: true,
         contactPerson: true,
@@ -2427,7 +2413,6 @@ const getPurchaseOrderDetails = async (req, res) => {
         warranty: true,
         createdAt: true,
         otherCharges: true,
-        //updatedAt: true,
         items: {
           select: {
             id: true,
@@ -2444,10 +2429,7 @@ const getPurchaseOrderDetails = async (req, res) => {
             quantity: true,
             amountInForeign: true,
             receivedQty: true,
-            //itemGSTType: true,
             total: true,
-            //createdAt: true,
-            //updatedAt: true,
           },
         },
       },
@@ -2460,10 +2442,19 @@ const getPurchaseOrderDetails = async (req, res) => {
       });
     }
 
+    let warehouseName = null;
+    if (po.warehouseId) {
+      const warehouse = await Warehouse.findById(po.warehouseId).select("warehouseName");
+      warehouseName = warehouse?.warehouseName || null;
+    }
+
     return res.json({
       success: true,
       message: "PO details fetched successfully",
-      data: po,
+      data: {
+        ...po,
+        warehouseName,
+      },
     });
   } catch (error) {
     console.error("❌ Error fetching PO details:", error);
@@ -2473,6 +2464,7 @@ const getPurchaseOrderDetails = async (req, res) => {
     });
   }
 };
+
 
 //------------ Download PO Pdf -------------------//
 
