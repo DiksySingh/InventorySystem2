@@ -870,6 +870,7 @@ function roundGrandTotal(value) {
 const createPurchaseOrder = async (req, res) => {
 try {
     const {
+      warehouseId,
       companyId,
       vendorId,
       gstType,
@@ -903,10 +904,10 @@ try {
       });
     }
 
-    if (!companyId || !vendorId || !gstType || !items?.length) {
+    if (!warehouseId || !companyId || !vendorId || !gstType || !items?.length) {
       return res.status(400).json({
         success: false,
-        message: "Company, Vendor, GST Type & Items are required",
+        message: "Receiving Warheouse, Company, Vendor, GST Type & Items are required",
       });
     }
 
@@ -1198,6 +1199,7 @@ try {
           companyName: company.name,
           vendorId,
           vendorName: vendor.name,
+          warehouseId,
           gstType,
           gstRate: poGSTPercent,
           currency: finalCurrency,
@@ -1647,6 +1649,7 @@ const updatePurchaseOrder = async (req, res) => {
    try {
     const { poId } = req.params;
     const {
+      warehouseId,
       companyId,
       vendorId,
       gstType,
@@ -1948,6 +1951,7 @@ const updatePurchaseOrder = async (req, res) => {
           contactPerson,
           cellNo,
           otherCharges: normalizedOtherCharges,
+          warehouseId: warehouseId || existingPO.warehouseId,
           items: {
             create: processedItems,
           },
