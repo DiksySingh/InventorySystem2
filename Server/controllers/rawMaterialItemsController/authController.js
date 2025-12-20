@@ -136,6 +136,84 @@ const login = async (req, res) => {
     }
 };
 
+const login2 = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const options = {
+            httpOnly: true,
+            secure: false,
+            sameSite: "Lax",
+        }
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Email, password are required"
+            });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email }
+        });
+        if (user.isActive === false) {
+            return res.status(400).json({
+                success: false,
+                message: "Your account is deactivated"
+            });
+        }
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid email, password"
+            });
+        }
+
+        const verifyPassword = await bcrypt.compare(password, user.password);
+        if (!verifyPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid email, password"
+            });
+        }
+
+        const accessToken = createSecretToken(user.id, user.roleId);
+        const refreshToken = createRefreshToken(user.id);
+
+        await prisma.user.update({
+            where: {
+                id: user.id
+            },
+            data: {
+                refreshToken: refreshToken
+            }
+        });
+
+        return res
+            .status(201)
+            .cookie('accessToken', accessToken, options)
+            .cookie('refreshToken', refreshToken, options)
+            .json({
+                success: true,
+                message: `Login Successful - Welcome Back ${user.name}`,
+                data: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    warehouseId: user.warehouseId,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                }
+            });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
+
 const logout = async (req, res) => {
     try {
         const empId = req.user?.id;
@@ -230,6 +308,7 @@ const handleRefreshToken = async (req, res) => {
 module.exports = {
     addUser,
     login,
+    login2,
     logout,
     handleRefreshToken
 };

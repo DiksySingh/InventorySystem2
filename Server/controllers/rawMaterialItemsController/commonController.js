@@ -6,6 +6,8 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
+const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 
 const addRole = async (req, res) => {
   try {
@@ -1340,6 +1342,74 @@ const createRawMaterial = async (req, res) => {
   }
 };
 
+const createSystemItem = async (req, res) => {
+  try {
+    const { itemName, unit, description, conversionUnit, conversionFactor } = req.body;
+    const empId = req.user?.id;
+
+    if (!itemName || !unit || !description || !conversionFactor || !conversionUnit) {
+      return res.status(400).json({
+        success: false,
+        message: "Item name, unit, description, conversionUnit, conversionFactor is required",
+      });
+    }
+
+    const trimmedName = itemName.trim();
+
+    const existingSystemItem = await SystemItem.findOne({
+      itemName: trimmedName,
+    });
+    if (existingSystemItem) {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate Data: itemName already exists",
+      });
+    }
+
+    // Save new system item
+    const newSystemItem = new SystemItem({
+      itemName: trimmedName,
+      unit: unit,
+      description: description,
+      converionUnit: conversionUnit,
+      conversionFactor: conversionFactor,
+      createdByEmpId: empId,
+    });
+    const savedSystemItem = await newSystemItem.save();
+
+    // Add this item to all warehouses' inventories
+    const allWarehouses = await Warehouse.find();
+    for (let warehouse of allWarehouses) {
+      const exists = await InstallationInventory.findOne({
+        warehouseId: warehouse._id,
+        systemItemId: savedSystemItem._id,
+      });
+
+      if (!exists) {
+        const newInventory = new InstallationInventory({
+          warehouseId: warehouse._id,
+          systemItemId: savedSystemItem._id,
+          quantity: 0,
+          createdByEmpId: empId,
+        });
+        await newInventory.save();
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "System Item Added and Mapped to All Warehouses Successfully",
+      data: savedSystemItem,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const showUnit = async (req, res) => {
   try {
     const getUnit = await prisma.unit.findMany({
@@ -1356,117 +1426,6 @@ const showUnit = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
-const createRawMaterial2 = async (req, res) => {
-  try {
-    const {
-      rawMaterialName,
-      description,
-      unit,
-      conversionUnit,
-      conversionFactor,
-    } = req.body;
-
-    if (
-      !rawMaterialName ||
-      !unit ||
-      !description ||
-      !conversionUnit ||
-      !conversionFactor
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "rawMaterialName, description, unit, conversionUnit, conversionFactor are required.",
-      });
-    }
-
-    const name = rawMaterialName.trim();
-
-    if (conversionUnit) {
-      if (!conversionFactor || conversionFactor <= 0) {
-        throw new Error("Valid conversionFactor is required");
-      }
-
-      if (unit === conversionUnit && conversionFactor !== 1) {
-        throw new Error(
-          "conversionFactor must be 1 when unit and conversionUnit are same"
-        );
-      }
-    }
-
-    // 1️⃣ Check if raw material already exists
-    const existingItem = await prisma.rawMaterial.findUnique({
-      where: { name },
-    });
-
-    if (existingItem) {
-      return res.status(400).json({
-        success: false,
-        message: "RawMaterial Already Exists",
-      });
-    }
-
-    /**
-     * 🔹 Fetch all warehouses from MongoDB
-     * This should return something like:
-     * [{ _id: "abc" }, { _id: "xyz" }]
-     */
-    const warehouses = await Warehouse.find({}); // 👈 YOU already have this
-
-    if (!warehouses || warehouses.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No warehouses found",
-      });
-    }
-
-    // 2️⃣ Transaction: create rawMaterial + warehouseStock
-    const result = await prisma.$transaction(async (tx) => {
-      // Create RawMaterial
-      const rawMaterial = await tx.rawMaterial.create({
-        data: {
-          name,
-          stock: 0,
-          description,
-          unit,
-          conversionUnit,
-          conversionFactor,
-        },
-      });
-
-      // Prepare warehouse stock entries
-      const warehouseStockData = warehouses.map((wh) => ({
-        warehouseId: wh._id.toString(),
-        rawMaterialId: rawMaterial.id,
-        quantity: 0,
-        unit,
-        isUsed: true,
-      }));
-
-      // Create WarehouseStock for ALL warehouses
-      await tx.warehouseStock.createMany({
-        data: warehouseStockData,
-        skipDuplicates: true, // safety for @@unique
-      });
-
-      return rawMaterial;
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Raw-Material added and initialized for all warehouses",
-      data: result,
-    });
-  } catch (error) {
-    console.error("Create RawMaterial Error:", error);
-    return res.status(500).json({
       success: false,
       message: "Internal Server Error",
       error: error.message,
@@ -1562,7 +1521,7 @@ module.exports = {
   updateRawMaterialUsageFromExcel,
   markCompanyOrVendorNotActive,
   createRawMaterial,
+  createSystemItem,
   showUnit,
-  createRawMaterial2,
   syncRawMaterialsToWarehouses,
 };

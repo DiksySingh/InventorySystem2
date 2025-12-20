@@ -30,6 +30,7 @@ router.post("/updateRawMaterialUsageFromExcel", commonController.upload.single('
 
 router.put("/update/:id/:isActive", tokenVerification(['Purchase']), commonController.markCompanyOrVendorNotActive);
 router.post("/raw-material/create", tokenVerification(['Purchase', 'Store']), commonController.createRawMaterial);
+router.post("/system-item/create", tokenVerification(['Purchase', 'Store']), commonController.createSystemItem);
 router.get("/unit/view", tokenVerification(['Purchase', 'Store']), commonController.showUnit);
 router.post("/warehouse/materials/sync", commonController.syncRawMaterialsToWarehouses);
 

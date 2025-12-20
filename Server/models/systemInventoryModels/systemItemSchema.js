@@ -30,6 +30,10 @@ const systemItemSchema = new Schema({
         type: String,
         default: ""
     },
+    isUsed: {
+        type: Boolean,
+        default: true,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
@@ -40,11 +44,16 @@ const systemItemSchema = new Schema({
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: "Admin",
-        required: true
+    },
+    createdByEmpId: {
+        type: String
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
         ref: "Admin"
+    },
+    updatedByEmpId: {
+        type: String,
     }
 }, {collection: "inSystemItems"});
 

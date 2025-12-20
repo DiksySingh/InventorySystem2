@@ -27,7 +27,9 @@ const installationInventorySchema = new Schema({
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: "Admin",
-        required: true
+    },
+    createdByEmpId: {
+        type: String
     },
     updatedBy: {
         type: Schema.Types.ObjectId,

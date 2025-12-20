@@ -1,5 +1,6 @@
 const prisma = require("../../config/prismaClient");
 const fs = require("fs/promises");
+const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
 
 const getLineWorkerList = async (req, res) => {
   try {
@@ -857,6 +858,71 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
   }
 };
 
+const markSystemItemUsedOrNotUsed = async (req, res) => {
+  try {
+    const { id, isUsed } = req.query;
+    const empId = req.user?.id;
+
+    if (!id || typeof isUsed === "undefined") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid data passed",
+      });
+    }
+
+    const existingSystemItem = await SystemItem.findById(id);
+
+    if (!existingSystemItem) {
+      return res.status(404).json({
+        success: false,
+        message: "System Item not found",
+      });
+    }
+
+    const isUsedBoolean = isUsed === "true";
+
+    if (existingSystemItem.isUsed === isUsedBoolean) {
+      return res.status(400).json({
+        success: false,
+        message: `System Item is already marked as - ${isUsedBoolean ? "Used" : "Not Used"}`,
+      });
+    }
+
+    // ✅ Correct Mongoose update
+    const updatedSystemItem = await SystemItem.findByIdAndUpdate(
+      id,
+      {
+        isUsed: isUsedBoolean,
+        updatedByEmpId: empId,
+        updatedAt: new Date(),
+      },
+      { new: true } 
+    );
+    
+    await prisma.auditLog.create({
+      data: {
+        entityType: "SystemItem",
+        entityId: id,
+        action: "STATUS_UPDATED",
+        performedBy: empId || null,
+        oldValue: { isUsed: existingSystemItem.isUsed },
+        newValue: { isUsed: updatedSystemItem.isUsed },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `System Item marked as - ${isUsedBoolean ? "Used." : "Not Used."}`,
+      data: updatedSystemItem,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 const getLineWorkerList2 = async (req, res) => {
   try {
     const empId = req.user?.id;
@@ -1522,4 +1588,5 @@ module.exports = {
   updateStock,
   getStockMovementHistory,
   markRawMaterialUsedOrNotUsed,
+  markSystemItemUsedOrNotUsed
 };

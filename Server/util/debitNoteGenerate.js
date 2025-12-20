@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const ejs = require("ejs");
+const Decimal = require("decimal.js");
 const puppeteer = require("puppeteer");
 const numberToWords = require("./numberToWords"); // INR words
 
@@ -13,23 +14,15 @@ const CURRENCY_META = {
 };
 
 function getCurrencyMeta(code = "INR") {
-  return CURRENCY_META[code] || { locale: "en-US", symbol: code, fractionDigits: 2 };
-}
-
-function formatCurrencyWithCode(value, currencyCode = "INR", displaySymbol = true) {
-  const meta = getCurrencyMeta(currencyCode);
-  const formattedNumber = Number(value || 0).toLocaleString(meta.locale, {
-    minimumFractionDigits: meta.fractionDigits,
-    maximumFractionDigits: meta.fractionDigits,
-  });
-  return displaySymbol ? `${meta.symbol} ${formattedNumber}` : formattedNumber;
+  return (
+    CURRENCY_META[code] || { locale: "en-US", symbol: code, fractionDigits: 2 }
+  );
 }
 
 function amountToWords(amount, currencyCode = "INR") {
   const rounded = Math.round(Number(amount || 0) * 100) / 100;
   try {
-    if (currencyCode === "INR") return numberToWords(rounded);
-    return `${numberToWords(rounded)} ${currencyCode}`; // fallback
+    return numberToWords(rounded, currencyCode);
   } catch {
     return `${rounded} ${currencyCode}`;
   }
@@ -46,8 +39,60 @@ function getGSTLabel(debitNote) {
   return "";
 }
 
+function fixNum(val, d = 4) {
+  return new Decimal(val ?? "0") // STRING OR DECIMAL
+    .toDecimalPlaces(d, Decimal.ROUND_DOWN)
+    .toNumber();
+}
+
+function addNum(a, b, d = 4) {
+  return new Decimal(a ?? "0")
+    .plus(new Decimal(b ?? "0"))
+    .toDecimalPlaces(d, Decimal.ROUND_DOWN)
+    .toNumber();
+}
+
+function formatNumberOnly(val, currencyCode, decimals) {
+  const meta = getCurrencyMeta(currencyCode);
+
+  const str = new Decimal(val || 0)
+    .toDecimalPlaces(decimals, Decimal.ROUND_DOWN)
+    .toFixed(decimals);
+
+  return Number(str).toLocaleString(meta.locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function formatWithDecimals(val, currencyCode, decimals) {
+  const meta = getCurrencyMeta(currencyCode);
+
+  const str = new Decimal(val || 0)
+    .toDecimalPlaces(decimals, Decimal.ROUND_DOWN)
+    .toFixed(decimals);
+
+  return `${meta.symbol} ${Number(str).toLocaleString(meta.locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
+}
+
+function roundGrandTotal(value) {
+  const amount = new Decimal(value).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+  const integerPart = amount.floor();
+  const decimalPart = amount.minus(integerPart);
+
+  if (decimalPart.greaterThanOrEqualTo(new Decimal(0.5))) {
+    return integerPart.plus(1).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+  }
+
+  return integerPart.toDecimalPlaces(4, Decimal.ROUND_DOWN);
+}
+
+
 async function generateDebitNoteBuffer(debitNote, items = []) {
-  const tplPath = path.join(__dirname, "../templates/debitNoteTemplate.ejs");
+  const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
   const tpl = fs.readFileSync(tplPath, "utf8");
 
   const currencyCode = debitNote.currency?.toString() || "INR";
@@ -66,19 +111,25 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
 
   // Prepare item rows
   const preparedRows = (items || []).map((it, i) => {
-    const qty = Number(it.quantity || 0);
-    const rate = Number(it.rate || 0);
-    const lineAmount = Number(debitNote.currency === "INR" ? it.total : it.amountInForeign);
+    const qty = fixNum(it.quantity, 4);
+    const rate = fixNum(it.rate, 4);
+    const lineAmount = fixNum(
+      debitNote.currency === "INR" ? it.total : it.amountInForeign,
+      4
+    );
 
-    totalQty += qty;
-    subtotalCurrency += lineAmount;
+    totalQty = addNum(totalQty, qty, 4);
+    subtotalCurrency = addNum(subtotalCurrency, lineAmount, 4);
 
-    let gstRate = 0, gstAmount = 0, finalAmount = lineAmount;
+    let gstRate = 0;
+    let gstAmount = 0;
+    let finalAmount = lineAmount;
 
     if (isItemWise) {
       gstRate = Number(it.gstRate || 0);
-      gstAmount = (lineAmount * gstRate) / 100;
-      finalAmount += gstAmount;
+      gstAmount = fixNum(new Decimal(lineAmount).mul(gstRate).div(100), 4);
+
+      finalAmount = addNum(finalAmount, gstAmount, 4);
     }
 
     return {
@@ -90,53 +141,72 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
       qty,
       unit: it.unit || "Nos",
       rateRaw: rate,
-      rate: formatCurrencyWithCode(rate, currencyCode, true),
+      rate: formatNumberOnly(rate, currencyCode, 4),
       lineAmountRaw: lineAmount,
-      lineAmount: formatCurrencyWithCode(lineAmount, currencyCode, true),
+      lineAmount: formatNumberOnly(lineAmount, currencyCode, 4),
       gstRate: isItemWise ? `${gstRate}%` : "",
       gstAmountRaw: gstAmount,
-      gstAmount: isItemWise ? formatCurrencyWithCode(gstAmount, currencyCode, true) : "",
+      gstAmount: isItemWise ? formatNumberOnly(gstAmount, currencyCode, 4) : "",
       amountRaw: finalAmount,
-      amount: formatCurrencyWithCode(finalAmount, currencyCode, true),
+      amount: formatNumberOnly(finalAmount, currencyCode, 4),
     };
   });
 
   // Other charges
   const otherCharges = debitNote.otherCharges || [];
   for (const ch of otherCharges) {
-    const amt = Number(ch?.amount ?? ch?.value ?? 0);
-    totalOtherChargesCurrency += amt;
+    const amt = ch?.amount ?? ch?.value ?? "0";
+    totalOtherChargesCurrency = addNum(totalOtherChargesCurrency, amt, 4);
   }
 
   const subTotalCurrency = subtotalCurrency;
 
-  let totalCGST = 0, totalSGST = 0, totalIGST = 0, totalGST = 0, grandTotalCurrency = 0;
+  let totalCGST = 0,
+    totalSGST = 0,
+    totalIGST = 0,
+    totalGST = 0,
+    grandTotalCurrency = 0;
 
   if (isItemWise) {
-    totalGST = preparedRows.reduce((acc, r) => acc + (r.gstAmountRaw || 0), 0);
-    grandTotalCurrency = preparedRows.reduce((acc, r) => acc + (r.amountRaw || 0), 0) + totalOtherChargesCurrency;
+    totalGST = preparedRows.reduce(
+      (acc, r) => addNum(acc, r.gstAmountRaw || 0, 4),
+      0
+    );
+
+    grandTotalCurrency = preparedRows.reduce(
+      (acc, r) => addNum(acc, r.amountRaw || 0, 4),
+      0
+    );
   } else if (isExempted) {
     totalGST = 0;
-    grandTotalCurrency = subTotalCurrency + totalOtherChargesCurrency;
+    grandTotalCurrency = fixNum(
+      subTotalCurrency + totalOtherChargesCurrency,
+      4
+    );
   } else {
-    const taxableAmount = subTotalCurrency + totalOtherChargesCurrency;
-    const rate = Number(debitNote.gstRate || (gstType.split("_")[1] || 0));
+    const taxableAmount = fixNum(
+      subTotalCurrency + totalOtherChargesCurrency,
+      4
+    );
+
+    const rate = Number(debitNote.gstRate || gstType.split("_")[1] || 0);
+
     if (isIGST) {
-      totalIGST = (taxableAmount * rate) / 100;
+      totalIGST = fixNum(new Decimal(taxableAmount).mul(rate).div(100), 4);
       totalGST = totalIGST;
-      grandTotalCurrency = taxableAmount + totalIGST;
+      grandTotalCurrency = addNum(taxableAmount, totalGST, 4);
     } else if (isLGST) {
-      totalCGST = (taxableAmount * rate) / 2 / 100;
-      totalSGST = (taxableAmount * rate) / 2 / 100;
-      totalGST = totalCGST + totalSGST;
-      grandTotalCurrency = taxableAmount + totalGST;
+      totalCGST = fixNum((taxableAmount * rate) / 2 / 100, 4);
+      totalSGST = fixNum((taxableAmount * rate) / 2 / 100, 4);
+      totalGST = fixNum(totalCGST + totalSGST, 4);
+      grandTotalCurrency = fixNum(taxableAmount + totalGST, 4);
     } else {
       totalGST = 0;
       grandTotalCurrency = taxableAmount;
     }
   }
-
-  const gstLabel = getGSTLabel(debitNote);
+  grandTotalCurrency = roundGrandTotal(grandTotalCurrency).toNumber();
+  const gstLabel = getGSTLabel(po);
   const grandTotalInWords = amountToWords(grandTotalCurrency, currencyCode);
 
   // Paginate rows
@@ -145,23 +215,46 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
     const FOOTER_PAGE = 4;
     let rows = [...preparedRowsLocal];
     let pagesArr = [];
-    const pushPage = (arr, padTo = FULL_PAGE) => { while (arr.length < padTo) arr.push(null); pagesArr.push(arr); };
-    if (rows.length < FULL_PAGE) { pushPage(rows.splice(0), FOOTER_PAGE); return pagesArr; }
-    if (rows.length === FULL_PAGE) { pushPage(rows.splice(0, FULL_PAGE - 1), FULL_PAGE); pushPage(rows.splice(0, 1), FOOTER_PAGE); return pagesArr; }
-    if (rows.length % FULL_PAGE === 0) { while (rows.length > FULL_PAGE) pushPage(rows.splice(0, FULL_PAGE)); pushPage(rows.splice(0, FULL_PAGE - 1)); pushPage(rows.splice(0, 1), FOOTER_PAGE); return pagesArr; }
+    const pushPage = (arr, padTo = FULL_PAGE) => {
+      while (arr.length < padTo) arr.push(null);
+      pagesArr.push(arr);
+    };
+    if (rows.length < FULL_PAGE) {
+      pushPage(rows.splice(0), FOOTER_PAGE);
+      return pagesArr;
+    }
+    if (rows.length === FULL_PAGE) {
+      pushPage(rows.splice(0, FULL_PAGE - 1), FULL_PAGE);
+      pushPage(rows.splice(0, 1), FOOTER_PAGE);
+      return pagesArr;
+    }
+    if (rows.length % FULL_PAGE === 0) {
+      while (rows.length > FULL_PAGE) pushPage(rows.splice(0, FULL_PAGE));
+      pushPage(rows.splice(0, FULL_PAGE - 1));
+      pushPage(rows.splice(0, 1), FOOTER_PAGE);
+      return pagesArr;
+    }
     while (rows.length > FULL_PAGE) pushPage(rows.splice(0, FULL_PAGE));
     if (rows.length > 0) pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
     return pagesArr;
   })(preparedRows);
 
   // Formatted totals
-  const grandTotalFormatted = formatCurrencyWithCode(grandTotalCurrency, currencyCode, true);
-  const totalOtherChargesFormatted = formatCurrencyWithCode(totalOtherChargesCurrency, currencyCode, true);
-  const totalGSTFormatted = formatCurrencyWithCode(totalGST, currencyCode, true);
-  const cgstFormatted = formatCurrencyWithCode(totalCGST, currencyCode, true);
-  const sgstFormatted = formatCurrencyWithCode(totalSGST, currencyCode, true);
-  const igstFormatted = formatCurrencyWithCode(totalIGST, currencyCode, true);
-  
+  const grandTotalFormatted = formatWithDecimals(
+    grandTotalCurrency,
+    currencyCode,
+    4
+  );
+  const totalOtherChargesFormatted = formatNumberOnly(
+    totalOtherChargesCurrency,
+    currencyCode,
+    4
+  );
+  const totalGSTFormatted = formatNumberOnly(totalGST, currencyCode, 4);
+  const cgstFormatted = formatNumberOnly(totalCGST, currencyCode, 4);
+  const sgstFormatted = formatNumberOnly(totalSGST, currencyCode, 4);
+  const igstFormatted = formatNumberOnly(totalIGST, currencyCode, 4);
+
   const html = ejs.render(tpl, {
     companyName: debitNote.company?.name,
     companySub: debitNote.company?.subtitle,
@@ -171,10 +264,11 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
     vendorAddress: debitNote.vendor?.address,
     vendorGST: debitNote.vendor?.gstNumber,
     vendorEmail: debitNote.vendor?.email,
-    vendorPhone: debitNote.vendor?.phone,
+    vendorContactPerson: debitNote.vendor?.contactPerson,
+    vendorPhone: debitNote.vendor?.contactNumber,
+    debitNoteNo: debitNote.poNumber,
     billReference: debitNote.billReference,
-    debitNoteNo: debitNote.debitNoteNo,
-    drNoteDate: new Date(debitNote.drNoteDate).toLocaleDateString("en-IN"),
+    drNoteDate: new Date(po.createdAt).toLocaleDateString("en-IN"),
     orgInvoiceNo: debitNote.orgInvoiceNo,
     orgInvoiceDate: new Date(debitNote.orgInvoiceDate).toLocaleDateString("en-IN"),
     gr_rr_no: debitNote.gr_rr_no,
@@ -206,7 +300,11 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
     otherCharges: otherCharges.map((c) => ({
       ...c,
       amountRaw: Number(c.amount || c.value || 0),
-      amount: formatCurrencyWithCode(Number(c.amount || c.value || 0), currencyCode, true),
+      amount: formatNumberOnly(
+        Number(c.amount || c.value || 0),
+        currencyCode,
+        4
+      ),
     })),
     gstLabel,
   });
@@ -214,9 +312,12 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
   const browser = await puppeteer.launch({
     headless: true,
     args: [
-      "--no-sandbox", "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage", "--disable-extensions",
-      "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows",
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-extensions",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
     ],
   });
 
@@ -224,7 +325,12 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 800 });
     await page.setContent(html, { waitUntil: "domcontentloaded" });
-    return await page.pdf({ format: "A4", printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true });
+    return await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: 0, bottom: 0, left: 0, right: 0 },
+      preferCSSPageSize: true,
+    });
   } finally {
     await browser.close();
   }

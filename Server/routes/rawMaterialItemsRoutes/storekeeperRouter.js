@@ -43,5 +43,6 @@ router.get("/showProcessData", tokenVerification(['Store']), storekeeperControll
 router.get("/getRawMaterialList", tokenVerification(["Store", "Purchase"]), storekeeperController.getRawMaterialList);
 router.get("/getStockMovementHistory", tokenVerification(["Store"]), storekeeperController.getStockMovementHistory);
 router.put("/markRawMaterialUsedOrNotUsed", tokenVerification(['Store', "Purchase"]), storekeeperController.markRawMaterialUsedOrNotUsed);
+router.put("/markSystemItemUsedOrNotUsed", tokenVerification(['Purchase', 'Store']), storekeeperController.markSystemItemUsedOrNotUsed);
 
 module.exports = router;
