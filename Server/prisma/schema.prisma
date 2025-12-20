@@ -19,7 +19,7 @@ model User {
   state        String?
   isActive     Boolean?
   refreshToken String?
-  warehouseId   String?
+  warehouseId  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
@@ -50,9 +50,9 @@ model User {
   debitNotes            DebitNote[]
   damagedStocksCreated  DamagedStock[]               @relation("Damaged_Stock_CreatedBy")
   damagedStocksUpdated  DamagedStock[]               @relation("Damaged_Stock_UpdatedBy")
-  termsCreatedBy        Terms_Conditions[] @relation("TermsCreatedBy")
-  termsUpdatedBy        Terms_Conditions[] @relation("TermsUpdatedBy")
- 
+  termsCreatedBy        Terms_Conditions[]           @relation("TermsCreatedBy")
+  termsUpdatedBy        Terms_Conditions[]           @relation("TermsUpdatedBy")
+
   @@index([roleId], map: "User_roleId_fkey")
 }
 
@@ -83,15 +83,15 @@ model Item {
 }
 
 model RawMaterial {
-  id     String   @id @default(uuid())
-  name   String?  @unique
-  stock  Float?
-  unit   String?
-  conversionUnit  String?
-  conversionFactor  Float?
-  isUsed Boolean? @default(true)
-  minQty Float?
-  description   String?
+  id               String   @id @default(uuid())
+  name             String?  @unique
+  stock            Float?
+  unit             String?
+  conversionUnit   String?
+  conversionFactor Float?
+  isUsed           Boolean? @default(true)
+  minQty           Float?
+  description      String?
 
   createdAt DateTime @default(now())
   createdBy String?
@@ -144,20 +144,19 @@ model StageRawMaterial {
 
 model WarehouseStock {
   id            String   @id @default(uuid())
-  warehouseId   String?   // MongoDB warehouse _id
+  warehouseId   String? // MongoDB warehouse _id
   rawMaterialId String?
-  quantity      Float?  @default(0)
+  quantity      Float?   @default(0)
   unit          String?
-  isUsed Boolean? @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isUsed        Boolean? @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
   @@unique([warehouseId, rawMaterialId])
   @@index([warehouseId])
 }
-
 
 model StockMovementBatch {
   id         String    @id @default(uuid())
@@ -355,7 +354,7 @@ model ItemType_Stage {
 
 model ItemRequestData {
   id                   String    @id @default(uuid())
-  warehouseId           String?
+  warehouseId          String?
   serviceProcessId     String?
   isProcessRequest     Boolean   @default(false) // true = tied to specific process, false = advance/global
   rawMaterialRequested Json?
@@ -587,6 +586,12 @@ enum PaymentMode {
   Cheque
 }
 
+enum POApprovalStatus {
+  Pending
+  Approved
+  Rejected
+}
+
 model Product {
   id          String   @id @default(uuid())
   productName String
@@ -727,13 +732,17 @@ model PurchaseOrder {
   foreignSubTotal   Decimal? @db.Decimal(12, 4)
   foreignGrandTotal Decimal? @db.Decimal(12, 4)
 
-  subTotal          Decimal?  @db.Decimal(12, 4)
-  totalCGST         Decimal?  @db.Decimal(12, 4)
-  totalSGST         Decimal?  @db.Decimal(12, 4)
-  totalIGST         Decimal?  @db.Decimal(12, 4)
-  totalGST          Decimal?  @db.Decimal(12, 4)
-  grandTotal        Decimal?  @db.Decimal(12, 4)
-  status            POStatus  @default(Draft)
+  subTotal          Decimal?         @db.Decimal(12, 4)
+  totalCGST         Decimal?         @db.Decimal(12, 4)
+  totalSGST         Decimal?         @db.Decimal(12, 4)
+  totalIGST         Decimal?         @db.Decimal(12, 4)
+  totalGST          Decimal?         @db.Decimal(12, 4)
+  grandTotal        Decimal?         @db.Decimal(12, 4)
+  status            POStatus         @default(Draft)
+  approvalStatus    POApprovalStatus @default(Pending)
+  approvedBy        String?
+  approvedAt        DateTime?
+  rejectionReason   String?
   remarks           String?
   pdfUrl            String?
   pdfName           String?
@@ -741,7 +750,7 @@ model PurchaseOrder {
   pdfGeneratedBy    String?
   emailSentAt       DateTime?
   emailSentBy       String?
-  emailResentCount  Int       @default(0)
+  emailResentCount  Int              @default(0)
   emailLastResentAt DateTime?
   paymentTerms      String?
   deliveryTerms     String?
@@ -754,16 +763,17 @@ model PurchaseOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  company        Company                @relation(fields: [companyId], references: [id])
-  vendor         Vendor                 @relation(fields: [vendorId], references: [id])
-  bankDetail     BankDetail?            @relation(fields: [bankDetailId], references: [id])
-  items          PurchaseOrderItem[]
-  payments       Payment[]
-  returnToVendor ReturnToVendor[]
-  damagedStock   DamagedStock[]
-  receipts       PurchaseOrderReceipt[] @relation("PO_Receipts") // PO → Receipts
-  bills          PurchaseOrderBill[]
-  user           User?                  @relation(fields: [createdBy], references: [id])
+  company                  Company                   @relation(fields: [companyId], references: [id])
+  vendor                   Vendor                    @relation(fields: [vendorId], references: [id])
+  bankDetail               BankDetail?               @relation(fields: [bankDetailId], references: [id])
+  items                    PurchaseOrderItem[]
+  payments                 Payment[]
+  returnToVendor           ReturnToVendor[]
+  damagedStock             DamagedStock[]
+  receipts                 PurchaseOrderReceipt[]    @relation("PO_Receipts") // PO → Receipts
+  bills                    PurchaseOrderBill[]
+  user                     User?                     @relation(fields: [createdBy], references: [id])
+  purchaseOrDebitNoteTerms PurchaseOrDebitNoteTerm[]
 }
 
 model PurchaseOrderItem {
@@ -839,13 +849,13 @@ model DamagedStock {
   itemDetail      String?      @db.VarChar(500)
   unit            String?
   rateInForeign   Decimal?     @db.Decimal(12, 4) // optional, if Debit Note currency != INR
-  amountInForeign Decimal?     @db.Decimal(12, 2) // rate * quantity in foreign currency
-  rate            Decimal?     @db.Decimal(10, 2)
-  gstRate         Decimal?     @db.Decimal(5, 2)
-  quantity        Decimal      @db.Decimal(10, 2)
-  receivedQty     Decimal?     @default(0) @db.Decimal(10, 2)
+  amountInForeign Decimal?     @db.Decimal(12, 4) // rate * quantity in foreign currency
+  rate            Decimal?     @db.Decimal(12, 4)
+  gstRate         Decimal?     @db.Decimal(7, 4)
+  quantity        Decimal      @db.Decimal(12, 4)
+  receivedQty     Decimal?     @default(0) @db.Decimal(12, 4)
   itemGSTType     String?
-  total           Decimal?     @db.Decimal(12, 2)
+  total           Decimal?     @db.Decimal(12, 4)
   remarks         String?
   status          DamageStatus @default(Pending)
   createdAt       DateTime     @default(now())
@@ -879,6 +889,12 @@ enum DebitNoteStatus {
   Cancelled
 }
 
+enum DebitNoteApprovalStatus {
+  Pending
+  Approved
+  Rejected
+}
+
 model DebitNote {
   id              String   @id @default(uuid())
   debitNoteNo     String   @unique
@@ -893,48 +909,53 @@ model DebitNote {
   createdBy       String?
   drNoteDate      DateTime @default(now())
   gstType         GSTType
-  gstRate         Decimal? @db.Decimal(5, 2)
+  gstRate         Decimal? @db.Decimal(7, 4)
 
   currency     String?  @default("INR")
   exchangeRate Decimal? @default(1.0000) @db.Decimal(12, 4)
 
-  foreignSubTotal   Decimal? @db.Decimal(12, 2)
-  foreignGrandTotal Decimal? @db.Decimal(12, 2)
+  foreignSubTotal   Decimal? @db.Decimal(12, 4)
+  foreignGrandTotal Decimal? @db.Decimal(12, 4)
 
-  subTotal       Decimal?        @db.Decimal(12, 2)
-  totalCGST      Decimal?        @db.Decimal(12, 2)
-  totalSGST      Decimal?        @db.Decimal(12, 2)
-  totalIGST      Decimal?        @db.Decimal(12, 2)
-  totalGST       Decimal?        @db.Decimal(12, 2)
-  grandTotal     Decimal?        @db.Decimal(12, 2)
-  status         DebitNoteStatus @default(Debited)
-  remarks        String?
-  pdfUrl         String?
-  pdfName        String?
-  pdfGeneratedAt DateTime?
-  pdfGeneratedBy String?
-  orgInvoiceNo   String?
-  orgInvoiceDate DateTime?
-  gr_rr_no       String?
-  transport      String?
-  vehicleNumber  String?
-  station        String?
+  subTotal        Decimal?                @db.Decimal(12, 4)
+  totalCGST       Decimal?                @db.Decimal(12, 4)
+  totalSGST       Decimal?                @db.Decimal(12, 4)
+  totalIGST       Decimal?                @db.Decimal(12, 4)
+  totalGST        Decimal?                @db.Decimal(12, 4)
+  grandTotal      Decimal?                @db.Decimal(12, 4)
+  status          DebitNoteStatus         @default(Debited)
+  approvalStatus  DebitNoteApprovalStatus @default(Pending)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  remarks         String?
+  pdfUrl          String?
+  pdfName         String?
+  pdfGeneratedAt  DateTime?
+  pdfGeneratedBy  String?
+  orgInvoiceNo    String?
+  orgInvoiceDate  DateTime?
+  gr_rr_no        String?
+  transport       String?
+  vehicleNumber   String?
+  station         String?
 
   otherCharges Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  company               Company                @relation(fields: [companyId], references: [id])
-  vendor                Vendor                 @relation(fields: [vendorId], references: [id])
-  bankDetail            BankDetail?            @relation(fields: [bankDetailId], references: [id])
-  payments              Payment[]
-  returnToVendor        ReturnToVendor[]
-  damagedStock          DamagedStock[]
-  debitNoteBills        DebitNoteBill[]
-  user                  User?                  @relation(fields: [createdBy], references: [id])
-  purchaseOrderItems    PurchaseOrderItem[]
-  purchaseOrderReceipts PurchaseOrderReceipt[]
+  company                  Company                   @relation(fields: [companyId], references: [id])
+  vendor                   Vendor                    @relation(fields: [vendorId], references: [id])
+  bankDetail               BankDetail?               @relation(fields: [bankDetailId], references: [id])
+  payments                 Payment[]
+  returnToVendor           ReturnToVendor[]
+  damagedStock             DamagedStock[]
+  debitNoteBills           DebitNoteBill[]
+  user                     User?                     @relation(fields: [createdBy], references: [id])
+  purchaseOrderItems       PurchaseOrderItem[]
+  purchaseOrderReceipts    PurchaseOrderReceipt[]
+  purchaseOrDebitNoteTerms PurchaseOrDebitNoteTerm[]
 }
 
 model DebitNoteBill {
@@ -951,15 +972,35 @@ model DebitNoteBill {
 }
 
 model Terms_Conditions {
-  id String @id @default(uuid())
-  term  String? @db.VarChar(500)
+  id        String   @id @default(uuid())
+  term      String?  @db.VarChar(500)
+  isActive  Boolean? @default(true)
   createdAt DateTime @default(now())
   createdBy String?
   updatedAt DateTime @updatedAt
   updatedBy String?
 
-  TermsCreatedBy  User? @relation("TermsCreatedBy", fields: [createdBy], references: [id])
-  TermsUpdatedBy  User? @relation("TermsUpdatedBy", fields: [updatedBy], references: [id])
+  TermsCreatedBy           User?                     @relation("TermsCreatedBy", fields: [createdBy], references: [id])
+  TermsUpdatedBy           User?                     @relation("TermsUpdatedBy", fields: [updatedBy], references: [id])
+  purchaseOrDebitNoteTerms PurchaseOrDebitNoteTerm[]
+}
+
+model PurchaseOrDebitNoteTerm {
+  id              String  @id @default(uuid())
+  purchaseOrderId String?
+  debitNoteId     String?
+  termId          String
+
+  createdAt DateTime @default(now())
+
+  purchaseOrder PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
+  debitNote     DebitNote?       @relation(fields: [debitNoteId], references: [id])
+  term          Terms_Conditions @relation(fields: [termId], references: [id])
+
+  @@unique([purchaseOrderId, termId])
+  @@unique([debitNoteId, termId])
+  @@index([purchaseOrderId])
+  @@index([debitNoteId])
 }
 
 model ReturnToVendor {
