@@ -4,7 +4,7 @@ const authController = require("../../controllers/rawMaterialItemsController/aut
 const {tokenVerification} = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 
 router.post("/signup", authController.addUser);
-router.post("/login", authController.login2);
+router.post("/login", authController.login);
 router.post("/logout", tokenVerification(['Admin']), authController.logout);
 router.post("/handleRefreshToken", authController.handleRefreshToken);
 
