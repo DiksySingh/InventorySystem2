@@ -1410,6 +1410,177 @@ const createSystemItem = async (req, res) => {
   }
 };
 
+const createItem = async (req, res) => {
+  try {
+    const {
+      name,
+      unit,
+      description,
+      source,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
+
+    const empId = req.user?.id;
+
+    if (
+      !name ||
+      !unit ||
+      !description ||
+      !source ||
+      !conversionUnit ||
+      !conversionFactor
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "name, unit, description, source, conversionUnit, conversionFactor are required",
+      });
+    }
+
+    const trimmedName = name.trim();
+
+    // 🔄 Conversion validation (common)
+    if (conversionFactor <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "conversionFactor must be greater than 0",
+      });
+    }
+
+    if (unit === conversionUnit && conversionFactor !== 1) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "conversionFactor must be 1 when unit and conversionUnit are same",
+      });
+    }
+
+    /* =====================================================
+       🔴 RAW MATERIAL FLOW (Prisma)
+    ====================================================== */
+    if (source === "Raw Material") {
+      const existingItem = await prisma.rawMaterial.findUnique({
+        where: { name: trimmedName },
+      });
+
+      if (existingItem) {
+        return res.status(400).json({
+          success: false,
+          message: "Raw Material already exists",
+        });
+      }
+
+      const warehouses = await Warehouse.find({});
+      if (!warehouses.length) {
+        return res.status(400).json({
+          success: false,
+          message: "No warehouses found",
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const rawMaterial = await tx.rawMaterial.create({
+          data: {
+            name: trimmedName,
+            stock: 0,
+            description,
+            unit,
+            conversionUnit,
+            conversionFactor,
+            createdBy: empId
+          },
+        });
+
+        const warehouseStockData = warehouses.map((wh) => ({
+          warehouseId: wh._id.toString(),
+          rawMaterialId: rawMaterial.id,
+          quantity: 0,
+          unit,
+          isUsed: true,
+        }));
+
+        await tx.warehouseStock.createMany({
+          data: warehouseStockData,
+          skipDuplicates: true,
+        });
+
+        return rawMaterial;
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Raw Material created & mapped to all warehouses",
+        data: result,
+      });
+    }
+
+    /* =====================================================
+       🔵 INSTALLATION MATERIAL FLOW (Mongo)
+    ====================================================== */
+    if (source === "Installation Material") {
+      const existingSystemItem = await SystemItem.findOne({
+        itemName: trimmedName,
+      });
+
+      if (existingSystemItem) {
+        return res.status(400).json({
+          success: false,
+          message: "System Item already exists",
+        });
+      }
+
+      const newSystemItem = new SystemItem({
+        itemName: trimmedName,
+        unit,
+        description,
+        converionUnit: conversionUnit,
+        conversionFactor,
+        createdByEmpId: empId,
+      });
+
+      const savedSystemItem = await newSystemItem.save();
+
+      const allWarehouses = await Warehouse.find();
+
+      for (let warehouse of allWarehouses) {
+        const exists = await InstallationInventory.findOne({
+          warehouseId: warehouse._id,
+          systemItemId: savedSystemItem._id,
+        });
+
+        if (!exists) {
+          await new InstallationInventory({
+            warehouseId: warehouse._id,
+            systemItemId: savedSystemItem._id,
+            quantity: 0,
+            createdByEmpId: empId,
+          }).save();
+        }
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: "Installation Material created & mapped to all warehouses",
+        data: savedSystemItem,
+      });
+    }
+
+    // ❌ Invalid source
+    return res.status(400).json({
+      success: false,
+      message: "Invalid source value",
+    });
+  } catch (error) {
+    console.error("Create Item Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const showUnit = async (req, res) => {
   try {
     const getUnit = await prisma.unit.findMany({
@@ -1494,6 +1665,63 @@ const syncRawMaterialsToWarehouses = async (req, res) => {
   }
 };
 
+const exportRawMaterialsExcel = async (req, res) => {
+  try {
+    // 1️⃣ Fetch only raw material name
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      where: {
+        isUsed: true,
+      },
+      select: {
+        name: true,
+      },
+    });
+
+    if (!rawMaterials.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No raw materials found",
+      });
+    }
+
+    // 2️⃣ Prepare Excel data
+    const excelData = rawMaterials.map((item) => ({
+      RawMaterialName: item.name,
+    }));
+
+    // 3️⃣ Create workbook & worksheet
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(excelData);
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, "RawMaterials");
+
+    // 4️⃣ Convert to buffer
+    const excelBuffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "buffer",
+    });
+
+    // 5️⃣ Send file
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=RawMaterials.xlsx"
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    return res.send(excelBuffer);
+  } catch (error) {
+    console.error("Raw Material Excel Export Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -1524,4 +1752,6 @@ module.exports = {
   createSystemItem,
   showUnit,
   syncRawMaterialsToWarehouses,
+  exportRawMaterialsExcel,
+  createItem
 };

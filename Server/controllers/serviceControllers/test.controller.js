@@ -961,6 +961,59 @@ const exportInstallationInventoryExcel = async (req, res) => {
   }
 };
 
+const exportSystemItemsExcel = async (req, res) => {
+  try {
+    const items = await SystemItem.find(
+      {},
+      { _id: 1, itemName: 1 }
+    );
+
+    if (!items.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No system items found",
+      });
+    }
+
+    // 2️⃣ Convert data for Excel
+    const excelData = items.map((item) => ({
+      Id: item._id,
+      ItemName: item.itemName,
+    }));
+
+    // 3️⃣ Create workbook & sheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "SystemItems");
+
+    // 4️⃣ Write file to buffer
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "buffer",
+    });
+
+    // 5️⃣ Send file
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=SystemItems.xlsx"
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    return res.send(excelBuffer);
+  } catch (error) {
+    console.error("Excel Export Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   exportActiveUsers,
@@ -978,5 +1031,6 @@ module.exports = {
   sendWhatsAppMessage,
   matchSystemItemsFromExcel,
   updateInstallationInventoryFromExcel,
-  exportInstallationInventoryExcel
+  exportInstallationInventoryExcel,
+  exportSystemItemsExcel
 };
