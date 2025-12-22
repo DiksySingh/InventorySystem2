@@ -1590,6 +1590,202 @@ const createItem = async (req, res) => {
   }
 };
 
+const getItemById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "id is required",
+      });
+    }
+
+    const rawMaterial = await prisma.rawMaterial.findUnique({
+      where: { id },
+    });
+
+    if (rawMaterial) {
+      return res.status(200).json({
+        success: true,
+        source: "Raw Material",
+        data: {
+          id: rawMaterial.id,
+          name: rawMaterial.name,
+          unit: rawMaterial.unit,
+          description: rawMaterial.description,
+          conversionUnit: rawMaterial.conversionUnit,
+          conversionFactor: rawMaterial.conversionFactor,
+        },
+      });
+    }
+
+    const systemItem = await SystemItem.findById(id);
+
+    if (systemItem) {
+      return res.status(200).json({
+        success: true,
+        source: "Installation Material",
+        data: {
+          id: systemItem._id,
+          name: systemItem.itemName,
+          unit: systemItem.unit,
+          description: systemItem.description,
+          conversionUnit: systemItem.converionUnit,
+          conversionFactor: systemItem.conversionFactor,
+        },
+      });
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "Item not found",
+    });
+  } catch (error) {
+    console.error("Get Item Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const updateItem = async (req, res) => {
+  try {
+    const {
+      id,
+      name,
+      unit,
+      description,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
+
+    const empId = req.user?.id;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "id is required",
+      });
+    }
+
+    const updateData = {};
+
+    if (name) updateData.name = name.trim();
+    if (unit) updateData.unit = unit;
+    if (description) updateData.description = description;
+    if (conversionUnit) updateData.conversionUnit = conversionUnit;
+
+    if (conversionFactor !== undefined) {
+      const numericFactor = Number(conversionFactor);
+      if (isNaN(numericFactor) || numericFactor <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "conversionFactor must be a valid number > 0",
+        });
+      }
+      updateData.conversionFactor = numericFactor;
+    }
+
+    const rawMaterial = await prisma.rawMaterial.findUnique({
+      where: { id },
+    });
+
+    if (rawMaterial) {
+      // ❗ Duplicate name check
+      if (updateData.name) {
+        const duplicate = await prisma.rawMaterial.findFirst({
+          where: {
+            name: updateData.name,
+            NOT: { id },
+          },
+        });
+
+        if (duplicate) {
+          return res.status(400).json({
+            success: false,
+            message: "Raw Material name already exists",
+          });
+        }
+      }
+
+      const updatedRawMaterial = await prisma.$transaction(async (tx) => {
+        const updated = await tx.rawMaterial.update({
+          where: { id },
+          data: updateData,
+        });
+
+        // 🔁 Sync unit in warehouse stock ONLY if unit updated
+        if (updateData.unit) {
+          await tx.warehouseStock.updateMany({
+            where: { rawMaterialId: id },
+            data: { unit: updateData.unit },
+          });
+        }
+
+        return updated;
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Raw Material updated successfully",
+        data: updatedRawMaterial,
+      });
+    }
+
+    const systemItem = await SystemItem.findById(id);
+
+    if (systemItem) {
+      // ❗ Duplicate name check
+      if (name) {
+        const duplicate = await SystemItem.findOne({
+          itemName: name.trim(),
+          _id: { $ne: id },
+        });
+
+        if (duplicate) {
+          return res.status(400).json({
+            success: false,
+            message: "System Item name already exists",
+          });
+        }
+      }
+
+      if (name) systemItem.itemName = name.trim();
+      if (unit) systemItem.unit = unit;
+      if (description) systemItem.description = description;
+      if (conversionUnit) systemItem.converionUnit = conversionUnit;
+      if (conversionFactor !== undefined)
+        systemItem.conversionFactor = Number(conversionFactor);
+
+      systemItem.updatedAt = new Date();
+      systemItem.updatedByEmpId = empId;
+
+      await systemItem.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "System Item updated successfully",
+        data: systemItem,
+      });
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "Item not found in Raw Material or Installation Material",
+    });
+  } catch (error) {
+    console.error("Update Item Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const showUnit = async (req, res) => {
   try {
     const getUnit = await prisma.unit.findMany({
@@ -1763,4 +1959,6 @@ module.exports = {
   syncRawMaterialsToWarehouses,
   exportRawMaterialsExcel,
   createItem,
+  getItemById,
+  updateItem
 };

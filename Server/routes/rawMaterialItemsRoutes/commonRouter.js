@@ -32,6 +32,8 @@ router.put("/update/:id/:isActive", tokenVerification(['Purchase']), commonContr
 router.post("/raw-material/create", tokenVerification(['Purchase', 'Store']), commonController.createRawMaterial);
 router.post("/system-item/create", tokenVerification(['Purchase', 'Store']), commonController.createSystemItem);
 router.post("/item/create", tokenVerification(['Purchase', 'Store']), commonController.createItem);
+router.get("/item/details/:id", tokenVerification(['Purchase', 'Store']), commonController.getItemById);
+router.put("/item/update", tokenVerification(['Purchase', 'Store']), commonController.updateItem);
 router.get("/unit/view", tokenVerification(['Purchase', 'Store']), commonController.showUnit);
 router.post("/warehouse/materials/sync", commonController.syncRawMaterialsToWarehouses);
 router.get("/raw-material/export/excel", commonController.exportRawMaterialsExcel);
