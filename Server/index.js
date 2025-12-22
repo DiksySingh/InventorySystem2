@@ -32,7 +32,7 @@ const MONGO_URL = process.env.MONGO_URL;
 const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
-mongoose.connect(MONGO_URL, {
+mongoose.connect(MONGODB_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 })
