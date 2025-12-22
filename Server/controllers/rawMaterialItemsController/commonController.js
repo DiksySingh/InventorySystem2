@@ -1344,13 +1344,21 @@ const createRawMaterial = async (req, res) => {
 
 const createSystemItem = async (req, res) => {
   try {
-    const { itemName, unit, description, conversionUnit, conversionFactor } = req.body;
+    const { itemName, unit, description, conversionUnit, conversionFactor } =
+      req.body;
     const empId = req.user?.id;
 
-    if (!itemName || !unit || !description || !conversionFactor || !conversionUnit) {
+    if (
+      !itemName ||
+      !unit ||
+      !description ||
+      !conversionFactor ||
+      !conversionUnit
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Item name, unit, description, conversionUnit, conversionFactor is required",
+        message:
+          "Item name, unit, description, conversionUnit, conversionFactor is required",
       });
     }
 
@@ -1440,11 +1448,12 @@ const createItem = async (req, res) => {
 
     const trimmedName = name.trim();
 
-    // 🔄 Conversion validation (common)
-    if (conversionFactor <= 0) {
+    const numericConversionFactor = Number(conversionFactor);
+
+    if (isNaN(numericConversionFactor) || numericConversionFactor <= 0) {
       return res.status(400).json({
         success: false,
-        message: "conversionFactor must be greater than 0",
+        message: "conversionFactor must be a valid number greater than 0",
       });
     }
 
@@ -1487,8 +1496,8 @@ const createItem = async (req, res) => {
             description,
             unit,
             conversionUnit,
-            conversionFactor,
-            createdBy: empId
+            conversionFactor: numericConversionFactor,
+            createdBy: empId,
           },
         });
 
@@ -1535,7 +1544,7 @@ const createItem = async (req, res) => {
         unit,
         description,
         converionUnit: conversionUnit,
-        conversionFactor,
+        conversionFactor: numericConversionFactor,
         createdByEmpId: empId,
       });
 
@@ -1753,5 +1762,5 @@ module.exports = {
   showUnit,
   syncRawMaterialsToWarehouses,
   exportRawMaterialsExcel,
-  createItem
+  createItem,
 };
