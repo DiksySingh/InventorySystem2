@@ -750,6 +750,50 @@ const getVendorById = async (req, res) => {
   }
 };
 
+// const getItemsList = async (req, res) => {
+//   try {
+//     const mysqlItems = await prisma.rawMaterial.findMany({
+//       where: {
+//         isUsed: true,
+//       },
+//       select: {
+//         id: true,
+//         name: true,
+//       },
+//     });
+
+//     const formattedMySQL = mysqlItems.map((item) => ({
+//       id: item.id,
+//       name: item.name,
+//       source: "mysql",
+//     }));
+
+//     const mongoItems = await SystemItem.find(
+//       { isUsed: true },
+//       { itemName: 1 }
+//     ).lean();
+
+//     const formattedMongo = mongoItems.map((item) => ({
+//       id: item._id.toString(),
+//       name: item.itemName,
+//       source: "mongo",
+//     }));
+
+//     const allItems = [...formattedMySQL, ...formattedMongo];
+
+//     return res.status(200).json({
+//       success: true,
+//       count: allItems.length,
+//       items: allItems || [],
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Failed to fetch items",
+//     });
+//   }
+// };
+
 const getItemsList = async (req, res) => {
   try {
     const mysqlItems = await prisma.rawMaterial.findMany({
@@ -779,12 +823,20 @@ const getItemsList = async (req, res) => {
       source: "mongo",
     }));
 
+    // 🔁 MERGE
     const allItems = [...formattedMySQL, ...formattedMongo];
+
+    // 🔤 SORT BY NAME (CASE-INSENSITIVE)
+    allItems.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+      })
+    );
 
     return res.status(200).json({
       success: true,
       count: allItems.length,
-      items: allItems || [],
+      items: allItems,
     });
   } catch (error) {
     return res.status(500).json({
