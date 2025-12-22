@@ -732,7 +732,7 @@ function extractValues(name) {
   const meter = parseInt(name.match(/(\d+)MTR/i)?.[1] || 0);
 
   return { hp, type, meter };
-}
+};
 
 function sortPumps(a, b) {
   const A = extractValues(a.item.name);
@@ -746,7 +746,7 @@ function sortPumps(a, b) {
 
   // 3) Sort by Meter
   return A.meter - B.meter;
-}
+};
 
 const deleteProductItemMap = async (req, res) => {
   try {
@@ -1418,9 +1418,179 @@ const createSystemItem = async (req, res) => {
   }
 };
 
+// const createItem = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       unit,
+//       description,
+//       source,
+//       conversionUnit,
+//       conversionFactor,
+//     } = req.body;
+
+//     const empId = req.user?.id;
+
+//     if (
+//       !name ||
+//       !unit ||
+//       !description ||
+//       !source
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message:
+//           "name, unit, description, source are required",
+//       });
+//     }
+
+//     const trimmedName = name.trim();
+
+//     // const numericConversionFactor = Number(conversionFactor);
+
+//     // if (isNaN(numericConversionFactor) || numericConversionFactor <= 0) {
+//     //   return res.status(400).json({
+//     //     success: false,
+//     //     message: "conversionFactor must be a valid number greater than 0",
+//     //   });
+//     // }
+
+//     // if (unit === conversionUnit && conversionFactor !== 1) {
+//     //   return res.status(400).json({
+//     //     success: false,
+//     //     message:
+//     //       "conversionFactor must be 1 when unit and conversionUnit are same",
+//     //   });
+//     // }
+
+//     /* =====================================================
+//        🔴 RAW MATERIAL FLOW (Prisma)
+//     ====================================================== */
+//     if (source === "Raw Material") {
+//       const existingItem = await prisma.rawMaterial.findUnique({
+//         where: { name: trimmedName },
+//       });
+
+//       if (existingItem) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Raw Material already exists",
+//         });
+//       }
+
+//       const warehouses = await Warehouse.find({});
+//       if (!warehouses.length) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "No warehouses found",
+//         });
+//       }
+
+//       const result = await prisma.$transaction(async (tx) => {
+//         const rawMaterial = await tx.rawMaterial.create({
+//           data: {
+//             name: trimmedName,
+//             stock: 0,
+//             description,
+//             unit,
+//             conversionUnit,
+//             conversionFactor: numericConversionFactor,
+//             createdBy: empId,
+//           },
+//         });
+
+//         const warehouseStockData = warehouses.map((wh) => ({
+//           warehouseId: wh._id.toString(),
+//           rawMaterialId: rawMaterial.id,
+//           quantity: 0,
+//           unit,
+//           isUsed: true,
+//         }));
+
+//         await tx.warehouseStock.createMany({
+//           data: warehouseStockData,
+//           skipDuplicates: true,
+//         });
+
+//         return rawMaterial;
+//       });
+
+//       return res.status(201).json({
+//         success: true,
+//         message: "Raw Material created & mapped to all warehouses",
+//         data: result,
+//       });
+//     }
+
+//     /* =====================================================
+//        🔵 INSTALLATION MATERIAL FLOW (Mongo)
+//     ====================================================== */
+//     if (source === "Installation Material") {
+//       const existingSystemItem = await SystemItem.findOne({
+//         itemName: trimmedName,
+//       });
+
+//       if (existingSystemItem) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "System Item already exists",
+//         });
+//       }
+
+//       const newSystemItem = new SystemItem({
+//         itemName: trimmedName,
+//         unit,
+//         description,
+//         converionUnit: conversionUnit,
+//         conversionFactor: numericConversionFactor,
+//         createdByEmpId: empId,
+//       });
+
+//       const savedSystemItem = await newSystemItem.save();
+
+//       const allWarehouses = await Warehouse.find();
+
+//       for (let warehouse of allWarehouses) {
+//         const exists = await InstallationInventory.findOne({
+//           warehouseId: warehouse._id,
+//           systemItemId: savedSystemItem._id,
+//         });
+
+//         if (!exists) {
+//           await new InstallationInventory({
+//             warehouseId: warehouse._id,
+//             systemItemId: savedSystemItem._id,
+//             quantity: 0,
+//             createdByEmpId: empId,
+//           }).save();
+//         }
+//       }
+
+//       return res.status(201).json({
+//         success: true,
+//         message: "Installation Material created & mapped to all warehouses",
+//         data: savedSystemItem,
+//       });
+//     }
+
+//     // ❌ Invalid source
+//     return res.status(400).json({
+//       success: false,
+//       message: "Invalid source value",
+//     });
+//   } catch (error) {
+//     console.error("Create Item Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const createItem = async (req, res) => {
   try {
-    const {
+    let {
       name,
       unit,
       description,
@@ -1431,37 +1601,29 @@ const createItem = async (req, res) => {
 
     const empId = req.user?.id;
 
-    if (
-      !name ||
-      !unit ||
-      !description ||
-      !source ||
-      !conversionUnit ||
-      !conversionFactor
-    ) {
+    if (!name || !unit || !description || !source) {
       return res.status(400).json({
         success: false,
-        message:
-          "name, unit, description, source, conversionUnit, conversionFactor are required",
+        message: "name, unit, description, source are required",
       });
     }
 
     const trimmedName = name.trim();
 
-    const numericConversionFactor = Number(conversionFactor);
+    /* =====================================================
+       🔁 DEFAULT CONVERSION LOGIC
+    ====================================================== */
+    const numericConversionFactor =
+      conversionFactor !== undefined && conversionFactor !== null
+        ? Number(conversionFactor)
+        : 1;
+
+    const finalConversionUnit = conversionUnit || unit;
 
     if (isNaN(numericConversionFactor) || numericConversionFactor <= 0) {
       return res.status(400).json({
         success: false,
         message: "conversionFactor must be a valid number greater than 0",
-      });
-    }
-
-    if (unit === conversionUnit && conversionFactor !== 1) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "conversionFactor must be 1 when unit and conversionUnit are same",
       });
     }
 
@@ -1495,7 +1657,7 @@ const createItem = async (req, res) => {
             stock: 0,
             description,
             unit,
-            conversionUnit,
+            conversionUnit: finalConversionUnit,
             conversionFactor: numericConversionFactor,
             createdBy: empId,
           },
@@ -1543,7 +1705,7 @@ const createItem = async (req, res) => {
         itemName: trimmedName,
         unit,
         description,
-        converionUnit: conversionUnit,
+        converionUnit: finalConversionUnit,
         conversionFactor: numericConversionFactor,
         createdByEmpId: empId,
       });
@@ -1575,7 +1737,9 @@ const createItem = async (req, res) => {
       });
     }
 
-    // ❌ Invalid source
+    /* =====================================================
+       ❌ INVALID SOURCE
+    ====================================================== */
     return res.status(400).json({
       success: false,
       message: "Invalid source value",
