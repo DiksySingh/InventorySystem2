@@ -26,6 +26,9 @@ const SerialNumber = require("../../models/systemInventoryModels/serialNumberSch
 const DispatchDetails = require("../../models/systemInventoryModels/dispatchDetailsSchema");
 const DispatchBillPhoto = require("../../models/systemInventoryModels/dispatchBillPhotoSchema");
 const ReceivingItems = require("../../models/serviceInventoryModels/receivingItemsSchema");
+const FarmerReplacementItemsActivity = require("../../models/systemInventoryModels/farmerReplacementItemsActivity");
+const ReplacementDispatchDetails = require("../../models/systemInventoryModels/replacementDispatchDetailsSchema");
+const ReplacementDispatchBillPhoto = require("../../models/systemInventoryModels/replacementDispatchBillSchema");
 const fs = require("fs");
 const path = require("path");
 const ExcelJS = require("exceljs");
@@ -151,7 +154,6 @@ module.exports.addWarehouse = async (req, res) => {
     });
   }
 };
-
 
 module.exports.showWarehouses = async (req, res) => {
   try {
@@ -1213,13 +1215,21 @@ module.exports.addSystem = async (req, res) => {
 
 module.exports.addSystemItem = async (req, res) => {
   try {
-    const { itemName, unit, description, conversionUnit, conversionFactor } = req.body;
+    const { itemName, unit, description, conversionUnit, conversionFactor } =
+      req.body;
     const empId = req.user._id;
 
-    if (!itemName || !unit || !description || !conversionFactor || !conversionUnit) {
+    if (
+      !itemName ||
+      !unit ||
+      !description ||
+      !conversionFactor ||
+      !conversionUnit
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Item name, unit, description, conversionUnit, conversionFactor is required",
+        message:
+          "Item name, unit, description, conversionUnit, conversionFactor is required",
       });
     }
 
@@ -6823,6 +6833,160 @@ module.exports.getInstallerData = async (req, res) => {
       success: false,
       message: "Internal Server Error",
       error: error.message,
+    });
+  }
+};
+
+module.exports.addReplacementDispatch = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      dispatchedList,
+      driverName,
+      driverContact,
+      vehicleNumber,
+      movementType,
+    } = req.body;
+
+    const activities =
+      typeof dispatchedList === "string"
+        ? JSON.parse(dispatchedList)
+        : dispatchedList;
+
+    if (!Array.isArray(activities) || activities.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No replacement activities provided.",
+      });
+    }
+
+    if (!driverName || !driverContact || !vehicleNumber || !movementType) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver details & movementType is required.",
+      });
+    }
+
+    const requiredKeys = ["farmerSaralId", "itemsList"];
+    const keyValidation = validateKeys(activities, requiredKeys);
+    if (!keyValidation.success) return res.status(400).json(keyValidation);
+
+    // ✅ SINGLE BILL VALIDATION
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Replacement dispatch bill is required",
+      });
+    }
+
+    const warehousePersonId = req.user._id;
+    const warehouseId = req.user.warehouse;
+    const warehouseData =
+      await Warehouse.findById(warehouseId).session(session);
+    if (!warehouseData) throw new Error("Warehouse not found");
+
+    const stateMap = {
+      Bhiwani: "Haryana",
+      "Maharashtra Warehouse - Ambad": "Maharashtra",
+      "Maharashtra Warehouse - Badnapur": "Maharashtra",
+      "Korba Chhattisgarh": "Chhattisgarh",
+    };
+    const state = stateMap[warehouseData.warehouseName] || "";
+
+    const dispatchDetails = new ReplacementDispatchDetails({
+      driverName,
+      driverContact,
+      vehicleNumber,
+      movementType,
+      dispatchedBy: warehousePersonId,
+      warehouseId,
+      dispatchedReplacementActivities: [],
+    });
+    await dispatchDetails.save({ session });
+
+    // 2️⃣ Loop through replacement activities
+    for (const activity of activities) {
+      // 3️⃣ Stock update
+      for (const item of activity.itemsList) {
+        const stockDoc = await InstallationInventory.findOne({
+          warehouseId,
+          systemItemId: item.systemItemId,
+        }).session(session);
+
+        if (!stockDoc) {
+          throw new Error("Item not found in inventory");
+        }
+
+        if (movementType === "Replacement") {
+          if (stockDoc.quantity < item.quantity) {
+            throw new Error("Insufficient stock for replacement item");
+          }
+
+          stockDoc.quantity -= item.quantity;
+        } else if (movementType === "Defective") {
+          stockDoc.defective = (stockDoc.defective || 0) + item.quantity;
+        }
+
+        stockDoc.updatedAt = new Date();
+        stockDoc.updatedBy = warehousePersonId;
+
+        await stockDoc.save({ session });
+      }
+
+      // 4️⃣ Create replacement activity
+      const replacementActivity = new FarmerReplacementItemsActivity({
+        warehouseId,
+        farmerSaralId: activity.farmerSaralId,
+        movementType: movementType,
+        itemsList: activity.itemsList,
+        state: state,
+        sendingDate:
+          activity.movementType === "Replacement" ? new Date() : null,
+        receivingDate:
+          activity.movementType === "Defective" ? new Date() : null,
+        createdBy: warehousePersonId,
+      });
+
+      await replacementActivity.save({ session });
+
+      dispatchDetails.dispatchedReplacementActivities.push(
+        replacementActivity._id
+      );
+    }
+
+    // 5️⃣ SAVE SINGLE BILL PHOTO (ONLY ONCE)
+    const billPhotoPath = `/uploads/replacementDispatch/dispatchBill/${req.file.filename}`;
+
+    const billPhoto = new ReplacementDispatchBillPhoto({
+      replacementDispatchId: dispatchDetails._id,
+      billPhoto: billPhotoPath,
+    });
+
+    await billPhoto.save({ session });
+
+    // 6️⃣ Final save + commit
+    await dispatchDetails.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: `${movementType === "Replacement" ? "Replacement Items Dispatched Successfully" : "Defective Items Received Successfully"}`,
+      data: dispatchDetails,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    if (req.file) {
+      fs.unlink(req.file.path, () => {});
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
     });
   }
 };

@@ -67,6 +67,7 @@ const {
   getClampData,
   addReceivingItemsData,
   receivingDataGroupedByOutgoing,
+  addReplacementDispatch,
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -83,6 +84,7 @@ const { userVerification } = require("../middlewares/authMiddlewares");
 
 const multer = require("multer");
 const fileHandler = require("../middlewares/installationMiddlewares/uploadConfig");
+const fileUploadHandler = require("../middlewares/installationMiddlewares/replacementDispatchMutler");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
@@ -395,5 +397,13 @@ router.get(
   "/get-installer-data",
   userVerification(["warehouseAdmin"]),
   getInstallerData
+);
+
+//-------- Replacement Item Dispatch ---------//
+router.post(
+  "/dispatch/replacement-items",
+  userVerification(["warehouseAdmin"]),
+  fileUploadHandler,
+  addReplacementDispatch
 );
 module.exports = router;

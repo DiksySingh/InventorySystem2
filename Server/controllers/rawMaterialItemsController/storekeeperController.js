@@ -923,6 +923,72 @@ const markSystemItemUsedOrNotUsed = async (req, res) => {
   }
 };
 
+const getPendingPOsForReceiving = async (req, res) => {
+  try {
+    const warehouseId = req.user.warehouseId;
+    const allPOs = await prisma.purchaseOrder.findMany({
+      where: {
+        warehouseId,
+        status: {
+          notIn: ["Cancelled", "Received"],
+        },
+        items: {
+          some: {
+            quantity: {
+              gt: prisma.purchaseOrderItem.fields.receivedQty,
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        poNumber: true,
+        companyId: true,
+        companyName: true,
+        vendorId: true,
+        vendorName: true,
+        warehouseId: true,
+        warehouseName: true,
+        poDate: true,
+        status: true,
+        approvalStatus: true,
+        items: {
+          where: {
+            quantity: {
+              gt: prisma.purchaseOrderItem.fields.receivedQty,
+            },
+          },
+          select: {
+            id: true,
+            itemId: true,
+            itemSource: true,
+            itemName: true,
+            hsnCode: true,
+            modelNumber: true,
+            unit: true,
+            quantity: true,
+            receivedQty: true,
+          },
+        },
+      },
+      orderBy: {
+        poDate: "desc",
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Pending POs for receiving fetched successfully.",
+      data: allPOs,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
+  }
+};
+
 const getLineWorkerList2 = async (req, res) => {
   try {
     const empId = req.user?.id;
@@ -1588,5 +1654,6 @@ module.exports = {
   updateStock,
   getStockMovementHistory,
   markRawMaterialUsedOrNotUsed,
-  markSystemItemUsedOrNotUsed
+  markSystemItemUsedOrNotUsed,
+  getPendingPOsForReceiving
 };

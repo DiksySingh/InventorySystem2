@@ -25,18 +25,73 @@ function getFinancialYear(date = getISTDate()) {
   return `${startYear.toString().slice(-2)}${endYear.toString().slice(-2)}`;
 }
 
+const STATE_CODE_MAP = {
+  "andhra pradesh": "AP",
+  "arunachal pradesh": "AR",
+  "assam": "AS",
+  "bihar": "BR",
+  "chhattisgarh": "CG",
+  "goa": "GA",
+  "gujarat": "GJ",
+  "haryana": "HR",
+  "himachal pradesh": "HP",
+  "jharkhand": "JH",
+  "karnataka": "KA",
+  "kerala": "KL",
+  "madhya pradesh": "MP",
+  "maharashtra": "MH",
+  "manipur": "MN",
+  "meghalaya": "ML",
+  "mizoram": "MZ",
+  "nagaland": "NL",
+  "odisha": "OD",
+  "punjab": "PB",
+  "rajasthan": "RJ",
+  "sikkim": "SK",
+  "tamil nadu": "TN",
+  "telangana": "TS",
+  "tripura": "TR",
+  "uttar pradesh": "UP",
+  "uttarakhand": "UK",
+  "west bengal": "WB",
+  "andaman and nicobar islands": "AN",
+  "chandigarh": "CH",
+  "dadra and nagar haveli and daman and diu": "DN",
+  "delhi": "DL",
+  "jammu and kashmir": "JK",
+  "ladakh": "LA",
+  "lakshadweep": "LD",
+  "puducherry": "PY",
+};
+
 function getStateCode(stateName) {
   if (!stateName) return "XX";
-  const s = stateName.toLowerCase();
-  if (s.includes("haryana")) return "HR";
-  if (s.includes("maharashtra")) return "MH";
-  if (s.includes("uttarakhand") || s.includes("haridwar") || s.includes("uk"))
-    return "UK";
-  if (s.includes("gujarat")) return "GJ";
-  if (s.includes("rajasthan")) return "RJ";
-  if (s.includes("delhi")) return "DL";
-  return s.substring(0, 2).toUpperCase();
+
+  const input = stateName.toLowerCase().trim();
+
+  // 🔍 Match full or partial state names
+  for (const [state, code] of Object.entries(STATE_CODE_MAP)) {
+    if (input.includes(state)) {
+      return code;
+    }
+  }
+
+  // 🧯 fallback (first 2 letters)
+  return input.substring(0, 2).toUpperCase();
 }
+
+// function getStateCode(stateName) {
+//   if (!stateName) return "XX";
+//   const s = stateName.toLowerCase();
+//   if (s.includes("haryana")) return "HR";
+//   if (s.includes("maharashtra")) return "MH";
+//   if (s.includes("uttarakhand") || s.includes("haridwar") || s.includes("uk"))
+//     return "UK";
+//   if (s.includes("gujarat")) return "GJ";
+//   if (s.includes("rajasthan")) return "RJ";
+//   if (s.includes("delhi")) return "DL";
+//   return s.substring(0, 2).toUpperCase();
+// }
 
 async function generatePONumber(company) {
   const fy = getFinancialYear();
@@ -1239,6 +1294,12 @@ try {
       Decimal.ROUND_DOWN
     );
 
+    let warehouseName = null;
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if(warehouseData) {
+      warehouseName = warehouseData?.warehouseName;
+    }
+    console.log(warehouseName);
     // ------------------------------------
     // 💾 Save Purchase Order
     // ------------------------------------
@@ -1252,6 +1313,7 @@ try {
           vendorId,
           vendorName: vendor.name,
           warehouseId,
+          warehouseName,
           gstType,
           gstRate: poGSTPercent,
           currency: finalCurrency,
@@ -2517,7 +2579,6 @@ const getPurchaseOrderDetails = async (req, res) => {
   }
 };
 
-
 //------------ Download PO Pdf -------------------//
 
 const downloadPOPDF = async (req, res) => {
@@ -2953,7 +3014,8 @@ const purchaseOrderReceivingBill = async (req, res) => {
       }
     }
 
-    const { purchaseOrderId, items, warehouseId, invoiceNumber } = req.body;
+    const { purchaseOrderId, items, invoiceNumber } = req.body;
+    const userWarehouseId = req.user?.warehouseId;
     const billFile = req.files?.billFile?.[0];
 
     if (!billFile)
@@ -2971,18 +3033,17 @@ const purchaseOrderReceivingBill = async (req, res) => {
       !purchaseOrderId ||
       !invoiceNumber ||
       !Array.isArray(items) ||
-      items.length === 0 ||
-      !warehouseId
+      items.length === 0
     ) {
       deleteUploadedFile();
       return res.status(400).json({
         success: false,
         message:
-          "purchaseOrderId, warehouseId, invoiceNumber and items[] are required.",
+          "purchaseOrderId, invoiceNumber and items[] are required.",
       });
     }
 
-    const warehouseData = await Warehouse.findById(warehouseId);
+    const warehouseData = await Warehouse.findById(userWarehouseId);
     if (!warehouseData) throw new Error("Warehouse not found.");
 
     const po = await prisma.purchaseOrder.findUnique({
@@ -2994,6 +3055,13 @@ const purchaseOrderReceivingBill = async (req, res) => {
 
     if (["Received", "Cancelled"].includes(po.status)) {
       throw new Error(`PO already ${po.status}.`);
+    }
+
+    if(po.warehouseId !== userWarehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized: Cannot receive PO items for different warehouse."
+      })
     }
 
     // Validate items exist
@@ -3121,7 +3189,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
               itemSource,
               itemId,
               goodQty,
-              warehouseId,
+              warehouseId: userWarehouseId,
               poUnit,
             });
 
@@ -4994,7 +5062,6 @@ module.exports = {
 
 // [{
 //   "purchaseOrderId": "4bb311bc-6b45-4472-9707-2384a0529d29",
-//   "warehouseId": "67446a8b27dae6f7f4d985dd",
 //   "items": [
 //     {
 //       "purchaseOrderItemId": "311a45de-f462-4736-b336-1bac23fa3c11",

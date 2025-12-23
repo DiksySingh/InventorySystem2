@@ -27,6 +27,7 @@ module.exports.tokenVerification = (allowedRoles) => {
           id: true,
           name: true,
           email: true,
+          warehouseId: true,
           isActive: true,
           role: { select: { name: true } }
         }

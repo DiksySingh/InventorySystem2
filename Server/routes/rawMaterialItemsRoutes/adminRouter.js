@@ -61,5 +61,7 @@ router.get("/showFailureRedirectStage", adminController.showFailureRedirectStage
 router.get("/showStockUpdateHistory", adminController.showStockUpdateHistory);
 router.get("/showDefectiveItemsList", commonController.getDefectiveItemsListByWarehouse);
 
+router.get("/")
+
 
 module.exports = router;
