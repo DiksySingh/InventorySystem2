@@ -371,8 +371,7 @@
                         <td>
                             <% if (!r.isEmpty) { %>
                                 <% if (r.itemName) { %><strong style="font-size: 14px;"><%= r.itemName %></strong><% } %>
-                                <% if (r.modelNumber) { %>Model No: <%= r.modelNumber %>, <% } %>
-                                <% if (r.itemDetail) { %><%= r.itemDetail %><% } %>
+                                <% if (r.modelNumber) { %>Model No: <%= r.modelNumber %>, <% if (r.itemDetail) { %><%= r.itemDetail %><% } %><% } %>
                             <% } %>
                         </td>
                         <td style="text-align:center;"><%= r.isEmpty ? "" : r.hsn %></td>
