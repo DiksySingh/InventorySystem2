@@ -1418,175 +1418,37 @@ const createSystemItem = async (req, res) => {
   }
 };
 
-// const createItem = async (req, res) => {
-//   try {
-//     const {
-//       name,
-//       unit,
-//       description,
-//       source,
-//       conversionUnit,
-//       conversionFactor,
-//     } = req.body;
+function parseConversionFactor(value) {
+  // default
+  if (value === undefined || value === null || value === "") {
+    return 1;
+  }
 
-//     const empId = req.user?.id;
+  if (typeof value !== "string") {
+    throw new Error("conversionFactor must be a string");
+  }
 
-//     if (
-//       !name ||
-//       !unit ||
-//       !description ||
-//       !source
-//     ) {
-//       return res.status(400).json({
-//         success: false,
-//         message:
-//           "name, unit, description, source are required",
-//       });
-//     }
+  const trimmed = value.trim();
 
-//     const trimmedName = name.trim();
+  // fraction case: "1/30"
+  if (trimmed.includes("/")) {
+    const [num, den] = trimmed.split("/").map(Number);
 
-//     // const numericConversionFactor = Number(conversionFactor);
+    if (!num || !den || den === 0) {
+      throw new Error("Invalid conversionFactor fraction");
+    }
 
-//     // if (isNaN(numericConversionFactor) || numericConversionFactor <= 0) {
-//     //   return res.status(400).json({
-//     //     success: false,
-//     //     message: "conversionFactor must be a valid number greater than 0",
-//     //   });
-//     // }
+    return num / den;
+  }
 
-//     // if (unit === conversionUnit && conversionFactor !== 1) {
-//     //   return res.status(400).json({
-//     //     success: false,
-//     //     message:
-//     //       "conversionFactor must be 1 when unit and conversionUnit are same",
-//     //   });
-//     // }
+  // normal number string: "30", "0.5"
+  const numVal = Number(trimmed);
+  if (isNaN(numVal) || numVal <= 0) {
+    throw new Error("conversionFactor must be a valid number > 0");
+  }
 
-//     /* =====================================================
-//        🔴 RAW MATERIAL FLOW (Prisma)
-//     ====================================================== */
-//     if (source === "Raw Material") {
-//       const existingItem = await prisma.rawMaterial.findUnique({
-//         where: { name: trimmedName },
-//       });
-
-//       if (existingItem) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "Raw Material already exists",
-//         });
-//       }
-
-//       const warehouses = await Warehouse.find({});
-//       if (!warehouses.length) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "No warehouses found",
-//         });
-//       }
-
-//       const result = await prisma.$transaction(async (tx) => {
-//         const rawMaterial = await tx.rawMaterial.create({
-//           data: {
-//             name: trimmedName,
-//             stock: 0,
-//             description,
-//             unit,
-//             conversionUnit,
-//             conversionFactor: numericConversionFactor,
-//             createdBy: empId,
-//           },
-//         });
-
-//         const warehouseStockData = warehouses.map((wh) => ({
-//           warehouseId: wh._id.toString(),
-//           rawMaterialId: rawMaterial.id,
-//           quantity: 0,
-//           unit,
-//           isUsed: true,
-//         }));
-
-//         await tx.warehouseStock.createMany({
-//           data: warehouseStockData,
-//           skipDuplicates: true,
-//         });
-
-//         return rawMaterial;
-//       });
-
-//       return res.status(201).json({
-//         success: true,
-//         message: "Raw Material created & mapped to all warehouses",
-//         data: result,
-//       });
-//     }
-
-//     /* =====================================================
-//        🔵 INSTALLATION MATERIAL FLOW (Mongo)
-//     ====================================================== */
-//     if (source === "Installation Material") {
-//       const existingSystemItem = await SystemItem.findOne({
-//         itemName: trimmedName,
-//       });
-
-//       if (existingSystemItem) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "System Item already exists",
-//         });
-//       }
-
-//       const newSystemItem = new SystemItem({
-//         itemName: trimmedName,
-//         unit,
-//         description,
-//         converionUnit: conversionUnit,
-//         conversionFactor: numericConversionFactor,
-//         createdByEmpId: empId,
-//       });
-
-//       const savedSystemItem = await newSystemItem.save();
-
-//       const allWarehouses = await Warehouse.find();
-
-//       for (let warehouse of allWarehouses) {
-//         const exists = await InstallationInventory.findOne({
-//           warehouseId: warehouse._id,
-//           systemItemId: savedSystemItem._id,
-//         });
-
-//         if (!exists) {
-//           await new InstallationInventory({
-//             warehouseId: warehouse._id,
-//             systemItemId: savedSystemItem._id,
-//             quantity: 0,
-//             createdByEmpId: empId,
-//           }).save();
-//         }
-//       }
-
-//       return res.status(201).json({
-//         success: true,
-//         message: "Installation Material created & mapped to all warehouses",
-//         data: savedSystemItem,
-//       });
-//     }
-
-//     // ❌ Invalid source
-//     return res.status(400).json({
-//       success: false,
-//       message: "Invalid source value",
-//     });
-//   } catch (error) {
-//     console.error("Create Item Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
+  return numVal;
+}
 
 const createItem = async (req, res) => {
   try {
@@ -1596,7 +1458,7 @@ const createItem = async (req, res) => {
       description,
       source,
       conversionUnit,
-      conversionFactor,
+      conversionFactor
     } = req.body;
 
     const empId = req.user?.id;
@@ -1611,21 +1473,19 @@ const createItem = async (req, res) => {
     const trimmedName = name.trim();
 
     /* =====================================================
-       🔁 DEFAULT CONVERSION LOGIC
+       🔁 SAFE CONVERSION LOGIC (STRING BASED)
     ====================================================== */
-    const numericConversionFactor =
-      conversionFactor !== undefined && conversionFactor !== null
-        ? Number(conversionFactor)
-        : 1;
-
-    const finalConversionUnit = conversionUnit || unit;
-
-    if (isNaN(numericConversionFactor) || numericConversionFactor <= 0) {
+    let numericConversionFactor;
+    try {
+      numericConversionFactor = parseConversionFactor(conversionFactor);
+    } catch (err) {
       return res.status(400).json({
         success: false,
-        message: "conversionFactor must be a valid number greater than 0",
+        message: err.message,
       });
     }
+
+    const finalConversionUnit = conversionUnit || unit;
 
     /* =====================================================
        🔴 RAW MATERIAL FLOW (Prisma)
@@ -2091,6 +1951,118 @@ const exportRawMaterialsExcel = async (req, res) => {
   }
 };
 
+const updateItemsFromExcel = async (req, res) => {
+  try {
+    const empId = req.user?.id;
+
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    /* ================= READ EXCEL BUFFER ================= */
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    const rows = xlsx.utils.sheet_to_json(sheet, { defval: "" });
+
+    if (!rows.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel sheet is empty",
+      });
+    }
+
+    let updatedCount = 0;
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      try {
+        const name = row.name?.toString().trim();
+        const unit = row.unit?.toString().trim();
+        const conversionUnit =
+          row.conversionUnit?.toString().trim() || unit;
+        const conversionFactor = row.conversionFactor
+
+        if (!name || !unit) {
+          throw new Error("name and unit are required");
+        }
+
+        /* ================= RAW MATERIAL ================= */
+        const rawMaterial = await prisma.rawMaterial.findUnique({
+          where: { name },
+        });
+
+        if (rawMaterial) {
+          await prisma.$transaction(async (tx) => {
+            await tx.rawMaterial.update({
+              where: { id: rawMaterial.id },
+              data: {
+                unit,
+                conversionUnit,
+                conversionFactor,
+                updatedBy: empId,
+              },
+            });
+
+            await tx.warehouseStock.updateMany({
+              where: { rawMaterialId: rawMaterial.id },
+              data: { unit },
+            });
+          });
+
+          updatedCount++;
+          continue;
+        }
+
+        /* ================= SYSTEM ITEM ================= */
+        const systemItem = await SystemItem.findOne({
+          itemName: name,
+        });
+
+        if (systemItem) {
+          systemItem.unit = unit;
+          systemItem.converionUnit = conversionUnit;
+          systemItem.conversionFactor = conversionFactor;
+          systemItem.updatedAt = new Date();
+          systemItem.updatedByEmpId = empId;
+
+          await systemItem.save();
+          updatedCount++;
+          continue;
+        }
+
+        throw new Error("Item not found in RawMaterial or SystemItem");
+      } catch (rowError) {
+        errors.push({
+          row: i + 2, // Excel row number
+          name: row.name,
+          error: rowError.message,
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "Excel unit conversion update completed",
+      updatedCount,
+      failedCount: errors.length,
+      errors,
+    });
+  } catch (err) {
+    console.error("Excel Conversion Update Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -2124,5 +2096,6 @@ module.exports = {
   exportRawMaterialsExcel,
   createItem,
   getItemById,
-  updateItem
+  updateItem,
+  updateItemsFromExcel
 };

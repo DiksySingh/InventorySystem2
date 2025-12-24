@@ -4,7 +4,6 @@ const purchaseOrderController = require("../../controllers/rawMaterialItemsContr
 const {
   tokenVerification,
 } = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
-const uploadPurchaseOrderBill = require("../../middlewares/rawMaterialMiddlewares/multerConfigPurchase");
 const uploadDebitNoteBill = require("../../middlewares/rawMaterialMiddlewares/multerConfigDebitNote");
 
 router.post(
@@ -137,13 +136,6 @@ router.get(
   "/warehouses",
   tokenVerification(["Purchase"]),
   purchaseOrderController.getWarehouses
-);
-
-router.post(
-  "/purchase-orders/receive",
-  tokenVerification(["Purchase"]),
-  uploadPurchaseOrderBill,
-  purchaseOrderController.purchaseOrderReceivingBill
 );
 
 router.put(

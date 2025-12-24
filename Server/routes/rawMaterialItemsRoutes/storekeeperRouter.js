@@ -5,6 +5,7 @@ const {
   tokenVerification,
 } = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 const uploadHandler = require("../../middlewares/rawMaterialMiddlewares/multerConfigRawItems");
+const uploadPurchaseOrderBill = require("../../middlewares/rawMaterialMiddlewares/multerConfigPurchase");
 
 router.get(
   "/getLineWorkerList",
@@ -78,5 +79,13 @@ router.get(
   tokenVerification(["Store"]),
   storekeeperController.getPendingPOsForReceiving
 );
+
+router.post(
+  "/purchaseOrder/receive",
+  tokenVerification(["Store"]),
+  uploadPurchaseOrderBill,
+  storekeeperController.purchaseOrderReceivingBill2
+);
+
 
 module.exports = router;

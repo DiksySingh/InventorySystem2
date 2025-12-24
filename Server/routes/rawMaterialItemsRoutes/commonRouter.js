@@ -37,6 +37,7 @@ router.put("/item/update", tokenVerification(['Purchase', 'Store']), commonContr
 router.get("/unit/view", tokenVerification(['Purchase', 'Store']), commonController.showUnit);
 router.post("/warehouse/materials/sync", commonController.syncRawMaterialsToWarehouses);
 router.get("/raw-material/export/excel", commonController.exportRawMaterialsExcel);
+router.post("/raw-material/update/unit-conversion-factor", commonController.upload.single('file'), commonController.updateItemsFromExcel)
 
 
 module.exports = router;
