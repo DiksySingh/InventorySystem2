@@ -8,4 +8,5 @@ router.post("/login", authController.login);
 router.post("/logout", tokenVerification(['Admin']), authController.logout);
 router.post("/handleRefreshToken", authController.handleRefreshToken);
 
+
 module.exports = router;

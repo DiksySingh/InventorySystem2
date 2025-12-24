@@ -23,6 +23,7 @@ const commonRouter = require("./routes/rawMaterialItemsRoutes/commonRouter");
 const lineWorkerRouter = require("./routes/rawMaterialItemsRoutes/lineWorkerRouter");
 const storekeeperRouter = require("./routes/rawMaterialItemsRoutes/storekeeperRouter");
 const purchaseRouter = require("./routes/rawMaterialItemsRoutes/purchaseRouter");
+const userRouter = require("./routes/rawMaterialItemsRoutes/userRouter");
 const testRouter = require("./routes/test");
 
 // Load environment variables
@@ -89,6 +90,7 @@ app.use("/common", commonRouter);
 app.use("/line-worker", lineWorkerRouter);
 app.use("/store-keeper", storekeeperRouter);
 app.use("/purchase", purchaseRouter);
+app.use("/user", userRouter);
 app.use("/test", testRouter);
 // require("./helpers/whatsapp/whatsappCron");
 
