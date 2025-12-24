@@ -33,7 +33,7 @@ const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
 mongoose
-  .connect(MONGODB_URL, {
+  .connect(MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
