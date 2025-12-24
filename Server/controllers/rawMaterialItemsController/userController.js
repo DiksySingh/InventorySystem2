@@ -37,7 +37,7 @@ const updatePassword = async (req, res) => {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, refreshToken: null },
     });
 
     return res
