@@ -57,6 +57,12 @@ router.get(
 );
 
 router.get(
+  "/getWarehouseRawMaterialList",
+  tokenVerification(["Store", "Purchase"]),
+  storekeeperController.getWarehouseRawMaterialList
+);
+
+router.get(
   "/getStockMovementHistory",
   tokenVerification(["Store"]),
   storekeeperController.getStockMovementHistory
@@ -86,6 +92,5 @@ router.post(
   uploadPurchaseOrderBill,
   storekeeperController.purchaseOrderReceivingBill2
 );
-
 
 module.exports = router;

@@ -129,6 +129,66 @@ const getRawMaterialList = async (req, res) => {
   }
 };
 
+const getWarehouseRawMaterialList = async (req, res) => {
+  try {
+    const { warehouseId } = "67446a8b27dae6f7f4d985dd"; // or req.query.warehouseId
+
+    // 1. Fetch from WarehouseStock instead
+    const warehouseData = await prisma.warehouseStock.findMany({
+      where: {
+        warehouseId: warehouseId,
+      },
+      include: {
+        rawMaterial: {
+          select: {
+            name: true,
+            isUsed: true,
+          },
+        },
+      },
+    });
+
+    // 2. Format the data to match your previous response structure
+    const formattedData = warehouseData.map((item) => {
+      // Fallback to 0 if quantity is null/undefined
+      const stock = item.quantity ?? 0;
+
+      return {
+        id: item.rawMaterialId, // Using the material ID
+        name: item.rawMaterial?.name || "Unknown",
+        stock: formatStock(stock),
+        rawStock: stock, // used for sorting
+        unit: item.unit,
+        isUsed: item.isUsed ?? item.rawMaterial?.isUsed,
+        outOfStock: stock === 0,
+      };
+    });
+
+    // 3. Keep your existing sorting logic
+    const sortedData = formattedData.sort((a, b) => {
+      if (a.isUsed === b.isUsed) {
+        return a.rawStock - b.rawStock;
+      }
+      return a.isUsed ? -1 : 1;
+    });
+
+    // 4. Remove helper field for the final response
+    const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
+
+    return res.status(200).json({
+      success: true,
+      message: "Warehouse stock data fetched successfully",
+      data: cleanedData,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const showIncomingItemRequest = async (req, res) => {
   try {
     const empId = req.query?.empId;
@@ -925,72 +985,6 @@ const markSystemItemUsedOrNotUsed = async (req, res) => {
     });
   }
 };
-
-// const getPendingPOsForReceiving = async (req, res) => {
-//   try {
-//     const warehouseId = req.user.warehouseId;
-//     const allPOs = await prisma.purchaseOrder.findMany({
-//       where: {
-//         warehouseId,
-//         status: {
-//           notIn: ["Cancelled", "Received"],
-//         },
-//         items: {
-//           some: {
-//             quantity: {
-//               gt: prisma.purchaseOrderItem.fields.receivedQty,
-//             },
-//           },
-//         },
-//       },
-//       select: {
-//         id: true,
-//         poNumber: true,
-//         companyId: true,
-//         companyName: true,
-//         vendorId: true,
-//         vendorName: true,
-//         warehouseId: true,
-//         warehouseName: true,
-//         poDate: true,
-//         status: true,
-//         approvalStatus: true,
-//         items: {
-//           where: {
-//             quantity: {
-//               gt: prisma.purchaseOrderItem.fields.receivedQty,
-//             },
-//           },
-//           select: {
-//             id: true,
-//             itemId: true,
-//             itemSource: true,
-//             itemName: true,
-//             hsnCode: true,
-//             modelNumber: true,
-//             unit: true,
-//             quantity: true,
-//             receivedQty: true,
-//           },
-//         },
-//       },
-//       orderBy: {
-//         poDate: "desc",
-//       },
-//     });
-
-//     return res.json({
-//       success: true,
-//       message: "Pending POs for receiving fetched successfully.",
-//       data: allPOs,
-//     });
-//   } catch (err) {
-//     res.status(500).json({
-//       success: false,
-//       message: err.message || "Internal Server Error",
-//     });
-//   }
-// };
 
 const getPendingPOsForReceiving = async (req, res) => {
   try {
@@ -2474,6 +2468,7 @@ const getStockMovementHistory2 = async (req, res) => {
 module.exports = {
   getLineWorkerList,
   getRawMaterialList,
+  getWarehouseRawMaterialList,
   showIncomingItemRequest,
   approveOrDeclineItemRequest,
   sanctionItemForRequest,

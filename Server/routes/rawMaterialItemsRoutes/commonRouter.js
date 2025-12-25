@@ -36,6 +36,7 @@ router.get("/item/details/:id", tokenVerification(['Purchase', 'Store']), common
 router.put("/item/update", tokenVerification(['Purchase', 'Store']), commonController.updateItem);
 router.get("/unit/view", tokenVerification(['Purchase', 'Store']), commonController.showUnit);
 router.post("/warehouse/materials/sync", commonController.syncRawMaterialsToWarehouses);
+router.post("/warehouse/:warehouseId/materials/stock/sync", commonController.syncWarehouseStock);
 router.get("/raw-material/export/excel", commonController.exportRawMaterialsExcel);
 router.post("/raw-material/update/unit-conversion-factor", commonController.upload.single('file'), commonController.updateItemsFromExcel)
 

@@ -1894,6 +1894,63 @@ const syncRawMaterialsToWarehouses = async (req, res) => {
   }
 };
 
+const syncWarehouseStock = async (req, res) => {
+  try {
+    const { warehouseId } = req.params;
+
+    if (!warehouseId) {
+      return res.status(400).json({ success: false, message: "warehouseId is required" });
+    }
+
+    // 1. Fetch all raw materials and their master stock levels
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      select: {
+        id: true,
+        stock: true,
+        unit: true
+      }
+    });
+
+    // 2. Perform upserts for each material into the specific warehouse
+    // We use Promise.all to run these operations in parallel for better performance
+    const syncOperations = rawMaterials.map((material) => {
+      return prisma.warehouseStock.upsert({
+        where: {
+          // Using the composite unique key defined in your schema
+          warehouseId_rawMaterialId: {
+            warehouseId: warehouseId,
+            rawMaterialId: material.id,
+          },
+        },
+        update: {
+          quantity: material.stock || 0,
+          unit: material.unit,
+        },
+        create: {
+          warehouseId: warehouseId,
+          rawMaterialId: material.id,
+          quantity: material.stock || 0,
+          unit: material.unit,
+        },
+      });
+    });
+
+    await Promise.all(syncOperations);
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully synchronized ${rawMaterials.length} materials for warehouse ${warehouseId}.`,
+    });
+
+  } catch (error) {
+    console.error("Sync Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 const exportRawMaterialsExcel = async (req, res) => {
   try {
     // 1️⃣ Fetch only raw material name
@@ -2093,6 +2150,7 @@ module.exports = {
   createSystemItem,
   showUnit,
   syncRawMaterialsToWarehouses,
+  syncWarehouseStock,
   exportRawMaterialsExcel,
   createItem,
   getItemById,

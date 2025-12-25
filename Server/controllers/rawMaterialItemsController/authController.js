@@ -150,7 +150,6 @@ const login = async (req, res) => {
   }
 };
 
-
 const logout = async (req, res) => {
     try {
         const empId = req.user?.id;
