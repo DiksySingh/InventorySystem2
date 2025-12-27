@@ -2319,6 +2319,12 @@ module.exports.addNewInstallationData = async (req, res) => {
 
     for (let i = 0; i < dispatchedSystems.length; i++) {
       const system = dispatchedSystems[i];
+      const clampId =
+        system.submersibleClampId &&
+        system.submersibleClampId !== "" &&
+        system.submersibleClampId !== "null"
+          ? system.submersibleClampId
+          : null;
       const billPhotoFile = billPhotosMap[i];
       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
 
@@ -2430,6 +2436,22 @@ module.exports.addNewInstallationData = async (req, res) => {
       //console.log("Before Final Item List: ", finalItemsList);
       console.log("Before Length: ", finalItemsList.length);
 
+      // let clampItemId = null;
+      // for (const it of systemItems) {
+      //   const name = it.systemItemId?.itemName?.toLowerCase() || "";
+      //   if (name.includes("submersible clamp")) {
+      //     clampItemId = it.systemItemId._id.toString();
+      //     break;
+      //   }
+      // }
+
+      // // 2️⃣ Remove clamp if no clampId provided in request
+      // if (!system.submersibleClampId && clampItemId) {
+      //   finalItemsList = finalItemsList.filter(
+      //     (item) => item.systemItemId.toString() !== clampItemId
+      //   );
+      // }
+
       let clampItemId = null;
       for (const it of systemItems) {
         const name = it.systemItemId?.itemName?.toLowerCase() || "";
@@ -2439,8 +2461,8 @@ module.exports.addNewInstallationData = async (req, res) => {
         }
       }
 
-      // 2️⃣ Remove clamp if no clampId provided in request
-      if (!system.submersibleClampId && clampItemId) {
+      // ✅ Remove clamp if clampId NOT provided
+      if (!clampId && clampItemId) {
         finalItemsList = finalItemsList.filter(
           (item) => item.systemItemId.toString() !== clampItemId
         );
@@ -2511,7 +2533,6 @@ module.exports.addNewInstallationData = async (req, res) => {
       assignedEmps.push(assignedEmp);
       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
     }
-    return;
     await dispatchDetails.save({ session });
     await session.commitTransaction();
     session.endSession();
@@ -2537,7 +2558,6 @@ module.exports.addNewInstallationData = async (req, res) => {
     });
   }
 };
-
 
 module.exports.addNewInstallationData2 = async (req, res) => {
   const session = await mongoose.startSession();
