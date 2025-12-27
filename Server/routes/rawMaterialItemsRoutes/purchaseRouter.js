@@ -188,4 +188,16 @@ router.post(
   purchaseOrderController.debitNoteReceivingBill
 );
 
+router.get(
+  "/warehouses/:warehouseId/systems/:systemId/items/stock",
+  tokenVerification(["Purchase", "Store"]),
+  purchaseOrderController.showItemsWithStockStatus
+);
+
+router.get(
+  "/warehouses/:warehouseId/systems/:systemId/order/items/requirement",
+  tokenVerification(['Purchase', 'Store']),
+  purchaseOrderController.showMaterialRequirementBySystemOrder
+);
+
 module.exports = router;

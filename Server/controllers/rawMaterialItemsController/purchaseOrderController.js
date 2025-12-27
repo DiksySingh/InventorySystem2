@@ -9,6 +9,8 @@ const generatePO = require("../../util/generatePO");
 const poGenerate = require("../../util/poGenerate");
 const debitNoteGenerate = require("../../util/debitNoteGenerate");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const ItemComponentMap = require("../../models/systemInventoryModels/itemComponentMapSchema");
+const SystemItemMap = require("../../models/systemInventoryModels/systemItemMapSchema");
 
 function getISTDate() {
   const now = new Date();
@@ -28,40 +30,40 @@ function getFinancialYear(date = getISTDate()) {
 const STATE_CODE_MAP = {
   "andhra pradesh": "AP",
   "arunachal pradesh": "AR",
-  "assam": "AS",
-  "bihar": "BR",
-  "chhattisgarh": "CG",
-  "goa": "GA",
-  "gujarat": "GJ",
-  "haryana": "HR",
+  assam: "AS",
+  bihar: "BR",
+  chhattisgarh: "CG",
+  goa: "GA",
+  gujarat: "GJ",
+  haryana: "HR",
   "himachal pradesh": "HP",
-  "jharkhand": "JH",
-  "karnataka": "KA",
-  "kerala": "KL",
+  jharkhand: "JH",
+  karnataka: "KA",
+  kerala: "KL",
   "madhya pradesh": "MP",
-  "maharashtra": "MH",
-  "manipur": "MN",
-  "meghalaya": "ML",
-  "mizoram": "MZ",
-  "nagaland": "NL",
-  "odisha": "OD",
-  "punjab": "PB",
-  "rajasthan": "RJ",
-  "sikkim": "SK",
+  maharashtra: "MH",
+  manipur: "MN",
+  meghalaya: "ML",
+  mizoram: "MZ",
+  nagaland: "NL",
+  odisha: "OD",
+  punjab: "PB",
+  rajasthan: "RJ",
+  sikkim: "SK",
   "tamil nadu": "TN",
-  "telangana": "TS",
-  "tripura": "TR",
+  telangana: "TS",
+  tripura: "TR",
   "uttar pradesh": "UP",
-  "uttarakhand": "UK",
+  uttarakhand: "UK",
   "west bengal": "WB",
   "andaman and nicobar islands": "AN",
-  "chandigarh": "CH",
+  chandigarh: "CH",
   "dadra and nagar haveli and daman and diu": "DN",
-  "delhi": "DL",
+  delhi: "DL",
   "jammu and kashmir": "JK",
-  "ladakh": "LA",
-  "lakshadweep": "LD",
-  "puducherry": "PY",
+  ladakh: "LA",
+  lakshadweep: "LD",
+  puducherry: "PY",
 };
 
 function getStateCode(stateName) {
@@ -975,7 +977,7 @@ function roundGrandTotal(value) {
 }
 
 const createPurchaseOrder = async (req, res) => {
-try {
+  try {
     const {
       warehouseId,
       companyId,
@@ -1014,7 +1016,8 @@ try {
     if (!warehouseId || !companyId || !vendorId || !gstType || !items?.length) {
       return res.status(400).json({
         success: false,
-        message: "Receiving Warheouse, Company, Vendor, GST Type & Items are required",
+        message:
+          "Receiving Warheouse, Company, Vendor, GST Type & Items are required",
       });
     }
 
@@ -1296,7 +1299,7 @@ try {
 
     let warehouseName = null;
     const warehouseData = await Warehouse.findById(warehouseId);
-    if(warehouseData) {
+    if (warehouseData) {
       warehouseName = warehouseData?.warehouseName;
     }
     console.log(warehouseName);
@@ -1760,7 +1763,7 @@ const createPurchaseOrder2 = async (req, res) => {
 };
 
 const updatePurchaseOrder = async (req, res) => {
-   try {
+  try {
     const { poId } = req.params;
     const {
       warehouseId,
@@ -1914,10 +1917,20 @@ const updatePurchaseOrder = async (req, res) => {
     // ⭐ UNIVERSAL GST LOGIC FOR EACH ITEM ⭐
     // -------------------------
     const processedItems = items.map((item) => {
-      const qty = new Decimal(item.quantity).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      const rateForeign = new Decimal(item.rate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      const amountForeign = rateForeign.mul(qty).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      const amountINR = amountForeign.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const qty = new Decimal(item.quantity).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const amountForeign = rateForeign
+        .mul(qty)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
       foreignSubTotal = foreignSubTotal.plus(amountForeign);
       subTotalINR = subTotalINR.plus(amountINR);
@@ -1937,7 +1950,10 @@ const updatePurchaseOrder = async (req, res) => {
       } else if (isItemWiseGST) {
         // CASE 2 — ITEMWISE
         itemGSTType = gstType;
-        itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN
+        );
       } else {
         // CASE 3 — Normal IGST/LGST 5/12/18/28
         itemGSTRate = null;
@@ -2010,7 +2026,10 @@ const updatePurchaseOrder = async (req, res) => {
           .mul(item.quantity)
           .mul(finalExchangeRate)
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
-        const rate = new Decimal(item.gstRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        const rate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN
+        );
 
         if (gstType === "LGST_ITEMWISE") {
           totalCGST = totalCGST
@@ -2031,10 +2050,14 @@ const updatePurchaseOrder = async (req, res) => {
       .plus(totalSGST)
       .plus(totalIGST)
       .toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    const rawGrandTotalINR = subTotalINR.plus(totalGST).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const rawGrandTotalINR = subTotalINR
+      .plus(totalGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
     const grandTotalINR = roundGrandTotal(rawGrandTotalINR);
-    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(4, Decimal.ROUND_DOWN);
-
+    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
+      4,
+      Decimal.ROUND_DOWN
+    );
 
     const updatedPO = await prisma.$transaction(async (tx) => {
       await tx.purchaseOrderItem.deleteMany({
@@ -2050,7 +2073,10 @@ const updatePurchaseOrder = async (req, res) => {
           gstRate: poGSTPercent,
           currency: finalCurrency,
           exchangeRate: finalExchangeRate.toString(),
-          foreignSubTotal: foreignSubTotal.toDecimalPlaces(4, Decimal.ROUND_DOWN),
+          foreignSubTotal: foreignSubTotal.toDecimalPlaces(
+            4,
+            Decimal.ROUND_DOWN
+          ),
           foreignGrandTotal,
           subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
           totalCGST,
@@ -2255,10 +2281,20 @@ const updatePurchaseOrder2 = async (req, res) => {
     // ⭐ UNIVERSAL GST LOGIC FOR EACH ITEM ⭐
     // -------------------------
     const processedItems = items.map((item) => {
-      const qty = new Decimal(item.quantity).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      const rateForeign = new Decimal(item.rate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      const amountForeign = rateForeign.mul(qty).toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      const amountINR = amountForeign.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const qty = new Decimal(item.quantity).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const amountForeign = rateForeign
+        .mul(qty)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
       foreignSubTotal = foreignSubTotal.plus(amountForeign);
       subTotalINR = subTotalINR.plus(amountINR);
@@ -2278,7 +2314,10 @@ const updatePurchaseOrder2 = async (req, res) => {
       } else if (isItemWiseGST) {
         // CASE 2 — ITEMWISE
         itemGSTType = gstType;
-        itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN
+        );
       } else {
         // CASE 3 — Normal IGST/LGST 5/12/18/28
         itemGSTRate = null;
@@ -2351,7 +2390,10 @@ const updatePurchaseOrder2 = async (req, res) => {
           .mul(item.quantity)
           .mul(finalExchangeRate)
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
-        const rate = new Decimal(item.gstRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        const rate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN
+        );
 
         if (gstType === "LGST_ITEMWISE") {
           totalCGST = totalCGST
@@ -2372,10 +2414,14 @@ const updatePurchaseOrder2 = async (req, res) => {
       .plus(totalSGST)
       .plus(totalIGST)
       .toDecimalPlaces(4, Decimal.ROUND_DOWN);
-    const rawGrandTotalINR = subTotalINR.plus(totalGST).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const rawGrandTotalINR = subTotalINR
+      .plus(totalGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
     const grandTotalINR = roundGrandTotal(rawGrandTotalINR);
-    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(4, Decimal.ROUND_DOWN);
-
+    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
+      4,
+      Decimal.ROUND_DOWN
+    );
 
     const updatedPO = await prisma.$transaction(async (tx) => {
       await tx.purchaseOrderItem.deleteMany({
@@ -2391,7 +2437,10 @@ const updatePurchaseOrder2 = async (req, res) => {
           gstRate: poGSTPercent,
           currency: finalCurrency,
           exchangeRate: finalExchangeRate.toString(),
-          foreignSubTotal: foreignSubTotal.toDecimalPlaces(4, Decimal.ROUND_DOWN),
+          foreignSubTotal: foreignSubTotal.toDecimalPlaces(
+            4,
+            Decimal.ROUND_DOWN
+          ),
           foreignGrandTotal,
           subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
           totalCGST,
@@ -2558,7 +2607,9 @@ const getPurchaseOrderDetails = async (req, res) => {
 
     let warehouseName = null;
     if (po.warehouseId) {
-      const warehouse = await Warehouse.findById(po.warehouseId).select("warehouseName");
+      const warehouse = await Warehouse.findById(po.warehouseId).select(
+        "warehouseName"
+      );
       warehouseName = warehouse?.warehouseName || null;
     }
 
@@ -4617,6 +4668,456 @@ const getActiveTerms = async (req, res) => {
   }
 };
 
+// Helper to extract pump head from itemName
+function getPumpHead(itemName) {
+  if (!itemName) return null;
+  const match = itemName.trim().match(/(\d+\.?\d*)\s*M$/i);
+  if (match) return match[0].toUpperCase().replace(/\s+/g, "");
+  return null;
+}
+
+const buildItemResponse = ({
+  item,
+  requiredPerSystem,
+  systemOrder,
+  availableStock,
+}) => {
+  const requiredForOrder = requiredPerSystem * systemOrder;
+
+  return {
+    id: item?._id || null,
+    itemName: item?.itemName || "Unknown Item",
+    unit: item?.unit || "-",
+    requiredPerSystem,
+    requiredForOrder,
+    availableStock,
+    shortageStock: Math.max(0, requiredForOrder - availableStock),
+  };
+};
+
+const calculateDispatchableSystems = (items = []) => {
+  let minSystems = Infinity;
+
+  for (const item of items) {
+    if (item.requiredPerSystem > 0) {
+      const possible = Math.floor(item.availableStock / item.requiredPerSystem);
+      minSystems = Math.min(minSystems, possible);
+    }
+  }
+
+  return minSystems === Infinity ? 0 : minSystems;
+};
+
+const showItemsWithStockStatus = async (req, res) => {
+  try {
+    const { warehouseId, systemId } = req.params;
+    if (!warehouseId || !systemId) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId & systemId is required",
+      });
+    }
+
+    // Step 1: Fetch all system items
+    const systemItems = await SystemItemMap.find({ systemId })
+      .populate({ path: "systemItemId", select: "_id itemName" })
+      .select("systemItemId quantity")
+      .lean();
+
+    // Extract pumpHead from itemName
+    systemItems.forEach((item) => {
+      item.systemItemId.pumpHead = getPumpHead(item.systemItemId.itemName);
+    });
+
+    const pumps = systemItems.filter((i) => i.systemItemId.pumpHead);
+    const commonItems = systemItems.filter((i) => !i.systemItemId.pumpHead);
+
+    // Step 2: Fetch all sub-items
+    const subItems = await ItemComponentMap.find({ systemId })
+      .populate({ path: "subItemId", select: "_id itemName" })
+      .select("systemItemId subItemId quantity")
+      .lean();
+
+    // Step 3: Fetch inventory for all items
+    const allItemIds = [
+      ...systemItems.map((i) => i.systemItemId._id.toString()),
+      ...subItems.map((i) => i.subItemId._id.toString()),
+    ];
+
+    const inventoryItems = await InstallationInventory.find({
+      warehouseId,
+      systemItemId: { $in: allItemIds },
+    })
+      .populate({ path: "systemItemId", select: "_id itemName" })
+      .select("systemItemId quantity")
+      .lean();
+
+    const inventoryMap = new Map();
+    inventoryItems.forEach((item) => {
+      const id = item.systemItemId._id.toString();
+      inventoryMap.set(id, {
+        systemItemId: item.systemItemId,
+        quantity: item.quantity,
+      });
+    });
+
+    // -------------------------------
+    // Step 4: Calculate overall stock (global)
+    // -------------------------------
+    let overallRequiredQtyMap = new Map();
+    let overallItemIds = new Set();
+
+    systemItems.forEach(({ systemItemId, quantity }) => {
+      const id = systemItemId._id.toString();
+      overallRequiredQtyMap.set(id, quantity);
+      overallItemIds.add(id);
+    });
+
+    subItems.forEach(({ subItemId, quantity }) => {
+      const id = subItemId._id.toString();
+      overallRequiredQtyMap.set(
+        id,
+        (overallRequiredQtyMap.get(id) || 0) + quantity
+      );
+      overallItemIds.add(id);
+    });
+
+    const overallItemIdsArray = Array.from(overallItemIds);
+    let overallMinDispatchableSystems = Infinity;
+    const overallStockStatus = [];
+
+    for (const id of overallItemIdsArray) {
+      const requiredPerSystem = overallRequiredQtyMap.get(id);
+      const availableQty = inventoryMap.get(id)?.quantity || 0;
+      const possibleSystems =
+        requiredPerSystem > 0
+          ? Math.floor(availableQty / requiredPerSystem)
+          : Infinity;
+
+      if (possibleSystems < overallMinDispatchableSystems)
+        overallMinDispatchableSystems = possibleSystems;
+
+      overallStockStatus.push({
+        systemItemId: inventoryMap.get(id)?.systemItemId || {
+          _id: id,
+          itemName: "Unknown Item",
+        },
+        quantity: availableQty,
+        requiredQuantity: requiredPerSystem,
+        stockLow: availableQty < requiredPerSystem,
+        materialShort: Math.max(0, requiredPerSystem - availableQty),
+      });
+    }
+
+    if (overallMinDispatchableSystems === Infinity)
+      overallMinDispatchableSystems = 0;
+
+    // Sort overall stock by quantity ascending
+    overallStockStatus.sort((a, b) => a.quantity - b.quantity);
+
+    // -------------------------------
+    // Step 5: Group by pump head
+    // -------------------------------
+    const uniquePumpHeads = [
+      ...new Set(pumps.map((p) => p.systemItemId.pumpHead)),
+    ];
+    const pumpDispatchData = [];
+    let totalDispatchableSystems = 0;
+
+    for (const pumpHead of uniquePumpHeads) {
+      const pumpsForHead = pumps.filter(
+        (p) => p.systemItemId.pumpHead === pumpHead
+      );
+
+      let requiredQtyMap = new Map();
+      let itemIdSet = new Set();
+
+      pumpsForHead.forEach(({ systemItemId, quantity }) => {
+        const id = systemItemId._id.toString();
+        requiredQtyMap.set(id, quantity);
+        itemIdSet.add(id);
+      });
+
+      const relevantSubItems = subItems.filter((sub) =>
+        pumpsForHead.some(
+          (p) => p.systemItemId._id.toString() === sub.systemItemId.toString()
+        )
+      );
+
+      relevantSubItems.forEach(({ subItemId, quantity }) => {
+        const id = subItemId._id.toString();
+        requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
+        itemIdSet.add(id);
+      });
+
+      commonItems.forEach(({ systemItemId, quantity }) => {
+        const id = systemItemId._id.toString();
+        requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
+        itemIdSet.add(id);
+      });
+
+      const itemIds = Array.from(itemIdSet);
+      let minDispatchableSystems = Infinity;
+      const stockStatus = [];
+
+      for (const id of itemIds) {
+        const requiredPerSystem = requiredQtyMap.get(id);
+        const availableQty = inventoryMap.get(id)?.quantity || 0;
+        const possibleSystems =
+          requiredPerSystem > 0
+            ? Math.floor(availableQty / requiredPerSystem)
+            : Infinity;
+
+        if (possibleSystems < minDispatchableSystems)
+          minDispatchableSystems = possibleSystems;
+
+        stockStatus.push({
+          systemItemId: inventoryMap.get(id)?.systemItemId || {
+            _id: id,
+            itemName: "Unknown Item",
+          },
+          quantity: availableQty,
+          requiredQuantity: requiredPerSystem,
+          stockLow: availableQty < requiredPerSystem,
+          materialShort: Math.max(0, requiredPerSystem - availableQty),
+        });
+      }
+
+      if (minDispatchableSystems === Infinity) minDispatchableSystems = 0;
+      totalDispatchableSystems += minDispatchableSystems;
+
+      // Sort pump head stock by quantity ascending
+      stockStatus.sort((a, b) => a.quantity - b.quantity);
+
+      pumpDispatchData.push({
+        pumpHead,
+        dispatchableSystems: minDispatchableSystems,
+        stockStatus,
+      });
+      pumpDispatchData.sort((a, b) => {
+        const numA = parseFloat(a.pumpHead.replace("M", ""));
+        const numB = parseFloat(b.pumpHead.replace("M", ""));
+        return numA - numB;
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Inventory fetched with overall and pump-head grouped stock",
+      data: overallStockStatus,
+      pumpHeadData: pumpDispatchData,
+      totalDispatchableSystems,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const showMaterialRequirementBySystemOrder = async (req, res) => {
+  try {
+    const { warehouseId, systemId } = req.params;
+    const { systemOrder } = req.body;
+
+    if (!warehouseId || !systemId) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId and systemId are required",
+      });
+    }
+
+    if (!systemOrder || systemOrder <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "systemOrder must be greater than 0",
+      });
+    }
+
+    // --------------------------------------------------
+    // STEP 1: Fetch system items
+    // --------------------------------------------------
+    const systemItems = await SystemItemMap.find({ systemId })
+      .populate({
+        path: "systemItemId",
+        select: "_id itemName unit",
+      })
+      .select("systemItemId quantity")
+      .lean();
+
+    systemItems.forEach((item) => {
+      item.systemItemId.pumpHead = getPumpHead(item.systemItemId.itemName);
+    });
+
+    const pumps = systemItems.filter((i) => i.systemItemId.pumpHead);
+    const commonItems = systemItems.filter((i) => !i.systemItemId.pumpHead);
+
+    // --------------------------------------------------
+    // STEP 2: Fetch sub-items
+    // --------------------------------------------------
+    const subItems = await ItemComponentMap.find({ systemId })
+      .populate({
+        path: "subItemId",
+        select: "_id itemName unit",
+      })
+      .select("systemItemId subItemId quantity")
+      .lean();
+
+    // --------------------------------------------------
+    // STEP 3: Fetch inventory
+    // --------------------------------------------------
+    const allItemIds = [
+      ...systemItems.map((i) => i.systemItemId._id.toString()),
+      ...subItems.map((i) => i.subItemId._id.toString()),
+    ];
+
+    const inventoryItems = await InstallationInventory.find({
+      warehouseId,
+      systemItemId: { $in: allItemIds },
+    })
+      .populate({
+        path: "systemItemId",
+        select: "_id itemName unit",
+      })
+      .select("systemItemId quantity")
+      .lean();
+
+    const inventoryMap = new Map();
+    inventoryItems.forEach((item) => {
+      inventoryMap.set(item.systemItemId._id.toString(), {
+        systemItemId: item.systemItemId,
+        quantity: item.quantity,
+      });
+    });
+
+    // --------------------------------------------------
+    // STEP 4: OVERALL MATERIAL REQUIREMENT
+    // --------------------------------------------------
+    const overallRequiredQtyMap = new Map();
+
+    systemItems.forEach(({ systemItemId, quantity }) => {
+      const id = systemItemId._id.toString();
+      overallRequiredQtyMap.set(id, quantity);
+    });
+
+    subItems.forEach(({ subItemId, quantity }) => {
+      const id = subItemId._id.toString();
+      overallRequiredQtyMap.set(
+        id,
+        (overallRequiredQtyMap.get(id) || 0) + quantity
+      );
+    });
+
+    const overallItems = [];
+
+    for (const [id, requiredPerSystem] of overallRequiredQtyMap) {
+      const inventory = inventoryMap.get(id);
+      const availableStock = inventory?.quantity || 0;
+
+      overallItems.push(
+        buildItemResponse({
+          item: inventory?.systemItemId,
+          requiredPerSystem,
+          systemOrder,
+          availableStock,
+        })
+      );
+    }
+
+    const overallDispatchableSystems =
+      calculateDispatchableSystems(overallItems);
+
+    // --------------------------------------------------
+    // STEP 5: PUMP-HEAD WISE MATERIAL REQUIREMENT
+    // --------------------------------------------------
+    const uniquePumpHeads = [
+      ...new Set(pumps.map((p) => p.systemItemId.pumpHead)),
+    ];
+
+    const pumpHeadMaterialStatus = [];
+
+    for (const pumpHead of uniquePumpHeads) {
+      const pumpsForHead = pumps.filter(
+        (p) => p.systemItemId.pumpHead === pumpHead
+      );
+
+      const requiredQtyMap = new Map();
+
+      // Pump items
+      pumpsForHead.forEach(({ systemItemId, quantity }) => {
+        requiredQtyMap.set(systemItemId._id.toString(), quantity);
+      });
+
+      // Sub-items
+      subItems
+        .filter((sub) =>
+          pumpsForHead.some(
+            (p) => p.systemItemId._id.toString() === sub.systemItemId.toString()
+          )
+        )
+        .forEach(({ subItemId, quantity }) => {
+          const id = subItemId._id.toString();
+          requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
+        });
+
+      // Common items
+      commonItems.forEach(({ systemItemId, quantity }) => {
+        const id = systemItemId._id.toString();
+        requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
+      });
+
+      const items = [];
+
+      for (const [id, requiredPerSystem] of requiredQtyMap) {
+        const inventory = inventoryMap.get(id);
+        const availableStock = inventory?.quantity || 0;
+
+        items.push(
+          buildItemResponse({
+            item: inventory?.systemItemId,
+            requiredPerSystem,
+            systemOrder,
+            availableStock,
+          })
+        );
+      }
+
+      items.sort((a, b) => a.itemName.localeCompare(b.itemName));
+      pumpHeadMaterialStatus.push({
+        pumpHead,
+        totalItems: items.length,
+        dispatchableSystems: calculateDispatchableSystems(items),
+        items,
+      });
+    }
+
+    pumpHeadMaterialStatus.sort(
+      (a, b) => parseInt(a.pumpHead) - parseInt(b.pumpHead)
+    );
+
+    // --------------------------------------------------
+    // FINAL RESPONSE
+    // --------------------------------------------------
+    return res.status(200).json({
+      success: true,
+      message: `Material requirement & dispatch capacity for ${systemOrder} systems`,
+      systemOrder,
+      dispatchCapacity: overallDispatchableSystems,
+      pumpHeadMaterialStatus,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCompany,
   createVendor,
@@ -4653,4 +5154,6 @@ module.exports = {
   toggleTermConditionStatus,
   getAllTerms,
   getActiveTerms,
+  showItemsWithStockStatus,
+  showMaterialRequirementBySystemOrder,
 };

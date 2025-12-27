@@ -20,6 +20,9 @@ const systemItemMapSchema = new Schema({
         type: Number,
         required: true
     },
+    unit: {
+        type: String,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

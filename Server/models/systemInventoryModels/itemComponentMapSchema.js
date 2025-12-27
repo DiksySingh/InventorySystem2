@@ -21,6 +21,9 @@ const itemComponentMapSchema = new Schema({
         type: Number,
         required: true
     },
+    unit: {
+        type: String,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
