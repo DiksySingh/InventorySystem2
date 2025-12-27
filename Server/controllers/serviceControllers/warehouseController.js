@@ -1956,6 +1956,287 @@ module.exports.getClampData = async (req, res) => {
   }
 };
 
+// module.exports.addNewInstallationData = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
+//       req.body;
+//     console.log(req.body);
+//     const dispatchedSystems =
+//       typeof dispatchedSystem === "string"
+//         ? JSON.parse(dispatchedSystem)
+//         : dispatchedSystem;
+
+//     if (!Array.isArray(dispatchedSystems) || dispatchedSystems.length === 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "No dispatched systems provided" });
+
+//     const uploadedFiles = req.files || [];
+//     console.log(uploadedFiles);
+//     if (uploadedFiles.length === 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "No bill photos uploaded" });
+
+//     const billPhotosMap = {};
+//     uploadedFiles.forEach((file) => {
+//       const match = file.fieldname.match(/dispatchBillPhoto(\d+)/);
+//       if (match) billPhotosMap[parseInt(match[1], 10) - 1] = file;
+//     });
+
+//     if (Object.keys(billPhotosMap).length !== dispatchedSystems.length)
+//       return res.status(400).json({
+//         success: false,
+//         message: `Each dispatched system must have exactly one bill photo (${dispatchedSystems.length} required, got ${Object.keys(billPhotosMap).length})`,
+//       });
+
+//     if (!driverName || !driverContact || !vehicleNumber)
+//       return res.status(400).json({
+//         success: false,
+//         message: "Driver name, contact, and vehicle number are required",
+//       });
+
+//     const requiredKeys = [
+//       "installerId",
+//       "farmerSaralId",
+//       "systemId",
+//       "pumpId",
+//       "controllerId",
+//     ];
+//     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
+//     if (!keyValidation.success) return res.status(400).json(keyValidation);
+
+//     const warehousePersonId = req.user._id;
+//     const warehouseId = req.user.warehouse;
+//     const warehouseData =
+//       await Warehouse.findById(warehouseId).session(session);
+//     if (!warehouseData) throw new Error("Warehouse not found");
+
+//     const stateMap = {
+//       Bhiwani: "Haryana",
+//       "Maharashtra Warehouse - Ambad": "Maharashtra",
+//       "Maharashtra Warehouse - Badnapur": "Maharashtra",
+//       "Korba Chhattisgarh": "Chhattisgarh",
+//     };
+//     const state = stateMap[warehouseData.warehouseName] || "";
+
+//     const dispatchDetails = new DispatchDetails({
+//       driverName,
+//       driverContact,
+//       vehicleNumber,
+//       dispatchedBy: warehousePersonId,
+//       warehouseId,
+//       dispatchedSystems: [],
+//     });
+//     await dispatchDetails.save({ session });
+
+//     const farmerActivities = [];
+//     const assignedEmps = [];
+
+//     for (let i = 0; i < dispatchedSystems.length; i++) {
+//       const system = dispatchedSystems[i];
+//       const billPhotoFile = billPhotosMap[i];
+//       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
+//       console.log(system.farmerSaralId);
+//       const existingActivity = await FarmerItemsActivity.findOne({
+//         farmerSaralId: system.farmerSaralId,
+//       }).session(session);
+//       console.log(existingActivity);
+//       if (existingActivity)
+//         throw new Error(
+//           `Farmer ${system.farmerSaralId} system already dispatched`
+//         );
+
+//       let empData = await ServicePerson.findById(system.installerId).session(
+//         session
+//       );
+//       let refType = "ServicePerson";
+
+//       if (!empData) {
+//         empData = await SurveyPerson.findById(system.installerId).session(
+//           session
+//         );
+//         if (!empData) throw new Error("Installer not found");
+//         refType = "SurveyPerson";
+//       }
+
+//       const systemItems = await SystemItemMap.find({
+//         systemId: system.systemId,
+//       })
+//         .populate("systemItemId", "itemName")
+//         .session(session);
+//       if (!systemItems.length)
+//         throw new Error(
+//           `No system items found for systemId: ${system.systemId}`
+//         );
+
+//       const filteredSystemItems = systemItems.filter((item) => {
+//         const name = item.systemItemId?.itemName?.toLowerCase() || "";
+//         if (name.includes("controller")) return false;
+//         if (
+//           name.includes("pump") &&
+//           item.systemItemId._id.toString() !== system.pumpId.toString()
+//         )
+//           return false;
+//         return true;
+//       });
+
+//       const selectedPump = systemItems.find(
+//         (item) => item.systemItemId._id.toString() === system.pumpId.toString()
+//       );
+//       if (!selectedPump)
+//         throw new Error(`Pump with ID ${system.pumpId} not found`);
+
+//       const pumpComponents = await ItemComponentMap.find({
+//         systemId: system.systemId,
+//         systemItemId: system.pumpId,
+//       })
+//         .populate("subItemId", "itemName")
+//         .session(session);
+//       const filteredPumpComponents = pumpComponents.filter((comp) => {
+//         const name = comp.subItemId?.itemName?.toLowerCase() || "";
+//         if (name.includes("controller") || name.includes("rmu")) return false;
+//         return true;
+//       });
+
+//       const itemsList = [
+//         ...filteredSystemItems.map((item) => ({
+//           systemItemId: item.systemItemId._id,
+//           quantity: item.quantity,
+//         })),
+//         ...filteredPumpComponents.map((comp) => ({
+//           systemItemId: comp.subItemId._id,
+//           quantity: comp.quantity,
+//         })),
+//       ];
+
+//       // ✅ Controller add only once
+//       if (system.controllerId) {
+//         const controllerItem = await SystemItem.findById(
+//           system.controllerId
+//         ).session(session);
+//         if (!controllerItem) throw new Error("Controller not found");
+//         itemsList.push({ systemItemId: controllerItem._id, quantity: 1 });
+//       }
+
+//       // ✅ Deduplicate
+//       const uniqueItemsMap = new Map();
+//       for (const item of itemsList) {
+//         const id = item.systemItemId.toString();
+//         uniqueItemsMap.set(
+//           id,
+//           uniqueItemsMap.has(id)
+//             ? {
+//                 ...item,
+//                 quantity: uniqueItemsMap.get(id).quantity + item.quantity,
+//               }
+//             : { ...item }
+//         );
+//       }
+
+//       // ✅ Ensure pump exists only once
+//       if (!uniqueItemsMap.has(system.pumpId.toString())) {
+//         uniqueItemsMap.set(system.pumpId.toString(), {
+//           systemItemId: system.pumpId,
+//           quantity: selectedPump.quantity,
+//         });
+//       }
+
+//       const finalItemsList = Array.from(uniqueItemsMap.values());
+//       console.log("Final Items List: ", finalItemsList);
+
+//       for (const item of finalItemsList) {
+//         const stockDoc = await InstallationInventory.findOne({
+//           warehouseId,
+//           systemItemId: item.systemItemId,
+//         })
+//           .populate("systemItemId")
+//           .session(session);
+
+//         if (!stockDoc)
+//           throw new Error(`Item not found in inventory: ${item.systemItemId}`);
+//         if (stockDoc.quantity < item.quantity)
+//           throw new Error(
+//             `Insufficient stock for item ${stockDoc.systemItemId.itemName}`
+//           );
+
+//         stockDoc.quantity =
+//           Math.round((stockDoc.quantity - item.quantity) * 100) / 100;
+//         stockDoc.updatedAt = new Date();
+//         stockDoc.updatedBy = warehousePersonId;
+//         await stockDoc.save({ session });
+//       }
+
+//       const farmerActivity = new FarmerItemsActivity({
+//         referenceType: refType,
+//         warehouseId,
+//         farmerSaralId: system.farmerSaralId,
+//         empId: system.installerId,
+//         systemId: system.systemId,
+//         itemsList: finalItemsList,
+//         panelNumbers: [],
+//         pumpNumber: "",
+//         controllerNumber: "",
+//         rmuNumber: "",
+//         motorNumber: "",
+//         state,
+//         createdBy: warehousePersonId,
+//       });
+//       await farmerActivity.save({ session });
+
+//       const assignedEmp = new InstallationAssignEmp({
+//         referenceType: refType,
+//         warehouseId,
+//         empId: system.installerId,
+//         farmerSaralId: system.farmerSaralId,
+//         systemId: system.systemId,
+//         itemsList: finalItemsList,
+//         extraItemsList: [],
+//         createdBy: warehousePersonId,
+//       });
+//       await assignedEmp.save({ session });
+
+//       const dispatchBillPhoto = new DispatchBillPhoto({
+//         dispatchId: dispatchDetails._id,
+//         farmerActivityId: farmerActivity._id,
+//         billPhoto: billPhotoPath,
+//       });
+//       await dispatchBillPhoto.save({ session });
+
+//       farmerActivities.push(farmerActivity);
+//       assignedEmps.push(assignedEmp);
+//       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
+//     }
+
+//     await dispatchDetails.save({ session });
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: `${farmerActivities.length} systems dispatched successfully`,
+//       data: { dispatchDetails },
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+
+//     if (req.files) {
+//       req.files.forEach((file) => {
+//         fs.unlink(file.path, () => {});
+//       });
+//     }
+
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal Server Error",
+//     });
+//   }
+// };
+
 module.exports.addNewInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -1963,7 +2244,7 @@ module.exports.addNewInstallationData = async (req, res) => {
   try {
     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
       req.body;
-    console.log(req.body);
+
     const dispatchedSystems =
       typeof dispatchedSystem === "string"
         ? JSON.parse(dispatchedSystem)
@@ -1975,7 +2256,6 @@ module.exports.addNewInstallationData = async (req, res) => {
         .json({ success: false, message: "No dispatched systems provided" });
 
     const uploadedFiles = req.files || [];
-    console.log(uploadedFiles);
     if (uploadedFiles.length === 0)
       return res
         .status(400)
@@ -2005,6 +2285,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       "systemId",
       "pumpId",
       "controllerId",
+      "submersibleClampId",
     ];
     const keyValidation = validateKeys(dispatchedSystems, requiredKeys);
     if (!keyValidation.success) return res.status(400).json(keyValidation);
@@ -2040,11 +2321,11 @@ module.exports.addNewInstallationData = async (req, res) => {
       const system = dispatchedSystems[i];
       const billPhotoFile = billPhotosMap[i];
       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
-      console.log(system.farmerSaralId);
+
       const existingActivity = await FarmerItemsActivity.findOne({
         farmerSaralId: system.farmerSaralId,
       }).session(session);
-      console.log(existingActivity);
+
       if (existingActivity)
         throw new Error(
           `Farmer ${system.farmerSaralId} system already dispatched`
@@ -2145,8 +2426,28 @@ module.exports.addNewInstallationData = async (req, res) => {
         });
       }
 
-      const finalItemsList = Array.from(uniqueItemsMap.values());
-      console.log("Final Items List: ", finalItemsList);
+      let finalItemsList = Array.from(uniqueItemsMap.values());
+      //console.log("Before Final Item List: ", finalItemsList);
+      console.log("Before Length: ", finalItemsList.length);
+
+      let clampItemId = null;
+      for (const it of systemItems) {
+        const name = it.systemItemId?.itemName?.toLowerCase() || "";
+        if (name.includes("submersible clamp")) {
+          clampItemId = it.systemItemId._id.toString();
+          break;
+        }
+      }
+
+      // 2️⃣ Remove clamp if no clampId provided in request
+      if (!system.submersibleClampId && clampItemId) {
+        finalItemsList = finalItemsList.filter(
+          (item) => item.systemItemId.toString() !== clampItemId
+        );
+      }
+
+      //console.log("After Final Item List: ", finalItemsList);
+      console.log("After Length: ", finalItemsList.length);
 
       for (const item of finalItemsList) {
         const stockDoc = await InstallationInventory.findOne({
@@ -2210,7 +2511,7 @@ module.exports.addNewInstallationData = async (req, res) => {
       assignedEmps.push(assignedEmp);
       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
     }
-
+    return;
     await dispatchDetails.save({ session });
     await session.commitTransaction();
     session.endSession();
@@ -2236,6 +2537,7 @@ module.exports.addNewInstallationData = async (req, res) => {
     });
   }
 };
+
 
 module.exports.addNewInstallationData2 = async (req, res) => {
   const session = await mongoose.startSession();
@@ -6943,9 +7245,9 @@ module.exports.addReplacementDispatch = async (req, res) => {
         itemsList: activity.itemsList,
         state: state,
         sendingDate:
-          activity.movementType === "Replacement" ? new Date() : null,
+          movementType === "Replacement" ? new Date() : null,
         receivingDate:
-          activity.movementType === "Defective" ? new Date() : null,
+          movementType === "Defective" ? new Date() : null,
         createdBy: warehousePersonId,
       });
 
