@@ -2244,7 +2244,7 @@ module.exports.addNewInstallationData = async (req, res) => {
   try {
     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
       req.body;
-
+    console.log(req.body);
     const dispatchedSystems =
       typeof dispatchedSystem === "string"
         ? JSON.parse(dispatchedSystem)
