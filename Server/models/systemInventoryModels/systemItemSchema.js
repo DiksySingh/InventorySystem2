@@ -26,6 +26,9 @@ const systemItemSchema = new Schema({
     conversionFactor: {
         type: Number,
     },
+    hsnCode: {
+        type: String
+    },
     description: {
         type: String,
         default: ""

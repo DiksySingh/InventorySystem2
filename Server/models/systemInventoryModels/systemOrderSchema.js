@@ -12,7 +12,7 @@ const systemOrderSchema = new Schema({
     },
     pumpHead: {
         type: String,
-        enum: ['30M', '50M', '70M', '100M']
+        enum: ['30M', '50M', '70M', '100M', 'UNKNOWN']
     },
     totalOrder: {
         type: Number,

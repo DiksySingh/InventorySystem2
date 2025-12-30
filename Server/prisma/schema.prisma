@@ -87,6 +87,7 @@ model RawMaterial {
   name             String?  @unique
   stock            Float?
   unit             String?
+  hsnCode          String?
   conversionUnit   String?
   conversionFactor Float?
   isUsed           Boolean? @default(true)

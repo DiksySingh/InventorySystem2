@@ -40,8 +40,6 @@ router.post("/warehouse/:warehouseId/materials/stock/sync", commonController.syn
 router.get("/raw-material/export/excel", commonController.exportRawMaterialsExcel);
 router.post("/raw-material/update/unit-conversion-factor", commonController.upload.single('file'), commonController.updateItemsFromExcel)
 router.post("/system-order/create", commonController.addSystemOrder);
-router.put("/system-order/update/order-quantity", commonController.addNewOrderToSystemOrder);
-
-
+router.put("/system-order/update/order-quantity", commonController.increaseOrDecreaseSystemOrder );
 
 module.exports = router;

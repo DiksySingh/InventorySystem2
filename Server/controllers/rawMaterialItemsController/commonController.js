@@ -1456,7 +1456,7 @@ function parseConversionFactor(value) {
 
 const createItem = async (req, res) => {
   try {
-    let { name, unit, description, source, conversionUnit, conversionFactor } =
+    let { name, unit, description, source, hsnCode, conversionUnit, conversionFactor } =
       req.body;
 
     const empId = req.user?.id;
@@ -1515,6 +1515,7 @@ const createItem = async (req, res) => {
             stock: 0,
             description,
             unit,
+            hsnCode: hsnCode || null,
             conversionUnit: finalConversionUnit,
             conversionFactor: numericConversionFactor,
             createdBy: empId,
@@ -1562,6 +1563,7 @@ const createItem = async (req, res) => {
       const newSystemItem = new SystemItem({
         itemName: trimmedName,
         unit,
+        hsnCode: hsnCode || null,
         description,
         converionUnit: finalConversionUnit,
         conversionFactor: numericConversionFactor,
@@ -1635,6 +1637,7 @@ const getItemById = async (req, res) => {
           id: rawMaterial.id,
           name: rawMaterial.name,
           unit: rawMaterial.unit,
+          hsnCode: rawMaterial.hsnCode,
           description: rawMaterial.description,
           conversionUnit: rawMaterial.conversionUnit,
           conversionFactor: rawMaterial.conversionFactor,
@@ -1652,6 +1655,7 @@ const getItemById = async (req, res) => {
           id: systemItem._id,
           name: systemItem.itemName,
           unit: systemItem.unit,
+          hsnCode: systemItem.hsnCode,
           description: systemItem.description,
           conversionUnit: systemItem.converionUnit,
           conversionFactor: systemItem.conversionFactor,
@@ -1675,7 +1679,7 @@ const getItemById = async (req, res) => {
 
 const updateItem = async (req, res) => {
   try {
-    const { id, name, unit, description, conversionUnit, conversionFactor } =
+    const { id, name, unit, hsnCode, description, conversionUnit, conversionFactor } =
       req.body;
 
     const empId = req.user?.id;
@@ -1691,6 +1695,7 @@ const updateItem = async (req, res) => {
 
     if (name) updateData.name = name.trim();
     if (unit) updateData.unit = unit;
+    if (hsnCode) updateData.hsnCode = hsnCode;
     if (description) updateData.description = description;
     if (conversionUnit) updateData.conversionUnit = conversionUnit;
 
@@ -1771,6 +1776,7 @@ const updateItem = async (req, res) => {
 
       if (name) systemItem.itemName = name.trim();
       if (unit) systemItem.unit = unit;
+      if (hsnCode) systemItem.hsnCode = hsnCode;
       if (description) systemItem.description = description;
       if (conversionUnit) systemItem.converionUnit = conversionUnit;
       if (conversionFactor !== undefined)
@@ -2116,7 +2122,7 @@ const addSystemOrder = async (req, res) => {
   try {
     const { systemId, pumpId, pumpHead } = req.body;
 
-    if (!systemId || !pumpId || !pumpHead) {
+    if (!systemId || !pumpHead) {
       return res.status(400).json({
         success: false,
         message: "systemId, pumpId and pumpHead are required",
@@ -2125,7 +2131,6 @@ const addSystemOrder = async (req, res) => {
 
     const existingSystemOrder = await SystemOrder.findOne({
       systemId,
-      pumpId,
       pumpHead,
     });
 
@@ -2138,7 +2143,7 @@ const addSystemOrder = async (req, res) => {
 
     const createSystemOrder = new SystemOrder({
       systemId,
-      pumpId,
+      pumpId: pumpId || null,
       pumpHead,
     });
 
@@ -2158,46 +2163,62 @@ const addSystemOrder = async (req, res) => {
   }
 };
 
-const addNewOrderToSystemOrder = async (req, res) => {
+const increaseOrDecreaseSystemOrder = async (req, res) => {
   try {
-    const { systemId, pumpId, pumpHead, orderQty } = req.body;
+    const { systemId, pumpHead, orderQty } = req.body;
 
     // ✅ Validation
-    if (!systemId || !pumpId || !pumpHead || !orderQty) {
+    if (!systemId || !pumpHead || orderQty === undefined) {
       return res.status(400).json({
         success: false,
-        message: "systemId, pumpId, pumpHead and orderQty are required",
+        message: "systemId, pumpHead and orderQty are required",
       });
     }
 
-    if (Number(orderQty) <= 0) {
+    const qty = Number(orderQty);
+
+    if (Number.isNaN(qty) || qty === 0) {
       return res.status(400).json({
         success: false,
-        message: "orderQty must be greater than 0",
+        message: "orderQty must be a non-zero number",
       });
     }
 
-    // ✅ Atomic update
-    const updatedSystemOrder = await SystemOrder.findOneAndUpdate(
-      { systemId, pumpId, pumpHead },
-      { $inc: { totalOrder: Number(orderQty) } },
-      { new: true }
-    );
+    // 🔍 Fetch current order
+    const systemOrder = await SystemOrder.findOne({ systemId, pumpHead });
 
-    if (!updatedSystemOrder) {
+    if (!systemOrder) {
       return res.status(404).json({
         success: false,
         message: "System order not found",
       });
     }
 
+    // 🛑 Prevent negative totalOrder
+    const newTotalOrder = systemOrder.totalOrder + qty;
+
+    if (newTotalOrder < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Total order cannot be negative",
+      });
+    }
+
+    // ✅ Atomic update
+    systemOrder.totalOrder = newTotalOrder;
+    await systemOrder.save();
+
     return res.status(200).json({
       success: true,
-      message: "Order quantity updated successfully",
-      data: updatedSystemOrder,
+      message:
+        qty > 0
+          ? "Order quantity increased successfully"
+          : "Order quantity decreased successfully",
+      data: systemOrder,
     });
+
   } catch (error) {
-    console.error("addNewOrderToSystemOrder error:", error);
+    console.error("increaseOrDecreaseSystemOrder error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
@@ -2365,6 +2386,6 @@ module.exports = {
   updateItem,
   updateItemsFromExcel,
   addSystemOrder,
-  addNewOrderToSystemOrder,
+  increaseOrDecreaseSystemOrder,
   sendAllSystemStockShortageReport
 };

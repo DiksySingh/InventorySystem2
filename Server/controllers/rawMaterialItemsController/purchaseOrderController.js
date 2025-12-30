@@ -916,6 +916,7 @@ const getItemDetails = async (req, res) => {
         id: true,
         name: true,
         unit: true,
+        hsnCode: true,
         description: true,
       },
     });
@@ -931,6 +932,7 @@ const getItemDetails = async (req, res) => {
     const mongoItem = await SystemItem.findById(id, {
       itemName: 1,
       unit: 1,
+      hsnCode: 1,
       description: 1,
     }).lean();
 
@@ -942,6 +944,7 @@ const getItemDetails = async (req, res) => {
           id: mongoItem._id.toString(),
           name: mongoItem.itemName,
           unit: mongoItem.unit || "",
+          hsnCode: mongoItem.hsnCode || "",
           description: mongoItem.description || "",
         },
       });
