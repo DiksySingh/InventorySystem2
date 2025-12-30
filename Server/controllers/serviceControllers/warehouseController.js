@@ -2532,6 +2532,26 @@ module.exports.addNewInstallationData = async (req, res) => {
       farmerActivities.push(farmerActivity);
       assignedEmps.push(assignedEmp);
       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
+
+      const updatedOrder = await SystemOrder.findOneAndUpdate(
+        {
+          systemId: system.systemId,
+          pumpId: system.pumpId,
+        },
+        {
+          $inc: { dispatchedOrder: 1 },
+        },
+        {
+          new: true,
+          session,
+        }
+      );
+
+      if (!updatedOrder) {
+        throw new Error(
+          `SystemOrder not found for systemId ${system.systemId} and pumpId ${system.pumpId}`
+        );
+      }
     }
     await dispatchDetails.save({ session });
     await session.commitTransaction();
