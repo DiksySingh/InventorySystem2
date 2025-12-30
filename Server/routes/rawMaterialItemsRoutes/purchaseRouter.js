@@ -195,9 +195,9 @@ router.get(
 );
 
 router.get(
-  "/warehouses/:warehouseId/systems/:systemId/order/items/requirement",
-  tokenVerification(['Purchase', 'Store']),
-  purchaseOrderController.showMaterialRequirementBySystemOrder
+  "/dashboard/warehouses/:warehouseId/systems/:systemId/orders",
+  tokenVerification(['Purchase', 'Store', 'Admin']),
+  purchaseOrderController.getSystemDashboardData
 );
 
 module.exports = router;

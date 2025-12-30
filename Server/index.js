@@ -34,7 +34,7 @@ const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
 mongoose
-  .connect(MONGODB_URL, {
+  .connect(MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -92,6 +92,7 @@ app.use("/store-keeper", storekeeperRouter);
 app.use("/purchase", purchaseRouter);
 app.use("/user", userRouter);
 app.use("/test", testRouter);
+require("./helpers/cron/stockShortageCron");
 // require("./helpers/whatsapp/whatsappCron");
 
 // Start the server

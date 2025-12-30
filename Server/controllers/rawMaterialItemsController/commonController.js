@@ -6,8 +6,12 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const System = require("../../models/systemInventoryModels/systemSchema");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
+const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
+const getDashboardService = require("../../services/systemDashboardService");
+const sendMail = require("../../util/mail/sendMail");
 
 const addRole = async (req, res) => {
   try {
@@ -732,7 +736,7 @@ function extractValues(name) {
   const meter = parseInt(name.match(/(\d+)MTR/i)?.[1] || 0);
 
   return { hp, type, meter };
-};
+}
 
 function sortPumps(a, b) {
   const A = extractValues(a.item.name);
@@ -746,7 +750,7 @@ function sortPumps(a, b) {
 
   // 3) Sort by Meter
   return A.meter - B.meter;
-};
+}
 
 const deleteProductItemMap = async (req, res) => {
   try {
@@ -1452,14 +1456,8 @@ function parseConversionFactor(value) {
 
 const createItem = async (req, res) => {
   try {
-    let {
-      name,
-      unit,
-      description,
-      source,
-      conversionUnit,
-      conversionFactor
-    } = req.body;
+    let { name, unit, description, source, conversionUnit, conversionFactor } =
+      req.body;
 
     const empId = req.user?.id;
 
@@ -1677,14 +1675,8 @@ const getItemById = async (req, res) => {
 
 const updateItem = async (req, res) => {
   try {
-    const {
-      id,
-      name,
-      unit,
-      description,
-      conversionUnit,
-      conversionFactor,
-    } = req.body;
+    const { id, name, unit, description, conversionUnit, conversionFactor } =
+      req.body;
 
     const empId = req.user?.id;
 
@@ -1899,7 +1891,9 @@ const syncWarehouseStock = async (req, res) => {
     const { warehouseId } = req.params;
 
     if (!warehouseId) {
-      return res.status(400).json({ success: false, message: "warehouseId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "warehouseId is required" });
     }
 
     // 1. Fetch all raw materials and their master stock levels
@@ -1907,8 +1901,8 @@ const syncWarehouseStock = async (req, res) => {
       select: {
         id: true,
         stock: true,
-        unit: true
-      }
+        unit: true,
+      },
     });
 
     // 2. Perform upserts for each material into the specific warehouse
@@ -1941,7 +1935,6 @@ const syncWarehouseStock = async (req, res) => {
       success: true,
       message: `Successfully synchronized ${rawMaterials.length} materials for warehouse ${warehouseId}.`,
     });
-
   } catch (error) {
     console.error("Sync Error:", error);
     return res.status(500).json({
@@ -2042,9 +2035,8 @@ const updateItemsFromExcel = async (req, res) => {
       try {
         const name = row.name?.toString().trim();
         const unit = row.unit?.toString().trim();
-        const conversionUnit =
-          row.conversionUnit?.toString().trim() || unit;
-        const conversionFactor = row.conversionFactor
+        const conversionUnit = row.conversionUnit?.toString().trim() || unit;
+        const conversionFactor = row.conversionFactor;
 
         if (!name || !unit) {
           throw new Error("name and unit are required");
@@ -2120,6 +2112,326 @@ const updateItemsFromExcel = async (req, res) => {
   }
 };
 
+const addSystemOrder = async (req, res) => {
+  try {
+    const { systemId, pumpId, pumpHead } = req.body;
+
+    if (!systemId || !pumpId || !pumpHead) {
+      return res.status(400).json({
+        success: false,
+        message: "systemId, pumpId and pumpHead are required",
+      });
+    }
+
+    const existingSystemOrder = await SystemOrder.findOne({
+      systemId,
+      pumpId,
+      pumpHead,
+    });
+
+    if (existingSystemOrder) {
+      return res.status(400).json({
+        success: false,
+        message: `System order with ${pumpHead} head already exists.`,
+      });
+    }
+
+    const createSystemOrder = new SystemOrder({
+      systemId,
+      pumpId,
+      pumpHead,
+    });
+
+    const savedData = await createSystemOrder.save();
+
+    return res.status(201).json({
+      success: true,
+      message: `System order with ${pumpHead} head created successfully.`,
+      data: savedData,
+    });
+  } catch (error) {
+    console.error("addSystemOrder error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const addNewOrderToSystemOrder = async (req, res) => {
+  try {
+    const { systemId, pumpId, pumpHead, orderQty } = req.body;
+
+    // ✅ Validation
+    if (!systemId || !pumpId || !pumpHead || !orderQty) {
+      return res.status(400).json({
+        success: false,
+        message: "systemId, pumpId, pumpHead and orderQty are required",
+      });
+    }
+
+    if (Number(orderQty) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "orderQty must be greater than 0",
+      });
+    }
+
+    // ✅ Atomic update
+    const updatedSystemOrder = await SystemOrder.findOneAndUpdate(
+      { systemId, pumpId, pumpHead },
+      { $inc: { totalOrder: Number(orderQty) } },
+      { new: true }
+    );
+
+    if (!updatedSystemOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "System order not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order quantity updated successfully",
+      data: updatedSystemOrder,
+    });
+  } catch (error) {
+    console.error("addNewOrderToSystemOrder error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+// const sendAllSystemStockShortageReport = async () => {
+//   try {
+//     const warehouseId = "67beef9e2fffc2145da032f3";
+
+//     /* ================= GET SYSTEMS ================= */
+//     const systems = await System.find({
+//       systemName: { $nin: ["10HP AC System"] }
+//     })
+//       .select("_id systemName")
+//       .lean();
+
+//     if (!systems.length) {
+//       console.log("❌ No systems found");
+//       return;
+//     }
+
+//     const shortageRows = [];
+
+//     /* ================= LOOP SYSTEMS ================= */
+//     for (const system of systems) {
+//       const dashboardData = await getDashboardService(
+//         system._id,
+//         warehouseId
+//       );
+
+//       /* ---------- COMMON ITEMS ---------- */
+//       dashboardData.commonItems.forEach(item => {
+//         if (item.shortageQty > 0) {
+//           shortageRows.push({
+//             SystemName: system.systemName,
+//             PumpHead: "ALL",
+//             ItemType: "Common",
+//             ItemName: item.itemName,
+//             RequiredQty: item.requiredQty,
+//             StockQty: item.stockQty,
+//             ShortageQty: item.shortageQty,
+//           });
+//         }
+//       });
+
+//       /* ---------- VARIABLE ITEMS ---------- */
+//       dashboardData.variableItems.forEach(head => {
+//         head.items.forEach(item => {
+//           if (item.shortageQty > 0) {
+//             shortageRows.push({
+//               SystemName: system.systemName,
+//               PumpHead: head.pumpHead,
+//               ItemType: "Pump Head",
+//               ItemName: item.itemName,
+//               RequiredQty: item.requiredQty,
+//               StockQty: item.stockQty,
+//               ShortageQty: item.shortageQty,
+//             });
+//           }
+//         });
+//       });
+//     }
+
+//     /* ================= NO SHORTAGE ================= */
+//     if (!shortageRows.length) {
+//       console.log("✅ No stock shortage found for any system");
+//       return;
+//     }
+
+//     /* ================= EXCEL (BUFFER) ================= */
+//     const worksheet = xlsx.utils.json_to_sheet(shortageRows);
+//     const workbook = xlsx.utils.book_new();
+//     xlsx.utils.book_append_sheet(
+//       workbook,
+//       worksheet,
+//       "Stock Shortage"
+//     );
+
+//     const excelBuffer = xlsx.write(workbook, {
+//       bookType: "xlsx",
+//       type: "buffer",
+//     });
+
+//     /* ================= EMAIL ================= */
+//     await sendMail({
+//       to: [
+//         //process.env.ADMIN_EMAIL,
+//         process.env.PURCHASE_EMAIL,
+//       ],
+//       subject: "⚠️ Stock Shortage Report (All Systems)",
+//       text: "Attached is the consolidated stock shortage report.",
+//       attachments: [
+//         {
+//           filename: `Stock_Shortage_${new Date()
+//             .toISOString()
+//             .slice(0, 10)}.xlsx`,
+//           content: excelBuffer,
+//           contentType:
+//             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+//         },
+//       ],
+//     });
+
+//     console.log("📧 Stock shortage mail sent successfully (buffer)");
+//   } catch (error) {
+//     console.error("❌ Stock shortage cron failed:", error.message);
+//   }
+// };
+
+const sendAllSystemStockShortageReport = async () => {
+  try {
+    const warehouseId = "67beef9e2fffc2145da032f3";
+
+    const systems = await System.find({
+      systemName: { $nin: ["10HP AC System"] },
+    })
+      .select("_id systemName")
+      .lean();
+
+    if (!systems.length) {
+      console.log("❌ No systems found");
+      return;
+    }
+
+    const workbook = xlsx.utils.book_new();
+    let hasAnyShortage = false;
+
+    for (const system of systems) {
+      const dashboardData = await getDashboardService(system._id, warehouseId);
+
+      const systemRows = [];
+      let dispatchableSystems = Infinity;
+
+      /* ================= COMMON ITEMS ================= */
+      const commonDesiredSystem =
+        dashboardData.summary.motorCommonSystem.totalDesired;
+
+      dashboardData.commonItems.forEach((item) => {
+        const possible = Math.floor(item.stockQty / item.bomQty);
+
+        dispatchableSystems = Math.min(dispatchableSystems, possible);
+        if (item.shortageQty > 0) {
+          hasAnyShortage = true;
+
+          systemRows.push({
+            SystemName: system.systemName,
+            PumpHead: "ALL",
+            ItemType: "Common",
+            ItemName: item.itemName,
+            BOM_Qty: item.bomQty,
+            Stock_Qty: item.stockQty,
+            Possible_Systems: possible,
+            Desired_Systems: commonDesiredSystem,
+            Required_Qty: item.requiredQty,
+            Shortage_Qty: item.shortageQty,
+          });
+        }
+      });
+
+      /* ================= VARIABLE ITEMS (HEAD-WISE) ================= */
+      dashboardData.variableItems.forEach((head) => {
+        const headDesiredSystem = head.desiredSystems;
+
+        head.items.forEach((item) => {
+          const possible = Math.floor(item.stockQty / item.bomQty);
+
+          dispatchableSystems = Math.min(dispatchableSystems, possible);
+          if (item.shortageQty > 0) {
+            hasAnyShortage = true;
+
+            systemRows.push({
+              SystemName: system.systemName,
+              PumpHead: head.pumpHead,
+              ItemType: "VARIABLE",
+              ItemName: item.itemName,
+              BOM_Qty: item.bomQty,
+              Stock_Qty: item.stockQty,
+              Possible_Systems: possible,
+              Desired_Systems: headDesiredSystem,
+              Required_Qty: item.requiredQty,
+              Shortage_Qty: item.shortageQty,
+            });
+          }
+        });
+      });
+
+      /* ================= SHEET PER SYSTEM ================= */
+      if (systemRows.length) {
+        systemRows.sort((a, b) =>
+          a.ItemName.localeCompare(b.ItemName, undefined, {
+            sensitivity: "base",
+          })
+        );
+        const worksheet = xlsx.utils.json_to_sheet(systemRows);
+        const sheetName = system.systemName.slice(0, 31);
+
+        xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+      }
+    }
+
+    if (!hasAnyShortage) {
+      console.log("✅ No stock shortage found for any system");
+      return;
+    }
+
+    const excelBuffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "buffer",
+    });
+
+    await sendMail({
+      to: [process.env.PURCHASE_EMAIL],
+      subject: "⚠️ Stock Shortage Report (System-wise)",
+      text: "Attached is the system-wise stock shortage report.",
+      attachments: [
+        {
+          filename: `Stock_Shortage_${new Date()
+            .toISOString()
+            .slice(0, 10)}.xlsx`,
+          content: excelBuffer,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
+    });
+
+    console.log("📧 Stock shortage mail sent successfully");
+  } catch (error) {
+    console.error("❌ Stock shortage cron failed:", error.message);
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -2155,5 +2467,8 @@ module.exports = {
   createItem,
   getItemById,
   updateItem,
-  updateItemsFromExcel
+  updateItemsFromExcel,
+  addSystemOrder,
+  addNewOrderToSystemOrder,
+  sendAllSystemStockShortageReport,
 };

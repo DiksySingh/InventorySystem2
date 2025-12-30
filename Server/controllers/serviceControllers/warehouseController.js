@@ -2832,6 +2832,26 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       farmerActivities.push(farmerActivity);
       assignedEmps.push(assignedEmp);
       dispatchDetails.dispatchedSystems.push(farmerActivity._id);
+
+      const updatedOrder = await SystemOrder.findOneAndUpdate(
+        {
+          systemId: system.systemId,
+          pumpId: system.pumpId,
+        },
+        {
+          $inc: { dispatchedOrder: 1 },
+        },
+        {
+          new: true,
+          session,
+        }
+      );
+
+      if (!updatedOrder) {
+        throw new Error(
+          `SystemOrder not found for systemId ${system.systemId} and pumpId ${system.pumpId}`
+        );
+      }
     }
     return;
     await dispatchDetails.save({ session });
@@ -7264,10 +7284,8 @@ module.exports.addReplacementDispatch = async (req, res) => {
         movementType: movementType,
         itemsList: activity.itemsList,
         state: state,
-        sendingDate:
-          movementType === "Replacement" ? new Date() : null,
-        receivingDate:
-          movementType === "Defective" ? new Date() : null,
+        sendingDate: movementType === "Replacement" ? new Date() : null,
+        receivingDate: movementType === "Defective" ? new Date() : null,
         createdBy: warehousePersonId,
       });
 

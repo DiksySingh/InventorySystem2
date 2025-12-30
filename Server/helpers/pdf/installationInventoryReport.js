@@ -14,27 +14,69 @@ async function generateInventoryPDF(data, outputFile) {
     "100M": new Map(),
   };
 
+  // data.hdpe.forEach((row) => {
+  //   const newRow = { PN: row.PN, HP: row.HP };
+
+  //   lengths.forEach((len) => {
+  //   const val = row[len] || 0;
+
+  //   // Allow merging also for ZERO values  
+  //   const mergeKey = val === 0 ? "__ZERO__" : val; 
+
+  //   if (addedHDPE[len].has(mergeKey)) {
+  //     // This row should not display the cell
+  //     newRow[len] = { value: "", rowspan: 0 };
+  //     addedHDPE[len].get(mergeKey).rowspan++;
+  //   } else {
+  //     // First occurrence (even if it's 0)
+  //     newRow[len] = { value: val, rowspan: 1 };
+  //     addedHDPE[len].set(mergeKey, newRow[len]);
+  //   }
+  // });
+  //   mergedHDPE.push(newRow);
+  // });
+
   data.hdpe.forEach((row) => {
-    const newRow = { PN: row.PN, HP: row.HP };
+  const newRow = { PN: row.PN, HP: row.HP };
 
-    lengths.forEach((len) => {
-    const val = row[len] || 0;
+  lengths.forEach((len) => {
+    const val = row[len] ?? 0;
+    let mergeKey;
 
-    // Allow merging also for ZERO values  
-    const mergeKey = val === 0 ? "__ZERO__" : val; 
+    /* ================= MERGE RULES BASED ON MAPPING ================= */
+
+    if (len === "30M") {
+      // Diameter differs → NEVER merge
+      mergeKey = `${row.HP}_${val}`;
+    }
+
+    else if (len === "50M" || len === "70M") {
+      // Same item across all HP
+      mergeKey = `${val}`;
+    }
+
+    else if (len === "100M") {
+      // Only 5HP & 7.5HP share same item
+      if (row.HP === "5HP" || row.HP === "7.5HP") {
+        mergeKey = `${val}`;
+      } else {
+        mergeKey = `${row.HP}_${val}`;
+      }
+    }
+
+    /* ================= APPLY MERGE ================= */
 
     if (addedHDPE[len].has(mergeKey)) {
-      // This row should not display the cell
       newRow[len] = { value: "", rowspan: 0 };
       addedHDPE[len].get(mergeKey).rowspan++;
     } else {
-      // First occurrence (even if it's 0)
       newRow[len] = { value: val, rowspan: 1 };
       addedHDPE[len].set(mergeKey, newRow[len]);
     }
   });
-    mergedHDPE.push(newRow);
-  });
+
+  mergedHDPE.push(newRow);
+});
 
   const html = `
 <html>

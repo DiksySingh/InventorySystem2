@@ -9,8 +9,11 @@ const generatePO = require("../../util/generatePO");
 const poGenerate = require("../../util/poGenerate");
 const debitNoteGenerate = require("../../util/debitNoteGenerate");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const System = require("../../models/systemInventoryModels/systemSchema");
+const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchema");
 const ItemComponentMap = require("../../models/systemInventoryModels/itemComponentMapSchema");
 const SystemItemMap = require("../../models/systemInventoryModels/systemItemMapSchema");
+const getDashboardService = require("../../services/systemDashboardService");
 
 function getISTDate() {
   const now = new Date();
@@ -4669,12 +4672,16 @@ const getActiveTerms = async (req, res) => {
 };
 
 // Helper to extract pump head from itemName
-function getPumpHead(itemName) {
-  if (!itemName) return null;
-  const match = itemName.trim().match(/(\d+\.?\d*)\s*M$/i);
-  if (match) return match[0].toUpperCase().replace(/\s+/g, "");
-  return null;
-}
+// function getPumpHead(itemName) {
+//   if (!itemName) return null;
+//   const match = itemName.trim().match(/(\d+\.?\d*)\s*M$/i);
+//   if (match) return match[0].toUpperCase().replace(/\s+/g, "");
+//   return null;
+// }
+const getPumpHead = (itemName = "") => {
+  const heads = ["30M", "50M", "70M", "100M"];
+  return heads.find((h) => itemName.includes(h)) || null;
+};
 
 const buildItemResponse = ({
   item,
@@ -4918,202 +4925,261 @@ const showItemsWithStockStatus = async (req, res) => {
   }
 };
 
-const showMaterialRequirementBySystemOrder = async (req, res) => {
+// const getSystemDashboardData = async (req, res) => {
+//   try {
+//     const { systemId, warehouseId } = req.params;
+
+//     if (!systemId || !warehouseId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "systemId and warehouseId are required",
+//       });
+//     }
+
+//     const warehouseData = await Warehouse.findById(warehouseId);
+//     if(!warehouseData) {
+//       return res.status(404).json({
+//         success: false,
+//         message: `Warehouse not found`
+//       });
+//     }
+
+//     const systemData = await System.findById(systemId);
+//     if(!systemData) {
+//       return res.status(404).json({
+//         success: false,
+//         message: `System not found`
+//       });
+//     }
+
+//     /* =====================================================
+//        STEP 1: SYSTEM ORDERS (HEAD-WISE DESIRED)
+//     ===================================================== */
+//     const systemOrders = await SystemOrder.find({ systemId }).lean();
+
+//     const headWiseOrders = {};
+//     let totalDesired = 0;
+
+//     systemOrders.forEach((order) => {
+//       if (!order.pumpHead) return;
+
+//       const remainingOrder = Math.max(
+//         order.totalOrder - order.dispatchedOrder,
+//         0
+//       );
+
+//       headWiseOrders[order.pumpHead] = {
+//         pumpId: order.pumpId,
+//         totalOrder: order.totalOrder,
+//         dispatchedOrder: order.dispatchedOrder,
+//         remainingOrder,
+//       };
+
+//       totalDesired += remainingOrder;
+//     });
+
+//     /* =====================================================
+//        STEP 2: SYSTEM ITEMS (COMMON + PUMPS)
+//     ===================================================== */
+//     const systemItems = await SystemItemMap.find({ systemId })
+//       .populate("systemItemId", "itemName")
+//       .lean();
+
+//     const commonItems = [];
+//     const pumpItems = [];
+
+//     systemItems.forEach((item) => {
+//       if (!item.systemItemId) return; // 🔒 NULL SAFE
+
+//       const pumpHead = getPumpHead(item.systemItemId.itemName);
+
+//       if (pumpHead) {
+//         pumpItems.push({ ...item, pumpHead });
+//       } else {
+//         commonItems.push(item);
+//       }
+//     });
+
+//     /* =====================================================
+//        STEP 3: ITEM COMPONENT MAP (SUB-ITEMS)
+//     ===================================================== */
+//     const itemComponentsRaw = await ItemComponentMap.find({ systemId })
+//       .populate("subItemId", "itemName")
+//       .lean();
+
+//     // filter broken refs
+//     const itemComponents = itemComponentsRaw.filter(
+//       (c) => c.systemItemId && c.subItemId
+//     );
+
+//     /* =====================================================
+//        STEP 4: INVENTORY (WAREHOUSE)
+//     ===================================================== */
+//     const inventoryItems = await InstallationInventory.find({ warehouseId })
+//       .populate("systemItemId", "itemName")
+//       .lean();
+
+//     const inventoryMap = new Map();
+
+//     inventoryItems.forEach((item) => {
+//       if (!item.systemItemId) return; // 🔒 NULL SAFE
+
+//       inventoryMap.set(item.systemItemId._id.toString(), item.quantity);
+//     });
+
+//     /* =====================================================
+//        STEP 5: COMMON ITEMS
+//     ===================================================== */
+//     const commonItemsResponse = commonItems.map((item) => {
+//       const itemId = item.systemItemId?._id?.toString();
+//       const stockQty = itemId ? inventoryMap.get(itemId) || 0 : 0;
+
+//       const requiredQty = item.quantity * totalDesired;
+
+//       return {
+//         itemId: item.systemItemId._id,
+//         itemName: item.systemItemId.itemName,
+//         bomQty: item.quantity,
+//         requiredQty,
+//         stockQty,
+//         shortageQty: Math.max(requiredQty - stockQty, 0),
+//       };
+//     });
+
+//     /* =====================================================
+//        STEP 6: COMMON POSSIBLE
+//     ===================================================== */
+//     const commonPossible = commonItemsResponse.length
+//       ? Math.min(
+//           ...commonItemsResponse.map((i) =>
+//             i.bomQty > 0 ? Math.floor(i.stockQty / i.bomQty) : Infinity
+//           )
+//         )
+//       : 0;
+
+//     /* =====================================================
+//        STEP 7: VARIABLE ITEMS (HEAD-WISE)
+//     ===================================================== */
+//     const variableItemsResponse = [];
+
+//     for (const pumpHead of Object.keys(headWiseOrders)) {
+//       const desiredSystems = headWiseOrders[pumpHead].remainingOrder;
+
+//       const pumpsForHead = pumpItems.filter((p) => p.pumpHead === pumpHead);
+
+//       const items = [];
+
+//       /* ---------- Pump item ---------- */
+//       pumpsForHead.forEach((pump) => {
+//         const pumpItemId = pump.systemItemId?._id?.toString();
+//         const stockQty = pumpItemId ? inventoryMap.get(pumpItemId) || 0 : 0;
+
+//         const requiredQty = pump.quantity * desiredSystems;
+
+//         items.push({
+//           itemId: pump.systemItemId._id,
+//           itemName: pump.systemItemId.itemName,
+//           bomQty: pump.quantity,
+//           requiredQty,
+//           stockQty,
+//           shortageQty: Math.max(requiredQty - stockQty, 0),
+//         });
+//       });
+
+//       /* ---------- Sub-items ---------- */
+//       itemComponents
+//         .filter((comp) =>
+//           pumpsForHead.some(
+//             (p) =>
+//               p.systemItemId._id.toString() === comp.systemItemId.toString()
+//           )
+//         )
+//         .forEach((comp) => {
+//           const subItemId = comp.subItemId?._id?.toString();
+//           const stockQty = subItemId ? inventoryMap.get(subItemId) || 0 : 0;
+
+//           const requiredQty = comp.quantity * desiredSystems;
+
+//           items.push({
+//             itemId: comp.subItemId._id,
+//             itemName: comp.subItemId.itemName,
+//             bomQty: comp.quantity,
+//             requiredQty,
+//             stockQty,
+//             shortageQty: Math.max(requiredQty - stockQty, 0),
+//           });
+//         });
+
+//       /* ---------- VARIABLE POSSIBLE ---------- */
+//       const variablePossible = items.length
+//         ? Math.min(
+//             ...items.map((i) =>
+//               i.bomQty > 0 ? Math.floor(i.stockQty / i.bomQty) : Infinity
+//             )
+//           )
+//         : 0;
+
+//       /* ---------- FINAL POSSIBLE ---------- */
+//       const possibleSystems = Math.min(commonPossible, variablePossible);
+
+//       variableItemsResponse.push({
+//         pumpHead,
+//         desiredSystems,
+//         possibleSystems,
+//         items,
+//       });
+//     }
+
+//     // Build headWiseSystem summary with possibleSystems
+//     const headWiseSystemSummary = {};
+//     variableItemsResponse.forEach((v) => {
+//       headWiseSystemSummary[v.pumpHead] = {
+//         desiredSystem: v.desiredSystems,
+//         possibleSystem: v.possibleSystems,
+//       };
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       data: {
+//         warehouse: warehouseData.warehouseName,
+//         system: systemData.systemName,
+//         summary: {
+//           motorCommonSystem: {
+//             totalDesired,
+//             possibleSystem: commonPossible,
+//           },
+//           headWiseSystem: headWiseSystemSummary,
+//         },
+//         commonItems: commonItemsResponse,
+//         variableItems: variableItemsResponse,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Dashboard Controller Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+const getSystemDashboardData = async (req, res) => {
   try {
-    const { warehouseId, systemId } = req.params;
-    const { systemOrder } = req.body;
-
-    if (!warehouseId || !systemId) {
-      return res.status(400).json({
-        success: false,
-        message: "warehouseId and systemId are required",
-      });
-    }
-
-    if (!systemOrder || systemOrder <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "systemOrder must be greater than 0",
-      });
-    }
-
-    // --------------------------------------------------
-    // STEP 1: Fetch system items
-    // --------------------------------------------------
-    const systemItems = await SystemItemMap.find({ systemId })
-      .populate({
-        path: "systemItemId",
-        select: "_id itemName unit",
-      })
-      .select("systemItemId quantity")
-      .lean();
-
-    systemItems.forEach((item) => {
-      item.systemItemId.pumpHead = getPumpHead(item.systemItemId.itemName);
-    });
-
-    const pumps = systemItems.filter((i) => i.systemItemId.pumpHead);
-    const commonItems = systemItems.filter((i) => !i.systemItemId.pumpHead);
-
-    // --------------------------------------------------
-    // STEP 2: Fetch sub-items
-    // --------------------------------------------------
-    const subItems = await ItemComponentMap.find({ systemId })
-      .populate({
-        path: "subItemId",
-        select: "_id itemName unit",
-      })
-      .select("systemItemId subItemId quantity")
-      .lean();
-
-    // --------------------------------------------------
-    // STEP 3: Fetch inventory
-    // --------------------------------------------------
-    const allItemIds = [
-      ...systemItems.map((i) => i.systemItemId._id.toString()),
-      ...subItems.map((i) => i.subItemId._id.toString()),
-    ];
-
-    const inventoryItems = await InstallationInventory.find({
-      warehouseId,
-      systemItemId: { $in: allItemIds },
-    })
-      .populate({
-        path: "systemItemId",
-        select: "_id itemName unit",
-      })
-      .select("systemItemId quantity")
-      .lean();
-
-    const inventoryMap = new Map();
-    inventoryItems.forEach((item) => {
-      inventoryMap.set(item.systemItemId._id.toString(), {
-        systemItemId: item.systemItemId,
-        quantity: item.quantity,
-      });
-    });
-
-    // --------------------------------------------------
-    // STEP 4: OVERALL MATERIAL REQUIREMENT
-    // --------------------------------------------------
-    const overallRequiredQtyMap = new Map();
-
-    systemItems.forEach(({ systemItemId, quantity }) => {
-      const id = systemItemId._id.toString();
-      overallRequiredQtyMap.set(id, quantity);
-    });
-
-    subItems.forEach(({ subItemId, quantity }) => {
-      const id = subItemId._id.toString();
-      overallRequiredQtyMap.set(
-        id,
-        (overallRequiredQtyMap.get(id) || 0) + quantity
-      );
-    });
-
-    const overallItems = [];
-
-    for (const [id, requiredPerSystem] of overallRequiredQtyMap) {
-      const inventory = inventoryMap.get(id);
-      const availableStock = inventory?.quantity || 0;
-
-      overallItems.push(
-        buildItemResponse({
-          item: inventory?.systemItemId,
-          requiredPerSystem,
-          systemOrder,
-          availableStock,
-        })
-      );
-    }
-
-    const overallDispatchableSystems =
-      calculateDispatchableSystems(overallItems);
-
-    // --------------------------------------------------
-    // STEP 5: PUMP-HEAD WISE MATERIAL REQUIREMENT
-    // --------------------------------------------------
-    const uniquePumpHeads = [
-      ...new Set(pumps.map((p) => p.systemItemId.pumpHead)),
-    ];
-
-    const pumpHeadMaterialStatus = [];
-
-    for (const pumpHead of uniquePumpHeads) {
-      const pumpsForHead = pumps.filter(
-        (p) => p.systemItemId.pumpHead === pumpHead
-      );
-
-      const requiredQtyMap = new Map();
-
-      // Pump items
-      pumpsForHead.forEach(({ systemItemId, quantity }) => {
-        requiredQtyMap.set(systemItemId._id.toString(), quantity);
-      });
-
-      // Sub-items
-      subItems
-        .filter((sub) =>
-          pumpsForHead.some(
-            (p) => p.systemItemId._id.toString() === sub.systemItemId.toString()
-          )
-        )
-        .forEach(({ subItemId, quantity }) => {
-          const id = subItemId._id.toString();
-          requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
-        });
-
-      // Common items
-      commonItems.forEach(({ systemItemId, quantity }) => {
-        const id = systemItemId._id.toString();
-        requiredQtyMap.set(id, (requiredQtyMap.get(id) || 0) + quantity);
-      });
-
-      const items = [];
-
-      for (const [id, requiredPerSystem] of requiredQtyMap) {
-        const inventory = inventoryMap.get(id);
-        const availableStock = inventory?.quantity || 0;
-
-        items.push(
-          buildItemResponse({
-            item: inventory?.systemItemId,
-            requiredPerSystem,
-            systemOrder,
-            availableStock,
-          })
-        );
-      }
-
-      items.sort((a, b) => a.itemName.localeCompare(b.itemName));
-      pumpHeadMaterialStatus.push({
-        pumpHead,
-        totalItems: items.length,
-        dispatchableSystems: calculateDispatchableSystems(items),
-        items,
-      });
-    }
-
-    pumpHeadMaterialStatus.sort(
-      (a, b) => parseInt(a.pumpHead) - parseInt(b.pumpHead)
+    const data = await getDashboardService(
+      req.params.systemId,
+      req.params.warehouseId
     );
 
-    // --------------------------------------------------
-    // FINAL RESPONSE
-    // --------------------------------------------------
     return res.status(200).json({
       success: true,
-      message: `Material requirement & dispatch capacity for ${systemOrder} systems`,
-      systemOrder,
-      dispatchCapacity: overallDispatchableSystems,
-      pumpHeadMaterialStatus,
+      data,
     });
   } catch (error) {
-    console.error(error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: error.message,
+      message: error.message,
     });
   }
 };
@@ -5155,5 +5221,37 @@ module.exports = {
   getAllTerms,
   getActiveTerms,
   showItemsWithStockStatus,
-  showMaterialRequirementBySystemOrder,
+  getSystemDashboardData,
 };
+
+// "data": {
+//       "summary": {
+//           "totalDesired": 375,
+//           "commonPossible": 33,
+//           "headWiseDesired": {
+//               "30M": 250,
+//               "50M": 50,
+//               "70M": 75
+//           }
+//       },
+
+//       "summary": {
+//         "motorCommonSystem" : {
+//           "totalDesired": 375,
+//           "possibleSystem": 33
+//         },
+//         "headWiseSystem": {
+//           "30M": {
+//             "desiredSystem": 250,
+//             "possibleSystem": xyz,
+//           },
+//           "50M": {
+//             "desiredSystem": 50,
+//             "possibleSystem": xyz,
+//           },
+//           "70M": {
+//             "desiredSystem": 75,
+//             "possibleSystem": xyz,
+//           }
+//         }
+//       }
