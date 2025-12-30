@@ -2,10 +2,10 @@ const cron = require("node-cron");
 const {sendAllSystemStockShortageReport} = require("../../controllers/rawMaterialItemsController/commonController");
 
 const now = new Date();
-const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000) // Convert to IST
+const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000)
     .toISOString()
-    .replace("T", " ") // Replace "T" with space for readability
-    .replace("Z", " IST"); // Add "IST" at the end
+    .replace("T", " ")
+    .replace("Z", " IST");
 
 cron.schedule(
   "23 10 * * *",

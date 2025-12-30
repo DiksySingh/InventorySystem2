@@ -106,7 +106,8 @@ module.exports = async (systemId, warehouseId) => {
   const commonItemsResponse = commonItems.map((item) => {
     const itemId = item.systemItemId?._id?.toString();
     const stockQty = itemId ? inventoryMap.get(itemId) || 0 : 0;
-
+    const possibleSystem =
+      item.quantity > 0 ? Math.floor(stockQty / item.quantity) : 0;
     const requiredQty = item.quantity * totalDesired;
 
     return {
@@ -114,7 +115,8 @@ module.exports = async (systemId, warehouseId) => {
       itemName: item.systemItemId.itemName,
       bomQty: item.quantity,
       stockQty,
-        requiredQty,
+      possibleSystem,
+      requiredQty,
       shortageQty: Math.max(requiredQty - stockQty, 0),
     };
   });
@@ -122,13 +124,14 @@ module.exports = async (systemId, warehouseId) => {
   /* =====================================================
        STEP 6: COMMON POSSIBLE
     ===================================================== */
+
   const commonPossible = commonItemsResponse.length
-    ? Math.min(
-        ...commonItemsResponse.map((i) =>
-          i.bomQty > 0 ? Math.floor(i.stockQty / i.bomQty) : Infinity
-        )
+  ? Math.min(
+      ...commonItemsResponse.map(i =>
+        i.bomQty > 0 ? Math.floor(i.stockQty / i.bomQty) : Infinity
       )
-    : 0;
+    )
+  : 0;
 
   /* =====================================================
        STEP 7: VARIABLE ITEMS (HEAD-WISE)
@@ -146,7 +149,6 @@ module.exports = async (systemId, warehouseId) => {
     pumpsForHead.forEach((pump) => {
       const pumpItemId = pump.systemItemId?._id?.toString();
       const stockQty = pumpItemId ? inventoryMap.get(pumpItemId) || 0 : 0;
-
       const requiredQty = pump.quantity * desiredSystems;
 
       items.push({
@@ -154,6 +156,8 @@ module.exports = async (systemId, warehouseId) => {
         itemName: pump.systemItemId.itemName,
         bomQty: pump.quantity,
         stockQty,
+        possibleSystem:
+          pump.quantity > 0 ? Math.floor(stockQty / pump.quantity) : 0,
         requiredQty,
         shortageQty: Math.max(requiredQty - stockQty, 0),
       });
@@ -177,6 +181,8 @@ module.exports = async (systemId, warehouseId) => {
           itemName: comp.subItemId.itemName,
           bomQty: comp.quantity,
           stockQty,
+          possibleSystem:
+            comp.quantity > 0 ? Math.floor(stockQty / comp.quantity) : 0,
           requiredQty,
           shortageQty: Math.max(requiredQty - stockQty, 0),
         });
@@ -192,7 +198,7 @@ module.exports = async (systemId, warehouseId) => {
       : 0;
 
     /* ---------- FINAL POSSIBLE ---------- */
-    const possibleSystems = Math.min(commonPossible, variablePossible);
+    const possibleSystems = variablePossible;
 
     variableItemsResponse.push({
       pumpHead,

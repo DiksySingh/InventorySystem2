@@ -134,8 +134,14 @@ router.get(
 
 router.get(
   "/warehouses",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getWarehouses
+);
+
+router.get(
+  "/systems",
+  tokenVerification(["Purchase", "Admin"]),
+  purchaseOrderController.getSystems
 );
 
 router.put(
@@ -189,14 +195,8 @@ router.post(
 );
 
 router.get(
-  "/warehouses/:warehouseId/systems/:systemId/items/stock",
-  tokenVerification(["Purchase", "Store"]),
-  purchaseOrderController.showItemsWithStockStatus
-);
-
-router.get(
   "/dashboard/warehouses/:warehouseId/systems/:systemId/orders",
-  tokenVerification(['Purchase', 'Store', 'Admin']),
+  tokenVerification(["Purchase", "Store", "Admin"]),
   purchaseOrderController.getSystemDashboardData
 );
 

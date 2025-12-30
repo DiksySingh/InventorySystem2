@@ -2205,110 +2205,6 @@ const addNewOrderToSystemOrder = async (req, res) => {
   }
 };
 
-// const sendAllSystemStockShortageReport = async () => {
-//   try {
-//     const warehouseId = "67beef9e2fffc2145da032f3";
-
-//     /* ================= GET SYSTEMS ================= */
-//     const systems = await System.find({
-//       systemName: { $nin: ["10HP AC System"] }
-//     })
-//       .select("_id systemName")
-//       .lean();
-
-//     if (!systems.length) {
-//       console.log("❌ No systems found");
-//       return;
-//     }
-
-//     const shortageRows = [];
-
-//     /* ================= LOOP SYSTEMS ================= */
-//     for (const system of systems) {
-//       const dashboardData = await getDashboardService(
-//         system._id,
-//         warehouseId
-//       );
-
-//       /* ---------- COMMON ITEMS ---------- */
-//       dashboardData.commonItems.forEach(item => {
-//         if (item.shortageQty > 0) {
-//           shortageRows.push({
-//             SystemName: system.systemName,
-//             PumpHead: "ALL",
-//             ItemType: "Common",
-//             ItemName: item.itemName,
-//             RequiredQty: item.requiredQty,
-//             StockQty: item.stockQty,
-//             ShortageQty: item.shortageQty,
-//           });
-//         }
-//       });
-
-//       /* ---------- VARIABLE ITEMS ---------- */
-//       dashboardData.variableItems.forEach(head => {
-//         head.items.forEach(item => {
-//           if (item.shortageQty > 0) {
-//             shortageRows.push({
-//               SystemName: system.systemName,
-//               PumpHead: head.pumpHead,
-//               ItemType: "Pump Head",
-//               ItemName: item.itemName,
-//               RequiredQty: item.requiredQty,
-//               StockQty: item.stockQty,
-//               ShortageQty: item.shortageQty,
-//             });
-//           }
-//         });
-//       });
-//     }
-
-//     /* ================= NO SHORTAGE ================= */
-//     if (!shortageRows.length) {
-//       console.log("✅ No stock shortage found for any system");
-//       return;
-//     }
-
-//     /* ================= EXCEL (BUFFER) ================= */
-//     const worksheet = xlsx.utils.json_to_sheet(shortageRows);
-//     const workbook = xlsx.utils.book_new();
-//     xlsx.utils.book_append_sheet(
-//       workbook,
-//       worksheet,
-//       "Stock Shortage"
-//     );
-
-//     const excelBuffer = xlsx.write(workbook, {
-//       bookType: "xlsx",
-//       type: "buffer",
-//     });
-
-//     /* ================= EMAIL ================= */
-//     await sendMail({
-//       to: [
-//         //process.env.ADMIN_EMAIL,
-//         process.env.PURCHASE_EMAIL,
-//       ],
-//       subject: "⚠️ Stock Shortage Report (All Systems)",
-//       text: "Attached is the consolidated stock shortage report.",
-//       attachments: [
-//         {
-//           filename: `Stock_Shortage_${new Date()
-//             .toISOString()
-//             .slice(0, 10)}.xlsx`,
-//           content: excelBuffer,
-//           contentType:
-//             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-//         },
-//       ],
-//     });
-
-//     console.log("📧 Stock shortage mail sent successfully (buffer)");
-//   } catch (error) {
-//     console.error("❌ Stock shortage cron failed:", error.message);
-//   }
-// };
-
 const sendAllSystemStockShortageReport = async () => {
   try {
     const warehouseId = "67beef9e2fffc2145da032f3";
@@ -2470,5 +2366,5 @@ module.exports = {
   updateItemsFromExcel,
   addSystemOrder,
   addNewOrderToSystemOrder,
-  sendAllSystemStockShortageReport,
+  sendAllSystemStockShortageReport
 };
