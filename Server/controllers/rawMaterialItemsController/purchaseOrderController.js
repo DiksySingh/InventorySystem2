@@ -303,7 +303,7 @@ const createVendor = async (req, res) => {
       !address ||
       !contactPerson ||
       !contactNumber ||
-      !email ||
+      //!email ||
       !country ||
       !currency ||
       !exchangeRate ||
@@ -320,13 +320,13 @@ const createVendor = async (req, res) => {
     const upperCaseAddress = address.trim();
     const lowerCaseEmail = email.toLowerCase().trim();
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(lowerCaseEmail)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email format.",
-      });
-    }
+    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // if (!emailRegex.test(lowerCaseEmail)) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Invalid email format.",
+    //   });
+    // }
 
     const existingVendor = await prisma.vendor.findFirst({
       where: { gstNumber: upperCaseGST },
@@ -375,7 +375,7 @@ const createVendor = async (req, res) => {
       const newVendor = await tx.vendor.create({
         data: {
           name: upperCaseName,
-          email: lowerCaseEmail,
+          email: lowerCaseEmail || null,
           gstNumber: upperCaseGST,
           address: upperCaseAddress,
           city,

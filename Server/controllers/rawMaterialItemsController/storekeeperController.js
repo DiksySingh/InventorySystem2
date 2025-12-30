@@ -1912,8 +1912,8 @@ const getRawMaterialList2 = async (req, res) => {
 
     const formattedData = allRawMaterial.map((data) => {
       const stock =
-        data.warehouseStocks.length > 0
-          ? (data.warehouseStocks[0].quantity ?? 0)
+        data.warehouseStock.length > 0
+          ? (data.warehouseStock[0].quantity ?? 0)
           : 0;
 
       return {
