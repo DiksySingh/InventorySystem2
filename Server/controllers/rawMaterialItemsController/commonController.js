@@ -1428,6 +1428,10 @@ function parseConversionFactor(value) {
     return 1;
   }
 
+  if(typeof value !== "number") {
+    value = value.toString();
+  }
+
   if (typeof value !== "string") {
     throw new Error("conversionFactor must be a string");
   }
