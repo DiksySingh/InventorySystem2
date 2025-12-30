@@ -131,7 +131,7 @@ async function generatePOBuffer(po, items = []) {
 
       finalAmount = addNum(finalAmount, gstAmount, 4);
     }
-
+    console.log("itemDetail", it.itemDetail);
     return {
       sno: i + 1,
       itemName: it.itemName || "",
