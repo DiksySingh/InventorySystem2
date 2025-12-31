@@ -1465,10 +1465,10 @@ const createItem = async (req, res) => {
 
     const empId = req.user?.id;
 
-    if (!name || !unit || !description || !source) {
+    if (!name || !unit  || !source) {
       return res.status(400).json({
         success: false,
-        message: "name, unit, description, source are required",
+        message: "name, unit, source are required",
       });
     }
 
@@ -1517,7 +1517,7 @@ const createItem = async (req, res) => {
           data: {
             name: trimmedName,
             stock: 0,
-            description,
+            description: description || null,
             unit,
             hsnCode: hsnCode || null,
             conversionUnit: finalConversionUnit,
@@ -1544,7 +1544,7 @@ const createItem = async (req, res) => {
 
       return res.status(201).json({
         success: true,
-        message: "Raw Material created & mapped to all warehouses",
+        message: "Raw Material Created Successfully",
         data: result,
       });
     }
@@ -1568,7 +1568,7 @@ const createItem = async (req, res) => {
         itemName: trimmedName,
         unit,
         hsnCode: hsnCode || null,
-        description,
+        description: description || null,
         converionUnit: finalConversionUnit,
         conversionFactor: numericConversionFactor,
         createdByEmpId: empId,
@@ -1596,7 +1596,7 @@ const createItem = async (req, res) => {
 
       return res.status(201).json({
         success: true,
-        message: "Installation Material created & mapped to all warehouses",
+        message: "Installation Material Created Successfully",
         data: savedSystemItem,
       });
     }
