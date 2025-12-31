@@ -2799,7 +2799,7 @@ const downloadPOPDF2 = async (req, res) => {
       amountInForeign: it.amountInForeign ? Number(it.amountInForeign) : null,
     }));
 
-    const pdfBuffer = await generatePO(po, items);
+    const pdfBuffer = await poGenerate(po, items);
 
     // sanitize vendor name
     const vendor = po.vendor.name.split(" ")[0];

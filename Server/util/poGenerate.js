@@ -19,19 +19,6 @@ function getCurrencyMeta(code = "INR") {
   );
 }
 
-function formatCurrencyWithCode(
-  value,
-  currencyCode = "INR",
-  displaySymbol = true
-) {
-  const meta = getCurrencyMeta(currencyCode);
-  const formattedNumber = Number(value || 0).toLocaleString(meta.locale, {
-    minimumFractionDigits: meta.fractionDigits,
-    maximumFractionDigits: meta.fractionDigits,
-  });
-  return displaySymbol ? `${meta.symbol} ${formattedNumber}` : formattedNumber;
-}
-
 function amountToWords(amount, currencyCode = "INR") {
   const rounded = Math.round(Number(amount || 0) * 100) / 100;
   try {
@@ -91,8 +78,21 @@ function formatWithDecimals(val, currencyCode, decimals) {
   })}`;
 }
 
+function roundGrandTotal(value) {
+  const amount = new Decimal(value).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+  const integerPart = amount.floor();
+  const decimalPart = amount.minus(integerPart);
+
+  if (decimalPart.greaterThanOrEqualTo(new Decimal(0.5))) {
+    return integerPart.plus(1).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+  }
+
+  return integerPart.toDecimalPlaces(4, Decimal.ROUND_DOWN);
+}
+
+
 async function generatePOBuffer(po, items = []) {
-  const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
+  const tplPath = path.join(__dirname, "../templates/template.ejs");
   const tpl = fs.readFileSync(tplPath, "utf8");
 
   const currencyCode = po.currency?.toString() || "INR";
@@ -131,7 +131,7 @@ async function generatePOBuffer(po, items = []) {
 
       finalAmount = addNum(finalAmount, gstAmount, 4);
     }
-
+    console.log("itemDetail", it.itemDetail);
     return {
       sno: i + 1,
       itemName: it.itemName || "",
@@ -173,10 +173,12 @@ async function generatePOBuffer(po, items = []) {
       0
     );
 
-    grandTotalCurrency = preparedRows.reduce(
+    const itemsTotal = preparedRows.reduce(
       (acc, r) => addNum(acc, r.amountRaw || 0, 4),
       0
     );
+    grandTotalCurrency = addNum(itemsTotal, totalOtherChargesCurrency, 4);
+    console.log(grandTotalCurrency)
   } else if (isExempted) {
     totalGST = 0;
     grandTotalCurrency = fixNum(
@@ -205,7 +207,7 @@ async function generatePOBuffer(po, items = []) {
       grandTotalCurrency = taxableAmount;
     }
   }
-
+  grandTotalCurrency = roundGrandTotal(grandTotalCurrency).toNumber();
   const gstLabel = getGSTLabel(po);
   const grandTotalInWords = amountToWords(grandTotalCurrency, currencyCode);
 
@@ -245,6 +247,7 @@ async function generatePOBuffer(po, items = []) {
     currencyCode,
     4
   );
+  console.log(grandTotalFormatted);
   const totalOtherChargesFormatted = formatNumberOnly(
     totalOtherChargesCurrency,
     currencyCode,

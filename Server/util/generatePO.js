@@ -92,7 +92,7 @@ function roundGrandTotal(value) {
 
 
 async function generatePOBuffer(po, items = []) {
-  const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
+  const tplPath = path.join(__dirname, "../templates/template.ejs");
   const tpl = fs.readFileSync(tplPath, "utf8");
 
   const currencyCode = po.currency?.toString() || "INR";
@@ -173,10 +173,12 @@ async function generatePOBuffer(po, items = []) {
       0
     );
 
-    grandTotalCurrency = preparedRows.reduce(
+    const itemsTotal = preparedRows.reduce(
       (acc, r) => addNum(acc, r.amountRaw || 0, 4),
       0
     );
+    grandTotalCurrency = addNum(itemsTotal, totalOtherChargesCurrency, 4);
+    console.log(grandTotalCurrency)
   } else if (isExempted) {
     totalGST = 0;
     grandTotalCurrency = fixNum(
@@ -245,6 +247,7 @@ async function generatePOBuffer(po, items = []) {
     currencyCode,
     4
   );
+  console.log(grandTotalFormatted);
   const totalOtherChargesFormatted = formatNumberOnly(
     totalOtherChargesCurrency,
     currencyCode,
