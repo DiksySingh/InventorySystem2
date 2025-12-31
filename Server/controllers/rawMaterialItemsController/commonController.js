@@ -1701,9 +1701,13 @@ const updateItem = async (req, res) => {
     if (unit) updateData.unit = unit;
     if (hsnCode) updateData.hsnCode = hsnCode;
     if (description) updateData.description = description;
-    if (conversionUnit) updateData.conversionUnit = conversionUnit;
 
-    if (conversionFactor !== undefined) {
+    // Handle conversionUnit and conversionFactor
+    if (conversionUnit) {
+      updateData.conversionUnit = conversionUnit;
+    }
+
+    if (conversionFactor !== undefined && conversionFactor !== null) {
       const numericFactor = Number(conversionFactor);
       if (isNaN(numericFactor) || numericFactor <= 0) {
         return res.status(400).json({
@@ -1736,6 +1740,12 @@ const updateItem = async (req, res) => {
         }
       }
 
+      // Set defaults if conversionFactor/conversionUnit are not provided
+      if ((conversionFactor === undefined || conversionFactor === null) && rawMaterial.conversionFactor == null) {
+        updateData.conversionFactor = 1;
+        updateData.conversionUnit = unit || rawMaterial.unit; // base unit
+      }
+
       const updatedRawMaterial = await prisma.$transaction(async (tx) => {
         const updated = await tx.rawMaterial.update({
           where: { id },
@@ -1760,6 +1770,7 @@ const updateItem = async (req, res) => {
       });
     }
 
+    // Handle SystemItem (MongoDB)
     const systemItem = await SystemItem.findById(id);
 
     if (systemItem) {
@@ -1782,9 +1793,15 @@ const updateItem = async (req, res) => {
       if (unit) systemItem.unit = unit;
       if (hsnCode) systemItem.hsnCode = hsnCode;
       if (description) systemItem.description = description;
-      if (conversionUnit) systemItem.converionUnit = conversionUnit;
-      if (conversionFactor !== undefined)
+      if (conversionUnit) systemItem.conversionUnit = conversionUnit;
+
+      if (conversionFactor !== undefined && conversionFactor !== null) {
         systemItem.conversionFactor = Number(conversionFactor);
+      } else if (systemItem.conversionFactor == null) {
+        // Default to 1 and base unit
+        systemItem.conversionFactor = 1;
+        systemItem.conversionUnit = unit || systemItem.unit;
+      }
 
       systemItem.updatedAt = new Date();
       systemItem.updatedByEmpId = empId;
