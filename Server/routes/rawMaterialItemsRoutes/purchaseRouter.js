@@ -200,4 +200,6 @@ router.get(
   purchaseOrderController.getSystemDashboardData
 );
 
+router.get("/warehouses/:warehouseId/raw-material", purchaseOrderController.getRawMaterialByWarehouse);
+
 module.exports = router;

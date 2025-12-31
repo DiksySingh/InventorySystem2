@@ -4728,6 +4728,88 @@ const getSystemDashboardData = async (req, res) => {
   }
 };
 
+const formatStock = (value) => {
+  if (value % 1 === 0) {
+    return value; // integer → return as it is
+  }
+  return Number(value.toFixed(2)); // decimals → 2 digits
+};
+
+const getRawMaterialByWarehouse = async (req, res) => {
+  try {
+    const warehouseId = req.params?.warehouseId;
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId not found",
+      });
+    }
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if(!warehouseData) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse Not Found"
+      });
+    }
+
+    const allRawMaterial = await prisma.rawMaterial.findMany({
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        warehouseStock: {
+          where: {
+            warehouseId,
+          },
+          select: {
+            quantity: true,
+            isUsed: true,
+          },
+        },
+      },
+    });
+
+    const formattedData = allRawMaterial.map((data) => {
+      const warehouseData = data.warehouseStock[0] || {};
+
+      const stock = warehouseData.quantity ?? 0;
+      const isUsed = warehouseData.isUsed ?? false;
+
+      return {
+        id: data.id,
+        name: data.name,
+        stock: formatStock(stock),
+        rawStock: stock, // only for sorting
+        unit: data.unit,
+        isUsed,
+        outOfStock: stock === 0,
+      };
+    });
+
+    const sortedData = formattedData.sort((a, b) => {
+      if (a.isUsed === b.isUsed) {
+        return a.rawStock - b.rawStock;
+      }
+      return a.isUsed ? -1 : 1;
+    });
+
+    const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
+
+    return res.status(200).json({
+      success: true,
+      message: `${warehouseData.warehouseName} raw material fetched successfully`,
+      data: cleanedData,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   createCompany,
   createVendor,
@@ -4766,6 +4848,7 @@ module.exports = {
   getAllTerms,
   getActiveTerms,
   getSystemDashboardData,
+  getRawMaterialByWarehouse
 };
 
 // "data": {

@@ -79,29 +79,45 @@ const formatStock = (value) => {
 
 const getRawMaterialList = async (req, res) => {
   try {
+    const warehouseId = req.user?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
     const allRawMaterial = await prisma.rawMaterial.findMany({
-      orderBy: {
-        stock: "asc",
-      },
       select: {
         id: true,
         name: true,
-        stock: true,
         unit: true,
-        isUsed: true,
+        warehouseStock: {
+          where: {
+            warehouseId,
+          },
+          select: {
+            quantity: true,
+            isUsed: true,
+          },
+        },
       },
     });
 
     const formattedData = allRawMaterial.map((data) => {
-      const stock = data.stock ?? 0;
+      const warehouseData = data.warehouseStock[0] || {};
+
+      const stock = warehouseData.quantity ?? 0;
+      const isUsed = warehouseData.isUsed ?? false;
 
       return {
         id: data.id,
         name: data.name,
         stock: formatStock(stock),
-        rawStock: stock, // used only for sorting
+        rawStock: stock, // only for sorting
         unit: data.unit,
-        isUsed: data.isUsed,
+        isUsed,
         outOfStock: stock === 0,
       };
     });
@@ -117,7 +133,7 @@ const getRawMaterialList = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Data fetched successfully",
+      message: "Raw material fetched successfully",
       data: cleanedData,
     });
   } catch (error) {
@@ -1891,6 +1907,75 @@ const getRawMaterialList2 = async (req, res) => {
     }
 
     const allRawMaterial = await prisma.rawMaterial.findMany({
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        warehouseStock: {
+          where: {
+            warehouseId,
+          },
+          select: {
+            quantity: true,
+            isUsed: true,
+          },
+        },
+      },
+    });
+
+    const formattedData = allRawMaterial.map((data) => {
+      const warehouseData = data.warehouseStock[0] || {};
+
+      const stock = warehouseData.quantity ?? 0;
+      const isUsed = warehouseData.isUsed ?? false;
+
+      return {
+        id: data.id,
+        name: data.name,
+        stock: formatStock(stock),
+        rawStock: stock, // only for sorting
+        unit: data.unit,
+        isUsed,
+        outOfStock: stock === 0,
+      };
+    });
+
+    const sortedData = formattedData.sort((a, b) => {
+      if (a.isUsed === b.isUsed) {
+        return a.rawStock - b.rawStock;
+      }
+      return a.isUsed ? -1 : 1;
+    });
+
+    const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
+
+    return res.status(200).json({
+      success: true,
+      message: "Raw material fetched successfully",
+      data: cleanedData,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+const getRawMaterialByWarehouse= async (req, res) => {
+  try {
+    const warehouseId = req.params?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId not found",
+      });
+    }
+
+    const allRawMaterial = await prisma.rawMaterial.findMany({
       orderBy: {
         stock: "asc", // kept for DB-level consistency
       },
@@ -2481,6 +2566,7 @@ module.exports = {
   getPendingPOsForReceiving,
   purchaseOrderReceivingBill,
   purchaseOrderReceivingBill2,
+  getRawMaterialList2
 };
 
 // [{
