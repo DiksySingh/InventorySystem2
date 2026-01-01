@@ -4872,7 +4872,7 @@ const formatStock = (value) => {
 
 const getRawMaterialByWarehouse = async (req, res) => {
   try {
-    const warehouseId = req.params?.warehouseId;
+    const warehouseId = req.query?.warehouseId || req.user?.warehouseId;
     if (!warehouseId) {
       return res.status(400).json({
         success: false,
@@ -4943,7 +4943,6 @@ const getRawMaterialByWarehouse = async (req, res) => {
     });
   }
 };
-
 
 module.exports = {
   createCompany,

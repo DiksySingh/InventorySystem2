@@ -207,7 +207,8 @@ router.get(
 );
 
 router.get(
-  "/warehouses/:warehouseId/raw-material",
+  "/warehouses/raw-material",
+  tokenVerification(["Purchase", "Store", "Admin"]),
   purchaseOrderController.getRawMaterialByWarehouse
 );
 
