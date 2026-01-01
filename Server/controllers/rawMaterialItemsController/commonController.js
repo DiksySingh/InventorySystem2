@@ -2348,7 +2348,7 @@ const sendAllSystemStockShortageReport = async () => {
     });
 
     await sendMail({
-      to: [process.env.PURCHASE_EMAIL, process.env.ADMIN_EMAIL],
+      to: [process.env.PURCHASE_EMAIL, process.env.ADMIN_EMAIL, process.env.DEVELOPER_EMAIL],
       // to: [process.env.PURCHASE_EMAIL],
       subject: "⚠️ Stock Shortage Report (System-wise)",
       text: "Attached is the system-wise stock shortage report.",
