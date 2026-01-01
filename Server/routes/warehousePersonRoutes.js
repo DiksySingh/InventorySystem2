@@ -68,6 +68,8 @@ const {
   addReceivingItemsData,
   receivingDataGroupedByOutgoing,
   addReplacementDispatch,
+  createMaterialDispatchLog,
+  getMaterialDispatchLogs,
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -406,4 +408,18 @@ router.post(
   fileUploadHandler,
   addReplacementDispatch
 );
+
+//--------- Material Dispatch for Testing ---------//
+router.post(
+  "/dispatch/testing-material",
+  userVerification(["warehouseAdmin"]),
+  createMaterialDispatchLog
+);
+
+router.get(
+  "/dispatch/testing-material/history",
+  userVerification(["warehouseAdmin"]),
+  getMaterialDispatchLogs
+);
+
 module.exports = router;

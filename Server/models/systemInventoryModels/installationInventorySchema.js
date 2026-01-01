@@ -17,6 +17,13 @@ const installationInventorySchema = new Schema({
         required: true,
         default: 0,
     },
+    unit: {
+        type: String,
+    },
+    isUsed: {
+        type: Boolean,
+        default: true
+    },
     defective: {
         type: Number,
         default: 0

@@ -6,8 +6,9 @@ const SystemItem = require("../../models/systemInventoryModels/systemItemSchema"
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 
 const getLineWorkerList = async (req, res) => {
-  try {
+   try {
     const empId = req.user?.id;
+    const userWarehouseId = req.user?.warehouseId;
     if (!empId) {
       return res.status(400).json({
         success: false,
@@ -33,6 +34,7 @@ const getLineWorkerList = async (req, res) => {
 
     const userData = await prisma.user.findMany({
       where: {
+        warehouseId: userWarehouseId,
         role: {
           is: {
             name: {
@@ -147,7 +149,21 @@ const getRawMaterialList = async (req, res) => {
 
 const getWarehouseRawMaterialList = async (req, res) => {
   try {
-    const { warehouseId } = "67446a8b27dae6f7f4d985dd"; // or req.query.warehouseId
+    const warehouseId = req.user?.warehouseId;
+    if(!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user."
+      });
+    }
+
+    const warehouse = await Warehouse.findById(warehouseId);
+    if(!warehouse) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not found."
+      });
+    }
 
     // 1. Fetch from WarehouseStock instead
     const warehouseData = await prisma.warehouseStock.findMany({
@@ -176,7 +192,6 @@ const getWarehouseRawMaterialList = async (req, res) => {
         rawStock: stock, // used for sorting
         unit: item.unit,
         isUsed: item.isUsed ?? item.rawMaterial?.isUsed,
-        outOfStock: stock === 0,
       };
     });
 
@@ -193,7 +208,7 @@ const getWarehouseRawMaterialList = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Warehouse stock data fetched successfully",
+      message: `${warehouse.warehouseName} raw material fetched successfully`,
       data: cleanedData,
     });
   } catch (error) {
@@ -391,7 +406,9 @@ const approveOrDeclineItemRequest = async (req, res) => {
 
 const sanctionItemForRequest = async (req, res) => {
   try {
-    const { itemRequestId } = req?.body;
+    const { itemRequestId } = req.body;
+    const warehouseId = req.user?.warehouseId;
+
     if (!itemRequestId) {
       return res.status(400).json({
         success: false,
@@ -399,29 +416,26 @@ const sanctionItemForRequest = async (req, res) => {
       });
     }
 
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
     const itemRequestData = await prisma.itemRequestData.findFirst({
-      where: {
-        id: itemRequestId,
-      },
+      where: { id: itemRequestId },
     });
 
-    if (!itemRequestData) {
-      throw new Error("Item request not found");
-    }
-
-    if (itemRequestData.approved === null) {
+    if (!itemRequestData) throw new Error("Item request not found");
+    if (itemRequestData.approved === null)
       throw new Error("Item request is not approved.");
-    }
-
-    if (itemRequestData.declined === true) {
+    if (itemRequestData.declined === true)
       throw new Error("Item request is declined.");
-    }
+    if (itemRequestData.materialGiven)
+      throw new Error("Material already sanctioned");
 
-    if (itemRequestData.materialGiven) {
-      throw new Error("Material for these request already sanctioned");
-    }
     const rawMaterials = itemRequestData.rawMaterialRequested;
-
     if (!Array.isArray(rawMaterials) || rawMaterials.length === 0) {
       throw new Error("No raw material data found in the request");
     }
@@ -429,7 +443,8 @@ const sanctionItemForRequest = async (req, res) => {
     const date = new Date();
 
     const result = await prisma.$transaction(async (tx) => {
-      for (let rawMaterial of rawMaterials) {
+      for (const rawMaterial of rawMaterials) {
+        // 1️⃣ Validate raw material master
         const rawMaterialData = await tx.rawMaterial.findFirst({
           where: { id: rawMaterial.rawMaterialId },
         });
@@ -440,33 +455,51 @@ const sanctionItemForRequest = async (req, res) => {
           );
         }
 
-        if (Number(rawMaterialData.stock) < Number(rawMaterial.quantity)) {
-          throw new Error(
-            `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds available stock`
-          );
-        }
-
-        // Decrease from global stock
-        await tx.rawMaterial.update({
-          where: { id: rawMaterialData.id },
-          data: {
-            stock: { decrement: Number(rawMaterial.quantity) },
+        // 2️⃣ Get warehouse stock
+        const warehouseStock = await tx.warehouseStock.findFirst({
+          where: {
+            warehouseId,
+            rawMaterialId: rawMaterial.rawMaterialId,
           },
         });
 
-        // Check if the user already has this item
-        const existingUserItemStockData = await tx.userItemStock.findFirst({
+        if (!warehouseStock) {
+          throw new Error(
+            `Stock not available in warehouse for ${rawMaterialData.name}`
+          );
+        }
+
+        if (Number(warehouseStock.quantity) < Number(rawMaterial.quantity)) {
+          throw new Error(
+            `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds warehouse stock`
+          );
+        }
+
+        // 3️⃣ Decrease warehouse stock
+        await tx.warehouseStock.update({
+          where: { id: warehouseStock.id },
+          data: {
+            quantity: {
+              decrement: Number(rawMaterial.quantity),
+            },
+          },
+        });
+
+        // 4️⃣ Credit user stock
+        const existingUserItemStock = await tx.userItemStock.findFirst({
           where: {
             empId: itemRequestData.requestedBy,
             rawMaterialId: rawMaterial.rawMaterialId,
           },
         });
 
-        if (existingUserItemStockData) {
+        if (existingUserItemStock) {
           await tx.userItemStock.update({
-            where: { id: existingUserItemStockData.id }, // MUST use unique ID here
+            where: { id: existingUserItemStock.id },
             data: {
-              quantity: { increment: Number(rawMaterial.quantity) },
+              quantity: {
+                increment: Number(rawMaterial.quantity),
+              },
             },
           });
         } else {
@@ -481,21 +514,20 @@ const sanctionItemForRequest = async (req, res) => {
         }
       }
 
-      // Update item request status
-      const updatedRequest = await tx.itemRequestData.update({
+      // 5️⃣ Mark request as sanctioned
+      return tx.itemRequestData.update({
         where: { id: itemRequestId },
         data: {
           materialGiven: true,
           updatedAt: date,
-          updatedBy: req?.user?.id,
+          updatedBy: req.user.id,
         },
       });
-
-      return updatedRequest;
     });
+
     return res.status(200).json({
       success: true,
-      message: "Material Sanctioned & Inventory Stock Updated Successfully",
+      message: "Material sanctioned from warehouse successfully",
       data: result,
     });
   } catch (error) {
@@ -564,6 +596,14 @@ const showProcessData = async (req, res) => {
       limit = 15,
     } = req.query;
 
+    const warehouseId = req.user?.warehouseId;
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
     let filterConditions = { AND: [] };
 
     // ---------- UTIL ----------
@@ -631,6 +671,10 @@ const showProcessData = async (req, res) => {
     };
 
     setDateFilter();
+
+    filterConditions.AND.push({
+      warehouseId,
+    });
 
     // ---------- BASIC FILTERS ----------
     if (status) filterConditions.AND.push({ status });
@@ -736,64 +780,95 @@ const updateStock = async (req, res) => {
   const uploadFiles = [];
   try {
     const empId = req?.user?.id;
+    const warehouseId = req?.user?.warehouseId;
     const rawMaterialList = req?.body?.rawMaterialList;
 
-    if (!rawMaterialList || rawMaterialList.length === 0) {
-      throw new Error("Data not found");
-    }
-    if (!req.files || !req.files.billPhoto) {
-      throw new Error("File not uploaded");
+    if (!empId || !warehouseId) {
+      throw new Error("User or Warehouse not found");
     }
 
+    if (!rawMaterialList) {
+      throw new Error("Raw material list is required");
+    }
+
+    if (!req.files || !req.files.billPhoto) {
+      throw new Error("Bill photo file not uploaded");
+    }
+
+    // Upload bill photos
     const billPhotoUrl = req.files.billPhoto.map((file) => {
-      uploadFiles.push(file.path); // store path for cleanup if needed
+      uploadFiles.push(file.path);
       return `/uploads/rawMaterial/billPhoto/${file.filename}`;
     });
 
+    const parsedRawMaterialList = JSON.parse(rawMaterialList);
+
+    if (
+      !Array.isArray(parsedRawMaterialList) ||
+      parsedRawMaterialList.length === 0
+    ) {
+      throw new Error("Raw material list is empty or invalid");
+    }
+
     const result = await prisma.$transaction(async (tx) => {
+      // Create stock movement batch
       const addBillPhoto = await tx.stockMovementBatch.create({
         data: {
-          billPhotos: billPhotoUrl, // JSON array
+          billPhotos: billPhotoUrl,
           createdBy: empId,
         },
       });
-      const parsedRawMaterialList = JSON.parse(rawMaterialList);
-      for (const rawMaterial of parsedRawMaterialList) {
-        rawMaterial.quantity = Number(rawMaterial.quantity); // convert to number
 
-        if (!rawMaterial.rawMaterialId || isNaN(rawMaterial.quantity)) {
+      for (const rawMaterial of parsedRawMaterialList) {
+        const quantity = Number(rawMaterial.quantity);
+
+        if (!rawMaterial.rawMaterialId || isNaN(quantity) || quantity <= 0) {
           throw new Error(
-            "Invalid rawMaterial data: rawMaterialId and quantity are required"
+            "Invalid rawMaterial data: rawMaterialId and valid quantity required"
           );
         }
 
-        const existingRawMaterial = await tx.rawMaterial.findFirst({
+        const existingRawMaterial = await tx.rawMaterial.findUnique({
           where: { id: rawMaterial.rawMaterialId },
         });
 
         if (!existingRawMaterial) {
-          throw new Error("Raw Material Not Found");
+          throw new Error(
+            `Raw Material not found: ${rawMaterial.rawMaterialId}`
+          );
         }
 
+        // 🔹 Stock Movement (no warehouse relation now)
         await tx.stockMovement.create({
           data: {
             batchId: addBillPhoto.id,
             rawMaterialId: rawMaterial.rawMaterialId,
             userId: empId,
-            warehouseId: null,
-            quantity: rawMaterial.quantity,
+            warehouseId, // just a string now
+            quantity,
             unit: existingRawMaterial.unit,
             type: "IN",
           },
         });
 
-        await tx.rawMaterial.update({
-          where: { id: rawMaterial.rawMaterialId },
-          data: {
-            stock:
-              existingRawMaterial.stock === null
-                ? rawMaterial.quantity
-                : { increment: rawMaterial.quantity },
+        // 🔹 Warehouse Stock UPSERT
+        await tx.warehouseStock.upsert({
+          where: {
+            warehouseId_rawMaterialId: {
+              warehouseId,
+              rawMaterialId: rawMaterial.rawMaterialId,
+            },
+          },
+          update: {
+            quantity: { increment: quantity },
+            unit: existingRawMaterial.unit,
+          },
+          create: {
+            warehouseId,
+            rawMaterialId: rawMaterial.rawMaterialId,
+            quantity,
+            unit: existingRawMaterial.unit,
+            isUsed: true,
           },
         });
       }
@@ -808,7 +883,8 @@ const updateStock = async (req, res) => {
     });
   } catch (error) {
     console.log("ERROR: ", error);
-    // Rollback is automatic with Prisma transactions, but cleanup files manually
+
+    // Cleanup uploaded files if transaction fails
     if (uploadFiles.length > 0) {
       await Promise.all(
         uploadFiles.map(async (filePath) => {
@@ -833,11 +909,22 @@ const updateStock = async (req, res) => {
 const getStockMovementHistory = async (req, res) => {
   try {
     const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const warehouseId = req?.user?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not found for user",
+      });
+    }
 
     const batches = await prisma.stockMovementBatch.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         stockMovement: {
+          where: {
+            warehouseId: warehouseId, // ✅ FILTER HERE
+          },
           select: {
             rawMaterial: {
               select: {
@@ -853,8 +940,13 @@ const getStockMovementHistory = async (req, res) => {
       },
     });
 
-    // Map billPhotos with full URLs
-    const formattedBatches = batches.map((batch) => ({
+    // Optional (recommended):
+    // remove batches with no movements for this warehouse
+    const filteredBatches = batches.filter(
+      (batch) => batch.stockMovement.length > 0
+    );
+
+    const formattedBatches = filteredBatches.map((batch) => ({
       ...batch,
       billPhotos: batch.billPhotos
         ? batch.billPhotos.map((photo) => `${baseUrl}${photo}`)
@@ -880,6 +972,7 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
   try {
     const { id, isUsed } = req.query;
     const empId = req.user?.id;
+    const warehouseId = req.user?.warehouseId;
 
     if (!id) {
       return res.status(400).json({
@@ -888,31 +981,75 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
       });
     }
 
-    const existingRawMaterial = await prisma.rawMaterial.findUnique({
-      where: { id },
-    });
-
-    if (!existingRawMaterial) {
-      return res.status(404).json({
+    if (!warehouseId) {
+      return res.status(400).json({
         success: false,
-        message: "RawMaterial not found",
+        message: "Warehouse not assigned to user",
       });
     }
 
     const isUsedBoolean = isUsed === "true";
 
-    if (existingRawMaterial.isUsed === isUsedBoolean) {
-      return res.status(400).json({
+    /**
+     * STEP 1: Check whether this raw material exists
+     * AND is associated with the user's warehouse
+     */
+    const warehouseStock = await prisma.warehouseStock.findFirst({
+      where: {
+        rawMaterialId: id,
+        warehouseId: warehouseId,
+      },
+      include: {
+        rawMaterial: true,
+      },
+    });
+
+    if (!warehouseStock) {
+      return res.status(403).json({
         success: false,
-        message: `RawMaterial is already marked as ${isUsedBoolean ? "Used" : "Not Used"}`,
+        message: "You are not allowed to update this RawMaterial",
       });
     }
 
-    const updateData = await prisma.rawMaterial.update({
+    const existingRawMaterial = warehouseStock.rawMaterial;
+
+    if (existingRawMaterial.isUsed === isUsedBoolean) {
+      return res.status(400).json({
+        success: false,
+        message: `RawMaterial is already marked as ${
+          isUsedBoolean ? "Used" : "Not Used"
+        }`,
+      });
+    }
+
+    /**
+     * STEP 2: Update RawMaterial (global flag)
+     * Only allowed because user owns this warehouse mapping
+     */
+    const updatedRawMaterial = await prisma.rawMaterial.update({
       where: { id },
-      data: { isUsed: isUsedBoolean, updatedBy: empId },
+      data: {
+        isUsed: isUsedBoolean,
+        updatedBy: empId,
+      },
     });
 
+    /**
+     * STEP 3: Update ONLY this warehouse stock
+     */
+    await prisma.warehouseStock.updateMany({
+      where: {
+        rawMaterialId: id,
+        warehouseId: warehouseId,
+      },
+      data: {
+        isUsed: isUsedBoolean,
+      },
+    });
+
+    /**
+     * STEP 4: Audit log
+     */
     await prisma.auditLog.create({
       data: {
         entityType: "RawMaterial",
@@ -920,14 +1057,16 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
         action: "STATUS_UPDATED",
         performedBy: empId || null,
         oldValue: { isUsed: existingRawMaterial.isUsed },
-        newValue: { isUsed: updateData.isUsed },
+        newValue: { isUsed: isUsedBoolean },
       },
     });
 
     return res.status(200).json({
       success: true,
-      message: `RawMaterial marked as ${isUsedBoolean ? "Used." : "Not Used."}`,
-      data: updateData,
+      message: `RawMaterial marked as ${
+        isUsedBoolean ? "Used." : "Not Used."
+      }`,
+      data: updatedRawMaterial,
     });
   } catch (error) {
     return res.status(500).json({
@@ -1569,7 +1708,12 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
       billFile.filename
     );
 
-    if (!purchaseOrderId || !invoiceNumber || !Array.isArray(items) || !items.length) {
+    if (
+      !purchaseOrderId ||
+      !invoiceNumber ||
+      !Array.isArray(items) ||
+      !items.length
+    ) {
       await deleteUploadedFile();
       return res.status(400).json({
         success: false,
@@ -1595,171 +1739,172 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
     }
 
     /* ===================== PRISMA TRANSACTION ===================== */
-    const { receiptResults, stockUpdates } = await prisma.$transaction(async (tx) => {
-      const receiptResults = [];
-      const stockUpdates = [];
+    const { receiptResults, stockUpdates } = await prisma.$transaction(
+      async (tx) => {
+        const receiptResults = [];
+        const stockUpdates = [];
 
-      // 📄 Save bill
-      await tx.purchaseOrderBill.create({
-        data: {
-          purchaseOrderId,
-          invoiceNumber,
-          fileName: billFile.filename,
-          fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
-          mimeType: billFile.mimetype,
-          uploadedBy: userId,
-        },
-      });
-
-      for (const item of items) {
-        const {
-          purchaseOrderItemId,
-          itemId,
-          itemSource,
-          itemName,
-          goodQty = 0,
-          damagedQty = 0,
-          remarks = "",
-        } = item;
-
-        const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
-        if (!poItem) throw new Error("PO item not found.");
-
-        const orderedQty = Number(poItem.quantity || 0);
-        const alreadyReceived = Number(poItem.receivedQty || 0);
-        const poUnit = poItem.unit?.toLowerCase();
-
-        if (alreadyReceived + goodQty > orderedQty) {
-          throw new Error(`Over receiving ${itemName}`);
-        }
-
-        const totalReceived = alreadyReceived + goodQty;
-
-        /* ===== RECEIPT ENTRY ===== */
-        await tx.purchaseOrderReceipt.create({
+        // 📄 Save bill
+        await tx.purchaseOrderBill.create({
           data: {
             purchaseOrderId,
-            purchaseOrderItemId,
             invoiceNumber,
-            itemId,
-            itemSource,
-            itemName,
-            receivedQty: goodQty + damagedQty,
-            goodQty,
-            damagedQty,
-            remarks,
-            createdBy: userId,
-            receivedDate: new Date(),
+            fileName: billFile.filename,
+            fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
+            mimeType: billFile.mimetype,
+            uploadedBy: userId,
           },
         });
 
-        await tx.purchaseOrderItem.update({
-          where: { id: purchaseOrderItemId },
-          data: { receivedQty: totalReceived },
-        });
+        for (const item of items) {
+          const {
+            purchaseOrderItemId,
+            itemId,
+            itemSource,
+            itemName,
+            goodQty = 0,
+            damagedQty = 0,
+            remarks = "",
+          } = item;
 
-        /* ===== DAMAGED STOCK (NO UPSERT) ===== */
-        if (damagedQty > 0) {
-          await tx.damagedStock.create({
+          const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+          if (!poItem) throw new Error("PO item not found.");
+
+          const orderedQty = Number(poItem.quantity || 0);
+          const alreadyReceived = Number(poItem.receivedQty || 0);
+          const poUnit = poItem.unit?.toLowerCase();
+
+          if (alreadyReceived + goodQty > orderedQty) {
+            throw new Error(`Over receiving ${itemName}`);
+          }
+
+          const totalReceived = alreadyReceived + goodQty;
+
+          /* ===== RECEIPT ENTRY ===== */
+          await tx.purchaseOrderReceipt.create({
             data: {
               purchaseOrderId,
+              purchaseOrderItemId,
               invoiceNumber,
               itemId,
               itemSource,
               itemName,
-              unit: poItem.unit,
-              quantity: damagedQty,
-              status: "Pending",
+              receivedQty: goodQty + damagedQty,
+              goodQty,
+              damagedQty,
               remarks,
               createdBy: userId,
+              receivedDate: new Date(),
             },
           });
-        }
 
-        /* ===== GOOD STOCK QUEUE ===== */
-        if (goodQty > 0) {
-          stockUpdates.push({
-            itemSource,
+          await tx.purchaseOrderItem.update({
+            where: { id: purchaseOrderItemId },
+            data: { receivedQty: totalReceived },
+          });
+
+          /* ===== DAMAGED STOCK (NO UPSERT) ===== */
+          if (damagedQty > 0) {
+            await tx.damagedStock.create({
+              data: {
+                purchaseOrderId,
+                invoiceNumber,
+                itemId,
+                itemSource,
+                itemName,
+                unit: poItem.unit,
+                quantity: damagedQty,
+                status: "Pending",
+                remarks,
+                createdBy: userId,
+              },
+            });
+          }
+
+          /* ===== GOOD STOCK QUEUE ===== */
+          if (goodQty > 0) {
+            stockUpdates.push({
+              itemSource,
+              itemId,
+              goodQty,
+              poUnit,
+              warehouseId: userWarehouseId,
+            });
+          }
+
+          receiptResults.push({
             itemId,
+            itemName,
             goodQty,
-            poUnit,
-            warehouseId: userWarehouseId,
+            damagedQty,
+            remainingQty: orderedQty - totalReceived,
           });
         }
 
-        receiptResults.push({
-          itemId,
-          itemName,
-          goodQty,
-          damagedQty,
-          remainingQty: orderedQty - totalReceived,
-        });
-      }
-
-      /* ===== FINAL PO STATUS (SAFE & CORRECT) ===== */
-      const updatedItems = await tx.purchaseOrderItem.findMany({
-        where: { purchaseOrderId },
-        select: { quantity: true, receivedQty: true },
-      });
-
-      const allReceived = updatedItems.every(
-        (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0)
-      );
-
-      const anyReceived = updatedItems.some(
-        (i) => Number(i.receivedQty || 0) > 0
-      );
-
-      let newStatus;
-      if (!anyReceived) newStatus = "Cancelled";
-      else if (allReceived) newStatus = "Received";
-      else newStatus = "PartiallyReceived";
-
-      if (newStatus !== po.status) {
-        await tx.purchaseOrder.update({
-          where: { id: purchaseOrderId },
-          data: { status: newStatus },
-        });
-      }
-
-      /* ===== MYSQL STOCK ===== */
-      for (const s of stockUpdates.filter((s) => s.itemSource === "mysql")) {
-        const rawMat = await tx.rawMaterial.findUnique({
-          where: { id: s.itemId },
+        /* ===== FINAL PO STATUS (SAFE & CORRECT) ===== */
+        const updatedItems = await tx.purchaseOrderItem.findMany({
+          where: { purchaseOrderId },
+          select: { quantity: true, receivedQty: true },
         });
 
-        const baseUnit = rawMat.unit?.toLowerCase();
-        const convUnit = rawMat.conversionUnit?.toLowerCase();
-        const factor = Number(rawMat.conversionFactor || 1);
+        const allReceived = updatedItems.every(
+          (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0)
+        );
 
-        let convertedQty;
+        const anyReceived = updatedItems.some(
+          (i) => Number(i.receivedQty || 0) > 0
+        );
 
-        if (!baseUnit) convertedQty = s.goodQty;
-        else if (s.poUnit === baseUnit) convertedQty = s.goodQty;
-        else if (convUnit && s.poUnit === convUnit)
-          convertedQty = s.goodQty * factor;
-        else
-          throw new Error(`Invalid unit for raw material ${rawMat.name}`);
+        let newStatus;
+        if (!anyReceived) newStatus = "Cancelled";
+        else if (allReceived) newStatus = "Received";
+        else newStatus = "PartiallyReceived";
 
-        await tx.warehouseStock.upsert({
-          where: {
-            warehouseId_rawMaterialId: {
+        if (newStatus !== po.status) {
+          await tx.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: newStatus },
+          });
+        }
+
+        /* ===== MYSQL STOCK ===== */
+        for (const s of stockUpdates.filter((s) => s.itemSource === "mysql")) {
+          const rawMat = await tx.rawMaterial.findUnique({
+            where: { id: s.itemId },
+          });
+
+          const baseUnit = rawMat.unit?.toLowerCase();
+          const convUnit = rawMat.conversionUnit?.toLowerCase();
+          const factor = Number(rawMat.conversionFactor || 1);
+
+          let convertedQty;
+
+          if (!baseUnit) convertedQty = s.goodQty;
+          else if (s.poUnit === baseUnit) convertedQty = s.goodQty;
+          else if (convUnit && s.poUnit === convUnit)
+            convertedQty = s.goodQty * factor;
+          else throw new Error(`Invalid unit for raw material ${rawMat.name}`);
+
+          await tx.warehouseStock.upsert({
+            where: {
+              warehouseId_rawMaterialId: {
+                warehouseId: s.warehouseId,
+                rawMaterialId: s.itemId,
+              },
+            },
+            update: { quantity: { increment: convertedQty } },
+            create: {
               warehouseId: s.warehouseId,
               rawMaterialId: s.itemId,
+              quantity: convertedQty,
+              unit: baseUnit,
             },
-          },
-          update: { quantity: { increment: convertedQty } },
-          create: {
-            warehouseId: s.warehouseId,
-            rawMaterialId: s.itemId,
-            quantity: convertedQty,
-            unit: baseUnit,
-          },
-        });
-      }
+          });
+        }
 
-      return { receiptResults, stockUpdates };
-    });
+        return { receiptResults, stockUpdates };
+      }
+    );
 
     /* ===================== MONGO STOCK ===================== */
     for (const s of stockUpdates.filter((s) => s.itemSource === "mongo")) {
@@ -1828,10 +1973,164 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
   }
 };
 
+const directItemIssue = async (req, res) => {
+  try {
+    const issuedBy = req.user?.id;
+    const userWarehouseId = req.user?.warehouseId;
+
+    /* ---------------- AUTH VALIDATION ---------------- */
+    if (!issuedBy) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    if (!userWarehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to storekeeper",
+      });
+    }
+
+    const { issuedTo, rawMaterialIssued, remarks, serviceProcessId } = req.body;
+
+    /* ---------------- BODY VALIDATION ---------------- */
+    if (!issuedTo) {
+      return res.status(400).json({
+        success: false,
+        message: "issuedTo (employee id) is required",
+      });
+    }
+
+    if (!Array.isArray(rawMaterialIssued) || rawMaterialIssued.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "rawMaterialIssued must be a non-empty array",
+      });
+    }
+
+    /* ---------------- NORMALIZE MATERIALS ---------------- */
+    const materialMap = new Map();
+
+    for (let i = 0; i < rawMaterialIssued.length; i++) {
+      const item = rawMaterialIssued[i];
+      const quantity = Number(item.quantity);
+
+      if (!item.rawMaterialId) {
+        return res.status(400).json({
+          success: false,
+          message: `rawMaterialId missing at index ${i}`,
+        });
+      }
+
+      if (!item.quantity || isNaN(quantity) || quantity <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid quantity for rawMaterialId ${item.rawMaterialId}`,
+        });
+      }
+
+      // Merge duplicate rawMaterialIds
+      materialMap.set(
+        item.rawMaterialId,
+        (materialMap.get(item.rawMaterialId) || 0) + quantity
+      );
+    }
+
+    /* ---------------- TRANSACTION ---------------- */
+    const result = await prisma.$transaction(async (tx) => {
+      // 🔹 Process each material
+      for (const [rawMaterialId, quantity] of materialMap.entries()) {
+        const warehouseStock = await tx.warehouseStock.findUnique({
+          where: {
+            warehouseId_rawMaterialId: {
+              warehouseId: userWarehouseId,
+              rawMaterialId,
+            },
+          },
+        });
+
+        if (!warehouseStock) {
+          throw new Error(
+            `Stock not found in warehouse for rawMaterialId ${rawMaterialId}`
+          );
+        }
+
+        if (warehouseStock.quantity < quantity) {
+          throw new Error(
+            `Insufficient stock for rawMaterialId ${rawMaterialId}. Available: ${warehouseStock.quantity}, Required: ${quantity}`
+          );
+        }
+
+        // 🔻 Reduce warehouse stock
+        await tx.warehouseStock.update({
+          where: {
+            warehouseId_rawMaterialId: {
+              warehouseId: userWarehouseId,
+              rawMaterialId,
+            },
+          },
+          data: {
+            quantity: { decrement: quantity },
+          },
+        });
+
+        // ➕ Add to user stock (empId!)
+        await tx.userItemStock.upsert({
+          where: {
+            empId_rawMaterialId: {
+              empId: issuedTo,
+              rawMaterialId,
+            },
+          },
+          update: {
+            quantity: { increment: quantity },
+          },
+          create: {
+            empId: issuedTo,
+            rawMaterialId,
+            quantity,
+            unit: warehouseStock.unit,
+          },
+        });
+      }
+
+      // 🔹 Create Direct Issue record
+      const directIssue = await tx.directItemIssue.create({
+        data: {
+          warehouseId: userWarehouseId,
+          serviceProcessId,
+          isProcessIssue: Boolean(serviceProcessId),
+          rawMaterialIssued,
+          issuedTo,
+          issuedBy,
+          remarks,
+        },
+      });
+
+      return directIssue;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Items issued successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Direct Item Issue Error:", error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to issue items",
+    });
+  }
+};
+
 const getLineWorkerList2 = async (req, res) => {
   try {
     const empId = req.user?.id;
-    const userWarehouseId = emp.user?.warehouseId;
+    const userWarehouseId = req.user?.warehouseId;
     if (!empId) {
       return res.status(400).json({
         success: false,
@@ -1952,78 +2251,6 @@ const getRawMaterialList2 = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Raw material fetched successfully",
-      data: cleanedData,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
-
-
-const getRawMaterialByWarehouse= async (req, res) => {
-  try {
-    const warehouseId = req.params?.warehouseId;
-
-    if (!warehouseId) {
-      return res.status(400).json({
-        success: false,
-        message: "warehouseId not found",
-      });
-    }
-
-    const allRawMaterial = await prisma.rawMaterial.findMany({
-      orderBy: {
-        stock: "asc", // kept for DB-level consistency
-      },
-      select: {
-        id: true,
-        name: true,
-        unit: true,
-        isUsed: true,
-        warehouseStock: {
-          where: {
-            warehouseId,
-          },
-          select: {
-            quantity: true,
-          },
-        },
-      },
-    });
-
-    const formattedData = allRawMaterial.map((data) => {
-      const stock =
-        data.warehouseStock.length > 0
-          ? (data.warehouseStock[0].quantity ?? 0)
-          : 0;
-
-      return {
-        id: data.id,
-        name: data.name,
-        stock: formatStock(stock),
-        rawStock: stock, // used only for sorting
-        unit: data.unit,
-        isUsed: data.isUsed,
-        outOfStock: stock === 0,
-      };
-    });
-
-    const sortedData = formattedData.sort((a, b) => {
-      if (a.isUsed === b.isUsed) {
-        return a.rawStock - b.rawStock;
-      }
-      return a.isUsed ? -1 : 1;
-    });
-
-    const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
-
-    return res.status(200).json({
-      success: true,
-      message: "Data fetched successfully",
       data: cleanedData,
     });
   } catch (error) {
@@ -2375,21 +2602,31 @@ const updateStock2 = async (req, res) => {
       throw new Error("User or Warehouse not found");
     }
 
-    if (!rawMaterialList || rawMaterialList.length === 0) {
-      throw new Error("Data not found");
+    if (!rawMaterialList) {
+      throw new Error("Raw material list is required");
     }
 
     if (!req.files || !req.files.billPhoto) {
-      throw new Error("File not uploaded");
+      throw new Error("Bill photo file not uploaded");
     }
 
+    // Upload bill photos
     const billPhotoUrl = req.files.billPhoto.map((file) => {
       uploadFiles.push(file.path);
       return `/uploads/rawMaterial/billPhoto/${file.filename}`;
     });
 
+    const parsedRawMaterialList = JSON.parse(rawMaterialList);
+
+    if (
+      !Array.isArray(parsedRawMaterialList) ||
+      parsedRawMaterialList.length === 0
+    ) {
+      throw new Error("Raw material list is empty or invalid");
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      // Create batch
+      // Create stock movement batch
       const addBillPhoto = await tx.stockMovementBatch.create({
         data: {
           billPhotos: billPhotoUrl,
@@ -2397,37 +2634,33 @@ const updateStock2 = async (req, res) => {
         },
       });
 
-      const parsedRawMaterialList = JSON.parse(rawMaterialList);
-
       for (const rawMaterial of parsedRawMaterialList) {
-        rawMaterial.quantity = Number(rawMaterial.quantity);
+        const quantity = Number(rawMaterial.quantity);
 
-        if (
-          !rawMaterial.rawMaterialId ||
-          isNaN(rawMaterial.quantity) ||
-          rawMaterial.quantity <= 0
-        ) {
+        if (!rawMaterial.rawMaterialId || isNaN(quantity) || quantity <= 0) {
           throw new Error(
             "Invalid rawMaterial data: rawMaterialId and valid quantity required"
           );
         }
 
-        const existingRawMaterial = await tx.rawMaterial.findFirst({
+        const existingRawMaterial = await tx.rawMaterial.findUnique({
           where: { id: rawMaterial.rawMaterialId },
         });
 
         if (!existingRawMaterial) {
-          throw new Error("Raw Material Not Found");
+          throw new Error(
+            `Raw Material not found: ${rawMaterial.rawMaterialId}`
+          );
         }
 
-        // 🔹 Stock Movement (Warehouse-based)
+        // 🔹 Stock Movement (no warehouse relation now)
         await tx.stockMovement.create({
           data: {
             batchId: addBillPhoto.id,
             rawMaterialId: rawMaterial.rawMaterialId,
             userId: empId,
-            warehouseId,
-            quantity: rawMaterial.quantity,
+            warehouseId, // just a string now
+            quantity,
             unit: existingRawMaterial.unit,
             type: "IN",
           },
@@ -2442,13 +2675,13 @@ const updateStock2 = async (req, res) => {
             },
           },
           update: {
-            quantity: { increment: rawMaterial.quantity },
+            quantity: { increment: quantity },
             unit: existingRawMaterial.unit,
           },
           create: {
             warehouseId,
             rawMaterialId: rawMaterial.rawMaterialId,
-            quantity: rawMaterial.quantity,
+            quantity,
             unit: existingRawMaterial.unit,
             isUsed: true,
           },
@@ -2566,7 +2799,13 @@ module.exports = {
   getPendingPOsForReceiving,
   purchaseOrderReceivingBill,
   purchaseOrderReceivingBill2,
-  getRawMaterialList2
+  getLineWorkerList2,
+  getRawMaterialList2,
+  updateStock2,
+  getStockMovementHistory2,
+  showProcessData2,
+  sanctionItemForRequest2,
+  directItemIssue
 };
 
 // [{

@@ -7,12 +7,12 @@ const { createSecretToken, createRefreshToken } = require("../../util/secretToke
 
 const addUser = async (req, res) => {
     try {
-        const { name, email, contact, password, roleId, block, district, state } = req.body;
+        const { name, email, contact, password, warehouseId, roleId, block, district, state } = req.body;
 
-        if (!name || !email || !password || !roleId) {
+        if (!name || !email || !warehouseId || !password || !roleId) {
             return res.status(400).json({
                 success: false,
-                message: "Name, email, password, and roleId are required",
+                message: "Name, email, password, warehouseId and roleId are required",
             });
         }
 
@@ -35,6 +35,7 @@ const addUser = async (req, res) => {
                 email,
                 //contact,
                 password: hashedPassword,
+                warehouseId,
                 roleId,
                 block: block || null,
                 district: district || null,

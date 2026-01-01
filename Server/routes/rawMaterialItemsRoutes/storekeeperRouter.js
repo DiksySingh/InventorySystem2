@@ -14,6 +14,12 @@ router.get(
 );
 
 router.get(
+  "/getLineWorkerList2",
+  tokenVerification(["Store"]),
+  storekeeperController.getLineWorkerList2
+);
+
+router.get(
   "/showIncomingItemRequest",
   tokenVerification(["Store"]),
   storekeeperController.showIncomingItemRequest
@@ -31,6 +37,12 @@ router.post(
   storekeeperController.sanctionItemForRequest
 );
 
+router.post(
+  "/sanctionItemForRequest2",
+  tokenVerification(["Store"]),
+  storekeeperController.sanctionItemForRequest2
+);
+
 router.get(
   "/getUserItemStock",
   tokenVerification(["Store"]),
@@ -44,10 +56,23 @@ router.post(
   storekeeperController.updateStock
 );
 
+router.post(
+  "/updateStock2",
+  tokenVerification(["Store"]),
+  uploadHandler,
+  storekeeperController.updateStock2
+);
+
 router.get(
   "/showProcessData",
   tokenVerification(["Store"]),
   storekeeperController.showProcessData
+);
+
+router.get(
+  "/showProcessData2",
+  tokenVerification(["Store"]),
+  storekeeperController.showProcessData2
 );
 
 router.get(
@@ -58,7 +83,7 @@ router.get(
 
 router.get(
   "/getWarehouseRawMaterialList",
-  tokenVerification(["Store", "Purchase"]),
+  tokenVerification(["Store"]),
   storekeeperController.getWarehouseRawMaterialList
 );
 
@@ -68,9 +93,15 @@ router.get(
   storekeeperController.getStockMovementHistory
 );
 
+router.get(
+  "/getStockMovementHistory2",
+  tokenVerification(["Store"]),
+  storekeeperController.getStockMovementHistory2
+);
+
 router.put(
   "/markRawMaterialUsedOrNotUsed",
-  tokenVerification(["Store", "Purchase"]),
+  tokenVerification(["Store"]),
   storekeeperController.markRawMaterialUsedOrNotUsed
 );
 
@@ -91,6 +122,12 @@ router.post(
   tokenVerification(["Store"]),
   uploadPurchaseOrderBill,
   storekeeperController.purchaseOrderReceivingBill2
+);
+
+router.post(
+  "/directItemIssue",
+  tokenVerification(["Store"]),
+  storekeeperController.directItemIssue
 );
 
 module.exports = router;

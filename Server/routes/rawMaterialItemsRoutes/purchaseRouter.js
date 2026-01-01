@@ -194,12 +194,21 @@ router.post(
   purchaseOrderController.debitNoteReceivingBill
 );
 
+router.put(
+  "/raw-material/update",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.markItemUsedOrNotUsedByWarehouseId
+);
+
 router.get(
   "/dashboard/warehouses/:warehouseId/systems/:systemId/orders",
   tokenVerification(["Purchase", "Store", "Admin"]),
   purchaseOrderController.getSystemDashboardData
 );
 
-router.get("/warehouses/:warehouseId/raw-material", purchaseOrderController.getRawMaterialByWarehouse);
+router.get(
+  "/warehouses/:warehouseId/raw-material",
+  purchaseOrderController.getRawMaterialByWarehouse
+);
 
 module.exports = router;

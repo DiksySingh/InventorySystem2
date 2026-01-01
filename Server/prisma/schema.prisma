@@ -23,35 +23,38 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
-  updatedItems          ItemRawMaterial[]            @relation("UserUpdates")
-  stocks                StockMovement[]
-  services              ServiceRecord[] // One-to-Many relationship with ServiceRecord
-  productionLogs        ProductionLog[]
-  role                  Role?                        @relation(fields: [roleId], references: [id])
-  stageActivity         StageActivity[]
-  itemUsage             ItemUsage[]
-  rawMaterialCreated    RawMaterial[]                @relation("ItemCreatedByUser")
-  rawMaterialUpdated    RawMaterial[]                @relation("ItemUpdatedByUser")
-  requestedItemRequests ItemRequestData[]            @relation("RequestedByUser")
-  approvedItemRequests  ItemRequestData[]            @relation("ApprovedByUser")
-  updatedItemRequests   ItemRequestData[]            @relation("UpdatedByUser")
-  declinedItemRequests  ItemRequestData[]            @relation("DeclinedByUser")
-  createdServiceProcess Service_Process_Record[]     @relation("CreatedByUser")
-  updatedServiceProcess Service_Process_Record[]     @relation("UpdatedByUser")
-  userItemStock         UserItemStock[]
-  stockMovementBatch    StockMovementBatch[]
-  Company               Company[]
-  Vendor                Vendor[]
-  BankDetail            BankDetail[]
-  PurchaseOrder         PurchaseOrder[]
-  PurchaseOrderReceipt  PurchaseOrderReceipt[]
-  disassembleTasks      Disassemble_Reusable_Items[] @relation("DisassembleEmployee")
-  assembleStockReceives Disassemble_Reusable_Items[] @relation("AssembleEmployee")
-  debitNotes            DebitNote[]
-  damagedStocksCreated  DamagedStock[]               @relation("Damaged_Stock_CreatedBy")
-  damagedStocksUpdated  DamagedStock[]               @relation("Damaged_Stock_UpdatedBy")
-  termsCreatedBy        Terms_Conditions[]           @relation("TermsCreatedBy")
-  termsUpdatedBy        Terms_Conditions[]           @relation("TermsUpdatedBy")
+  updatedItems              ItemRawMaterial[]            @relation("UserUpdates")
+  stocks                    StockMovement[]
+  services                  ServiceRecord[] // One-to-Many relationship with ServiceRecord
+  productionLogs            ProductionLog[]
+  role                      Role?                        @relation(fields: [roleId], references: [id])
+  stageActivity             StageActivity[]
+  itemUsage                 ItemUsage[]
+  rawMaterialCreated        RawMaterial[]                @relation("ItemCreatedByUser")
+  rawMaterialUpdated        RawMaterial[]                @relation("ItemUpdatedByUser")
+  requestedItemRequests     ItemRequestData[]            @relation("RequestedByUser")
+  approvedItemRequests      ItemRequestData[]            @relation("ApprovedByUser")
+  updatedItemRequests       ItemRequestData[]            @relation("UpdatedByUser")
+  declinedItemRequests      ItemRequestData[]            @relation("DeclinedByUser")
+  createdServiceProcess     Service_Process_Record[]     @relation("CreatedByUser")
+  updatedServiceProcess     Service_Process_Record[]     @relation("UpdatedByUser")
+  userItemStock             UserItemStock[]
+  stockMovementBatch        StockMovementBatch[]
+  Company                   Company[]
+  Vendor                    Vendor[]
+  BankDetail                BankDetail[]
+  PurchaseOrder             PurchaseOrder[]
+  PurchaseOrderReceipt      PurchaseOrderReceipt[]
+  disassembleTasks          Disassemble_Reusable_Items[] @relation("DisassembleEmployee")
+  assembleStockReceives     Disassemble_Reusable_Items[] @relation("AssembleEmployee")
+  debitNotes                DebitNote[]
+  damagedStocksCreated      DamagedStock[]               @relation("Damaged_Stock_CreatedBy")
+  damagedStocksUpdated      DamagedStock[]               @relation("Damaged_Stock_UpdatedBy")
+  termsCreatedBy            Terms_Conditions[]           @relation("TermsCreatedBy")
+  termsUpdatedBy            Terms_Conditions[]           @relation("TermsUpdatedBy")
+  issuedItemsToUser         DirectItemIssue[]            @relation("IssuedToUser")
+  issuedItemsByUser         DirectItemIssue[]            @relation("IssuedByUser")
+  updatedByUser_DirectIssue DirectItemIssue[]            @relation("UpdatedByUser_DirectIssue")
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -64,11 +67,10 @@ model Role {
 }
 
 model Warehouse {
-  id             String          @id @default(uuid())
-  name           String?         @unique
-  state          String?
-  createdAt      DateTime        @default(now())
-  stockMovements StockMovement[]
+  id        String   @id @default(uuid())
+  name      String?  @unique
+  state     String?
+  createdAt DateTime @default(now())
 }
 
 model Item {
@@ -181,7 +183,6 @@ model StockMovement {
   timestamp     DateTime @default(now())
 
   rawMaterial RawMaterial?        @relation(fields: [rawMaterialId], references: [id])
-  warehouse   Warehouse?          @relation(fields: [warehouseId], references: [id])
   user        User?               @relation(fields: [userId], references: [id])
   batch       StockMovementBatch? @relation(fields: [batchId], references: [id])
 
@@ -383,6 +384,33 @@ model ItemRequestData {
   @@map("ItemRequestData")
 }
 
+model DirectItemIssue {
+  id               String  @id @default(uuid())
+  warehouseId      String?
+  serviceProcessId String? // optional, if issue is tied to a process
+  isProcessIssue   Boolean @default(false)
+
+  rawMaterialIssued Json? // same structure as rawMaterialRequested
+
+  issuedTo String? // Line worker (receiver)
+  issuedBy String? // Storekeeper (issuer)
+  issuedAt DateTime @default(now())
+
+  remarks String?
+
+  updatedAt DateTime? @updatedAt
+  updatedBy String?
+
+  // Relations
+  serviceProcess Service_Process_Record? @relation(fields: [serviceProcessId], references: [id])
+
+  issuedToUser  User? @relation("IssuedToUser", fields: [issuedTo], references: [id])
+  issuedByUser  User? @relation("IssuedByUser", fields: [issuedBy], references: [id])
+  updatedByUser User? @relation("UpdatedByUser_DirectIssue", fields: [updatedBy], references: [id])
+
+  @@map("DirectItemIssue")
+}
+
 enum ProcessStatus {
   PENDING
   IN_PROGRESS
@@ -429,6 +457,7 @@ model Service_Process_Record {
   stageActivity       StageActivity[]
   serviceProcessUsage ItemUsage[]
   reusableItems       Disassemble_Reusable_Items[]
+  directItemIssues    DirectItemIssue[]
 
   @@index([serialNumber])
   @@index([itemName])
@@ -759,8 +788,8 @@ model PurchaseOrder {
   cellNo            String?
   warranty          String?
 
-  otherCharges Json?
-  warehouseId String?
+  otherCharges  Json?
+  warehouseId   String?
   warehouseName String?
 
   createdAt DateTime @default(now())
@@ -944,7 +973,7 @@ model DebitNote {
   station         String?
 
   otherCharges Json?
-  warehouseId   String?
+  warehouseId  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -29,6 +29,7 @@ const ReceivingItems = require("../../models/serviceInventoryModels/receivingIte
 const FarmerReplacementItemsActivity = require("../../models/systemInventoryModels/farmerReplacementItemsActivity");
 const ReplacementDispatchDetails = require("../../models/systemInventoryModels/replacementDispatchDetailsSchema");
 const ReplacementDispatchBillPhoto = require("../../models/systemInventoryModels/replacementDispatchBillSchema");
+const MaterialDispatchLog = require("../../models/systemInventoryModels/materialDispatchLog");
 const fs = require("fs");
 const path = require("path");
 const ExcelJS = require("exceljs");
@@ -7351,3 +7352,177 @@ module.exports.addReplacementDispatch = async (req, res) => {
     });
   }
 };
+
+module.exports.createMaterialDispatchLog = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      movementType,
+      itemsList,
+      partyName,
+      address,
+      purpose,
+      remarks,
+    } = req.body;
+
+    const items =
+      typeof itemsList === "string" ? JSON.parse(itemsList) : itemsList;
+
+    if (!movementType || !["IN", "OUT"].includes(movementType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid movementType (IN / OUT) is required",
+      });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items list is required",
+      });
+    }
+
+    for (const item of items) {
+      if (!item.systemItemId || !item.quantity) {
+        return res.status(400).json({
+          success: false,
+          message: "systemItemId and quantity are required in itemsList",
+        });
+      }
+    }
+
+
+    if(!partyName || !address || !remarks) {
+      return res.status(400).json({
+        success: false,
+        message: "partyName, address, remarks are required."
+      });
+    }
+
+    const warehousePersonId = req.user._id;
+    const warehouseId = req.user.warehouse;
+
+    const warehouseData = await Warehouse.findById(warehouseId).session(session);
+    if (!warehouseData) throw new Error("Warehouse not found");
+
+    const stateMap = {
+      Bhiwani: "Haryana",
+      "Maharashtra Warehouse - Ambad": "Maharashtra",
+      "Maharashtra Warehouse - Badnapur": "Maharashtra",
+      "Korba Chhattisgarh": "Chhattisgarh",
+    };
+
+    const state = stateMap[warehouseData.warehouseName] || "";
+
+    // 🔁 STOCK UPDATE
+    for (const item of items) {
+      const stockDoc = await InstallationInventory.findOne({
+        warehouseId,
+        systemItemId: item.systemItemId,
+      }).session(session);
+
+      if (!stockDoc) {
+        throw new Error("Item not found in inventory");
+      }
+
+      if (movementType === "OUT") {
+        if (stockDoc.quantity < item.quantity) {
+          throw new Error("Insufficient stock");
+        }
+        stockDoc.quantity -= item.quantity;
+      } else {
+        stockDoc.quantity += item.quantity;
+      }
+
+      stockDoc.updatedAt = new Date();
+      stockDoc.updatedBy = warehousePersonId;
+      await stockDoc.save({ session });
+    }
+
+    const dispatchLog = await MaterialDispatchLog.create(
+      [
+        {
+          warehouseId,
+          movementType,
+          itemsList: items,
+          state,
+          partyName,
+          address,
+          purpose,
+          remarks,
+          sendingDate: movementType === "OUT" ? new Date() : null,
+          receivingDate: movementType === "IN" ? new Date() : null,
+          createdBy: warehousePersonId,
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(201).json({
+      success: true,
+      message:
+        movementType === "OUT"
+          ? "Material dispatched successfully"
+          : "Material received successfully",
+      data: dispatchLog[0],
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+module.exports.getMaterialDispatchLogs = async (req, res) => {
+  try {
+    const warehouseId = req.user?.warehouse;
+
+    const filter = {};
+    if (warehouseId) filter.warehouseId = warehouseId;
+
+    const logs = await MaterialDispatchLog.find(filter)
+      .populate("warehouseId", "warehouseName")
+      .populate("itemsList.systemItemId", "itemName")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const cleanData = logs.map(log => ({
+      id: log._id,
+      warehouseName: log.warehouseId?.warehouseName || "",
+      movementType: log.movementType,
+      purpose: log.purpose || null,
+      partyName: log.partyName,
+      address: log.address,
+      remarks: log.remarks || "",
+      date:
+        log.movementType === "OUT"
+          ? log.sendingDate
+          : log.receivingDate,
+      items: log.itemsList.map(item => ({
+        itemName: item.systemItemId?.itemName || "",
+        quantity: item.quantity,
+      })),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: cleanData.length,
+      data: cleanData,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
