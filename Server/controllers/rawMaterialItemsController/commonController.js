@@ -2249,7 +2249,7 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 
 const sendAllSystemStockShortageReport = async () => {
   try {
-    const warehouseId = "67beef9e2fffc2145da032f3";
+    const warehouseId = "690835908a80011de511b648";
 
     const systems = await System.find({
       systemName: { $nin: ["10HP AC System"] },
@@ -2323,7 +2323,6 @@ const sendAllSystemStockShortageReport = async () => {
           }
         });
       });
-
       /* ================= SHEET PER SYSTEM ================= */
       if (systemRows.length) {
         systemRows.sort((a, b) =>
@@ -2349,7 +2348,8 @@ const sendAllSystemStockShortageReport = async () => {
     });
 
     await sendMail({
-      to: [process.env.PURCHASE_EMAIL],
+      to: [process.env.PURCHASE_EMAIL, process.env.ADMIN_EMAIL],
+      // to: [process.env.PURCHASE_EMAIL],
       subject: "⚠️ Stock Shortage Report (System-wise)",
       text: "Attached is the system-wise stock shortage report.",
       attachments: [

@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const systemOrderSchema = new Schema({
+    warehouseId: {
+        type: Schema.Types.ObjectId,
+        ref: "Warehouse"
+    },
     systemId: {
         type: Schema.Types.ObjectId,
         ref: "System"
