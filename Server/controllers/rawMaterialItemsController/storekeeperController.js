@@ -6,7 +6,7 @@ const SystemItem = require("../../models/systemInventoryModels/systemItemSchema"
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 
 const getLineWorkerList = async (req, res) => {
-   try {
+  try {
     const empId = req.user?.id;
     const userWarehouseId = req.user?.warehouseId;
     if (!empId) {
@@ -150,18 +150,18 @@ const getRawMaterialList = async (req, res) => {
 const getWarehouseRawMaterialList = async (req, res) => {
   try {
     const warehouseId = req.user?.warehouseId;
-    if(!warehouseId) {
+    if (!warehouseId) {
       return res.status(400).json({
         success: false,
-        message: "Warehouse not assigned to user."
+        message: "Warehouse not assigned to user.",
       });
     }
 
     const warehouse = await Warehouse.findById(warehouseId);
-    if(!warehouse) {
+    if (!warehouse) {
       return res.status(400).json({
         success: false,
-        message: "Warehouse not found."
+        message: "Warehouse not found.",
       });
     }
 
@@ -970,9 +970,11 @@ const getStockMovementHistory = async (req, res) => {
 
 const markRawMaterialUsedOrNotUsed = async (req, res) => {
   try {
-    const { id, isUsed } = req.query;
+    const { id, isUsed, warehouseId: queryWarehouseId } = req.query;
+
     const empId = req.user?.id;
-    const warehouseId = req.user?.warehouseId;
+
+    const warehouseId = queryWarehouseId || req.user?.warehouseId;
 
     if (!id) {
       return res.status(400).json({
@@ -984,36 +986,46 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
     if (!warehouseId) {
       return res.status(400).json({
         success: false,
-        message: "Warehouse not assigned to user",
+        message: "Warehouse not found",
+      });
+    }
+
+    if (isUsed === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "isUsed value is required",
       });
     }
 
     const isUsedBoolean = isUsed === "true";
 
     /**
-     * STEP 1: Check whether this raw material exists
-     * AND is associated with the user's warehouse
+     * STEP 1: Verify warehouse ownership & fetch snapshot
      */
     const warehouseStock = await prisma.warehouseStock.findFirst({
       where: {
         rawMaterialId: id,
-        warehouseId: warehouseId,
+        warehouseId,
       },
       include: {
-        rawMaterial: true,
+        rawMaterial: {
+          select: {
+            id: true,
+            name: true,
+            unit: true,
+          },
+        },
       },
     });
 
     if (!warehouseStock) {
       return res.status(403).json({
         success: false,
-        message: "You are not allowed to update this RawMaterial",
+        message: "Warehouse stock not found.",
       });
     }
 
-    const existingRawMaterial = warehouseStock.rawMaterial;
-
-    if (existingRawMaterial.isUsed === isUsedBoolean) {
+    if (warehouseStock.isUsed === isUsedBoolean) {
       return res.status(400).json({
         success: false,
         message: `RawMaterial is already marked as ${
@@ -1022,51 +1034,46 @@ const markRawMaterialUsedOrNotUsed = async (req, res) => {
       });
     }
 
-    /**
-     * STEP 2: Update RawMaterial (global flag)
-     * Only allowed because user owns this warehouse mapping
-     */
-    const updatedRawMaterial = await prisma.rawMaterial.update({
-      where: { id },
-      data: {
-        isUsed: isUsedBoolean,
-        updatedBy: empId,
-      },
-    });
-
-    /**
-     * STEP 3: Update ONLY this warehouse stock
-     */
-    await prisma.warehouseStock.updateMany({
+    const updatedWarehouseStock = await prisma.warehouseStock.update({
       where: {
-        rawMaterialId: id,
-        warehouseId: warehouseId,
+        id: warehouseStock.id,
       },
       data: {
         isUsed: isUsedBoolean,
       },
     });
 
-    /**
-     * STEP 4: Audit log
-     */
     await prisma.auditLog.create({
       data: {
-        entityType: "RawMaterial",
-        entityId: id,
-        action: "STATUS_UPDATED",
+        entityType: "WarehouseStock",
+        entityId: warehouseStock.id,
+        action: isUsedBoolean ? "MARKED_USED" : "MARKED_NOT_USED",
         performedBy: empId || null,
-        oldValue: { isUsed: existingRawMaterial.isUsed },
-        newValue: { isUsed: isUsedBoolean },
+
+        oldValue: {
+          warehouseId: warehouseId,
+          rawMaterialId: warehouseStock.rawMaterialId,
+          rawMaterialName: warehouseStock.rawMaterial?.name || null,
+          unit: warehouseStock.rawMaterial?.unit || null,
+          quantity: warehouseStock.quantity,
+          isUsed: warehouseStock.isUsed,
+        },
+
+        newValue: {
+          warehouseId: warehouseId,
+          rawMaterialId: warehouseStock.rawMaterialId,
+          rawMaterialName: warehouseStock.rawMaterial?.name || null,
+          unit: warehouseStock.rawMaterial?.unit || null,
+          quantity: warehouseStock.quantity,
+          isUsed: isUsedBoolean,
+        },
       },
     });
 
     return res.status(200).json({
       success: true,
-      message: `RawMaterial marked as ${
-        isUsedBoolean ? "Used." : "Not Used."
-      }`,
-      data: updatedRawMaterial,
+      message: `RawMaterial marked as ${isUsedBoolean ? "Used." : "Not Used."}`,
+      data: updatedWarehouseStock,
     });
   } catch (error) {
     return res.status(500).json({
@@ -2127,6 +2134,94 @@ const directItemIssue = async (req, res) => {
   }
 };
 
+const getDirectItemIssueHistory = async (req, res) => {
+  try {
+    const warehouseId = req.user?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
+    // Fetch warehouse details
+    const warehouse =
+      await Warehouse.findById(warehouseId).select("_id warehouseName");
+
+    // Fetch DirectItemIssue history
+    const history = await prisma.directItemIssue.findMany({
+      where: { warehouseId },
+      include: {
+        issuedToUser: { select: { id: true, name: true } },
+        issuedByUser: { select: { id: true, name: true } },
+      },
+      orderBy: { issuedAt: "desc" },
+    });
+
+    if (!history.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Collect all rawMaterialIds
+    const rawMaterialIds = [
+      ...new Set(
+        history.flatMap((issue) =>
+          Array.isArray(issue.rawMaterialIssued)
+            ? issue.rawMaterialIssued.map((item) => item.rawMaterialId)
+            : []
+        )
+      ),
+    ];
+
+    // Fetch rawMaterial names
+    const rawMaterials = rawMaterialIds.length
+      ? await prisma.rawMaterial.findMany({
+          where: { id: { in: rawMaterialIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+
+    const rawMaterialMap = {};
+    rawMaterials.forEach((rm) => {
+      rawMaterialMap[rm.id] = rm.name;
+    });
+
+    // Build clean, simple response
+    const response = history.map((issue) => ({
+      id: issue.id,
+      // warehouseId: warehouse?._id || null,
+      // warehouseName: warehouse?.warehouseName || null,
+      issuedById: issue.issuedByUser?.id || null,
+      issuedByName: issue.issuedByUser?.name || null,
+      issuedToId: issue.issuedToUser?.id || null,
+      issuedToName: issue.issuedToUser?.name || null,
+      rawMaterialIssued: Array.isArray(issue.rawMaterialIssued)
+        ? issue.rawMaterialIssued.map((item) => ({
+            rawMaterialId: item.rawMaterialId,
+            rawMaterialName: rawMaterialMap[item.rawMaterialId] || null,
+            quantity: item.quantity,
+            unit: item.unit,
+          }))
+        : [],
+      issuedAt: issue.issuedAt,
+      remarks: issue.remarks,
+    }));
+
+    res.json({
+      success: true,
+      message: "Direct item issue history fetched successfully.",
+      data: response || [],
+    });
+  } catch (error) {
+    console.error("Direct Issue History Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch direct issue history",
+    });
+  }
+};
+
 const getLineWorkerList2 = async (req, res) => {
   try {
     const empId = req.user?.id;
@@ -2805,7 +2900,8 @@ module.exports = {
   getStockMovementHistory2,
   showProcessData2,
   sanctionItemForRequest2,
-  directItemIssue
+  directItemIssue,
+  getDirectItemIssueHistory,
 };
 
 // [{

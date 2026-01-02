@@ -101,7 +101,7 @@ router.get(
 
 router.put(
   "/markRawMaterialUsedOrNotUsed",
-  tokenVerification(["Store"]),
+  tokenVerification(["Store", "Purchase"]),
   storekeeperController.markRawMaterialUsedOrNotUsed
 );
 
@@ -128,6 +128,12 @@ router.post(
   "/directItemIssue",
   tokenVerification(["Store"]),
   storekeeperController.directItemIssue
+);
+
+router.get(
+  "/directItemIssue/history",
+  tokenVerification(["Store"]),
+  storekeeperController.getDirectItemIssueHistory
 );
 
 module.exports = router;

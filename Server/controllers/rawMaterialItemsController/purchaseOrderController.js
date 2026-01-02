@@ -857,9 +857,6 @@ const getVendorById = async (req, res) => {
 const getItemsList = async (req, res) => {
   try {
     const mysqlItems = await prisma.rawMaterial.findMany({
-      where: {
-        isUsed: true,
-      },
       select: {
         id: true,
         name: true,
@@ -873,8 +870,7 @@ const getItemsList = async (req, res) => {
     }));
 
     const mongoItems = await SystemItem.find(
-      { isUsed: true },
-      { itemName: 1 }
+      {},{ itemName: 1 }
     ).lean();
 
     const formattedMongo = mongoItems.map((item) => ({
@@ -4709,141 +4705,6 @@ const getActiveTerms = async (req, res) => {
   }
 };
 
-const markItemUsedOrNotUsedByWarehouseId = async (req, res) => {
-  try {
-    const { id, isUsed, warehouseId } = req.query;
-    const empId = req.user?.id;
-
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: "RawMaterial Id is required.",
-      });
-    }
-
-    if (!warehouseId) {
-      return res.status(400).json({
-        success: false,
-        message: "Warehouse Id is required.",
-      });
-    }
-
-    const isUsedBoolean = isUsed === "true";
-
-    /**
-     * STEP 1: Fetch warehouse stock + raw material (BEFORE state)
-     */
-    const warehouseStockBefore = await prisma.warehouseStock.findFirst({
-      where: {
-        rawMaterialId: id,
-        warehouseId: warehouseId,
-      },
-      include: {
-        rawMaterial: true,
-      },
-    });
-
-    if (!warehouseStockBefore) {
-      return res.status(403).json({
-        success: false,
-        message: "RawMaterial does not belong to this warehouse",
-      });
-    }
-
-    if (warehouseStockBefore.rawMaterial.isUsed === isUsedBoolean) {
-      return res.status(400).json({
-        success: false,
-        message: `RawMaterial is already marked as ${
-          isUsedBoolean ? "Used" : "Not Used"
-        }`,
-      });
-    }
-
-    /**
-     * STEP 2: Update RawMaterial
-     */
-    await prisma.rawMaterial.update({
-      where: { id },
-      data: {
-        isUsed: isUsedBoolean,
-        updatedBy: empId,
-      },
-    });
-
-    /**
-     * STEP 3: Update WarehouseStock (only this warehouse)
-     */
-    await prisma.warehouseStock.updateMany({
-      where: {
-        rawMaterialId: id,
-        warehouseId: warehouseId,
-      },
-      data: {
-        isUsed: isUsedBoolean,
-      },
-    });
-
-    /**
-     * STEP 4: Fetch AFTER state
-     */
-    const warehouseStockAfter = await prisma.warehouseStock.findFirst({
-      where: {
-        rawMaterialId: id,
-        warehouseId: warehouseId,
-      },
-      include: {
-        rawMaterial: true,
-      },
-    });
-
-    /**
-     * STEP 5: Audit log with FULL DATA
-     */
-    await prisma.auditLog.create({
-      data: {
-        entityType: "RawMaterial",
-        entityId: id,
-        action: "STATUS_UPDATED",
-        performedBy: empId || null,
-
-        oldValue: {
-          rawMaterial: warehouseStockBefore.rawMaterial,
-          warehouseStock: {
-            id: warehouseStockBefore.id,
-            warehouseId: warehouseStockBefore.warehouseId,
-            isUsed: warehouseStockBefore.isUsed,
-            stock: warehouseStockBefore.stock,
-          },
-        },
-
-        newValue: {
-          rawMaterial: warehouseStockAfter.rawMaterial,
-          warehouseStock: {
-            id: warehouseStockAfter.id,
-            warehouseId: warehouseStockAfter.warehouseId,
-            isUsed: warehouseStockAfter.isUsed,
-            stock: warehouseStockAfter.stock,
-          },
-        },
-      },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: `RawMaterial marked as ${
-        isUsedBoolean ? "Used." : "Not Used."
-      }`,
-      data: warehouseStockAfter,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error",
-    });
-  }
-};
-
-
 const getSystemDashboardData = async (req, res) => {
   try {
     const data = await getDashboardService(
@@ -4981,7 +4842,6 @@ module.exports = {
   toggleTermConditionStatus,
   getAllTerms,
   getActiveTerms,
-  markItemUsedOrNotUsedByWarehouseId,
   getSystemDashboardData,
   getRawMaterialByWarehouse
 };
