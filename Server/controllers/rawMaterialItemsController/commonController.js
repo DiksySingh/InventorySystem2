@@ -2247,6 +2247,129 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
   }
 };
 
+// const sendAllSystemStockShortageReport = async () => {
+//   try {
+//     const warehouseId = "690835908a80011de511b648";
+
+//     const systems = await System.find({
+//       systemName: { $nin: ["10HP AC System"] },
+//     })
+//       .select("_id systemName")
+//       .lean();
+
+//     if (!systems.length) {
+//       console.log("❌ No systems found");
+//       return;
+//     }
+
+//     const workbook = xlsx.utils.book_new();
+//     let hasAnyShortage = false;
+
+//     for (const system of systems) {
+//       const dashboardData = await getDashboardService(system._id, warehouseId);
+
+//       const systemRows = [];
+//       let dispatchableSystems = Infinity;
+
+//       /* ================= COMMON ITEMS ================= */
+//       const commonDesiredSystem =
+//         dashboardData.summary.motorCommonSystem.totalDesired;
+
+//       dashboardData.commonItems.forEach((item) => {
+//         const possible = Math.floor(item.stockQty / item.bomQty);
+
+//         dispatchableSystems = Math.min(dispatchableSystems, possible);
+//         if (item.shortageQty > 0) {
+//           hasAnyShortage = true;
+
+//           systemRows.push({
+//             SystemName: system.systemName,
+//             PumpHead: "ALL",
+//             ItemType: "Common",
+//             ItemName: item.itemName,
+//             BOM_Qty: item.bomQty,
+//             Stock_Qty: item.stockQty,
+//             Possible_Systems: possible,
+//             Desired_Systems: commonDesiredSystem,
+//             Required_Qty: item.requiredQty,
+//             Shortage_Qty: item.shortageQty,
+//           });
+//         }
+//       });
+
+//       /* ================= VARIABLE ITEMS (HEAD-WISE) ================= */
+//       dashboardData.variableItems.forEach((head) => {
+//         const headDesiredSystem = head.desiredSystems;
+
+//         head.items.forEach((item) => {
+//           const possible = Math.floor(item.stockQty / item.bomQty);
+
+//           dispatchableSystems = Math.min(dispatchableSystems, possible);
+//           if (item.shortageQty > 0) {
+//             hasAnyShortage = true;
+
+//             systemRows.push({
+//               SystemName: system.systemName,
+//               PumpHead: head.pumpHead,
+//               ItemType: "VARIABLE",
+//               ItemName: item.itemName,
+//               BOM_Qty: item.bomQty,
+//               Stock_Qty: item.stockQty,
+//               Possible_Systems: possible,
+//               Desired_Systems: headDesiredSystem,
+//               Required_Qty: item.requiredQty,
+//               Shortage_Qty: item.shortageQty,
+//             });
+//           }
+//         });
+//       });
+//       /* ================= SHEET PER SYSTEM ================= */
+//       if (systemRows.length) {
+//         systemRows.sort((a, b) =>
+//           a.ItemName.localeCompare(b.ItemName, undefined, {
+//             sensitivity: "base",
+//           })
+//         );
+//         const worksheet = xlsx.utils.json_to_sheet(systemRows);
+//         const sheetName = system.systemName.slice(0, 31);
+
+//         xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+//       }
+//     }
+
+//     if (!hasAnyShortage) {
+//       console.log("✅ No stock shortage found for any system");
+//       return;
+//     }
+
+//     const excelBuffer = xlsx.write(workbook, {
+//       bookType: "xlsx",
+//       type: "buffer",
+//     });
+
+//     await sendMail({
+//       to: [process.env.PURCHASE_EMAIL, process.env.ADMIN_EMAIL, process.env.DEVELOPER_EMAIL],
+//       // to: [process.env.PURCHASE_EMAIL],
+//       subject: "⚠️ Stock Shortage Report (System-wise)",
+//       text: "Attached is the system-wise stock shortage report.",
+//       attachments: [
+//         {
+//           filename: `Stock_Shortage_${new Date()
+//             .toISOString()
+//             .slice(0, 10)}.xlsx`,
+//           content: excelBuffer,
+//           contentType:
+//             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+//         },
+//       ],
+//     });
+
+//     console.log("📧 Stock shortage mail sent successfully");
+//   } catch (error) {
+//     console.error("❌ Stock shortage cron failed:", error.message);
+//   }
+// };
+
 const sendAllSystemStockShortageReport = async () => {
   try {
     const warehouseId = "690835908a80011de511b648";
@@ -2265,108 +2388,332 @@ const sendAllSystemStockShortageReport = async () => {
     const workbook = xlsx.utils.book_new();
     let hasAnyShortage = false;
 
+    /* =====================================================
+       STEP 1: TRACK ITEM USAGE ACROSS SYSTEMS
+       (COMMON + VARIABLE)
+    ===================================================== */
+    const itemUsageMap = new Map(); 
+    // itemId -> { itemName, systems:Set }
+
     for (const system of systems) {
       const dashboardData = await getDashboardService(system._id, warehouseId);
 
+      const registerItem = (item) => {
+        const itemId = item.itemId?.toString();
+        if (!itemId) return;
+
+        if (!itemUsageMap.has(itemId)) {
+          itemUsageMap.set(itemId, {
+            itemName: item.itemName,
+            systems: new Set(),
+          });
+        }
+
+        itemUsageMap.get(itemId).systems.add(system.systemName);
+      };
+
+      dashboardData.commonItems.forEach(registerItem);
+
+      dashboardData.variableItems.forEach((head) => {
+        head.items.forEach(registerItem);
+      });
+    }
+
+    /* =====================================================
+       STEP 2: COLLECTORS
+    ===================================================== */
+    const globalItemMap = new Map(); // multi-system items
+    const singleSheetRows = [];
+
+    /* =====================================================
+       STEP 3: MAIN LOOP
+    ===================================================== */
+    for (const system of systems) {
+      const dashboardData = await getDashboardService(system._id, warehouseId);
       const systemRows = [];
-      let dispatchableSystems = Infinity;
 
       /* ================= COMMON ITEMS ================= */
       const commonDesiredSystem =
         dashboardData.summary.motorCommonSystem.totalDesired;
 
       dashboardData.commonItems.forEach((item) => {
-        const possible = Math.floor(item.stockQty / item.bomQty);
+        if (item.shortageQty <= 0) return;
+        hasAnyShortage = true;
 
-        dispatchableSystems = Math.min(dispatchableSystems, possible);
-        if (item.shortageQty > 0) {
-          hasAnyShortage = true;
+        const itemId = item.itemId.toString();
+        const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-          systemRows.push({
+        // 🔁 MULTI-SYSTEM ITEM
+        if (usedInSystems > 1) {
+          if (!globalItemMap.has(itemId)) {
+            globalItemMap.set(itemId, {
+              SystemName: "MULTI SYSTEM",
+              PumpHead: "ALL",
+              ItemType: "GLOBAL",
+              ItemName: item.itemName,
+              BOM_Qty: item.bomQty,
+              Stock_Qty: item.stockQty,
+              Desired_Systems: 0,
+              Required_Qty: 0,
+              Shortage_Qty: 0,
+            });
+          }
+
+          const g = globalItemMap.get(itemId);
+          g.Desired_Systems += commonDesiredSystem;
+          g.Required_Qty += item.requiredQty;
+          g.Shortage_Qty += item.shortageQty;
+        }
+        // 🔁 SINGLE SYSTEM
+        else {
+          const row = {
             SystemName: system.systemName,
             PumpHead: "ALL",
             ItemType: "Common",
             ItemName: item.itemName,
             BOM_Qty: item.bomQty,
             Stock_Qty: item.stockQty,
-            Possible_Systems: possible,
             Desired_Systems: commonDesiredSystem,
             Required_Qty: item.requiredQty,
             Shortage_Qty: item.shortageQty,
-          });
+          };
+
+          systemRows.push(row);
+          singleSheetRows.push(row);
         }
       });
 
-      /* ================= VARIABLE ITEMS (HEAD-WISE) ================= */
+      /* ================= VARIABLE ITEMS ================= */
       dashboardData.variableItems.forEach((head) => {
         const headDesiredSystem = head.desiredSystems;
 
         head.items.forEach((item) => {
-          const possible = Math.floor(item.stockQty / item.bomQty);
+          if (item.shortageQty <= 0) return;
+          hasAnyShortage = true;
 
-          dispatchableSystems = Math.min(dispatchableSystems, possible);
-          if (item.shortageQty > 0) {
-            hasAnyShortage = true;
+          const itemId = item.itemId.toString();
+          const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-            systemRows.push({
+          // 🔁 MULTI-SYSTEM VARIABLE ITEM
+          if (usedInSystems > 1) {
+            if (!globalItemMap.has(itemId)) {
+              globalItemMap.set(itemId, {
+                SystemName: "MULTI SYSTEM",
+                PumpHead: "MULTI",
+                ItemType: "GLOBAL",
+                ItemName: item.itemName,
+                BOM_Qty: item.bomQty,
+                Stock_Qty: item.stockQty,
+                Desired_Systems: 0,
+                Required_Qty: 0,
+                Shortage_Qty: 0,
+              });
+            }
+
+            const g = globalItemMap.get(itemId);
+            g.Desired_Systems += headDesiredSystem;
+            g.Required_Qty += item.requiredQty;
+            g.Shortage_Qty += item.shortageQty;
+          }
+          // 🔁 SINGLE SYSTEM VARIABLE
+          else {
+            const row = {
               SystemName: system.systemName,
               PumpHead: head.pumpHead,
               ItemType: "VARIABLE",
               ItemName: item.itemName,
               BOM_Qty: item.bomQty,
               Stock_Qty: item.stockQty,
-              Possible_Systems: possible,
               Desired_Systems: headDesiredSystem,
               Required_Qty: item.requiredQty,
               Shortage_Qty: item.shortageQty,
-            });
+            };
+
+            systemRows.push(row);
+            singleSheetRows.push(row);
           }
         });
       });
-      /* ================= SHEET PER SYSTEM ================= */
-      if (systemRows.length) {
-        systemRows.sort((a, b) =>
-          a.ItemName.localeCompare(b.ItemName, undefined, {
-            sensitivity: "base",
-          })
-        );
-        const worksheet = xlsx.utils.json_to_sheet(systemRows);
-        const sheetName = system.systemName.slice(0, 31);
 
-        xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+      /* ================= SYSTEM SHEET ================= */
+      if (systemRows.length) {
+        const worksheet = xlsx.utils.json_to_sheet(systemRows);
+        xlsx.utils.book_append_sheet(
+          workbook,
+          worksheet,
+          system.systemName.slice(0, 31)
+        );
       }
     }
 
     if (!hasAnyShortage) {
-      console.log("✅ No stock shortage found for any system");
+      console.log("✅ No stock shortage found");
       return;
     }
 
+    /* =====================================================
+       FINAL CONSOLIDATED SHEET
+    ===================================================== */
+    const finalSingleSheet = [
+      ...Array.from(globalItemMap.values()),
+      ...singleSheetRows,
+    ];
+
+    const consolidatedSheet =
+      xlsx.utils.json_to_sheet(finalSingleSheet);
+
+    xlsx.utils.book_append_sheet(
+      workbook,
+      consolidatedSheet,
+      "SYSTEM_STOCK_SHORTAGE"
+    );
+
+    /* =====================================================
+       SEND MAIL
+    ===================================================== */
     const excelBuffer = xlsx.write(workbook, {
       bookType: "xlsx",
       type: "buffer",
     });
 
     await sendMail({
-      to: [process.env.PURCHASE_EMAIL, process.env.ADMIN_EMAIL, process.env.DEVELOPER_EMAIL],
-      // to: [process.env.PURCHASE_EMAIL],
-      subject: "⚠️ Stock Shortage Report (System-wise)",
-      text: "Attached is the system-wise stock shortage report.",
+      to: [
+        process.env.PURCHASE_EMAIL,
+        process.env.ADMIN_EMAIL,
+        process.env.DEVELOPER_EMAIL,
+      ],
+      subject: "⚠️ Stock Shortage Report (Synced Items)",
+      text: "Attached is the synced system-wise stock shortage report.",
       attachments: [
         {
           filename: `Stock_Shortage_${new Date()
             .toISOString()
             .slice(0, 10)}.xlsx`,
           content: excelBuffer,
-          contentType:
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
       ],
     });
 
     console.log("📧 Stock shortage mail sent successfully");
   } catch (error) {
-    console.error("❌ Stock shortage cron failed:", error.message);
+    console.error("❌ Stock shortage cron failed:", error);
+  }
+};
+
+const updateWarehouseStockByExcel = async (req, res) => {
+  try {
+    const { warehouseId } = req.body;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId is required",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    // Read Excel
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (!sheetData.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is empty",
+      });
+    }
+
+    const rawMaterialIds = [
+      ...new Set(sheetData.map((r) => r.rawMaterialId).filter(Boolean)),
+    ];
+
+    // 🔹 Fetch existing warehouse stock
+    const existingStock = await prisma.warehouseStock.findMany({
+      where: {
+        warehouseId,
+        rawMaterialId: {
+          in: rawMaterialIds,
+        },
+      },
+      select: {
+        rawMaterialId: true,
+      },
+    });
+
+    const existingStockIds = existingStock.map(
+      (stock) => stock.rawMaterialId
+    );
+
+    // 🔹 Find missing rawMaterialIds (not present in warehouseStock)
+    const missingRows = sheetData.filter(
+      (row) => !existingStockIds.includes(row.rawMaterialId)
+    );
+
+    // 🔥 If missing found → generate Excel and return
+    if (missingRows.length) {
+      const missingSheet = xlsx.utils.json_to_sheet(missingRows);
+      const missingWorkbook = xlsx.utils.book_new();
+      xlsx.utils.book_append_sheet(
+        missingWorkbook,
+        missingSheet,
+        "Missing_WarehouseStock"
+      );
+
+      const buffer = xlsx.write(missingWorkbook, {
+        type: "buffer",
+        bookType: "xlsx",
+      });
+
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=missing-warehouse-stock.xlsx"
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+
+      return res.status(200).send(buffer);
+    }
+
+    // 🔹 No missing → proceed with update
+    const operations = sheetData.map((row) => {
+      const { rawMaterialId, quantity, isUsed } = row;
+
+      return prisma.warehouseStock.update({
+        where: {
+          warehouseId_rawMaterialId: {
+            warehouseId,
+            rawMaterialId,
+          },
+        },
+        data: {
+          quantity: Number(quantity) || 0,
+          isUsed: true,
+        },
+      });
+    });
+
+    await prisma.$transaction(operations);
+
+    return res.status(200).json({
+      success: true,
+      message: "Warehouse stock updated successfully",
+      updatedCount: operations.length,
+    });
+  } catch (error) {
+    console.error("Excel warehouse stock update error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 
@@ -2408,5 +2755,6 @@ module.exports = {
   updateItemsFromExcel,
   addSystemOrder,
   increaseOrDecreaseSystemOrder,
-  sendAllSystemStockShortageReport
+  sendAllSystemStockShortageReport,
+  updateWarehouseStockByExcel
 };
