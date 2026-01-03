@@ -787,6 +787,7 @@ model PurchaseOrder {
   contactPerson     String?
   cellNo            String?
   warranty          String?
+  expectedDeliveryDate  DateTime?
 
   otherCharges  Json?
   warehouseId   String?

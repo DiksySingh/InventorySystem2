@@ -91,6 +91,12 @@ router.post(
 );
 
 router.get(
+  "/purchase-orders/show",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getPOListByCompany
+);
+
+router.get(
   "/purchase-orders/company/:companyId",
   tokenVerification(["Purchase"]),
   purchaseOrderController.getPOListByCompany
