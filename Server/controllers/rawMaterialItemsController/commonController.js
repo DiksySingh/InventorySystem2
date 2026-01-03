@@ -2265,110 +2265,218 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //     const workbook = xlsx.utils.book_new();
 //     let hasAnyShortage = false;
 
+//     /* =====================================================
+//        STEP 1: TRACK ITEM USAGE ACROSS SYSTEMS
+//        (COMMON + VARIABLE)
+//     ===================================================== */
+//     const itemUsageMap = new Map(); 
+//     // itemId -> { itemName, systems:Set }
+
 //     for (const system of systems) {
 //       const dashboardData = await getDashboardService(system._id, warehouseId);
 
+//       const registerItem = (item) => {
+//         const itemId = item.itemId?.toString();
+//         if (!itemId) return;
+
+//         if (!itemUsageMap.has(itemId)) {
+//           itemUsageMap.set(itemId, {
+//             itemName: item.itemName,
+//             systems: new Set(),
+//           });
+//         }
+
+//         itemUsageMap.get(itemId).systems.add(system.systemName);
+//       };
+
+//       dashboardData.commonItems.forEach(registerItem);
+
+//       dashboardData.variableItems.forEach((head) => {
+//         head.items.forEach(registerItem);
+//       });
+//     }
+
+//     /* =====================================================
+//        STEP 2: COLLECTORS
+//     ===================================================== */
+//     const globalItemMap = new Map(); // multi-system items
+//     const singleSheetRows = [];
+
+//     /* =====================================================
+//        STEP 3: MAIN LOOP
+//     ===================================================== */
+//     for (const system of systems) {
+//       const dashboardData = await getDashboardService(system._id, warehouseId);
 //       const systemRows = [];
-//       let dispatchableSystems = Infinity;
 
 //       /* ================= COMMON ITEMS ================= */
 //       const commonDesiredSystem =
 //         dashboardData.summary.motorCommonSystem.totalDesired;
 
 //       dashboardData.commonItems.forEach((item) => {
-//         const possible = Math.floor(item.stockQty / item.bomQty);
+//         if (item.shortageQty <= 0) return;
+//         hasAnyShortage = true;
 
-//         dispatchableSystems = Math.min(dispatchableSystems, possible);
-//         if (item.shortageQty > 0) {
-//           hasAnyShortage = true;
+//         const itemId = item.itemId.toString();
+//         const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-//           systemRows.push({
+//         // 🔁 MULTI-SYSTEM ITEM
+//         if (usedInSystems > 1) {
+//           if (!globalItemMap.has(itemId)) {
+//             globalItemMap.set(itemId, {
+//               SystemName: "MULTI SYSTEM",
+//               PumpHead: "ALL",
+//               ItemType: "GLOBAL",
+//               ItemName: item.itemName,
+//               BOM_Qty: item.bomQty,
+//               Stock_Qty: item.stockQty,
+//               Desired_Systems: 0,
+//               Required_Qty: 0,
+//               Shortage_Qty: 0,
+//             });
+//           }
+
+//           const g = globalItemMap.get(itemId);
+//           g.Desired_Systems += commonDesiredSystem;
+//           g.Required_Qty += item.requiredQty;
+//           g.Shortage_Qty += item.shortageQty;
+//         }
+//         // 🔁 SINGLE SYSTEM
+//         else {
+//           const row = {
 //             SystemName: system.systemName,
 //             PumpHead: "ALL",
 //             ItemType: "Common",
 //             ItemName: item.itemName,
 //             BOM_Qty: item.bomQty,
 //             Stock_Qty: item.stockQty,
-//             Possible_Systems: possible,
 //             Desired_Systems: commonDesiredSystem,
 //             Required_Qty: item.requiredQty,
 //             Shortage_Qty: item.shortageQty,
-//           });
+//           };
+
+//           systemRows.push(row);
+//           singleSheetRows.push(row);
 //         }
 //       });
 
-//       /* ================= VARIABLE ITEMS (HEAD-WISE) ================= */
+//       /* ================= VARIABLE ITEMS ================= */
 //       dashboardData.variableItems.forEach((head) => {
 //         const headDesiredSystem = head.desiredSystems;
 
 //         head.items.forEach((item) => {
-//           const possible = Math.floor(item.stockQty / item.bomQty);
+//           if (item.shortageQty <= 0) return;
+//           hasAnyShortage = true;
 
-//           dispatchableSystems = Math.min(dispatchableSystems, possible);
-//           if (item.shortageQty > 0) {
-//             hasAnyShortage = true;
+//           const itemId = item.itemId.toString();
+//           const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-//             systemRows.push({
+//           // 🔁 MULTI-SYSTEM VARIABLE ITEM
+//           if (usedInSystems > 1) {
+//             if (!globalItemMap.has(itemId)) {
+//               globalItemMap.set(itemId, {
+//                 SystemName: "MULTI SYSTEM",
+//                 PumpHead: "MULTI",
+//                 ItemType: "GLOBAL",
+//                 ItemName: item.itemName,
+//                 BOM_Qty: item.bomQty,
+//                 Stock_Qty: item.stockQty,
+//                 Desired_Systems: 0,
+//                 Required_Qty: 0,
+//                 Shortage_Qty: 0,
+//               });
+//             }
+
+//             const g = globalItemMap.get(itemId);
+//             g.Desired_Systems += headDesiredSystem;
+//             g.Required_Qty += item.requiredQty;
+//             g.Shortage_Qty += item.shortageQty;
+//           }
+//           // 🔁 SINGLE SYSTEM VARIABLE
+//           else {
+//             const row = {
 //               SystemName: system.systemName,
 //               PumpHead: head.pumpHead,
 //               ItemType: "VARIABLE",
 //               ItemName: item.itemName,
 //               BOM_Qty: item.bomQty,
 //               Stock_Qty: item.stockQty,
-//               Possible_Systems: possible,
 //               Desired_Systems: headDesiredSystem,
 //               Required_Qty: item.requiredQty,
 //               Shortage_Qty: item.shortageQty,
-//             });
+//             };
+
+//             systemRows.push(row);
+//             singleSheetRows.push(row);
 //           }
 //         });
 //       });
-//       /* ================= SHEET PER SYSTEM ================= */
-//       if (systemRows.length) {
-//         systemRows.sort((a, b) =>
-//           a.ItemName.localeCompare(b.ItemName, undefined, {
-//             sensitivity: "base",
-//           })
-//         );
-//         const worksheet = xlsx.utils.json_to_sheet(systemRows);
-//         const sheetName = system.systemName.slice(0, 31);
 
-//         xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+//       /* ================= SYSTEM SHEET ================= */
+//       if (systemRows.length) {
+//         const worksheet = xlsx.utils.json_to_sheet(systemRows);
+//         xlsx.utils.book_append_sheet(
+//           workbook,
+//           worksheet,
+//           system.systemName.slice(0, 31)
+//         );
 //       }
 //     }
 
 //     if (!hasAnyShortage) {
-//       console.log("✅ No stock shortage found for any system");
+//       console.log("✅ No stock shortage found");
 //       return;
 //     }
 
+//     /* =====================================================
+//        FINAL CONSOLIDATED SHEET
+//     ===================================================== */
+//     const finalSingleSheet = [
+//       ...Array.from(globalItemMap.values()),
+//       ...singleSheetRows,
+//     ];
+
+//     const consolidatedSheet =
+//       xlsx.utils.json_to_sheet(finalSingleSheet);
+
+//     xlsx.utils.book_append_sheet(
+//       workbook,
+//       consolidatedSheet,
+//       "SYSTEM_STOCK_SHORTAGE"
+//     );
+
+//     /* =====================================================
+//        SEND MAIL
+//     ===================================================== */
 //     const excelBuffer = xlsx.write(workbook, {
 //       bookType: "xlsx",
 //       type: "buffer",
 //     });
 
 //     await sendMail({
-//       to: [process.env.PURCHASE_EMAIL, process.env.ADMIN_EMAIL, process.env.DEVELOPER_EMAIL],
-//       // to: [process.env.PURCHASE_EMAIL],
-//       subject: "⚠️ Stock Shortage Report (System-wise)",
-//       text: "Attached is the system-wise stock shortage report.",
+//       to: [
+//         process.env.PURCHASE_EMAIL,
+//         process.env.ADMIN_EMAIL,
+//         process.env.DEVELOPER_EMAIL,
+//       ],
+//       subject: "⚠️ Stock Shortage Report (Synced Items)",
+//       text: "Attached is the synced system-wise stock shortage report.",
 //       attachments: [
 //         {
 //           filename: `Stock_Shortage_${new Date()
 //             .toISOString()
 //             .slice(0, 10)}.xlsx`,
 //           content: excelBuffer,
-//           contentType:
-//             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 //         },
 //       ],
 //     });
 
 //     console.log("📧 Stock shortage mail sent successfully");
 //   } catch (error) {
-//     console.error("❌ Stock shortage cron failed:", error.message);
+//     console.error("❌ Stock shortage cron failed:", error);
 //   }
 // };
+
 
 const sendAllSystemStockShortageReport = async () => {
   try {
@@ -2392,7 +2500,7 @@ const sendAllSystemStockShortageReport = async () => {
        STEP 1: TRACK ITEM USAGE ACROSS SYSTEMS
        (COMMON + VARIABLE)
     ===================================================== */
-    const itemUsageMap = new Map(); 
+    const itemUsageMap = new Map();
     // itemId -> { itemName, systems:Set }
 
     for (const system of systems) {
@@ -2413,10 +2521,9 @@ const sendAllSystemStockShortageReport = async () => {
       };
 
       dashboardData.commonItems.forEach(registerItem);
-
-      dashboardData.variableItems.forEach((head) => {
-        head.items.forEach(registerItem);
-      });
+      dashboardData.variableItems.forEach((head) =>
+        head.items.forEach(registerItem)
+      );
     }
 
     /* =====================================================
@@ -2433,9 +2540,6 @@ const sendAllSystemStockShortageReport = async () => {
       const systemRows = [];
 
       /* ================= COMMON ITEMS ================= */
-      const commonDesiredSystem =
-        dashboardData.summary.motorCommonSystem.totalDesired;
-
       dashboardData.commonItems.forEach((item) => {
         if (item.shortageQty <= 0) return;
         hasAnyShortage = true;
@@ -2443,7 +2547,7 @@ const sendAllSystemStockShortageReport = async () => {
         const itemId = item.itemId.toString();
         const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-        // 🔁 MULTI-SYSTEM ITEM
+        // 🔁 GLOBAL COMMON ITEM
         if (usedInSystems > 1) {
           if (!globalItemMap.has(itemId)) {
             globalItemMap.set(itemId, {
@@ -2451,29 +2555,23 @@ const sendAllSystemStockShortageReport = async () => {
               PumpHead: "ALL",
               ItemType: "GLOBAL",
               ItemName: item.itemName,
-              BOM_Qty: item.bomQty,
               Stock_Qty: item.stockQty,
-              Desired_Systems: 0,
               Required_Qty: 0,
-              Shortage_Qty: 0,
+              Shortage_Qty: 0, // calculated later
             });
           }
 
           const g = globalItemMap.get(itemId);
-          g.Desired_Systems += commonDesiredSystem;
           g.Required_Qty += item.requiredQty;
-          g.Shortage_Qty += item.shortageQty;
         }
-        // 🔁 SINGLE SYSTEM
+        // 🔁 SYSTEM-SPECIFIC COMMON
         else {
           const row = {
             SystemName: system.systemName,
             PumpHead: "ALL",
             ItemType: "Common",
             ItemName: item.itemName,
-            BOM_Qty: item.bomQty,
             Stock_Qty: item.stockQty,
-            Desired_Systems: commonDesiredSystem,
             Required_Qty: item.requiredQty,
             Shortage_Qty: item.shortageQty,
           };
@@ -2485,8 +2583,6 @@ const sendAllSystemStockShortageReport = async () => {
 
       /* ================= VARIABLE ITEMS ================= */
       dashboardData.variableItems.forEach((head) => {
-        const headDesiredSystem = head.desiredSystems;
-
         head.items.forEach((item) => {
           if (item.shortageQty <= 0) return;
           hasAnyShortage = true;
@@ -2494,7 +2590,7 @@ const sendAllSystemStockShortageReport = async () => {
           const itemId = item.itemId.toString();
           const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-          // 🔁 MULTI-SYSTEM VARIABLE ITEM
+          // 🔁 GLOBAL VARIABLE ITEM
           if (usedInSystems > 1) {
             if (!globalItemMap.has(itemId)) {
               globalItemMap.set(itemId, {
@@ -2502,29 +2598,23 @@ const sendAllSystemStockShortageReport = async () => {
                 PumpHead: "MULTI",
                 ItemType: "GLOBAL",
                 ItemName: item.itemName,
-                BOM_Qty: item.bomQty,
                 Stock_Qty: item.stockQty,
-                Desired_Systems: 0,
                 Required_Qty: 0,
-                Shortage_Qty: 0,
+                Shortage_Qty: 0, // calculated later
               });
             }
 
             const g = globalItemMap.get(itemId);
-            g.Desired_Systems += headDesiredSystem;
             g.Required_Qty += item.requiredQty;
-            g.Shortage_Qty += item.shortageQty;
           }
-          // 🔁 SINGLE SYSTEM VARIABLE
+          // 🔁 SYSTEM-SPECIFIC VARIABLE
           else {
             const row = {
               SystemName: system.systemName,
               PumpHead: head.pumpHead,
               ItemType: "VARIABLE",
               ItemName: item.itemName,
-              BOM_Qty: item.bomQty,
               Stock_Qty: item.stockQty,
-              Desired_Systems: headDesiredSystem,
               Required_Qty: item.requiredQty,
               Shortage_Qty: item.shortageQty,
             };
@@ -2552,7 +2642,14 @@ const sendAllSystemStockShortageReport = async () => {
     }
 
     /* =====================================================
-       FINAL CONSOLIDATED SHEET
+       STEP 4: FINAL SHORTAGE CALCULATION (GLOBAL ITEMS)
+    ===================================================== */
+    for (const g of globalItemMap.values()) {
+      g.Shortage_Qty = Math.max(g.Required_Qty - g.Stock_Qty, 0);
+    }
+
+    /* =====================================================
+       STEP 5: FINAL CONSOLIDATED SHEET
     ===================================================== */
     const finalSingleSheet = [
       ...Array.from(globalItemMap.values()),
@@ -2569,7 +2666,7 @@ const sendAllSystemStockShortageReport = async () => {
     );
 
     /* =====================================================
-       SEND MAIL
+       STEP 6: SEND MAIL
     ===================================================== */
     const excelBuffer = xlsx.write(workbook, {
       bookType: "xlsx",
@@ -2578,18 +2675,22 @@ const sendAllSystemStockShortageReport = async () => {
 
     await sendMail({
       to: [
-        process.env.PURCHASE_EMAIL,
-        process.env.ADMIN_EMAIL,
+        // process.env.PURCHASE_EMAIL,
+        // process.env.ADMIN_EMAIL,
         process.env.DEVELOPER_EMAIL,
       ],
-      subject: "⚠️ Stock Shortage Report (Synced Items)",
-      text: "Attached is the synced system-wise stock shortage report.",
+      subject: "⚠️ Stock Shortage Report (Final)",
+      text:
+        "Attached is the system-wise stock shortage report. " +
+        "BOM Qty and Desired Systems have been removed as requested.",
       attachments: [
         {
           filename: `Stock_Shortage_${new Date()
             .toISOString()
             .slice(0, 10)}.xlsx`,
           content: excelBuffer,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
       ],
     });

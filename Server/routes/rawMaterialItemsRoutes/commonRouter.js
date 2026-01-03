@@ -41,5 +41,6 @@ router.get("/raw-material/export/excel", commonController.exportRawMaterialsExce
 router.post("/raw-material/update/unit-conversion-factor", commonController.upload.single('file'), commonController.updateItemsFromExcel)
 router.post("/system-order/create", commonController.addSystemOrder);
 router.put("/system-order/update/order-quantity", commonController.increaseOrDecreaseSystemOrder );
+router.post("/warehouse/raw-material/stock/update", commonController.upload.single('file'), commonController.updateWarehouseStockByExcel);
 
 module.exports = router;

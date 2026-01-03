@@ -1605,9 +1605,6 @@ const rawMaterialForItemRequest2 = async (req, res) => {
       where: {
         warehouseId: warehouseId,
         isUsed: true,
-        rawMaterial: {
-          isUsed: true,
-        },
       },
       orderBy: {
         quantity: "asc",
@@ -1624,13 +1621,15 @@ const rawMaterialForItemRequest2 = async (req, res) => {
       },
     });
 
-    const filteredData = warehouseStock.map((item) => ({
-      id: item.rawMaterial?.id,
-      name: item.rawMaterial?.name,
-      stock: item.quantity ?? 0,
-      unit: item.unit,
-      outOfStock: (item.quantity ?? 0) === 0,
-    }));
+    const filteredData = warehouseStock
+      .filter((item) => item.rawMaterial)
+      .map((item) => ({
+        id: item.rawMaterial.id,
+        name: item.rawMaterial.name,
+        stock: item.quantity ?? 0,
+        unit: item.unit,
+        outOfStock: (item.quantity ?? 0) === 0,
+      }));
 
     return res.status(200).json({
       success: true,
@@ -2165,7 +2164,7 @@ const completeServiceProcess2 = async (req, res) => {
     const userWarehouseId = req.user?.warehouseId;
     //const warehouseId = "67446a8b27dae6f7f4d985dd";
 
-    if(!userWarehouseId || userWarehouseId === null) {
+    if (!userWarehouseId || userWarehouseId === null) {
       return res.status(400).json({
         success: false,
         message: "Warehouse not assinged to user.",
@@ -2564,7 +2563,11 @@ const getAssembleUsers2 = async (req, res) => {
 
     // 2️⃣ Fetch all users with Assemble role
     const users = await prisma.user.findMany({
-      where: { roleId: assembleRole.id, isActive: true, warehouseId: userWarehouseId },
+      where: {
+        roleId: assembleRole.id,
+        isActive: true,
+        warehouseId: userWarehouseId,
+      },
       select: {
         id: true,
         name: true,
@@ -2798,7 +2801,6 @@ const disassembleReusableItemsForm2 = async (req, res) => {
   }
 };
 
-
 module.exports = {
   showStorePersons,
   rawMaterialForItemRequest,
@@ -2813,4 +2815,14 @@ module.exports = {
   getAssembleUsers,
   disassembleReusableItemsForm,
   getRequestsByUser,
+  showStorePersons2,
+  rawMaterialForItemRequest2,
+  createItemRequest2,
+  createServiceProcess2,
+  getPendingActivitiesForUserStage2,
+  acceptServiceProcess2,
+  startServiceProcess2,
+  completeServiceProcess2,
+  getAssembleUsers2,
+  disassembleReusableItemsForm2,
 };

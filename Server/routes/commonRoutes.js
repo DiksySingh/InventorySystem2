@@ -72,5 +72,7 @@ router.get("/installationInventoryStockReport", systemInstallationReport.install
 router.get("/systemSetReport", systemInstallationReport.systemSetReport);
 router.get("/generateJalnaReport", warehouseReports.generateJalnaReport)
 router.post("/updateInstallationInventory", upload.single('file'), commonController.updateInstallationInventoryFromExcel);
+router.post("/import-system-orders", upload.single('file'), commonController.importSystemOrdersFromExcel);
 router.get("/systemInventoryReport", installationInventoryReport); // Badnapur Inventory Stock Report - Anirudh Sir
+
 module.exports = router;
