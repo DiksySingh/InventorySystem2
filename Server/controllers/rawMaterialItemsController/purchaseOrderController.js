@@ -2558,11 +2558,13 @@ const getPOListByCompany = async (req, res) => {
       select: {
         id: true,
         poNumber: true,
+        poDate: true,
         companyId: true,
         companyName: true,
         vendorId: true,
         vendorName: true,
-
+        grandTotal: true,
+        status: true,
         // ✅ Always return ALL items
         items: {
           select: {
