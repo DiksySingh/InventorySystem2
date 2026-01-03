@@ -2493,8 +2493,15 @@ const updatePurchaseOrder2 = async (req, res) => {
 };
 
 const getPOListByCompany = async (req, res) => {
- try {
-    const { q, page = 1, limit = 10 } = req.query;
+  try {
+    const {
+      poNumber,
+      company,
+      vendor,
+      itemName,
+      page = 1,
+      limit = 20,
+    } = req.query;
 
     const pageNumber = Math.max(parseInt(page), 1);
     const pageSize = Math.max(parseInt(limit), 1);
@@ -2514,34 +2521,40 @@ const getPOListByCompany = async (req, res) => {
       });
     }
 
-    // 🔍 Common search condition
+    // 🧠 Build dynamic AND filters
     const whereCondition = {
-      ...(q && {
-        OR: [
-          { poNumber: { contains: q } },
-          { companyName: { contains: q} },
-          { vendorName: { contains: q } },
-          {
-            items: {
-              some: {
-                itemName: { contains: q },
-              },
+      AND: [
+        poNumber && {
+          poNumber: { contains: poNumber.trim() },
+        },
+
+        company && {
+          companyName: { contains: company.trim() },
+        },
+
+        vendor && {
+          vendorName: { contains: vendor.trim() },
+        },
+
+        itemName && {
+          items: {
+            some: {
+              itemName: { contains: itemName.trim() },
             },
           },
-        ],
-      }),
+        },
+      ].filter(Boolean), // 🔑 remove undefined filters
     };
 
-    // 🔢 total count (for pagination)
     const totalCount = await prisma.purchaseOrder.count({
       where: whereCondition,
     });
 
-    // 📦 paginated data
     const poList = await prisma.purchaseOrder.findMany({
       where: whereCondition,
       skip,
       take: pageSize,
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         poNumber: true,
@@ -2549,6 +2562,8 @@ const getPOListByCompany = async (req, res) => {
         companyName: true,
         vendorId: true,
         vendorName: true,
+
+        // ✅ Always return ALL items
         items: {
           select: {
             id: true,
@@ -2557,9 +2572,6 @@ const getPOListByCompany = async (req, res) => {
             itemName: true,
           },
         },
-      },
-      orderBy: {
-        createdAt: "desc",
       },
     });
 
