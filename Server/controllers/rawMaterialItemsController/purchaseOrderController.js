@@ -2563,6 +2563,7 @@ const getPOListByCompany = async (req, res) => {
         companyName: true,
         vendorId: true,
         vendorName: true,
+        currency: true,
         grandTotal: true,
         status: true,
         // ✅ Always return ALL items
