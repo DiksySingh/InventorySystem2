@@ -869,9 +869,7 @@ const getItemsList = async (req, res) => {
       source: "mysql",
     }));
 
-    const mongoItems = await SystemItem.find(
-      {},{ itemName: 1 }
-    ).lean();
+    const mongoItems = await SystemItem.find({}, { itemName: 1 }).lean();
 
     const formattedMongo = mongoItems.map((item) => ({
       id: item._id.toString(),
@@ -994,6 +992,7 @@ const createPurchaseOrder = async (req, res) => {
       cellNo,
       currency,
       exchangeRate,
+      expectedDeliveryDate,
       otherCharges = [],
     } = req.body;
 
@@ -1021,6 +1020,28 @@ const createPurchaseOrder = async (req, res) => {
         message:
           "Receiving Warheouse, Company, Vendor, GST Type & Items are required",
       });
+    }
+
+    if (expectedDeliveryDate) {
+      const poDateOnly = new Date();
+      poDateOnly.setHours(0, 0, 0, 0);
+
+      const expectedDateOnly = new Date(expectedDeliveryDate);
+      expectedDateOnly.setHours(0, 0, 0, 0);
+
+      if (poDateOnly.getTime() === expectedDateOnly.getTime()) {
+        return res.status(400).json({
+          success: false,
+          message: "Expected Delivery Date cannot be same as PO Date",
+        });
+      }
+
+      if (expectedDateOnly < poDateOnly) {
+        return res.status(400).json({
+          success: false,
+          message: "Expected Delivery Date cannot be before PO Date",
+        });
+      }
     }
 
     let normalizedOtherCharges = [];
@@ -1341,6 +1362,9 @@ const createPurchaseOrder = async (req, res) => {
           contactPerson,
           cellNo,
           createdBy: userId,
+          expectedDeliveryDate: expectedDeliveryDate
+            ? new Date(expectedDeliveryDate)
+            : null,
           otherCharges: normalizedOtherCharges,
           items: {
             create: processedItems,
@@ -2672,7 +2696,7 @@ const getPOListByCompany = async (req, res) => {
 // };
 
 const getPOListByCompany2 = async (req, res) => {
- try {
+  try {
     const { q, page = 1, limit = 10 } = req.query;
 
     const pageNumber = Math.max(parseInt(page), 1);
@@ -2698,7 +2722,7 @@ const getPOListByCompany2 = async (req, res) => {
       ...(q && {
         OR: [
           { poNumber: { contains: q } },
-          { companyName: { contains: q} },
+          { companyName: { contains: q } },
           { vendorName: { contains: q } },
           {
             items: {
@@ -4750,9 +4774,7 @@ const getWarehouses = async (req, res) => {
 
 const getSystems = async (req, res) => {
   try {
-    const systems = await System.find({})
-      .select("_id systemName")
-      .lean();
+    const systems = await System.find({}).select("_id systemName").lean();
 
     if (!systems || systems.length === 0) {
       return res.status(404).json({
@@ -4774,7 +4796,6 @@ const getSystems = async (req, res) => {
       success: true,
       data: modifiedData,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -4964,10 +4985,10 @@ const getRawMaterialByWarehouse = async (req, res) => {
       });
     }
     const warehouseData = await Warehouse.findById(warehouseId);
-    if(!warehouseData) {
+    if (!warehouseData) {
       return res.status(400).json({
         success: false,
-        message: "Warehouse Not Found"
+        message: "Warehouse Not Found",
       });
     }
 
@@ -5067,7 +5088,7 @@ module.exports = {
   getActiveTerms,
   getSystemDashboardData,
   getRawMaterialByWarehouse,
-  getPOListByCompany2
+  getPOListByCompany2,
 };
 
 // "data": {
