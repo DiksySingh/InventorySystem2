@@ -93,13 +93,13 @@ router.post(
 router.get(
   "/purchase-orders/show",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPOListByCompany
+  purchaseOrderController.getPOList
 );
 
 router.get(
   "/purchase-orders/company/:companyId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPOListByCompany
+  purchaseOrderController.getPOListByCompany2
 );
 
 router.get(

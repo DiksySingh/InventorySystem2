@@ -2558,7 +2558,7 @@ const updatePurchaseOrder2 = async (req, res) => {
   }
 };
 
-const getPOListByCompany = async (req, res) => {
+const getPOList = async (req, res) => {
   try {
     const {
       poNumber,
@@ -2663,79 +2663,6 @@ const getPOListByCompany = async (req, res) => {
     });
   }
 };
-
-// const getPOListByCompany2 = async (req, res) => {
-//   try {
-//     const { companyId } = req.params;
-
-//     if (!companyId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "companyId is required",
-//       });
-//     }
-
-//     const userId = req.user?.id;
-
-//     const user = await prisma.user.findUnique({
-//       where: { id: userId },
-//       include: { role: true },
-//     });
-
-//     if (!user || !["Purchase", "Admin"].includes(user.role?.name)) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Access denied",
-//       });
-//     }
-
-//     const poList = await prisma.purchaseOrder.findMany({
-//       where: {
-//         companyId,
-//       },
-//       select: {
-//         id: true,
-//         poNumber: true,
-//         vendorId: true,
-//         vendorName: true,
-//         items: {
-//           select: {
-//             id: true,
-//             itemId: true,
-//             itemSource: true,
-//             itemName: true,
-//             // hsnCode: true,
-//             // modelNumber: true,
-//             // unit: true,
-//             // quantity: true,
-//             // receivedQty: true,
-//             // rate: true,
-//             // rateInForeign: true,
-//             // amountInForeign: true,
-//             // gstRate: true,
-//             // itemGSTType: true,
-//             // total: true,
-//           },
-//         },
-//       },
-//       orderBy: {
-//         createdAt: "desc",
-//       },
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "PO list fetched successfully",
-//       data: poList,
-//     });
-//   } catch (error) {
-//     console.error("Error fetching PO list:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Internal Server Error",
-//     });
-//   }
-// };
 
 const getPOListByCompany2 = async (req, res) => {
   try {
@@ -2850,6 +2777,7 @@ const getPurchaseOrderDetails = async (req, res) => {
         vendorName: true,
         warehouseId: true,
         poDate: true,
+        expectedDeliveryDate: true,
         gstType: true,
         gstRate: true,
         currency: true,
@@ -5104,7 +5032,7 @@ module.exports = {
   createPurchaseOrder2,
   updatePurchaseOrder,
   updatePurchaseOrder2,
-  getPOListByCompany,
+  getPOList,
   getPurchaseOrderDetails,
   downloadPOPDF,
   downloadPOPDF2,
