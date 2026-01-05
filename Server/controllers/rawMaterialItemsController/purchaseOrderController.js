@@ -1805,6 +1805,7 @@ const updatePurchaseOrder = async (req, res) => {
       cellNo,
       currency,
       exchangeRate,
+      expectedDeliveryDate,
       otherCharges = [],
     } = req.body;
 
@@ -1825,6 +1826,7 @@ const updatePurchaseOrder = async (req, res) => {
         message: "Only Purchase Department can update PO",
       });
     }
+
     let normalizedOtherCharges = [];
     if (
       Array.isArray(otherCharges) &&
@@ -1873,6 +1875,30 @@ const updatePurchaseOrder = async (req, res) => {
     //   });
     // }
 
+    if (expectedDeliveryDate) {
+      const poDateOnly = new Date(existingPO.poDate);
+      poDateOnly.setHours(0, 0, 0, 0);
+
+      const expectedDateOnly = new Date(expectedDeliveryDate);
+      expectedDateOnly.setHours(0, 0, 0, 0);
+
+      // if (poDateOnly.getTime() === expectedDateOnly.getTime()) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message:
+      //       "Expected Delivery Date cannot be the same as Purchase Order Date",
+      //   });
+      // }
+
+      if (expectedDateOnly < poDateOnly) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Expected Delivery Date cannot be earlier than Purchase Order Date",
+        });
+      }
+    }
+
     if (!items?.length)
       return res.status(400).json({
         success: false,
@@ -1920,6 +1946,17 @@ const updatePurchaseOrder = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Vendor not found" });
+    
+    const companyToUseId = companyId || existingPO.companyId;
+    const company = await prisma.company.findUnique({
+      where: { id: companyToUseId }
+    });
+
+    if(!company) {
+      return res.status(404).json({
+        success: false, message: "Company not found"
+      });
+    }
 
     const finalCurrency = currency || "INR";
     const finalExchangeRate =
@@ -2094,7 +2131,9 @@ const updatePurchaseOrder = async (req, res) => {
         where: { id: poId },
         data: {
           companyId: companyId || existingPO.companyId,
+          companyName: company.name || existingPO.companyName,
           vendorId: vendorId || existingPO.vendorId,
+          vendorName: vendor.name || existingPO.vendorName,
           gstType,
           gstRate: poGSTPercent,
           currency: finalCurrency,
@@ -2116,6 +2155,9 @@ const updatePurchaseOrder = async (req, res) => {
           warranty,
           contactPerson,
           cellNo,
+          expectedDeliveryDate: expectedDeliveryDate
+            ? new Date(expectedDeliveryDate)
+            : existingPO.expectedDeliveryDate,
           otherCharges: normalizedOtherCharges,
           warehouseId: warehouseId || existingPO.warehouseId,
           items: {
