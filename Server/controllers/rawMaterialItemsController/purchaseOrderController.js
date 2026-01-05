@@ -1029,12 +1029,12 @@ const createPurchaseOrder = async (req, res) => {
       const expectedDateOnly = new Date(expectedDeliveryDate);
       expectedDateOnly.setHours(0, 0, 0, 0);
 
-      if (poDateOnly.getTime() === expectedDateOnly.getTime()) {
-        return res.status(400).json({
-          success: false,
-          message: "Expected Delivery Date cannot be same as PO Date",
-        });
-      }
+      // if (poDateOnly.getTime() === expectedDateOnly.getTime()) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Expected Delivery Date cannot be same as PO Date",
+      //   });
+      // }
 
       if (expectedDateOnly < poDateOnly) {
         return res.status(400).json({
