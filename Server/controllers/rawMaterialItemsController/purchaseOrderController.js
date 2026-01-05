@@ -2632,6 +2632,7 @@ const getPOList = async (req, res) => {
         currency: true,
         grandTotal: true,
         status: true,
+        expectedDeliveryDate: true,
         // ✅ Always return ALL items
         items: {
           select: {
