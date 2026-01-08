@@ -17,24 +17,25 @@ const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
 
 // MySQL - Raw Material Management System Routes
-const authRouter = require("./routes/rawMaterialItemsRoutes/authRouter");
+const authRouter = require("./routes/rawMaterialItemsRoutes/authRouter"); 
 const adminRouter = require("./routes/rawMaterialItemsRoutes/adminRouter");
 const commonRouter = require("./routes/rawMaterialItemsRoutes/commonRouter");
 const lineWorkerRouter = require("./routes/rawMaterialItemsRoutes/lineWorkerRouter");
 const storekeeperRouter = require("./routes/rawMaterialItemsRoutes/storekeeperRouter");
 const purchaseRouter = require("./routes/rawMaterialItemsRoutes/purchaseRouter");
 const userRouter = require("./routes/rawMaterialItemsRoutes/userRouter");
+const verificationRouter = require("./routes/rawMaterialItemsRoutes/verificationRouter");
 const testRouter = require("./routes/test");
 
 // Load environment variables
 const MONGODB_URL = process.env.MONGODB_URL;
 const MONGO_URL = process.env.MONGO_URL;
-// console.log("DEV URL: ", process.env.MONGO_URL);
+// console.log("DEV URL: ", process.env.MONGO_URL); 
 const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
 mongoose
-  .connect(MONGO_URL, {
+  .connect(MONGODB_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -90,6 +91,7 @@ app.use("/common", commonRouter);
 app.use("/line-worker", lineWorkerRouter);
 app.use("/store-keeper", storekeeperRouter);
 app.use("/purchase", purchaseRouter);
+app.use("/verification-dept", verificationRouter);
 app.use("/user", userRouter);
 app.use("/test", testRouter);
 require("./helpers/cron/stockShortageCron");
