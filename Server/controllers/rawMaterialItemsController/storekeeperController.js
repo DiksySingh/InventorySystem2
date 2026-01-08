@@ -1226,16 +1226,16 @@ const getPendingPOsForReceiving = async (req, res) => {
 };
 
 const purchaseOrderReceivingBill = async (req, res) => {
-  const userId = req.user?.id;
+ const userId = req.user?.id;
+  const warehouseId = String(req.user?.warehouseId);
   let uploadedFilePath = null;
 
-  const deleteUploadedFile = () => {
+  const deleteUploadedFile = async () => {
     if (uploadedFilePath) {
       try {
-        fs.unlinkSync(uploadedFilePath);
-        console.log("🗑️ Uploaded bill file deleted due to error.");
+        await fs.unlink(uploadedFilePath);
       } catch (err) {
-        console.error("⚠️ File delete failed:", err);
+        console.error("⚠️ Failed to delete uploaded file:", err);
       }
     }
   };
@@ -1268,457 +1268,24 @@ const purchaseOrderReceivingBill = async (req, res) => {
   };
 
   try {
-    let items = req.body.items;
-
-    if (typeof items === "string") {
-      try {
-        items = JSON.parse(items);
-      } catch {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid items JSON format.",
-        });
-      }
-    }
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Items must be a non-empty array.",
-      });
-    }
-
-    const { purchaseOrderId, invoiceNumber } = req.body;
-    const userWarehouseId = String(req.user?.warehouseId);
-    const billFile = req.files?.billFile?.[0];
-
-    if (!billFile)
-      return res
-        .status(400)
-        .json({ success: false, message: "Bill file is required." });
-
-    uploadedFilePath = path.join(
-      __dirname,
-      "../../uploads/purchaseOrder/receivingBill",
-      billFile.filename
-    );
-
-    if (
-      !purchaseOrderId ||
-      !invoiceNumber ||
-      !Array.isArray(items) ||
-      items.length === 0
-    ) {
-      deleteUploadedFile();
-      return res.status(400).json({
-        success: false,
-        message: "purchaseOrderId, invoiceNumber and items[] are required.",
-      });
-    }
-
-    const warehouseData = await Warehouse.findById(userWarehouseId);
-    if (!warehouseData) throw new Error("Warehouse not found.");
-
-    const po = await prisma.purchaseOrder.findUnique({
-      where: { id: purchaseOrderId },
-      include: { items: true },
-    });
-
-    if (!po) throw new Error("Purchase Order not found.");
-
-    if (["Received", "Cancelled"].includes(po.status)) {
-      throw new Error(`PO already ${po.status}.`);
-    }
-
-    if (String(po.warehouseId) !== userWarehouseId) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Unauthorized: Cannot receive PO items for different warehouse.",
-      });
-    }
-
-    // Validate items exist
-    await validateItems(items, po);
-
-    const { receiptResults, stockUpdates } = await prisma.$transaction(
-      async (tx) => {
-        const receiptResults = [];
-        const stockUpdates = [];
-        let hasAnyGoodEver = po.items.some(
-          (p) => Number(p.receivedQty || 0) > 0
-        );
-        let poStatusFlags = { allReceived: true, someReceived: false };
-
-        // Save bill
-        await tx.purchaseOrderBill.create({
-          data: {
-            purchaseOrderId,
-            invoiceNumber,
-            fileName: billFile.filename,
-            fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
-            mimeType: billFile.mimetype,
-            uploadedBy: userId,
-          },
-        });
-
-        for (const item of items) {
-          const {
-            purchaseOrderItemId,
-            itemId,
-            itemSource,
-            itemName,
-            receivedQty = 0,
-            goodQty = 0,
-            damagedQty = 0,
-            remarks = "",
-          } = item;
-
-          const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
-          const poQty = Number(poItem.quantity);
-          const poUnit = poItem.unit?.toLowerCase();
-          const alreadyReceived = Number(poItem.receivedQty || 0);
-
-          // Prevent over receiving (GOOD QTY CHECK)
-          if (alreadyReceived >= poQty)
-            throw new Error(`${itemName} already fully received (${poQty}).`);
-
-          if (alreadyReceived + goodQty > poQty)
-            throw new Error(
-              `Cannot receive goodQty ${goodQty} of ${itemName}. Only ${
-                poQty - alreadyReceived
-              } remaining.`
-            );
-
-          if (goodQty > 0) {
-            hasAnyGoodEver = true;
-          }
-
-          // ❗ FIX: Only update TOTAL RECEIVED with GOOD QTY
-          const totalReceived = alreadyReceived + goodQty;
-
-          // Create receipt entry
-          await tx.purchaseOrderReceipt.create({
-            data: {
-              purchaseOrderId,
-              purchaseOrderItemId,
-              invoiceNumber,
-              itemId,
-              itemSource,
-              itemName,
-              receivedQty,
-              goodQty,
-              damagedQty,
-              remarks,
-              createdBy: userId,
-              receivedDate: new Date(),
-            },
-          });
-
-          // ❗ FIX: Update only with GOOD QTY
-          await tx.purchaseOrderItem.update({
-            where: { id: purchaseOrderItemId },
-            data: { receivedQty: totalReceived },
-          });
-
-          // Handle damaged stock
-          if (damagedQty > 0) {
-            const existingDamage = await tx.damagedStock.findFirst({
-              where: { itemId, itemSource, purchaseOrderId },
-            });
-
-            if (existingDamage) {
-              await tx.damagedStock.update({
-                where: { id: existingDamage.id },
-                data: {
-                  quantity: { increment: damagedQty },
-                  status: "Pending",
-                  remarks: `${existingDamage.remarks || ""}${
-                    existingDamage.remarks ? "; " : ""
-                  }${remarks}`,
-                },
-              });
-            } else {
-              await tx.damagedStock.create({
-                data: {
-                  purchaseOrderId,
-                  invoiceNumber,
-                  itemId,
-                  itemSource,
-                  itemName,
-                  unit: poItem.unit,
-                  quantity: damagedQty,
-                  status: "Pending",
-                  remarks,
-                },
-              });
-            }
-          }
-
-          // Stock update only for goodQty
-          if (goodQty > 0)
-            stockUpdates.push({
-              itemSource,
-              itemId,
-              goodQty,
-              warehouseId: userWarehouseId,
-              poUnit,
-            });
-
-          poStatusFlags.someReceived =
-            poStatusFlags.someReceived || totalReceived > 0;
-          poStatusFlags.allReceived =
-            poStatusFlags.allReceived && totalReceived >= poQty;
-
-          receiptResults.push({
-            itemId,
-            itemName,
-            receivedQty,
-            goodQty,
-            damagedQty,
-            remainingQty: poQty - totalReceived,
-          });
-        }
-
-        // Check pending damage
-        const pendingDamage = await prisma.damagedStock.findMany({
-          where: {
-            purchaseOrderId,
-            status: "Pending",
-          },
-        });
-
-        const hasPendingDamage = pendingDamage.length > 0;
-
-        // Update PO status
-        let newPOStatus = po.status;
-
-        if (!hasAnyGoodEver) {
-          newPOStatus = "Cancelled";
-        } else if (poStatusFlags.allReceived && !hasPendingDamage) {
-          newPOStatus = "Received";
-        } else {
-          newPOStatus = "PartiallyReceived";
-        }
-
-        if (newPOStatus !== po.status) {
-          await tx.purchaseOrder.update({
-            where: { id: purchaseOrderId },
-            data: { status: newPOStatus },
-          });
-        }
-
-        return { receiptResults, stockUpdates };
-      }
-    );
-
-    // Update inventory or raw materials
-    await Promise.all(
-      stockUpdates.map(
-        async ({ itemSource, itemId, goodQty, warehouseId, poUnit }) => {
-          /* ===================== MONGO ITEMS ===================== */
-          if (itemSource === "mongo") {
-            const systemItem = await SystemItem.findById(itemId);
-            if (!systemItem) {
-              throw new Error(`SystemItem ${itemId} not found.`);
-            }
-
-            const baseUnit = systemItem.unit?.toLowerCase();
-            const convUnit = systemItem.converionUnit?.toLowerCase();
-            const factor = Number(systemItem.conversionFactor || 1);
-
-            let convertedQty;
-
-            if (poUnit === baseUnit) {
-              convertedQty = goodQty;
-            } else if (poUnit === convUnit) {
-              convertedQty = goodQty * factor;
-            } else {
-              throw new Error(
-                `Invalid unit '${poUnit}' for ${systemItem.itemName}.`
-              );
-            }
-
-            const inventoryItem = await InstallationInventory.findOne({
-              warehouseId,
-              systemItemId: itemId,
-            });
-
-            if (inventoryItem) {
-              inventoryItem.quantity += convertedQty;
-              await inventoryItem.save();
-            } else {
-              await InstallationInventory.create({
-                warehouseId,
-                systemItemId: itemId,
-                quantity: convertedQty,
-              });
-            }
-          }
-
-          /* ===================== MYSQL ITEMS ===================== */
-          if (itemSource === "mysql") {
-            // 1️⃣ Get raw material
-            const rawMat = await prisma.rawMaterial.findUnique({
-              where: { id: itemId },
-            });
-            if (!rawMat) {
-              throw new Error(`RawMaterial ${itemId} not found.`);
-            }
-
-            // 2️⃣ Conversion logic (MASTER-DRIVEN)
-            const baseUnit = rawMat.unit?.toLowerCase();
-            const convUnit = rawMat.conversionUnit?.toLowerCase();
-            const factor = Number(rawMat.conversionFactor || 1);
-
-            let convertedQty;
-
-            if (poUnit === baseUnit) {
-              convertedQty = goodQty;
-            } else if (poUnit === convUnit) {
-              convertedQty = goodQty * factor;
-            } else {
-              throw new Error(
-                `Invalid unit '${poUnit}' for ${rawMat.name}. Expected '${baseUnit}' or '${convUnit}'.`
-              );
-            }
-
-            // 3️⃣ Find warehouse stock
-            const warehouseStock = await prisma.warehouseStock.findUnique({
-              where: {
-                warehouseId_rawMaterialId: {
-                  warehouseId,
-                  rawMaterialId: itemId,
-                },
-              },
-            });
-
-            // 4️⃣ Update OR Create stock
-            if (warehouseStock) {
-              await prisma.warehouseStock.update({
-                where: {
-                  warehouseId_rawMaterialId: {
-                    warehouseId,
-                    rawMaterialId: itemId,
-                  },
-                },
-                data: {
-                  quantity: { increment: convertedQty },
-                  unit: baseUnit, // ✅ FIXED
-                },
-              });
-            } else {
-              await prisma.warehouseStock.create({
-                data: {
-                  warehouseId,
-                  rawMaterialId: itemId,
-                  quantity: convertedQty,
-                  unit: baseUnit,
-                },
-              });
-            }
-          }
-        }
-      )
-    );
-
-    const updatedPO = await prisma.purchaseOrder.findUnique({
-      where: { id: purchaseOrderId },
-      include: { items: true },
-    });
-
-    await prisma.auditLog.create({
-      data: {
-        entityType: "PurchaseOrder",
-        entityId: purchaseOrderId,
-        action: "RECEIVE_PO",
-        performedBy: userId,
-        oldValue: po,
-        newValue: {
-          status: updatedPO.status,
-          invoiceNumber,
-          receivedItems: receiptResults,
-          items: updatedPO.items.map((i) => ({
-            id: i.id,
-            receivedQty: Number(i.receivedQty || 0),
-          })),
-        },
-      },
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Purchase Order Receipts processed successfully.",
-      data: receiptResults,
-    });
-  } catch (error) {
-    console.error("❌ Error in PO Receipt creation:", error);
-    deleteUploadedFile();
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Server error while processing PO Receipts.",
-    });
-  }
-};
-
-const purchaseOrderReceivingBill2 = async (req, res) => {
-  const userId = req.user?.id;
-  const userWarehouseId = String(req.user?.warehouseId);
-  let uploadedFilePath = null;
-
-  // 🔁 Mongo rollback stack
-  const mongoRollbackStack = [];
-
-  const deleteUploadedFile = async () => {
-    if (uploadedFilePath) {
-      try {
-        await fs.unlink(uploadedFilePath);
-      } catch (err) {
-        console.error("⚠️ Failed to delete uploaded file:", err);
-      }
-    }
-  };
-
-  const rollbackMongoChanges = async () => {
-    for (const r of mongoRollbackStack.reverse()) {
-      try {
-        if (r.type === "update") {
-          await InstallationInventory.findByIdAndUpdate(r.id, {
-            quantity: r.oldQty,
-          });
-        }
-        if (r.type === "create") {
-          await InstallationInventory.findByIdAndDelete(r.id);
-        }
-      } catch (err) {
-        console.error("❌ Mongo rollback failed:", err);
-      }
-    }
-  };
-
-  try {
-    /* ===================== PARSE ITEMS ===================== */
+    // ================= PARSE ITEMS =================
     if (req.body.items) {
       try {
         req.body.items = JSON.parse(req.body.items);
       } catch {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid items JSON.",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid items JSON." });
       }
     }
 
     const { purchaseOrderId, items, invoiceNumber } = req.body;
     const billFile = req.files?.billFile?.[0];
 
-    if (!billFile) {
-      return res.status(400).json({
-        success: false,
-        message: "Bill file is required.",
-      });
-    }
-
+    if (!billFile)
+      return res
+        .status(400)
+        .json({ success: false, message: "Bill file is required." });
     uploadedFilePath = path.join(
       __dirname,
       "../../uploads/purchaseOrder/receivingBill",
@@ -1738,30 +1305,28 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
       });
     }
 
+    // ================= FETCH PO =================
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: purchaseOrderId },
       include: { items: true },
     });
-
     if (!po) throw new Error("Purchase Order not found.");
-
-    if (["Cancelled"].includes(po.status))
+    if (["Cancelled", "Received"].includes(po.status))
       throw new Error(`PO already ${po.status}.`);
+    if (String(po.warehouseId) !== warehouseId)
+      return res
+        .status(403)
+        .json({ success: false, message: "Unauthorized warehouse access." });
 
-    if (String(po.warehouseId) !== userWarehouseId) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized warehouse access.",
-      });
-    }
-
-    /* ===================== PRISMA TRANSACTION ===================== */
+    await validateItems(items, po);
+    // ================= PRISMA + MONGO ATOMIC =================
     const { receiptResults, stockUpdates } = await prisma.$transaction(
       async (tx) => {
         const receiptResults = [];
         const stockUpdates = [];
+        const mongoRollbackStack = [];
 
-        // 📄 Save bill
+        // Save bill
         await tx.purchaseOrderBill.create({
           data: {
             purchaseOrderId,
@@ -1783,21 +1348,18 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
             damagedQty = 0,
             remarks = "",
           } = item;
-
           const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
-          if (!poItem) throw new Error("PO item not found.");
+          if (!poItem) throw new Error(`PO item ${itemName} not found.`);
 
           const orderedQty = Number(poItem.quantity || 0);
           const alreadyReceived = Number(poItem.receivedQty || 0);
           const poUnit = poItem.unit?.toLowerCase();
 
-          if (alreadyReceived + goodQty > orderedQty) {
+          if (alreadyReceived + goodQty > orderedQty)
             throw new Error(`Over receiving ${itemName}`);
-          }
-
           const totalReceived = alreadyReceived + goodQty;
 
-          /* ===== RECEIPT ENTRY ===== */
+          // Receipt entry
           await tx.purchaseOrderReceipt.create({
             data: {
               purchaseOrderId,
@@ -1815,12 +1377,13 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
             },
           });
 
+          // Update PO Item receivedQty
           await tx.purchaseOrderItem.update({
             where: { id: purchaseOrderItemId },
             data: { receivedQty: totalReceived },
           });
 
-          /* ===== DAMAGED STOCK (NO UPSERT) ===== */
+          // Damaged stock
           if (damagedQty > 0) {
             await tx.damagedStock.create({
               data: {
@@ -1838,17 +1401,15 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
             });
           }
 
-          /* ===== GOOD STOCK QUEUE ===== */
-          if (goodQty > 0) {
+          // Stock updates
+          if (goodQty > 0)
             stockUpdates.push({
               itemSource,
               itemId,
               goodQty,
               poUnit,
-              warehouseId: userWarehouseId,
+              warehouseId,
             });
-          }
-
           receiptResults.push({
             itemId,
             itemName,
@@ -1858,49 +1419,47 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
           });
         }
 
-        /* ===== FINAL PO STATUS (SAFE & CORRECT) ===== */
+        // PO status update
         const updatedItems = await tx.purchaseOrderItem.findMany({
           where: { purchaseOrderId },
           select: { quantity: true, receivedQty: true },
         });
-
         const allReceived = updatedItems.every(
           (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0)
         );
-
         const anyReceived = updatedItems.some(
           (i) => Number(i.receivedQty || 0) > 0
         );
 
-        let newStatus;
-        if (!anyReceived) newStatus = "Cancelled";
-        else if (allReceived) newStatus = "Received";
-        else newStatus = "PartiallyReceived";
+        let newStatus = po.status;
+        if (allReceived) newStatus = "Received";
+        else if (anyReceived) newStatus = "PartiallyReceived";
 
-        if (newStatus !== po.status) {
+        if (newStatus !== po.status)
           await tx.purchaseOrder.update({
             where: { id: purchaseOrderId },
             data: { status: newStatus },
           });
-        }
 
-        /* ===== MYSQL STOCK ===== */
+        // MySQL stock update
         for (const s of stockUpdates.filter((s) => s.itemSource === "mysql")) {
           const rawMat = await tx.rawMaterial.findUnique({
             where: { id: s.itemId },
           });
+          if (!rawMat)
+            throw new Error(`Raw material not found for ${s.itemId}`);
 
           const baseUnit = rawMat.unit?.toLowerCase();
           const convUnit = rawMat.conversionUnit?.toLowerCase();
           const factor = Number(rawMat.conversionFactor || 1);
 
-          let convertedQty;
-
-          if (!baseUnit) convertedQty = s.goodQty;
-          else if (s.poUnit === baseUnit) convertedQty = s.goodQty;
-          else if (convUnit && s.poUnit === convUnit)
-            convertedQty = s.goodQty * factor;
-          else throw new Error(`Invalid unit for raw material ${rawMat.name}`);
+          let convertedQty = s.goodQty;
+          if (baseUnit && s.poUnit !== baseUnit) {
+            if (convUnit && s.poUnit === convUnit)
+              convertedQty = s.goodQty * factor;
+            else
+              throw new Error(`Invalid unit for raw material ${rawMat.name}`);
+          }
 
           await tx.warehouseStock.upsert({
             where: {
@@ -1919,60 +1478,82 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
           });
         }
 
+        // ================= MONGO STOCK =================
+        try {
+          for (const s of stockUpdates.filter(
+            (s) => s.itemSource === "mongo"
+          )) {
+            const systemItem = await SystemItem.findById(s.itemId);
+            if (!systemItem)
+              throw new Error(`System item ${s.itemId} not found`);
+
+            const baseUnit = systemItem.unit?.toLowerCase();
+            const convUnit = systemItem.conversionUnit?.toLowerCase();
+            const factor = Number(systemItem.conversionFactor || 1);
+
+            let convertedQty = s.goodQty;
+            if (baseUnit && s.poUnit !== baseUnit) {
+              if (convUnit && s.poUnit === convUnit)
+                convertedQty = s.goodQty * factor;
+              else
+                throw new Error(
+                  `Invalid unit for system item ${systemItem._id}`
+                );
+            }
+
+            const inv = await InstallationInventory.findOne({
+              warehouseId: s.warehouseId,
+              systemItemId: s.itemId,
+            });
+            if (inv) {
+              mongoRollbackStack.push({
+                type: "update",
+                id: inv._id,
+                oldQty: inv.quantity,
+              });
+              console.log("Previous", inv);
+              inv.quantity += convertedQty;
+              inv.updatedAt = new Date();
+              inv.updatedByEmpId = req.user?.id;
+              await inv.save();
+              console.log("After", inv);
+            } else {
+              const created = await InstallationInventory.create({
+                warehouseId: s.warehouseId,
+                systemItemId: s.itemId,
+                quantity: convertedQty,
+              });
+              mongoRollbackStack.push({ type: "create", id: created._id });
+            }
+          }
+        } catch (mongoErr) {
+          // Rollback Mongo + throw to rollback MySQL via transaction
+          for (const r of mongoRollbackStack.reverse()) {
+            if (r.type === "update")
+              await InstallationInventory.findByIdAndUpdate(r.id, {
+                quantity: r.oldQty,
+              });
+            if (r.type === "create")
+              await InstallationInventory.findByIdAndDelete(r.id);
+          }
+          throw mongoErr;
+        }
+
+        // Audit log
+        await tx.auditLog.create({
+          data: {
+            entityType: "PurchaseOrder",
+            entityId: purchaseOrderId,
+            action: "RECEIVE_PO",
+            performedBy: userId,
+            oldValue: po,
+            newValue: { receiptResults },
+          },
+        });
+
         return { receiptResults, stockUpdates };
       }
     );
-
-    /* ===================== MONGO STOCK ===================== */
-    for (const s of stockUpdates.filter((s) => s.itemSource === "mongo")) {
-      const systemItem = await SystemItem.findById(s.itemId);
-
-      const baseUnit = systemItem.unit?.toLowerCase();
-      const convUnit = systemItem.converionUnit?.toLowerCase();
-      const factor = Number(systemItem.conversionFactor || 1);
-
-      let convertedQty;
-
-      if (!baseUnit) convertedQty = s.goodQty;
-      else if (s.poUnit === baseUnit) convertedQty = s.goodQty;
-      else if (convUnit && s.poUnit === convUnit)
-        convertedQty = s.goodQty * factor;
-      else throw new Error(`Invalid unit for system item`);
-
-      const inv = await InstallationInventory.findOne({
-        warehouseId: s.warehouseId,
-        systemItemId: s.itemId,
-      });
-
-      if (inv) {
-        mongoRollbackStack.push({
-          type: "update",
-          id: inv._id,
-          oldQty: inv.quantity,
-        });
-        inv.quantity += convertedQty;
-        await inv.save();
-      } else {
-        const created = await InstallationInventory.create({
-          warehouseId: s.warehouseId,
-          systemItemId: s.itemId,
-          quantity: convertedQty,
-        });
-        mongoRollbackStack.push({ type: "create", id: created._id });
-      }
-    }
-
-    /* ===================== AUDIT LOG ===================== */
-    await prisma.auditLog.create({
-      data: {
-        entityType: "PurchaseOrder",
-        entityId: purchaseOrderId,
-        action: "RECEIVE_PO",
-        performedBy: userId,
-        oldValue: po,
-        newValue: { receiptResults },
-      },
-    });
 
     return res.status(200).json({
       success: true,
@@ -1982,15 +1563,13 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
   } catch (err) {
     console.error("❌ PO Receiving Error:", err);
     await deleteUploadedFile();
-    await rollbackMongoChanges();
-    return res.status(500).json({
-      success: false,
-      message: err.message || "PO receiving failed.",
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: err.message || "PO receiving failed." });
   }
 };
 
-const purchaseOrderReceivingBill3 = async (req, res) => {
+const purchaseOrderReceivingBill2 = async (req, res) => {
   const userId = req.user?.id;
   const warehouseId = String(req.user?.warehouseId);
   let uploadedFilePath = null;
@@ -3248,7 +2827,6 @@ module.exports = {
   getPendingPOsForReceiving,
   purchaseOrderReceivingBill,
   purchaseOrderReceivingBill2,
-  purchaseOrderReceivingBill3,
   getLineWorkerList2,
   getRawMaterialList2,
   updateStock2,

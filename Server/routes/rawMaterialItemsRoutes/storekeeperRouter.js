@@ -121,7 +121,7 @@ router.post(
   "/purchaseOrder/receive",
   tokenVerification(["Store"]),
   uploadPurchaseOrderBill,
-  storekeeperController.purchaseOrderReceivingBill3
+  storekeeperController.purchaseOrderReceivingBill
 );
 
 router.post(
