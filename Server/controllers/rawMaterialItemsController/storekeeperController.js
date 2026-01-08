@@ -1192,6 +1192,7 @@ const getPendingPOsForReceiving = async (req, res) => {
           warehouseId: po.warehouseId,
           warehouseName: po.warehouseName,
           poDate: po.poDate,
+          expectedDeliveryDate: po.expectedDeliveryDate,
           status: po.status,
           approvalStatus: po.approvalStatus,
           items: pendingItems.map((item) => ({
@@ -1267,18 +1268,27 @@ const purchaseOrderReceivingBill = async (req, res) => {
   };
 
   try {
-    // Parse JSON items if needed
-    if (req.body.items) {
+    let items = req.body.items;
+
+    if (typeof items === "string") {
       try {
-        req.body.items = JSON.parse(req.body.items);
-      } catch (err) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid JSON format for items." });
+        items = JSON.parse(items);
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid items JSON format.",
+        });
       }
     }
 
-    const { purchaseOrderId, items, invoiceNumber } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items must be a non-empty array.",
+      });
+    }
+
+    const { purchaseOrderId, invoiceNumber } = req.body;
     const userWarehouseId = String(req.user?.warehouseId);
     const billFile = req.files?.billFile?.[0];
 
@@ -1977,6 +1987,350 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
       success: false,
       message: err.message || "PO receiving failed.",
     });
+  }
+};
+
+const purchaseOrderReceivingBill3 = async (req, res) => {
+  const userId = req.user?.id;
+  const warehouseId = String(req.user?.warehouseId);
+  let uploadedFilePath = null;
+
+  const deleteUploadedFile = async () => {
+    if (uploadedFilePath) {
+      try {
+        await fs.unlink(uploadedFilePath);
+      } catch (err) {
+        console.error("⚠️ Failed to delete uploaded file:", err);
+      }
+    }
+  };
+
+  const validateItems = async (items, po) => {
+    for (const item of items) {
+      const { itemId, itemSource, purchaseOrderItemId } = item;
+
+      if (!itemId || !itemSource || !purchaseOrderItemId) {
+        throw new Error("Invalid item data.");
+      }
+
+      const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+      if (!poItem) {
+        throw new Error(`PO item ${purchaseOrderItemId} not found.`);
+      }
+
+      if (itemSource === "mongo") {
+        const systemItem = await SystemItem.findById(itemId);
+        if (!systemItem) throw new Error(`SystemItem ${itemId} not found.`);
+      } else if (itemSource === "mysql") {
+        const rawMat = await prisma.rawMaterial.findUnique({
+          where: { id: itemId },
+        });
+        if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
+      } else {
+        throw new Error(`Invalid itemSource for ${itemId}.`);
+      }
+    }
+  };
+
+  try {
+    // ================= PARSE ITEMS =================
+    if (req.body.items) {
+      try {
+        req.body.items = JSON.parse(req.body.items);
+      } catch {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid items JSON." });
+      }
+    }
+
+    const { purchaseOrderId, items, invoiceNumber } = req.body;
+    const billFile = req.files?.billFile?.[0];
+
+    if (!billFile)
+      return res
+        .status(400)
+        .json({ success: false, message: "Bill file is required." });
+    uploadedFilePath = path.join(
+      __dirname,
+      "../../uploads/purchaseOrder/receivingBill",
+      billFile.filename
+    );
+
+    if (
+      !purchaseOrderId ||
+      !invoiceNumber ||
+      !Array.isArray(items) ||
+      !items.length
+    ) {
+      await deleteUploadedFile();
+      return res.status(400).json({
+        success: false,
+        message: "purchaseOrderId, invoiceNumber & items are required.",
+      });
+    }
+
+    // ================= FETCH PO =================
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: purchaseOrderId },
+      include: { items: true },
+    });
+    if (!po) throw new Error("Purchase Order not found.");
+    if (["Cancelled", "Received"].includes(po.status))
+      throw new Error(`PO already ${po.status}.`);
+    if (String(po.warehouseId) !== warehouseId)
+      return res
+        .status(403)
+        .json({ success: false, message: "Unauthorized warehouse access." });
+
+    await validateItems(items, po);
+    // ================= PRISMA + MONGO ATOMIC =================
+    const { receiptResults, stockUpdates } = await prisma.$transaction(
+      async (tx) => {
+        const receiptResults = [];
+        const stockUpdates = [];
+        const mongoRollbackStack = [];
+
+        // Save bill
+        await tx.purchaseOrderBill.create({
+          data: {
+            purchaseOrderId,
+            invoiceNumber,
+            fileName: billFile.filename,
+            fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
+            mimeType: billFile.mimetype,
+            uploadedBy: userId,
+          },
+        });
+
+        for (const item of items) {
+          const {
+            purchaseOrderItemId,
+            itemId,
+            itemSource,
+            itemName,
+            goodQty = 0,
+            damagedQty = 0,
+            remarks = "",
+          } = item;
+          const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+          if (!poItem) throw new Error(`PO item ${itemName} not found.`);
+
+          const orderedQty = Number(poItem.quantity || 0);
+          const alreadyReceived = Number(poItem.receivedQty || 0);
+          const poUnit = poItem.unit?.toLowerCase();
+
+          if (alreadyReceived + goodQty > orderedQty)
+            throw new Error(`Over receiving ${itemName}`);
+          const totalReceived = alreadyReceived + goodQty;
+
+          // Receipt entry
+          await tx.purchaseOrderReceipt.create({
+            data: {
+              purchaseOrderId,
+              purchaseOrderItemId,
+              invoiceNumber,
+              itemId,
+              itemSource,
+              itemName,
+              receivedQty: goodQty + damagedQty,
+              goodQty,
+              damagedQty,
+              remarks,
+              createdBy: userId,
+              receivedDate: new Date(),
+            },
+          });
+
+          // Update PO Item receivedQty
+          await tx.purchaseOrderItem.update({
+            where: { id: purchaseOrderItemId },
+            data: { receivedQty: totalReceived },
+          });
+
+          // Damaged stock
+          if (damagedQty > 0) {
+            await tx.damagedStock.create({
+              data: {
+                purchaseOrderId,
+                invoiceNumber,
+                itemId,
+                itemSource,
+                itemName,
+                unit: poItem.unit,
+                quantity: damagedQty,
+                status: "Pending",
+                remarks,
+                createdBy: userId,
+              },
+            });
+          }
+
+          // Stock updates
+          if (goodQty > 0)
+            stockUpdates.push({
+              itemSource,
+              itemId,
+              goodQty,
+              poUnit,
+              warehouseId,
+            });
+          receiptResults.push({
+            itemId,
+            itemName,
+            goodQty,
+            damagedQty,
+            remainingQty: orderedQty - totalReceived,
+          });
+        }
+
+        // PO status update
+        const updatedItems = await tx.purchaseOrderItem.findMany({
+          where: { purchaseOrderId },
+          select: { quantity: true, receivedQty: true },
+        });
+        const allReceived = updatedItems.every(
+          (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0)
+        );
+        const anyReceived = updatedItems.some(
+          (i) => Number(i.receivedQty || 0) > 0
+        );
+
+        let newStatus = po.status;
+        if (allReceived) newStatus = "Received";
+        else if (anyReceived) newStatus = "PartiallyReceived";
+
+        if (newStatus !== po.status)
+          await tx.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: newStatus },
+          });
+
+        // MySQL stock update
+        for (const s of stockUpdates.filter((s) => s.itemSource === "mysql")) {
+          const rawMat = await tx.rawMaterial.findUnique({
+            where: { id: s.itemId },
+          });
+          if (!rawMat)
+            throw new Error(`Raw material not found for ${s.itemId}`);
+
+          const baseUnit = rawMat.unit?.toLowerCase();
+          const convUnit = rawMat.conversionUnit?.toLowerCase();
+          const factor = Number(rawMat.conversionFactor || 1);
+
+          let convertedQty = s.goodQty;
+          if (baseUnit && s.poUnit !== baseUnit) {
+            if (convUnit && s.poUnit === convUnit)
+              convertedQty = s.goodQty * factor;
+            else
+              throw new Error(`Invalid unit for raw material ${rawMat.name}`);
+          }
+
+          await tx.warehouseStock.upsert({
+            where: {
+              warehouseId_rawMaterialId: {
+                warehouseId: s.warehouseId,
+                rawMaterialId: s.itemId,
+              },
+            },
+            update: { quantity: { increment: convertedQty } },
+            create: {
+              warehouseId: s.warehouseId,
+              rawMaterialId: s.itemId,
+              quantity: convertedQty,
+              unit: baseUnit,
+            },
+          });
+        }
+
+        // ================= MONGO STOCK =================
+        try {
+          for (const s of stockUpdates.filter(
+            (s) => s.itemSource === "mongo"
+          )) {
+            const systemItem = await SystemItem.findById(s.itemId);
+            if (!systemItem)
+              throw new Error(`System item ${s.itemId} not found`);
+
+            const baseUnit = systemItem.unit?.toLowerCase();
+            const convUnit = systemItem.conversionUnit?.toLowerCase();
+            const factor = Number(systemItem.conversionFactor || 1);
+
+            let convertedQty = s.goodQty;
+            if (baseUnit && s.poUnit !== baseUnit) {
+              if (convUnit && s.poUnit === convUnit)
+                convertedQty = s.goodQty * factor;
+              else
+                throw new Error(
+                  `Invalid unit for system item ${systemItem._id}`
+                );
+            }
+
+            const inv = await InstallationInventory.findOne({
+              warehouseId: s.warehouseId,
+              systemItemId: s.itemId,
+            });
+            if (inv) {
+              mongoRollbackStack.push({
+                type: "update",
+                id: inv._id,
+                oldQty: inv.quantity,
+              });
+              console.log("Previous", inv);
+              inv.quantity += convertedQty;
+              inv.updatedAt = new Date();
+              inv.updatedByEmpId = req.user?.id;
+              await inv.save();
+              console.log("After", inv);
+            } else {
+              const created = await InstallationInventory.create({
+                warehouseId: s.warehouseId,
+                systemItemId: s.itemId,
+                quantity: convertedQty,
+              });
+              mongoRollbackStack.push({ type: "create", id: created._id });
+            }
+          }
+        } catch (mongoErr) {
+          // Rollback Mongo + throw to rollback MySQL via transaction
+          for (const r of mongoRollbackStack.reverse()) {
+            if (r.type === "update")
+              await InstallationInventory.findByIdAndUpdate(r.id, {
+                quantity: r.oldQty,
+              });
+            if (r.type === "create")
+              await InstallationInventory.findByIdAndDelete(r.id);
+          }
+          throw mongoErr;
+        }
+
+        // Audit log
+        await tx.auditLog.create({
+          data: {
+            entityType: "PurchaseOrder",
+            entityId: purchaseOrderId,
+            action: "RECEIVE_PO",
+            performedBy: userId,
+            oldValue: po,
+            newValue: { receiptResults },
+          },
+        });
+
+        return { receiptResults, stockUpdates };
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Purchase Order received successfully.",
+      data: receiptResults,
+    });
+  } catch (err) {
+    console.error("❌ PO Receiving Error:", err);
+    await deleteUploadedFile();
+    return res
+      .status(500)
+      .json({ success: false, message: err.message || "PO receiving failed." });
   }
 };
 
@@ -2894,6 +3248,7 @@ module.exports = {
   getPendingPOsForReceiving,
   purchaseOrderReceivingBill,
   purchaseOrderReceivingBill2,
+  purchaseOrderReceivingBill3,
   getLineWorkerList2,
   getRawMaterialList2,
   updateStock2,
@@ -2969,3 +3324,45 @@ module.exports = {
     ],
   },
 ];
+
+[
+  {
+    purchaseOrderItemId: "62ab3cc6-d518-49d7-ab6d-0cbc14f716f5",
+    itemId: "682c5c99cb3e04e576ba36f4",
+    itemSource: "mongo",
+    itemName: "10 Panel Purlin (HDG)",
+    receivedQty: 50,
+    goodQty: 50,
+    damagedQty: 0,
+    remarks: "Received partial batch", 
+  },
+  {
+    purchaseOrderItemId: "a6e213e7-8d2c-4ca9-9566-412356da6b6e",
+    itemId: "68fcaff4bd822233afe7a59e",
+    itemSource: "mongo",
+    itemName: "4 Panel U Clamp",
+    receivedQty: 80,
+    goodQty: 80,
+    damagedQty: 0,
+    remarks: "Received partial batch",
+  },
+];
+
+[{
+        "id": "5534c015-0bd6-4951-8ba6-d89952b5b202",
+        "poNumber": "GEPLHR25260040",
+        "companyId": "4247d6fc-2a9c-42f5-925f-103fe1e014ac",
+        "companyName": "Galo Energy Private Limited",
+        "vendorId": "56816fd3-5fab-41da-be38-0b7947b6406a",
+        "vendorName": "Apna Bazar",
+        "damagedStock": [
+            {
+                "id": "2fa54831-cee5-4c88-a260-b434c61cbad7",
+                "itemId": "682c5c99cb3e04e576ba36f4",
+                "itemSource": "mongo",
+                "itemName": "10 Panel Purlin HDG Nitesh",
+                "quantity": "17",
+                "unit": "Pcs"
+            }
+]
+}]
