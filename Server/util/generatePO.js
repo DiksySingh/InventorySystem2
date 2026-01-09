@@ -92,7 +92,7 @@ function roundGrandTotal(value) {
 
 
 async function generatePOBuffer(po, items = []) {
-  const tplPath = path.join(__dirname, "../templates/template.ejs");
+  const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
   const tpl = fs.readFileSync(tplPath, "utf8");
 
   const currencyCode = po.currency?.toString() || "INR";
