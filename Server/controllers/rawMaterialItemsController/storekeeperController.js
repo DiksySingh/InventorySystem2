@@ -1457,7 +1457,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
           let convertedQty = s.goodQty;
           if (baseUnit && s.poUnit !== baseUnit) {
             if (convUnit && s.poUnit === convUnit)
-              convertedQty = s.goodQty * factor;
+              convertedQty = s.goodQty / factor;
             else
               throw new Error(`Invalid unit for raw material ${rawMat.name}`);
           }
@@ -1495,7 +1495,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
             let convertedQty = s.goodQty;
             if (baseUnit && s.poUnit !== baseUnit) {
               if (convUnit && s.poUnit === convUnit)
-                convertedQty = s.goodQty * factor;
+                convertedQty = s.goodQty / factor;
               else
                 throw new Error(
                   `Invalid unit for system item ${systemItem._id}`
