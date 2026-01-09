@@ -3,7 +3,7 @@ const prisma = require("../../config/prismaClient");
 const WarehouseItems = require("../../models/serviceInventoryModels/warehouseItemsSchema");
 const { v4: uuid } = require("uuid");
 
-const showStorePersons = async (req, res) => {
+const showStorePersons2 = async (req, res) => {
   try {
     const storeUsers = await prisma.user.findMany({
       where: {
@@ -39,7 +39,7 @@ const showStorePersons = async (req, res) => {
   }
 };
 
-const rawMaterialForItemRequest = async (req, res) => {
+const rawMaterialForItemRequest2 = async (req, res) => {
   try {
     const allRawMaterial = await prisma.rawMaterial.findMany({
       where: {
@@ -79,7 +79,7 @@ const rawMaterialForItemRequest = async (req, res) => {
   }
 };
 
-const createItemRequest = async (req, res) => {
+const createItemRequest2 = async (req, res) => {
   try {
     const { type, serviceProcessId, rawMaterialRequested, requestedTo } =
       req.body;
@@ -151,7 +151,7 @@ const createItemRequest = async (req, res) => {
   }
 };
 
-const createServiceProcess = async (req, res) => {
+const createServiceProcess2 = async (req, res) => {
   try {
     let { productName, itemName, subItemName, serialNumber, quantity } =
       req.body;
@@ -292,7 +292,7 @@ const createServiceProcess = async (req, res) => {
   }
 };
 
-const getPendingActivitiesForUserStage = async (req, res) => {
+const getPendingActivitiesForUserStage2 = async (req, res) => {
   try {
     const { role } = req.user;
     const empId = req.user?.id;
@@ -500,7 +500,7 @@ const getPendingActivitiesForUserStage = async (req, res) => {
 //   }
 // };
 
-const acceptServiceProcess = async (req, res) => {
+const acceptServiceProcess2 = async (req, res) => {
   try {
     const empId = req.user?.id;
     const { serviceProcessId } = req.body;
@@ -570,7 +570,7 @@ const acceptServiceProcess = async (req, res) => {
   }
 };
 
-const startServiceProcess = async (req, res) => {
+const startServiceProcess2 = async (req, res) => {
   try {
     const empId = req.user?.id;
     const { serviceProcessId } = req.body;
@@ -782,7 +782,7 @@ const createItemUsageLog = async (req, res) => {
   }
 };
 
-const completeServiceProcess = async (req, res) => {
+const completeServiceProcess2 = async (req, res) => {
   try {
     const { serviceProcessId, status, failureReason, remarks } = req.body;
     const empId = req.user?.id;
@@ -1224,7 +1224,7 @@ const completeServiceProcess = async (req, res) => {
 
 // Only for Disassemble Person in case of item get rejected at testing stage
 
-const getAssembleUsers = async (req, res) => {
+const getAssembleUsers2 = async (req, res) => {
   try {
     // 1️⃣ Get the role ID for "Assemble"
     const assembleRole = await prisma.role.findFirst({
@@ -1264,7 +1264,7 @@ const getAssembleUsers = async (req, res) => {
   }
 };
 
-const disassembleReusableItemsForm = async (req, res) => {
+const disassembleReusableItemsForm2 = async (req, res) => {
   try {
     const empId = req.user.id;
     const warehouseId = "67446a8b27dae6f7f4d985dd";
@@ -1543,7 +1543,7 @@ const getRequestsByUser = async (req, res) => {
   }
 };
 
-const showStorePersons2 = async (req, res) => {
+const showStorePersons = async (req, res) => {
   try {
     const { warehouseId } = req.user;
 
@@ -1590,7 +1590,7 @@ const showStorePersons2 = async (req, res) => {
   }
 };
 
-const rawMaterialForItemRequest2 = async (req, res) => {
+const rawMaterialForItemRequest = async (req, res) => {
   try {
     const { warehouseId } = req.user;
 
@@ -1646,7 +1646,7 @@ const rawMaterialForItemRequest2 = async (req, res) => {
   }
 };
 
-const createItemRequest2 = async (req, res) => {
+const createItemRequest = async (req, res) => {
   try {
     const { type, serviceProcessId, rawMaterialRequested, requestedTo } =
       req.body;
@@ -1753,7 +1753,7 @@ const createItemRequest2 = async (req, res) => {
   }
 };
 
-const createServiceProcess2 = async (req, res) => {
+const createServiceProcess = async (req, res) => {
   try {
     let { productName, itemName, subItemName, serialNumber, quantity } =
       req.body;
@@ -1880,7 +1880,7 @@ const createServiceProcess2 = async (req, res) => {
   }
 };
 
-const getPendingActivitiesForUserStage2 = async (req, res) => {
+const getPendingActivitiesForUserStage = async (req, res) => {
   try {
     const { role } = req.user;
     const empId = req.user?.id;
@@ -1987,7 +1987,7 @@ const getPendingActivitiesForUserStage2 = async (req, res) => {
   }
 };
 
-const acceptServiceProcess2 = async (req, res) => {
+const acceptServiceProcess = async (req, res) => {
   try {
     const empId = req.user?.id;
     const { serviceProcessId } = req.body;
@@ -2074,7 +2074,7 @@ const acceptServiceProcess2 = async (req, res) => {
   }
 };
 
-const startServiceProcess2 = async (req, res) => {
+const startServiceProcess = async (req, res) => {
   try {
     const empId = req.user?.id;
     const { serviceProcessId } = req.body;
@@ -2157,7 +2157,7 @@ const startServiceProcess2 = async (req, res) => {
   }
 };
 
-const completeServiceProcess2 = async (req, res) => {
+const completeServiceProcess = async (req, res) => {
   try {
     const { serviceProcessId, status, failureReason, remarks } = req.body;
     const empId = req.user?.id;
@@ -2545,7 +2545,7 @@ const completeServiceProcess2 = async (req, res) => {
   }
 };
 
-const getAssembleUsers2 = async (req, res) => {
+const getAssembleUsers = async (req, res) => {
   try {
     const userWarehouseId = req.user?.warehouseId;
     // 1️⃣ Get the role ID for "Assemble"
@@ -2590,7 +2590,7 @@ const getAssembleUsers2 = async (req, res) => {
   }
 };
 
-const disassembleReusableItemsForm2 = async (req, res) => {
+const disassembleReusableItemsForm = async (req, res) => {
   try {
     const empId = req.user.id;
     const {
