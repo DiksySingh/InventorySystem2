@@ -1,9 +1,6 @@
-<!doctype html>
-<html>
-
 <head>
     <meta charset="utf-8" />
-    <title>Purchase Order</title>
+    <title>Debit Note</title>
     <style>
  /* ===== EMBED TIMES NEW ROMAN ===== */
         @page {
@@ -28,14 +25,18 @@
 
         .container {
             width: calc(210mm - 24px);
-            min-height: calc(297mm - 24px);
+            /* min-height: calc(297mm - 24px); */
+            height: auto;
             position: relative;
             page-break-after: always;
             padding-top: 10px;
         }
 
-        .container:last-child {
+        /* .container:last-child {
             page-break-after: auto;
+        } */
+         .container + .container {
+            page-break-before: always;
         }
 
         .watermark {
@@ -50,8 +51,14 @@
             object-fit: contain;
         }
 
-        .content {
+        /* .content {
             min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 1;
+        } */
+         .content {
             display: flex;
             flex-direction: column;
             position: relative;
@@ -135,7 +142,6 @@
             border-left: 1px solid #000;
             padding: 4px;
             vertical-align: top;
-            height: auto;
             height: 95px;
             font-size: 12px;
             white-space: normal;
@@ -198,8 +204,9 @@
         .terms-list {
             margin: 0;
             /* remove all outer spacing */
-            padding-left: 13px;
+            padding-left: 0;
             /* small indent for numbering */
+            list-style-type: none;
             list-style-position: outside;
         }
 
@@ -244,7 +251,11 @@
             display: table-footer-group;
         }
 
-        tr {
+        table,
+        .items,
+        .bottom-rows,
+        .total-amount-rows,
+        .terms-sign {
             page-break-inside: avoid;
         }
     </style>
@@ -314,7 +325,7 @@
                     <%= vendorAddress %><br />
                     Email: <%= vendorEmail %><br /> 
                     <strong>Name: <%= vendorContactPerson %>, Mob: <%= vendorPhone %></strong><br /><br />
-                    <strong>GSTIN: <%= vendorGST %></strong>
+                    <strong>GSTIN: <%= vendorGST %></strong><br/>
                     <strong>Bill Reference: <%= billReference %></strong>
                 </div>
 
@@ -332,7 +343,7 @@
                 </div>
             </div>
 
-            <div class="note">We are pleased to place the order for the following items:</div>
+            <!-- <div class="note">We are pleased to place the order for the following items:</div> -->
 
             <% if (pages.length > 1 && pageIndex > 0) {
                 let safeTotal = parseAmount(previousTotal);
@@ -369,13 +380,23 @@
                             }
                     %>
                     <tr>
-                        <td><%= r.isEmpty ? "" : r.sno %></td>
-                        <td>
-                            <% if (!r.isEmpty) { %>
-                                <% if (r.itemName) { %><strong style="font-size: 14px;"><%= r.itemName %></strong><% } %>
-                                <% if (r.modelNumber) { %>Model No: <%= r.modelNumber %>, <% } %>
-                                <% if (r.itemDetail) { %><%= r.itemDetail %><% } %>
+                    <td><%= r.isEmpty ? "" : r.sno %></td>
+                    <td>
+                        <% if (!r.isEmpty) { %>
+
+                            <% if (r.itemName) { %>
+                            <strong style="font-size: 14px;"><%= r.itemName %></strong>
                             <% } %>
+
+                            <% if (r.modelNumber) { %>
+                            Model No: <%= r.modelNumber %><br/>
+                            <% } %>
+
+                            <% if (r.itemDetail) { %>
+                            <%= r.itemDetail %>
+                            <% } %>
+
+                        <% } %>
                         </td>
                         <td style="text-align:center;"><%= r.isEmpty ? "" : r.hsn %></td>
                         <td style="text-align:center;"><%= r.isEmpty ? "" : r.qty %></td>
@@ -558,10 +579,7 @@
                 <div class="terms">
                     <strong style="text-decoration:underline; margin-bottom: 0px;">Terms & Conditions</strong>
                     <ol class="terms-list">
-                        <li>Any taxes, expense, charges not mentioned in this P.O, will not be applicable & P.O is inclusive of all taxes i.e. GST.</li>
-                        <li>All material will be dispatched to site.</li>
-                        <li>If the supplied qty is in excess of P.O qty, we may reject the excess supplied qty without any economic consideration.</li>
-                        <li>All disputes subject to Delhi Jurisdiction.</li>
+                        <li>E. & O.E.</li>
                     </ol>
                 </div>
                 <div class="signature">

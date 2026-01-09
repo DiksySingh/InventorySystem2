@@ -55,6 +55,11 @@ model User {
   issuedItemsToUser         DirectItemIssue[]            @relation("IssuedToUser")
   issuedItemsByUser         DirectItemIssue[]            @relation("IssuedByUser")
   updatedByUser_DirectIssue DirectItemIssue[]            @relation("UpdatedByUser_DirectIssue")
+  paymentsCreated           Payment[]                    @relation("paymentCreatedBy")
+  paymentsRequested         Payment[]                    @relation("payment_RequestedBy")
+  docApprovedPayments       Payment[]                    @relation("doc_ApprovedBy")
+  adminApprovedPayments     Payment[]                    @relation("approvedBy_Admin")
+  paymentTransferred        Payment[]                    @relation("payment_TransferredBy")
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -671,6 +676,12 @@ model Company {
   email           String?
   country         Country  @default(INDIA)
   currency        Currency @default(INR)
+  companyAadhaar  String?
+  companyPanCard  String?
+  accountHolder   String?
+  bankName        String?
+  accountNumber   String?
+  ifscCode        String?
   isActive        Boolean? @default(true)
   createdBy       String
   createdAt       DateTime @default(now())
@@ -697,10 +708,17 @@ model Vendor {
   contactPerson   String?
   contactNumber   String?
   alternateNumber String?
-  isActive        Boolean? @default(true)
-  createdBy       String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  vendorAadhaar   String?
+  vendorPanCard   String?
+  accountHolder   String?
+  bankName        String?
+  accountNumber   String?
+  ifscCode        String?
+
+  isActive  Boolean? @default(true)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   purchaseOrders PurchaseOrder[]
   bankAccounts   BankDetail[]
@@ -762,32 +780,32 @@ model PurchaseOrder {
   foreignSubTotal   Decimal? @db.Decimal(12, 4)
   foreignGrandTotal Decimal? @db.Decimal(12, 4)
 
-  subTotal          Decimal?         @db.Decimal(12, 4)
-  totalCGST         Decimal?         @db.Decimal(12, 4)
-  totalSGST         Decimal?         @db.Decimal(12, 4)
-  totalIGST         Decimal?         @db.Decimal(12, 4)
-  totalGST          Decimal?         @db.Decimal(12, 4)
-  grandTotal        Decimal?         @db.Decimal(12, 4)
-  status            POStatus         @default(Draft)
-  approvalStatus    POApprovalStatus @default(Pending)
-  approvedBy        String?
-  approvedAt        DateTime?
-  rejectionReason   String?
-  remarks           String?
-  pdfUrl            String?
-  pdfName           String?
-  pdfGeneratedAt    DateTime?
-  pdfGeneratedBy    String?
-  emailSentAt       DateTime?
-  emailSentBy       String?
-  emailResentCount  Int              @default(0)
-  emailLastResentAt DateTime?
-  paymentTerms      String?
-  deliveryTerms     String?
-  contactPerson     String?
-  cellNo            String?
-  warranty          String?
-  expectedDeliveryDate  DateTime?
+  subTotal             Decimal?         @db.Decimal(12, 4)
+  totalCGST            Decimal?         @db.Decimal(12, 4)
+  totalSGST            Decimal?         @db.Decimal(12, 4)
+  totalIGST            Decimal?         @db.Decimal(12, 4)
+  totalGST             Decimal?         @db.Decimal(12, 4)
+  grandTotal           Decimal?         @db.Decimal(12, 4)
+  status               POStatus         @default(Draft)
+  approvalStatus       POApprovalStatus @default(Pending)
+  approvedBy           String?
+  approvedAt           DateTime?
+  rejectionReason      String?
+  remarks              String?
+  pdfUrl               String?
+  pdfName              String?
+  pdfGeneratedAt       DateTime?
+  pdfGeneratedBy       String?
+  emailSentAt          DateTime?
+  emailSentBy          String?
+  emailResentCount     Int              @default(0)
+  emailLastResentAt    DateTime?
+  paymentTerms         String?
+  deliveryTerms        String?
+  contactPerson        String?
+  cellNo               String?
+  warranty             String?
+  expectedDeliveryDate DateTime?
 
   otherCharges  Json?
   warehouseId   String?
@@ -973,8 +991,9 @@ model DebitNote {
   vehicleNumber   String?
   station         String?
 
-  otherCharges Json?
-  warehouseId  String?
+  otherCharges  Json?
+  warehouseId   String?
+  warehouseName String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1071,19 +1090,47 @@ enum ReturnStatus {
   Closed
 }
 
-model Payment {
-  id          String      @id @default(uuid())
-  poId        String
-  paymentDate DateTime    @default(now())
-  mode        PaymentMode @default(NEFT)
-  amount      Decimal     @db.Decimal(12, 2)
-  referenceNo String?
-  remarks     String?
-  createdAt   DateTime    @default(now())
+enum BillPaymentType {
+  Advance_Payment
+  Partial_Payment
+  Full_Payment
+}
 
-  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id])
-  debitNote     DebitNote?    @relation(fields: [debitNoteId], references: [id])
-  debitNoteId   String?
+model Payment {
+  id                   String           @id @default(uuid())
+  poId                 String
+  debitNoteId          String?
+  paymentRequestedBy   String?
+  docApprovedBy        String?
+  docApprovalStatus    Boolean?
+  docApprovalDate      DateTime?
+  docApprovalRemark    String?
+  approvedByAdmin      String?
+  adminApprovalStatus  Boolean?
+  adminApprovalDate    DateTime?
+  adminRemark          String?
+  paymentTransferredBy String?
+  paymentStatus        Boolean?
+  paymentRemark        String?
+  paymentDate          DateTime?        @default(now())
+  amount               Decimal          @db.Decimal(12, 4)
+  billpaymentType      BillPaymentType?
+  createdAt            DateTime?        @default(now())
+  createdBy            String?
+  updatedAt            DateTime?        @updatedAt
+  updatedBy            String?
+
+  purchaseOrder         PurchaseOrder @relation(fields: [poId], references: [id])
+  debitNote             DebitNote?    @relation(fields: [debitNoteId], references: [id])
+  paymentCreatedBy      User?         @relation("paymentCreatedBy", fields: [createdBy], references: [id])
+  payment_RequestedBy   User?         @relation("payment_RequestedBy", fields: [paymentRequestedBy], references: [id])
+  doc_ApprovedBy        User?         @relation("doc_ApprovedBy", fields: [docApprovedBy], references: [id])
+  approvedBy_Admin      User?         @relation("approvedBy_Admin",fields: [approvedByAdmin], references: [id])
+  payment_TransferredBy User?         @relation("payment_TransferredBy",fields: [paymentTransferredBy], references: [id])
+
+  @@index([poId])
+  @@index([debitNoteId])
+  @@index([createdBy])
 }
 
 model AuditLog {

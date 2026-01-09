@@ -45,7 +45,10 @@ const installationInventorySchema = new Schema({
     updatedBy: {
         type: Schema.Types.ObjectId,
         ref: "WarehousePerson"
-    }
+    },
+    updatedByEmpId: {
+        type: String
+    },
 }, {collection: "inInstallationInventories"});
 
 const InstallationInventory = mongoose.model("InstallationInventory", installationInventorySchema);

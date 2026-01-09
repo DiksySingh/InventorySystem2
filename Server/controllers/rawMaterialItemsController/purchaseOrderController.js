@@ -1315,11 +1315,9 @@ const createPurchaseOrder = async (req, res) => {
       .toDecimalPlaces(4, Decimal.ROUND_DOWN);
     const rawGrandTotal = subTotalINR.plus(totalGST);
     const grandTotalINR = roundGrandTotal(rawGrandTotal);
-    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
-      4,
-      Decimal.ROUND_DOWN
-    );
-
+    foreignSubTotal = foreignSubTotal.plus(otherChargesTotal);
+    const foreignGrandTotal = roundGrandTotal(foreignSubTotal);
+  
     let warehouseName = null;
     const warehouseData = await Warehouse.findById(warehouseId);
     if (warehouseData) {
@@ -1946,15 +1944,16 @@ const updatePurchaseOrder = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Vendor not found" });
-    
+
     const companyToUseId = companyId || existingPO.companyId;
     const company = await prisma.company.findUnique({
-      where: { id: companyToUseId }
+      where: { id: companyToUseId },
     });
 
-    if(!company) {
+    if (!company) {
       return res.status(404).json({
-        success: false, message: "Company not found"
+        success: false,
+        message: "Company not found",
       });
     }
 
@@ -2630,6 +2629,7 @@ const getPOList = async (req, res) => {
         vendorId: true,
         vendorName: true,
         currency: true,
+        foreignGrandTotal: true,
         grandTotal: true,
         status: true,
         expectedDeliveryDate: true,
@@ -2645,10 +2645,15 @@ const getPOList = async (req, res) => {
       },
     });
 
+    const formattedPOList = poList.map((po) => ({
+      ...po,
+      displayGrandTotal: po.currency === "INR" ? po.grandTotal : po.foreignGrandTotal,
+    }));
+
     return res.status(200).json({
       success: true,
       message: "PO list fetched successfully",
-      data: poList,
+      data: formattedPOList,
       pagination: {
         total: totalCount,
         page: pageNumber,
@@ -3447,6 +3452,19 @@ const createDebitNote = async (req, res) => {
       });
     }
 
+    const po = await prisma.purchaseOrder.findUnique({
+      where: {
+        id: purchaseOrderId,
+      },
+    });
+
+    if (!po) {
+      return res.status(400).json({
+        success: false,
+        message: "PO not found.",
+      });
+    }
+
     const isItemWise = gstType.includes("ITEMWISE");
 
     // Validate items
@@ -3554,8 +3572,11 @@ const createDebitNote = async (req, res) => {
     }
 
     // Debit Note currency and exchange rate
-    const currency = vendor.currency || "INR";
-    const exchangeRate = vendor.exchangeRate || requestExchangeRate || 1;
+    const finalCurrency = currency || "INR";
+    const finalExchangeRate =
+      exchangeRate && Number(exchangeRate) > 0
+        ? new Decimal(exchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN)
+        : new Decimal(1);
 
     const debitNoteNo = await generateDebitNoteNumber(company);
     if (await prisma.debitNote.findUnique({ where: { debitNoteNo } })) {
@@ -3579,10 +3600,20 @@ const createDebitNote = async (req, res) => {
 
     // Process items for DB
     const processedItems = damagedItems.map((item) => {
-      const qty = new Decimal(item.quantity);
-      const rateForeign = new Decimal(item.rate);
-      const amountForeign = rateForeign.mul(qty);
-      const amountINR = amountForeign.mul(exchangeRate);
+      const qty = new Decimal(item.quantity).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const amountForeign = rateForeign
+        .mul(qty)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
       foreignSubTotal = foreignSubTotal.plus(amountForeign);
       subTotalINR = subTotalINR.plus(amountINR);
@@ -3628,16 +3659,16 @@ const createDebitNote = async (req, res) => {
       const normalTotalINR = subTotalINR;
 
       if (gstType.startsWith("LGST")) {
-        totalCGST = totalCGST.plus(
-          normalTotalINR.mul(debitNoteGSTPercent.div(200))
-        );
-        totalSGST = totalSGST.plus(
-          normalTotalINR.mul(debitNoteGSTPercent.div(200))
-        );
+        totalCGST = totalCGST
+          .plus(normalTotalINR.mul(debitNoteGSTPercent.div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        totalSGST = totalSGST
+          .plus(normalTotalINR.mul(debitNoteGSTPercent.div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
       } else if (gstType.startsWith("IGST")) {
-        totalIGST = totalIGST.plus(
-          normalTotalINR.mul(debitNoteGSTPercent.div(100))
-        );
+        totalIGST = totalIGST
+          .plus(normalTotalINR.mul(debitNoteGSTPercent.div(100)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
       }
     }
 
@@ -3646,22 +3677,45 @@ const createDebitNote = async (req, res) => {
       for (const item of itemWiseItems) {
         const totalINR = new Decimal(item.rate)
           .mul(item.quantity)
-          .mul(exchangeRate);
-        const rate = new Decimal(item.gstRate);
+          .mul(finalExchangeRate)
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        const rate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN
+        );
 
         if (gstType === "LGST_ITEMWISE") {
-          totalCGST = totalCGST.plus(totalINR.mul(rate.div(200)));
-          totalSGST = totalSGST.plus(totalINR.mul(rate.div(200)));
+          totalCGST = totalCGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+          totalSGST = totalSGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         } else if (gstType === "IGST_ITEMWISE") {
-          totalIGST = totalIGST.plus(totalINR.mul(rate.div(100)));
+          totalIGST = totalIGST
+            .plus(totalINR.mul(rate.div(100)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         }
       }
     }
 
-    const totalGST = totalCGST.plus(totalSGST).plus(totalIGST);
-    const grandTotalINR = subTotalINR.plus(totalGST);
-    const foreignGrandTotal = foreignSubTotal;
+    const totalGST = totalCGST
+      .plus(totalSGST)
+      .plus(totalIGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const rawGrandTotal = subTotalINR.plus(totalGST);
+    const grandTotalINR = roundGrandTotal(rawGrandTotal);
+    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
+      4,
+      Decimal.ROUND_DOWN
+    );
 
+    let warehouseName = po.warehouseName;
+    // const warehouseData = await Warehouse.findById(warehouseId);
+    // if (warehouseData) {
+    //   warehouseName = warehouseData?.warehouseName;
+    // }
+    console.log(warehouseName);
     // ------------------------------------
     // 💾 Save Purchase Order
     // ------------------------------------
@@ -3697,11 +3751,14 @@ const createDebitNote = async (req, res) => {
           vendorName: vendor.name,
           gstType,
           gstRate: debitNoteGSTPercent,
-          currency,
-          exchangeRate,
-          foreignSubTotal,
+          currency: finalCurrency,
+          exchangeRate: finalExchangeRate,
+          foreignSubTotal: foreignSubTotal.toDecimalPlaces(
+            4,
+            Decimal.ROUND_DOWN
+          ),
           foreignGrandTotal,
-          subTotal: subTotalINR,
+          subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
           totalCGST,
           totalSGST,
           totalIGST,
@@ -3715,7 +3772,9 @@ const createDebitNote = async (req, res) => {
           vehicleNumber: vehicleNumber || null,
           station: station || null,
           createdBy: userId,
-          otherCharges,
+          otherCharges: normalizedOtherCharges,
+          warehouseId: po.warehouseId,
+          warehouseName,
         },
       });
 
@@ -4097,6 +4156,39 @@ const updateDebitNote = async (req, res) => {
       });
     }
 
+    let normalizedOtherCharges = [];
+    if (
+      Array.isArray(otherCharges) &&
+      otherCharges.length === 1 &&
+      otherCharges[0]?.name === "" &&
+      otherCharges[0]?.amount === ""
+    ) {
+      normalizedOtherCharges = [];
+    }
+    // Case 2: Validate proper other charges
+    else if (Array.isArray(otherCharges) && otherCharges.length > 0) {
+      for (const ch of otherCharges) {
+        if (
+          !ch.name ||
+          ch.name.trim() === "" ||
+          ch.amount === "" ||
+          ch.amount == null ||
+          isNaN(ch.amount)
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid otherCharges: name and amount are required for each charge",
+          });
+        }
+
+        normalizedOtherCharges.push({
+          name: ch.name.trim(),
+          amount: new Decimal(ch.amount),
+        });
+      }
+    }
+
     const existingDebitNote = await prisma.debitNote.findUnique({
       where: { id: debitNoteId },
       include: { damagedItems: true },
@@ -4149,10 +4241,10 @@ const updateDebitNote = async (req, res) => {
         });
     }
 
-    const oldValue = JSON.parse(JSON.stringify(existingPO));
+    const oldValue = JSON.parse(JSON.stringify(existingDebitNote));
 
     // Fetch vendor
-    const vendorToUseId = vendorId || existingDebitNote.vendorId;
+    const vendorToUseId = existingDebitNote.vendorId;
     const vendor = await prisma.vendor.findUnique({
       where: { id: vendorToUseId },
     });
@@ -4162,11 +4254,11 @@ const updateDebitNote = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Vendor not found" });
 
-    const finalCurrency = existingDebitNote.currency || "INR";
+    const finalCurrency = currency || "INR";
     const finalExchangeRate =
       finalCurrency === "INR"
         ? new Decimal(1)
-        : new Decimal(vendor.exchangeRate || 1);
+        : new Decimal(exchangeRate || 1).toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
     let foreignSubTotal = new Decimal(0);
     let subTotalINR = new Decimal(0);
@@ -4181,10 +4273,20 @@ const updateDebitNote = async (req, res) => {
     // ⭐ UNIVERSAL GST LOGIC FOR EACH ITEM ⭐
     // -------------------------
     const processedItems = damagedItems.map((item) => {
-      const qty = new Decimal(item.quantity);
-      const rateForeign = new Decimal(item.rate);
-      const amountForeign = rateForeign.mul(qty);
-      const amountINR = amountForeign.mul(finalExchangeRate);
+      const qty = new Decimal(item.quantity).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const amountForeign = rateForeign
+        .mul(qty)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
       foreignSubTotal = foreignSubTotal.plus(amountForeign);
       subTotalINR = subTotalINR.plus(amountINR);
@@ -4204,7 +4306,10 @@ const updateDebitNote = async (req, res) => {
       } else if (isItemWiseGST) {
         // CASE 2 — ITEMWISE
         itemGSTType = gstType;
-        itemGSTRate = new Decimal(item.gstRate);
+        itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN
+        );
       } else {
         // CASE 3 — Normal IGST/LGST 5/12/18/28
         itemGSTRate = null;
@@ -4240,31 +4345,33 @@ const updateDebitNote = async (req, res) => {
         if (ch == null) continue;
         const amt = ch.amount ?? ch.value ?? null;
         if (amt == null || isNaN(amt)) continue;
-        otherChargesTotal = otherChargesTotal.plus(new Decimal(amt));
+        otherChargesTotal = otherChargesTotal
+          .plus(new Decimal(amt))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
       }
     }
     subTotalINR = subTotalINR.plus(otherChargesTotal);
 
     // GST FOR NORMAL ITEMS
-    const poGSTPercent =
+    const debitNoteGSTPercent =
       isItemWise || gstType.includes("EXEMPTED")
         ? null
         : getGSTPercent(gstType);
 
-    if (normalItems.length && poGSTPercent) {
+    if (normalItems.length && debitNoteGSTPercent) {
       const normalTotalINR = subTotalINR;
 
       if (gstType.startsWith("LGST")) {
-        totalCGST = totalCGST.plus(
-          normalTotalINR.mul(new Decimal(poGSTPercent).div(200))
-        );
-        totalSGST = totalSGST.plus(
-          normalTotalINR.mul(new Decimal(poGSTPercent).div(200))
-        );
+        totalCGST = totalCGST
+          .plus(normalTotalINR.mul(new Decimal(debitNoteGSTPercent).div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        totalSGST = totalSGST
+          .plus(normalTotalINR.mul(new Decimal(debitNoteGSTPercent).div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
       } else if (gstType.startsWith("IGST")) {
-        totalIGST = totalIGST.plus(
-          normalTotalINR.mul(new Decimal(poGSTPercent).div(100))
-        );
+        totalIGST = totalIGST
+          .plus(normalTotalINR.mul(new Decimal(debitNoteGSTPercent).div(100)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
       }
     }
 
@@ -4273,32 +4380,51 @@ const updateDebitNote = async (req, res) => {
       for (const item of itemWiseItems) {
         const totalINR = new Decimal(item.rate)
           .mul(item.quantity)
-          .mul(finalExchangeRate);
-        const rate = new Decimal(item.gstRate);
+          .mul(finalExchangeRate)
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        const rate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN
+        );
 
         if (gstType === "LGST_ITEMWISE") {
-          totalCGST = totalCGST.plus(totalINR.mul(rate.div(200)));
-          totalSGST = totalSGST.plus(totalINR.mul(rate.div(200)));
+          totalCGST = totalCGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+          totalSGST = totalSGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         } else if (gstType === "IGST_ITEMWISE") {
-          totalIGST = totalIGST.plus(totalINR.mul(rate.div(100)));
+          totalIGST = totalIGST
+            .plus(totalINR.mul(rate.div(100)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         }
       }
     }
 
-    const totalGST = totalCGST.plus(totalSGST).plus(totalIGST);
-    const grandTotalINR = subTotalINR.plus(totalGST);
-    const foreignGrandTotal = foreignSubTotal;
+    const totalGST = totalCGST
+      .plus(totalSGST)
+      .plus(totalIGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const rawGrandTotalINR = subTotalINR
+      .plus(totalGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const grandTotalINR = roundGrandTotal(rawGrandTotalINR);
+    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
+      4,
+      Decimal.ROUND_DOWN
+    );
 
     // -------------------------
     // UPDATE PO
     // -------------------------
-    const updateddebitNote = await prisma.$transaction(async (tx) => {
-      await tx.purchaseOrderItem.deleteMany({
+    const updatedDebitNote = await prisma.$transaction(async (tx) => {
+      await tx.damagedStock.deleteMany({
         where: { purchaseOrderId: poId },
       });
 
-      const po = await tx.purchaseOrder.update({
-        where: { id: poId },
+      const po = await tx.debitNote.update({
+        where: { id: debitNoteId },
         data: {
           companyId: companyId || existingPO.companyId,
           vendorId: vendorId || existingPO.vendorId,
@@ -4315,12 +4441,13 @@ const updateDebitNote = async (req, res) => {
           totalGST,
           grandTotal: grandTotalINR,
           remarks,
-          paymentTerms,
-          deliveryTerms,
-          warranty,
-          contactPerson,
-          cellNo,
-          otherCharges,
+          orgInvoiceNo: orgInvoiceNo || existingDebitNote.orgInvoiceNo,
+          orgInvoiceDate: orgInvoiceDate || existingDebitNote.orgInvoiceDate,
+          gr_rr_no: gr_rr_no || existingDebitNote.gr_rr_no,
+          transport: transport || existingDebitNote.transport,
+          vehicleNumber: vehicleNumber || existingDebitNote.vehicleNumber,
+          station: station || existingDebitNote.station,
+          otherCharges: normalizedOtherCharges,
           damagedItems: {
             create: processedItems,
           },
@@ -4331,7 +4458,7 @@ const updateDebitNote = async (req, res) => {
       await tx.auditLog.create({
         data: {
           entityType: "DebitNote",
-          entityId: debitNote.id,
+          entityId: existingDebitNote.id,
           action: "UPDATED",
           performedBy: userId,
           oldValue,
@@ -4352,6 +4479,251 @@ const updateDebitNote = async (req, res) => {
     res.status(500).json({
       success: false,
       message: err.message || "Server error while updating Debit Note",
+    });
+  }
+};
+
+const updateDebitNote2 = async (req, res) => {
+  try {
+    const { debitNoteId } = req.params;
+    const {
+      companyId,
+      vendorId,
+      gstType,
+      damagedItems,
+      remarks,
+      orgInvoiceNo,
+      orgInvoiceDate,
+      gr_rr_no,
+      transport,
+      vehicleNumber,
+      station,
+      otherCharges = [],
+    } = req.body;
+
+    /* ---------------- AUTH ---------------- */
+    const userId = req.user?.id;
+    if (!userId)
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Department can update Debit Note",
+      });
+    }
+
+    /* ---------------- FETCH DEBIT NOTE ---------------- */
+    const existingDebitNote = await prisma.debitNote.findUnique({
+      where: { id: debitNoteId },
+      include: { damagedStock: true },
+    });
+
+    if (!existingDebitNote)
+      return res.status(404).json({
+        success: false,
+        message: "Debit Note not found",
+      });
+
+    if (!Array.isArray(damagedItems) || !damagedItems.length)
+      return res.status(400).json({
+        success: false,
+        message: "At least one damaged item is required",
+      });
+
+    const oldValue = JSON.parse(JSON.stringify(existingDebitNote));
+
+    /* ---------------- OTHER CHARGES ---------------- */
+    let normalizedOtherCharges = [];
+    let otherChargesTotal = new Decimal(0);
+
+    if (
+      Array.isArray(otherCharges) &&
+      !(otherCharges.length === 1 && otherCharges[0]?.name === "")
+    ) {
+      for (const ch of otherCharges) {
+        if (!ch?.name || ch.amount == null || isNaN(ch.amount)) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid otherCharges: each charge must have name and amount",
+          });
+        }
+
+        const amt = new Decimal(ch.amount).toDecimalPlaces(4, ROUND_DOWN);
+        normalizedOtherCharges.push({ name: ch.name.trim(), amount: amt });
+        otherChargesTotal = otherChargesTotal.plus(amt);
+      }
+    }
+
+    /* ---------------- GST FLAGS ---------------- */
+    const isItemWise = gstType.includes("ITEMWISE");
+    const isExempted = gstType.includes("EXEMPTED");
+
+    /* ---------------- CURRENCY ---------------- */
+    const finalCurrency = currency || existingDebitNote.currency;
+    const finalExchangeRate =
+      finalCurrency === "INR"
+        ? new Decimal(1)
+        : new Decimal(
+            exchangeRate || existingDebitNote.exchangeRate
+          ).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+
+    /* ---------------- TOTALS ---------------- */
+    let foreignSubTotal = new Decimal(0);
+    let subTotalINR = new Decimal(0);
+    let totalCGST = new Decimal(0);
+    let totalSGST = new Decimal(0);
+    let totalIGST = new Decimal(0);
+
+    /* ---------------- UPDATE DAMAGED STOCK ---------------- */
+    for (const item of damagedItems) {
+      if (!item.damagedStockId || !item.rate) {
+        return res.status(400).json({
+          success: false,
+          message: "damagedStockId and rate are required",
+        });
+      }
+
+      const existingItem = existingDebitNote.damagedStock.find(
+        (d) => d.id === item.damagedStockId
+      );
+
+      if (!existingItem) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid damagedStockId",
+        });
+      }
+
+      const qty = new Decimal(item.quantity).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN
+      );
+      const amountForeign = rateForeign
+        .mul(qty)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+
+      foreignSubTotal = foreignSubTotal.plus(amountForeign);
+      subTotalINR = subTotalINR.plus(amountINR);
+
+      let itemGSTType = null;
+      let itemGSTRate = null;
+
+      if (!isExempted && isItemWise) {
+        itemGSTType = gstType;
+        itemGSTRate = new Decimal(item.gstRate || 0).toDecimalPlaces(4);
+      }
+
+      await prisma.damagedStock.update({
+        where: { id: item.damagedStockId },
+        data: {
+          rate: rateForeign,
+          rateInForeign: finalCurrency !== "INR" ? rateForeign : null,
+          amountInForeign: finalCurrency !== "INR" ? amountForeign : null,
+          gstRate: itemGSTRate,
+          itemGSTType,
+          total: amountINR,
+          updatedBy: userId,
+        },
+      });
+
+      /* ---------- ITEMWISE GST ---------- */
+      if (!isExempted && isItemWise) {
+        if (gstType === "LGST_ITEMWISE") {
+          totalCGST = totalCGST.plus(amountINR.mul(itemGSTRate.div(200)));
+          totalSGST = totalSGST.plus(amountINR.mul(itemGSTRate.div(200)));
+        } else if (gstType === "IGST_ITEMWISE") {
+          totalIGST = totalIGST.plus(amountINR.mul(itemGSTRate.div(100)));
+        }
+      }
+    }
+
+    /* ---------------- OTHER CHARGES ---------------- */
+    subTotalINR = subTotalINR.plus(otherChargesTotal);
+
+    /* ---------------- NORMAL GST ---------------- */
+    if (!isItemWise && !isExempted) {
+      const gstPercent = getGSTPercent(gstType);
+      if (gstType.startsWith("LGST")) {
+        totalCGST = totalCGST.plus(subTotalINR.mul(gstPercent / 200));
+        totalSGST = totalSGST.plus(subTotalINR.mul(gstPercent / 200));
+      } else if (gstType.startsWith("IGST")) {
+        totalIGST = totalIGST.plus(subTotalINR.mul(gstPercent / 100));
+      }
+    }
+
+    const totalGST = totalCGST
+      .plus(totalSGST)
+      .plus(totalIGST)
+      .toDecimalPlaces(4);
+    const grandTotal = roundGrandTotal(subTotalINR.plus(totalGST));
+
+    /* ---------------- UPDATE DEBIT NOTE ---------------- */
+    const updatedDebitNote = await prisma.$transaction(async (tx) => {
+      const dn = await tx.debitNote.update({
+        where: { id: debitNoteId },
+        data: {
+          companyId: companyId ?? undefined,
+          vendorId: vendorId ?? undefined,
+          gstType,
+          subTotal: subTotalINR,
+          foreignSubTotal,
+          totalCGST,
+          totalSGST,
+          totalIGST,
+          totalGST,
+          grandTotal,
+          foreignGrandTotal: foreignSubTotal,
+          remarks,
+          orgInvoiceNo: orgInvoiceNo ?? undefined,
+          orgInvoiceDate: orgInvoiceDate ?? undefined,
+          gr_rr_no: gr_rr_no ?? undefined,
+          transport: transport ?? undefined,
+          vehicleNumber: vehicleNumber ?? undefined,
+          station: station ?? undefined,
+          otherCharges: normalizedOtherCharges,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "DebitNote",
+          entityId: debitNoteId,
+          action: "UPDATED",
+          performedBy: userId,
+          oldValue,
+          newValue: dn,
+        },
+      });
+
+      return dn;
+    });
+
+    return res.json({
+      success: true,
+      message: "✅ Debit Note updated successfully",
+      data: updatedDebitNote,
+    });
+  } catch (err) {
+    console.error("Debit Note Update Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error",
     });
   }
 };
@@ -5020,6 +5392,134 @@ const getRawMaterialByWarehouse = async (req, res) => {
   }
 };
 
+//------------------ Payment Request Controllers ----------------------//
+
+const createPaymentRequest = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    console.log(userRole);
+
+    if (userRole.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Team can request payment",
+      });
+    }
+
+    const { poId, debitNoteId, amount, billpaymentType, remarks } = req.body;
+
+    if (!poId || !amount || !billpaymentType) {
+      return res.status(400).json({
+        success: false,
+        message: "poId, amount & billpaymentType are required",
+      });
+    }
+
+    const validTypes = ["Advance_Payment", "Partial_Payment", "Full_Payment"];
+    if (!validTypes.includes(billpaymentType)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "billpaymentType must be one of: Advance_Payment, Partial_Payment, Full_Payment",
+      });
+    }
+
+    // Get PO + existing payments
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: {
+        payments: {
+          where: {
+            paymentStatus: true,
+            adminApprovalStatus: true,
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase Order not found",
+      });
+    }
+
+    // Ensure PO has a total value
+    if (!po.grandTotal) {
+      return res.status(400).json({
+        success: false,
+        message: "PO grandTotal missing. Cannot compare payment amount.",
+      });
+    }
+
+    // Sum all approved/paid amounts
+    const totalPaid = po.payments.reduce((sum, pay) => {
+      return sum + Number(pay.amount);
+    }, 0);
+
+    const remainingBalance = Number(po.grandTotal) - totalPaid;
+
+    // Check if requested amount is within balance
+    if (Number(amount) > remainingBalance) {
+      return res.status(400).json({
+        success: false,
+        message: `Requested amount exceeds remaining PO balance`,
+        details: {
+          grandTotal: Number(po.grandTotal),
+          alreadyPaid: totalPaid,
+          remaining: remainingBalance,
+        },
+      });
+    }
+
+    // Validate debit note belongs to this PO (if provided)
+    if (debitNoteId) {
+      const dn = await prisma.debitNote.findUnique({
+        where: { id: debitNoteId },
+      });
+
+      if (!dn || dn.purchaseOrderId !== poId) {
+        return res.status(404).json({
+          success: false,
+          message: "Debit Note not found for this PO",
+        });
+      }
+    }
+
+    // Create Payment Request
+    const payment = await prisma.payment.create({
+      data: {
+        poId,
+        debitNoteId: debitNoteId || null,
+        amount,
+        billpaymentType,
+        createdBy: userId,
+        paymentRequestedBy: userId,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Payment request successfully submitted",
+      summary: {
+        grandTotal: Number(po.grandTotal),
+        paymentRequested: Number(amount),
+        alreadyPaid: totalPaid,
+        remainingAfterThis: remainingBalance - Number(amount),
+      },
+      //data: payment,
+    });
+  } catch (error) {
+    console.error("CREATE PAYMENT ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCompany,
   createVendor,
@@ -5060,36 +5560,5 @@ module.exports = {
   getSystemDashboardData,
   getRawMaterialByWarehouse,
   getPOListByCompany2,
+  createPaymentRequest,
 };
-
-// "data": {
-//       "summary": {
-//           "totalDesired": 375,
-//           "commonPossible": 33,
-//           "headWiseDesired": {
-//               "30M": 250,
-//               "50M": 50,
-//               "70M": 75
-//           }
-//       },
-
-//       "summary": {
-//         "motorCommonSystem" : {
-//           "totalDesired": 375,
-//           "possibleSystem": 33
-//         },
-//         "headWiseSystem": {
-//           "30M": {
-//             "desiredSystem": 250,
-//             "possibleSystem": xyz,
-//           },
-//           "50M": {
-//             "desiredSystem": 50,
-//             "possibleSystem": xyz,
-//           },
-//           "70M": {
-//             "desiredSystem": 75,
-//             "possibleSystem": xyz,
-//           }
-//         }
-//       }

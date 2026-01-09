@@ -212,4 +212,10 @@ router.get(
   purchaseOrderController.getRawMaterialByWarehouse
 );
 
+router.post(
+  "/payment/request",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.createPaymentRequest
+);
+
 module.exports = router;

@@ -2797,7 +2797,7 @@ const updateWarehouseStockByExcel = async (req, res) => {
         },
         data: {
           quantity: Number(quantity) || 0,
-          isUsed: true,
+          //isUsed: true,
         },
       });
     });

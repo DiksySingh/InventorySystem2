@@ -92,7 +92,7 @@ function roundGrandTotal(value) {
 
 
 async function generateDebitNoteBuffer(debitNote, items = []) {
-  const tplPath = path.join(__dirname, "../templates/poTemplate.ejs");
+  const tplPath = path.join(__dirname, "../templates/debitNoteTemplate.ejs");
   const tpl = fs.readFileSync(tplPath, "utf8");
 
   const currencyCode = debitNote.currency?.toString() || "INR";
@@ -131,7 +131,7 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
 
       finalAmount = addNum(finalAmount, gstAmount, 4);
     }
-
+    console.log("itemDetail", it.itemDetail);
     return {
       sno: i + 1,
       itemName: it.itemName || "",
@@ -173,10 +173,12 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
       0
     );
 
-    grandTotalCurrency = preparedRows.reduce(
+    const itemsTotal = preparedRows.reduce(
       (acc, r) => addNum(acc, r.amountRaw || 0, 4),
       0
     );
+    grandTotalCurrency = addNum(itemsTotal, totalOtherChargesCurrency, 4);
+    console.log(grandTotalCurrency)
   } else if (isExempted) {
     totalGST = 0;
     grandTotalCurrency = fixNum(
@@ -206,7 +208,7 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
     }
   }
   grandTotalCurrency = roundGrandTotal(grandTotalCurrency).toNumber();
-  const gstLabel = getGSTLabel(po);
+  const gstLabel = getGSTLabel(debitNote);
   const grandTotalInWords = amountToWords(grandTotalCurrency, currencyCode);
 
   // Paginate rows
@@ -238,13 +240,14 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
     if (rows.length > 0) pushPage(rows.splice(0, rows.length), FOOTER_PAGE);
     return pagesArr;
   })(preparedRows);
-
+  console.log(pages);
   // Formatted totals
   const grandTotalFormatted = formatWithDecimals(
     grandTotalCurrency,
     currencyCode,
     4
   );
+
   const totalOtherChargesFormatted = formatNumberOnly(
     totalOtherChargesCurrency,
     currencyCode,
@@ -266,9 +269,9 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
     vendorEmail: debitNote.vendor?.email,
     vendorContactPerson: debitNote.vendor?.contactPerson,
     vendorPhone: debitNote.vendor?.contactNumber,
-    debitNoteNo: debitNote.poNumber,
-    billReference: debitNote.billReference,
-    drNoteDate: new Date(po.createdAt).toLocaleDateString("en-IN"),
+    debitNoteNo: debitNote.debitNoteNo,
+    drNoteDate: new Date(debitNote.drNoteDate).toLocaleDateString("en-IN"),
+    billReference: debitNote.billReference || null,
     orgInvoiceNo: debitNote.orgInvoiceNo,
     orgInvoiceDate: new Date(debitNote.orgInvoiceDate).toLocaleDateString("en-IN"),
     gr_rr_no: debitNote.gr_rr_no,
@@ -337,3 +340,4 @@ async function generateDebitNoteBuffer(debitNote, items = []) {
 }
 
 module.exports = generateDebitNoteBuffer;
+
