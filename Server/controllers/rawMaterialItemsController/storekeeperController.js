@@ -42,6 +42,7 @@ const getLineWorkerList = async (req, res) => {
             },
           },
         },
+        isActive: true
       },
       orderBy: {
         name: "asc",
