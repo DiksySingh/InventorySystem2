@@ -49,6 +49,12 @@ router.get(
   storekeeperController.getUserItemStock
 );
 
+router.get(
+  "/getUserItemStockDetails",
+  tokenVerification(["Store"]),
+  storekeeperController.getUserItemStockDetails
+);
+
 router.post(
   "/updateStock",
   tokenVerification(["Store"]),

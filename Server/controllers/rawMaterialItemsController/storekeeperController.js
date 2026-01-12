@@ -543,38 +543,316 @@ const sanctionItemForRequest = async (req, res) => {
 const getUserItemStock = async (req, res) => {
   try {
     const empId = req?.query?.empId;
-    if (!empId) {
-      throw new Error("Employee ID Not Found");
-    }
+    if (!empId) throw new Error("Employee ID Not Found");
 
-    const userItemStockDetails = await prisma.userItemStock.findMany({
-      where: {
-        empId,
-        quantity: {
-          gt: 0,
-        },
-      },
+    const safeParse = (value) => {
+      try {
+        if (!value) return [];
+        if (typeof value === "string") return JSON.parse(value);
+        if (Array.isArray(value)) return value;
+        if (typeof value === "object") return [value];
+        return [];
+      } catch (err) {
+        console.error("❌ JSON PARSE FAILED:", err.message);
+        return [];
+      }
+    };
+
+    /* ======================
+     * 1️⃣ BALANCE SUMMARY
+     * ====================== */
+    const balanceRaw = await prisma.userItemStock.findMany({
+      where: { empId, quantity: { gt: 0 } },
       select: {
-        //id: true,
-        //empId: true,
-        rawMaterial: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        rawMaterial: { select: { id: true, name: true } },
         quantity: true,
         unit: true,
       },
     });
 
+    const balanceSummary = balanceRaw.map(item => ({
+      rawMaterialId: item.rawMaterial.id,
+      rawMaterialName: item.rawMaterial.name,
+      quantity: item.quantity,
+      unit: item.unit,
+    }));
+
+    /* ======================
+     * 2️⃣ DIRECT ISSUES
+     * ====================== */
+    const directRaw = await prisma.directItemIssue.findMany({
+      where: { issuedTo: empId },
+      select: {
+        id: true,
+        rawMaterialIssued: true,
+        issuedAt: true,
+        remarks: true,
+        issuedToUser: { select: {name: true} },
+        issuedByUser: { select: { name: true } },
+        issuedToName: true,
+      },
+      orderBy: { issuedAt: "desc" },
+    });
+
+    const issueRMIds = directRaw.flatMap(i =>
+      safeParse(i.rawMaterialIssued).map(rm => rm.rawMaterialId)
+    );
+
+    /* ======================
+     * 3️⃣ REQUEST HISTORY
+     * ====================== */
+    const requestRaw = await prisma.itemRequestData.findMany({
+      where: { requestedBy: empId },
+      select: {
+        id: true,
+        rawMaterialRequested: true,
+        requestedAt: true,
+        approvedAt: true,
+        declinedAt: true,
+        approved: true,
+        declined: true,
+        materialGiven: true,
+        declinedRemarks: true,
+        requestedByUser: { select: { name: true } },
+        approvedByUser: { select: { name: true } },
+        declinedByUser: { select: { name: true } },
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+
+    const requestRMIds = requestRaw.flatMap(r =>
+      safeParse(r.rawMaterialRequested).map(rm => rm.rawMaterialId)
+    );
+
+    /* ======================
+     * FETCH RM NAMES ONCE
+     * ====================== */
+    const allRMIds = [...new Set([...issueRMIds, ...requestRMIds])];
+
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      where: { id: { in: allRMIds } },
+      select: { id: true, name: true },
+    });
+
+    const RM_LOOKUP = Object.fromEntries(
+      rawMaterials.map(rm => [rm.id, rm.name])
+    );
+
+    /* ======================
+     * FORMAT ISSUES
+     * ====================== */
+    const directIssues = directRaw.map(issue => ({
+      id: issue.id,
+      items: safeParse(issue.rawMaterialIssued).map(rm => ({
+        rawMaterialId: rm.rawMaterialId,
+        rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
+        quantity: rm.quantity,
+        unit: rm.unit,
+      })),
+      issuedBy: issue.issuedByUser?.name || "Unknown",
+      issuedTo: issue.issuedToName || issue.issuedToUser?.name || null,
+      issuedDate: issue.issuedAt,
+      remarks: issue.remarks || null,
+    }));
+
+    /* ======================
+     * FORMAT REQUEST HISTORY
+     * ====================== */
+    const requestHistory = requestRaw.map(r => ({
+      id: r.id,
+      items: safeParse(r.rawMaterialRequested).map(rm => ({
+        rawMaterialId: rm.rawMaterialId,
+        rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
+        quantity: rm.quantity,
+        unit: rm.unit,
+      })),
+      requestedBy: r.requestedByUser?.name || null,
+      requestedDate: r.requestedAt,
+      approvedBy: r.approvedByUser?.name || null,
+      approvedDate: r.approvedAt,
+      declinedBy: r.declinedByUser?.name || null,
+      declinedDate: r.declinedAt,
+      declinedRemarks: r.declinedRemarks || null,
+      status: r.declined
+        ? "DECLINED"
+        : r.approved
+        ? "APPROVED"
+        : "PENDING",
+      materialGiven: !!r.materialGiven,
+    }));
+
     return res.status(200).json({
       success: true,
-      message: "Data fetched successfully",
-      data: userItemStockDetails || [],
+      message: `Data fetched successfully`,
+      data: {
+        balanceSummary: balanceSummary,
+        directItemsIssued: directIssues,
+        itemsRequested: requestHistory,
+      },
     });
+
   } catch (error) {
-    console.log("ERROR: ", error);
+    console.log("❌ ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const getUserItemStockDetails = async (req, res) => {
+  try {
+    const empId = req?.query?.empId;
+    if (!empId) throw new Error("Employee ID Not Found");
+
+    const safeParse = (value) => {
+      try {
+        if (!value) return [];
+        if (typeof value === "string") return JSON.parse(value);
+        if (Array.isArray(value)) return value;
+        if (typeof value === "object") return [value];
+        return [];
+      } catch (err) {
+        console.error("❌ JSON PARSE FAILED:", err.message);
+        return [];
+      }
+    };
+
+    /* ======================
+     * 1️⃣ BALANCE SUMMARY
+     * ====================== */
+    const balanceRaw = await prisma.userItemStock.findMany({
+      where: { empId, quantity: { gt: 0 } },
+      select: {
+        rawMaterial: { select: { id: true, name: true } },
+        quantity: true,
+        unit: true,
+      },
+    });
+
+    const balanceSummary = balanceRaw.map(item => ({
+      rawMaterialId: item.rawMaterial.id,
+      rawMaterialName: item.rawMaterial.name,
+      quantity: item.quantity,
+      unit: item.unit,
+    }));
+
+    /* ======================
+     * 2️⃣ DIRECT ISSUES
+     * ====================== */
+    const directRaw = await prisma.directItemIssue.findMany({
+      where: { issuedTo: empId },
+      select: {
+        id: true,
+        rawMaterialIssued: true,
+        issuedAt: true,
+        remarks: true,
+        issuedToUser: { select: {name: true} },
+        issuedByUser: { select: { name: true } },
+        issuedToName: true,
+      },
+      orderBy: { issuedAt: "desc" },
+    });
+
+    const issueRMIds = directRaw.flatMap(i =>
+      safeParse(i.rawMaterialIssued).map(rm => rm.rawMaterialId)
+    );
+
+    /* ======================
+     * 3️⃣ REQUEST HISTORY
+     * ====================== */
+    const requestRaw = await prisma.itemRequestData.findMany({
+      where: { requestedBy: empId },
+      select: {
+        id: true,
+        rawMaterialRequested: true,
+        requestedAt: true,
+        approvedAt: true,
+        declinedAt: true,
+        approved: true,
+        declined: true,
+        materialGiven: true,
+        declinedRemarks: true,
+        requestedByUser: { select: { name: true } },
+        approvedByUser: { select: { name: true } },
+        declinedByUser: { select: { name: true } },
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+
+    const requestRMIds = requestRaw.flatMap(r =>
+      safeParse(r.rawMaterialRequested).map(rm => rm.rawMaterialId)
+    );
+
+    /* ======================
+     * FETCH RM NAMES ONCE
+     * ====================== */
+    const allRMIds = [...new Set([...issueRMIds, ...requestRMIds])];
+
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      where: { id: { in: allRMIds } },
+      select: { id: true, name: true },
+    });
+
+    const RM_LOOKUP = Object.fromEntries(
+      rawMaterials.map(rm => [rm.id, rm.name])
+    );
+
+    /* ======================
+     * FORMAT ISSUES
+     * ====================== */
+    const directIssues = directRaw.map(issue => ({
+      id: issue.id,
+      items: safeParse(issue.rawMaterialIssued).map(rm => ({
+        rawMaterialId: rm.rawMaterialId,
+        rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
+        quantity: rm.quantity,
+        unit: rm.unit,
+      })),
+      issuedBy: issue.issuedByUser?.name || "Unknown",
+      issuedTo: issue.issuedToName || issue.issuedToUser?.name || null,
+      issuedDate: issue.issuedAt,
+      remarks: issue.remarks || null,
+    }));
+
+    /* ======================
+     * FORMAT REQUEST HISTORY
+     * ====================== */
+    const requestHistory = requestRaw.map(r => ({
+      id: r.id,
+      items: safeParse(r.rawMaterialRequested).map(rm => ({
+        rawMaterialId: rm.rawMaterialId,
+        rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
+        quantity: rm.quantity,
+        unit: rm.unit,
+      })),
+      requestedBy: r.requestedByUser?.name || null,
+      requestedDate: r.requestedAt,
+      approvedBy: r.approvedByUser?.name || null,
+      approvedDate: r.approvedAt,
+      declinedBy: r.declinedByUser?.name || null,
+      declinedDate: r.declinedAt,
+      declinedRemarks: r.declinedRemarks || null,
+      status: r.declined
+        ? "DECLINED"
+        : r.approved
+        ? "APPROVED"
+        : "PENDING",
+      materialGiven: !!r.materialGiven,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        balanceSummary: balanceSummary,
+        directItemsIssued: directIssues,
+        itemsRequested: requestHistory,
+      },
+    });
+
+  } catch (error) {
+    console.log("❌ ERROR: ", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -2860,6 +3138,7 @@ module.exports = {
   approveOrDeclineItemRequest,
   sanctionItemForRequest,
   getUserItemStock,
+  getUserItemStockDetails,
   showProcessData,
   updateStock,
   getStockMovementHistory,
