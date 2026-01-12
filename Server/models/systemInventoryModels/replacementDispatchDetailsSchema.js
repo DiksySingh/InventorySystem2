@@ -23,7 +23,7 @@ const replacementDispatchDetailsSchema = new Schema({
     },
     movementType: {
         type: String,
-        enum: ['Replacement', 'Defective']
+        enum: ['Replacement', 'Defective', 'OK_RETURNED']
     },
     dispatchedBy: {
         type: Schema.Types.ObjectId,
