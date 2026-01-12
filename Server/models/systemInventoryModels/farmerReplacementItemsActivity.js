@@ -13,7 +13,7 @@ const farmerReplacementItemsActivitySchema = new Schema({
     },
     movementType: {
         type: String,
-        enum: ['Defective', 'Replacement']
+        enum: ['Defective', 'Replacement', 'OK_RETURNED']
     },
     // 🔁 Unified item list
     itemsList: [
