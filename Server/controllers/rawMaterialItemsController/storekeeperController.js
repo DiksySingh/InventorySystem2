@@ -1934,7 +1934,7 @@ const directItemIssue = async (req, res) => {
       });
     }
 
-    const { issuedTo, rawMaterialIssued, remarks, serviceProcessId } = req.body;
+    const { issuedTo, rawMaterialIssued, remarks, serviceProcessId, issuedToName, department } = req.body;
 
     /* ---------------- BODY VALIDATION ---------------- */
     if (!issuedTo) {
@@ -1943,6 +1943,36 @@ const directItemIssue = async (req, res) => {
         message: "issuedTo (employee id) is required",
       });
     }
+
+    const issuedToUser = await prisma.user.findUnique({
+      where: {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+        id: issuedTo
+      },
+      select: {
+        name: true,
+        role: {
+          name: true
+        }
+      }
+    });
+
+    if(!issuedToUser) {
+      return res.status(404).json({
+        success: false,
+        message: "IssuedTo User Not Found."
+      });
+    }
+
+    const userRole = issuedToUser.role?.name;
+    if(userRole === "Others") {
+      if(!issuedToName || !department) {
+        return res.status(400).json({
+          success: false,
+          message: `selected ${issuedToUser.name}: issuedToName and department is required.`
+        });
+      }
+    }
+
 
     if (!Array.isArray(rawMaterialIssued) || rawMaterialIssued.length === 0) {
       return res.status(400).json({
@@ -2046,6 +2076,8 @@ const directItemIssue = async (req, res) => {
           rawMaterialIssued,
           issuedTo,
           issuedBy,
+          issuedToName: issuedToName || issuedToUser.name || null,
+          department: department || issuedToUser.role?.name || null,
           remarks,
         },
       });
@@ -2129,7 +2161,7 @@ const getDirectItemIssueHistory = async (req, res) => {
       issuedById: issue.issuedByUser?.id || null,
       issuedByName: issue.issuedByUser?.name || null,
       issuedToId: issue.issuedToUser?.id || null,
-      issuedToName: issue.issuedToUser?.name || null,
+      issuedToName: issue.issuedToName || issue.issuedToUser?.name || null,
       rawMaterialIssued: Array.isArray(issue.rawMaterialIssued)
         ? issue.rawMaterialIssued.map((item) => ({
             rawMaterialId: item.rawMaterialId,

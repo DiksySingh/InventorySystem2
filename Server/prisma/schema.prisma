@@ -400,7 +400,8 @@ model DirectItemIssue {
   issuedTo String? // Line worker (receiver)
   issuedBy String? // Storekeeper (issuer)
   issuedAt DateTime @default(now())
-
+  issuedToName     String?
+  department  String?
   remarks String?
 
   updatedAt DateTime? @updatedAt
