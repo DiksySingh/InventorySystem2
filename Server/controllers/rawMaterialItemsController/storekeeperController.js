@@ -42,7 +42,7 @@ const getLineWorkerList = async (req, res) => {
             },
           },
         },
-        isActive: true
+        isActive: true,
       },
       orderBy: {
         name: "asc",
@@ -1227,7 +1227,7 @@ const getPendingPOsForReceiving = async (req, res) => {
 };
 
 const purchaseOrderReceivingBill = async (req, res) => {
- const userId = req.user?.id;
+  const userId = req.user?.id;
   const warehouseId = String(req.user?.warehouseId);
   let uploadedFilePath = null;
 
@@ -1934,7 +1934,14 @@ const directItemIssue = async (req, res) => {
       });
     }
 
-    const { issuedTo, rawMaterialIssued, remarks, serviceProcessId, issuedToName, department } = req.body;
+    const {
+      issuedTo,
+      rawMaterialIssued,
+      remarks,
+      serviceProcessId,
+      issuedToName,
+      department,
+    } = req.body;
 
     /* ---------------- BODY VALIDATION ---------------- */
     if (!issuedTo) {
@@ -1945,34 +1952,35 @@ const directItemIssue = async (req, res) => {
     }
 
     const issuedToUser = await prisma.user.findUnique({
-      where: {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-        id: issuedTo
+      where: {
+        id: issuedTo,
       },
       select: {
         name: true,
         role: {
-          name: true
-        }
-      }
+          select: {
+            name: true,
+          },
+        },
+      },
     });
 
-    if(!issuedToUser) {
+    if (!issuedToUser) {
       return res.status(404).json({
         success: false,
-        message: "IssuedTo User Not Found."
+        message: "IssuedTo User Not Found.",
       });
     }
 
     const userRole = issuedToUser.role?.name;
-    if(userRole === "Others") {
-      if(!issuedToName || !department) {
+    if (userRole === "Others") {
+      if (!issuedToName || !department) {
         return res.status(400).json({
           success: false,
-          message: `selected ${issuedToUser.name}: issuedToName and department is required.`
+          message: `selected ${issuedToUser.name}: issuedToName and department is required.`,
         });
       }
     }
-
 
     if (!Array.isArray(rawMaterialIssued) || rawMaterialIssued.length === 0) {
       return res.status(400).json({
@@ -2099,193 +2107,6 @@ const directItemIssue = async (req, res) => {
     });
   }
 };
-
-const directItemIssue2 = async (req, res) => {
-  try {
-    const issuedBy = req.user?.id;
-    const userWarehouseId = req.user?.warehouseId;
-
-    /* ---------------- AUTH VALIDATION ---------------- */
-    if (!issuedBy) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized access",
-      });
-    }
-
-    if (!userWarehouseId) {
-      return res.status(400).json({
-        success: false,
-        message: "Warehouse not assigned to storekeeper",
-      });
-    }
-
-    const { issuedTo, rawMaterialIssued, remarks, serviceProcessId, issuedToName, department } = req.body;
-
-    /* ---------------- BODY VALIDATION ---------------- */
-    if (!issuedTo) {
-      return res.status(400).json({
-        success: false,
-        message: "issuedTo (employee id) is required",
-      });
-    }
-
-    const issuedToUser = await prisma.user.findUnique({
-      where: {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-        id: issuedTo
-      },
-      select: {
-        name: true,
-        role: {
-          name: true
-        }
-      }
-    });
-
-    if(!issuedToUser) {
-      return res.status(404).json({
-        success: false,
-        message: "IssuedTo User Not Found."
-      });
-    }
-
-    const userRole = issuedToUser.role?.name;
-    if(userRole === "Others") {
-      if(!issuedToName || !department) {
-        return res.status(400).json({
-          success: false,
-          message: `selected ${issuedToUser.name}: issuedToName and department is required.`
-        });
-      }
-    }
-
-
-    if (!Array.isArray(rawMaterialIssued) || rawMaterialIssued.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "rawMaterialIssued must be a non-empty array",
-      });
-    }
-
-    /* ---------------- NORMALIZE MATERIALS ---------------- */
-    const materialMap = new Map();
-
-    for (let i = 0; i < rawMaterialIssued.length; i++) {
-      const item = rawMaterialIssued[i];
-      const quantity = Number(item.quantity);
-
-      if (!item.rawMaterialId) {
-        return res.status(400).json({
-          success: false,
-          message: `rawMaterialId missing at index ${i}`,
-        });
-      }
-
-      if (!item.quantity || isNaN(quantity) || quantity <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid quantity for rawMaterialId ${item.rawMaterialId}`,
-        });
-      }
-
-      // Merge duplicate rawMaterialIds
-      materialMap.set(
-        item.rawMaterialId,
-        (materialMap.get(item.rawMaterialId) || 0) + quantity
-      );
-    }
-
-    /* ---------------- TRANSACTION ---------------- */
-    const result = await prisma.$transaction(async (tx) => {
-      // 🔹 Process each material
-      for (const [rawMaterialId, quantity] of materialMap.entries()) {
-        const warehouseStock = await tx.warehouseStock.findUnique({
-          where: {
-            warehouseId_rawMaterialId: {
-              warehouseId: userWarehouseId,
-              rawMaterialId,
-            },
-          },
-        });
-
-        if (!warehouseStock) {
-          throw new Error(
-            `Stock not found in warehouse for rawMaterialId ${rawMaterialId}`
-          );
-        }
-
-        if (warehouseStock.quantity < quantity) {
-          throw new Error(
-            `Insufficient stock for rawMaterialId ${rawMaterialId}. Available: ${warehouseStock.quantity}, Required: ${quantity}`
-          );
-        }
-
-        // 🔻 Reduce warehouse stock
-        await tx.warehouseStock.update({
-          where: {
-            warehouseId_rawMaterialId: {
-              warehouseId: userWarehouseId,
-              rawMaterialId,
-            },
-          },
-          data: {
-            quantity: { decrement: quantity },
-          },
-        });
-
-        // ➕ Add to user stock (empId!)
-        await tx.userItemStock.upsert({
-          where: {
-            empId_rawMaterialId: {
-              empId: issuedTo,
-              rawMaterialId,
-            },
-          },
-          update: {
-            quantity: { increment: quantity },
-          },
-          create: {
-            empId: issuedTo,
-            rawMaterialId,
-            quantity,
-            unit: warehouseStock.unit,
-          },
-        });
-      }
-
-      // 🔹 Create Direct Issue record
-      const directIssue = await tx.directItemIssue.create({
-        data: {
-          warehouseId: userWarehouseId,
-          serviceProcessId,
-          isProcessIssue: Boolean(serviceProcessId),
-          rawMaterialIssued,
-          issuedTo,
-          issuedBy,
-          issuedToName: issuedToName || issuedToUser.name || null,
-          department: department || issuedToUser.role?.name || null,
-          remarks,
-        },
-      });
-
-      return directIssue;
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Items issued successfully",
-      data: result,
-    });
-  } catch (error) {
-    console.error("Direct Item Issue Error:", error);
-
-    return res.status(400).json({
-      success: false,
-      message: error.message || "Failed to issue items",
-    });
-  }
-};
-
 
 const getDirectItemIssueHistory = async (req, res) => {
   try {
@@ -3054,7 +2875,6 @@ module.exports = {
   showProcessData2,
   sanctionItemForRequest2,
   directItemIssue,
-  directItemIssue2,
   getDirectItemIssueHistory,
 };
 
@@ -3133,7 +2953,7 @@ module.exports = {
     receivedQty: 50,
     goodQty: 50,
     damagedQty: 0,
-    remarks: "Received partial batch", 
+    remarks: "Received partial batch",
   },
   {
     purchaseOrderItemId: "a6e213e7-8d2c-4ca9-9566-412356da6b6e",
@@ -3147,21 +2967,23 @@ module.exports = {
   },
 ];
 
-[{
-        "id": "5534c015-0bd6-4951-8ba6-d89952b5b202",
-        "poNumber": "GEPLHR25260040",
-        "companyId": "4247d6fc-2a9c-42f5-925f-103fe1e014ac",
-        "companyName": "Galo Energy Private Limited",
-        "vendorId": "56816fd3-5fab-41da-be38-0b7947b6406a",
-        "vendorName": "Apna Bazar",
-        "damagedStock": [
-            {
-                "id": "2fa54831-cee5-4c88-a260-b434c61cbad7",
-                "itemId": "682c5c99cb3e04e576ba36f4",
-                "itemSource": "mongo",
-                "itemName": "10 Panel Purlin HDG Nitesh",
-                "quantity": "17",
-                "unit": "Pcs"
-            }
-]
-}]
+[
+  {
+    id: "5534c015-0bd6-4951-8ba6-d89952b5b202",
+    poNumber: "GEPLHR25260040",
+    companyId: "4247d6fc-2a9c-42f5-925f-103fe1e014ac",
+    companyName: "Galo Energy Private Limited",
+    vendorId: "56816fd3-5fab-41da-be38-0b7947b6406a",
+    vendorName: "Apna Bazar",
+    damagedStock: [
+      {
+        id: "2fa54831-cee5-4c88-a260-b434c61cbad7",
+        itemId: "682c5c99cb3e04e576ba36f4",
+        itemSource: "mongo",
+        itemName: "10 Panel Purlin HDG Nitesh",
+        quantity: "17",
+        unit: "Pcs",
+      },
+    ],
+  },
+];
