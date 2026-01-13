@@ -1197,10 +1197,11 @@ const createPurchaseOrder = async (req, res) => {
           .plus(new Decimal(ch.amount));
       }
     }
+    let inrOtherChargesTotal = 0;
     if(finalCurrency !== "INR") {
-      otherChargesTotal = otherChargesTotal.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      inrOtherChargesTotal = otherChargesTotal.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
     }
-    subTotalINR = subTotalINR.plus(otherChargesTotal);
+    subTotalINR = finalCurrency === "INR" ? subTotalINR.plus(otherChargesTotal) : subTotalINR.plus(inrOtherChargesTotal);
 
     // GST for normal items
     const poGSTPercent =
