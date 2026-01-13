@@ -1194,8 +1194,7 @@ const createPurchaseOrder = async (req, res) => {
       for (const ch of normalizedOtherCharges) {
         if (!ch.amount || isNaN(ch.amount)) continue;
         otherChargesTotal = otherChargesTotal
-          .plus(new Decimal(ch.amount))
-          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+          .plus(new Decimal(ch.amount));
       }
     }
     if(finalCurrency !== "INR") {
