@@ -996,9 +996,10 @@ model DebitNote {
   vehicleNumber   String?
   station         String?
 
-  otherCharges  Json?
-  warehouseId   String?
-  warehouseName String?
+  otherCharges         Json?
+  warehouseId          String?
+  warehouseName        String?
+  expectedDeliveryDate DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

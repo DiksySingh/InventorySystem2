@@ -74,29 +74,14 @@ function getStateCode(stateName) {
 
   const input = stateName.toLowerCase().trim();
 
-  // 🔍 Match full or partial state names
   for (const [state, code] of Object.entries(STATE_CODE_MAP)) {
     if (input.includes(state)) {
       return code;
     }
   }
 
-  // 🧯 fallback (first 2 letters)
   return input.substring(0, 2).toUpperCase();
 }
-
-// function getStateCode(stateName) {
-//   if (!stateName) return "XX";
-//   const s = stateName.toLowerCase();
-//   if (s.includes("haryana")) return "HR";
-//   if (s.includes("maharashtra")) return "MH";
-//   if (s.includes("uttarakhand") || s.includes("haridwar") || s.includes("uk"))
-//     return "UK";
-//   if (s.includes("gujarat")) return "GJ";
-//   if (s.includes("rajasthan")) return "RJ";
-//   if (s.includes("delhi")) return "DL";
-//   return s.substring(0, 2).toUpperCase();
-// }
 
 async function generatePONumber(company) {
   const fy = getFinancialYear();
@@ -810,50 +795,6 @@ const getVendorById = async (req, res) => {
   }
 };
 
-// const getItemsList = async (req, res) => {
-//   try {
-//     const mysqlItems = await prisma.rawMaterial.findMany({
-//       where: {
-//         isUsed: true,
-//       },
-//       select: {
-//         id: true,
-//         name: true,
-//       },
-//     });
-
-//     const formattedMySQL = mysqlItems.map((item) => ({
-//       id: item.id,
-//       name: item.name,
-//       source: "mysql",
-//     }));
-
-//     const mongoItems = await SystemItem.find(
-//       { isUsed: true },
-//       { itemName: 1 }
-//     ).lean();
-
-//     const formattedMongo = mongoItems.map((item) => ({
-//       id: item._id.toString(),
-//       name: item.itemName,
-//       source: "mongo",
-//     }));
-
-//     const allItems = [...formattedMySQL, ...formattedMongo];
-
-//     return res.status(200).json({
-//       success: true,
-//       count: allItems.length,
-//       items: allItems || [],
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Failed to fetch items",
-//     });
-//   }
-// };
-
 const getItemsList = async (req, res) => {
   try {
     const mysqlItems = await prisma.rawMaterial.findMany({
@@ -1256,6 +1197,9 @@ const createPurchaseOrder = async (req, res) => {
           .plus(new Decimal(ch.amount))
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
       }
+    }
+    if(finalCurrency !== "INR") {
+      otherChargesTotal = otherChargesTotal.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
     }
     subTotalINR = subTotalINR.plus(otherChargesTotal);
 
@@ -3417,7 +3361,9 @@ const createDebitNote = async (req, res) => {
       transport,
       vehicleNumber,
       station,
+      currency,
       exchangeRate: requestExchangeRate = 1,
+      expectedDeliveryDate,
       otherCharges = [],
     } = req.body;
 
@@ -3451,6 +3397,28 @@ const createDebitNote = async (req, res) => {
         message:
           "PurchaseOrderId, Company, Vendor, GST Type & damagedItems are required",
       });
+    }
+
+     if (expectedDeliveryDate) {
+      const debitNoteDateOnly = new Date();
+      debitNoteDateOnly.setHours(0, 0, 0, 0);
+
+      const expectedDateOnly = new Date(expectedDeliveryDate);
+      expectedDateOnly.setHours(0, 0, 0, 0);
+
+      // if (debitNoteDateOnly.getTime() === expectedDateOnly.getTime()) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Expected Delivery Date cannot be same as PO Date",
+      //   });
+      // }
+
+      if (expectedDateOnly < debitNoteDateOnly) {
+        return res.status(400).json({
+          success: false,
+          message: "Expected Delivery Date cannot be before PO Date",
+        });
+      }
     }
 
     const po = await prisma.purchaseOrder.findUnique({
@@ -3573,7 +3541,7 @@ const createDebitNote = async (req, res) => {
     }
 
     // Debit Note currency and exchange rate
-    const finalCurrency = currency || "INR";
+    const finalCurrency = currency || po.currency || "INR";
     const finalExchangeRate =
       exchangeRate && Number(exchangeRate) > 0
         ? new Decimal(exchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN)
@@ -3647,6 +3615,10 @@ const createDebitNote = async (req, res) => {
         if (!ch.amount || isNaN(ch.amount)) continue;
         otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount));
       }
+    }
+
+    if(finalCurrency !== "INR") {
+      otherChargesTotal = otherChargesTotal.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
     }
     subTotalINR = subTotalINR.plus(otherChargesTotal);
 
@@ -3775,6 +3747,9 @@ const createDebitNote = async (req, res) => {
           vehicleNumber: vehicleNumber || null,
           station: station || null,
           createdBy: userId,
+          expectedDeliveryDate: expectedDeliveryDate
+            ? new Date(expectedDeliveryDate)
+            : null,
           otherCharges: normalizedOtherCharges,
           warehouseId: po.warehouseId,
           warehouseName,
@@ -5476,7 +5451,6 @@ const showPendingPayments = async (req, res) => {
     });
   }
 };
-
 
 const createPaymentRequest = async (req, res) => {
   try {
