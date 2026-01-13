@@ -212,8 +212,16 @@ router.get(
   purchaseOrderController.getRawMaterialByWarehouse
 );
 
+//------------------- Payment Routes --------------------//
+
+router.get(
+  "/purchase-orders/payments/pending",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.showPendingPayments
+);
+
 router.post(
-  "/payment/request",
+  "/purchase-orders/payments/request",
   tokenVerification(["Purchase"]),
   purchaseOrderController.createPaymentRequest
 );

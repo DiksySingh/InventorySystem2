@@ -38,7 +38,7 @@ const getLineWorkerList = async (req, res) => {
         role: {
           is: {
             name: {
-              notIn: ["Admin", "SuperAdmin", "Store", "Purchase"],
+              notIn: ["Admin", "SuperAdmin", "Store", "Purchase", 'Accounts', 'Verification'],
             },
           },
         },

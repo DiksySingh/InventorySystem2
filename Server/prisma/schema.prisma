@@ -310,6 +310,8 @@ enum FailureReason {
   OVERLOAD
   EARTHING
   LEAKAGE
+  HIGH_PLAY
+  NOISE
   REJECTED
   OTHER
 }
@@ -397,12 +399,12 @@ model DirectItemIssue {
 
   rawMaterialIssued Json? // same structure as rawMaterialRequested
 
-  issuedTo String? // Line worker (receiver)
-  issuedBy String? // Storekeeper (issuer)
-  issuedAt DateTime @default(now())
-  issuedToName     String?
-  department  String?
-  remarks String?
+  issuedTo     String? // Line worker (receiver)
+  issuedBy     String? // Storekeeper (issuer)
+  issuedAt     DateTime @default(now())
+  issuedToName String?
+  department   String?
+  remarks      String?
 
   updatedAt DateTime? @updatedAt
   updatedBy String?
@@ -787,6 +789,7 @@ model PurchaseOrder {
   totalIGST            Decimal?         @db.Decimal(12, 4)
   totalGST             Decimal?         @db.Decimal(12, 4)
   grandTotal           Decimal?         @db.Decimal(12, 4)
+  fixedGrandTotal      Decimal?         @db.Decimal(12, 4)
   status               POStatus         @default(Draft)
   approvalStatus       POApprovalStatus @default(Pending)
   approvedBy           String?
@@ -975,6 +978,7 @@ model DebitNote {
   totalIGST       Decimal?                @db.Decimal(12, 4)
   totalGST        Decimal?                @db.Decimal(12, 4)
   grandTotal      Decimal?                @db.Decimal(12, 4)
+  fixedGrandTotal Decimal?                @db.Decimal(12, 4)
   status          DebitNoteStatus         @default(Debited)
   approvalStatus  DebitNoteApprovalStatus @default(Pending)
   approvedBy      String?
@@ -1126,8 +1130,8 @@ model Payment {
   paymentCreatedBy      User?         @relation("paymentCreatedBy", fields: [createdBy], references: [id])
   payment_RequestedBy   User?         @relation("payment_RequestedBy", fields: [paymentRequestedBy], references: [id])
   doc_ApprovedBy        User?         @relation("doc_ApprovedBy", fields: [docApprovedBy], references: [id])
-  approvedBy_Admin      User?         @relation("approvedBy_Admin",fields: [approvedByAdmin], references: [id])
-  payment_TransferredBy User?         @relation("payment_TransferredBy",fields: [paymentTransferredBy], references: [id])
+  approvedBy_Admin      User?         @relation("approvedBy_Admin", fields: [approvedByAdmin], references: [id])
+  payment_TransferredBy User?         @relation("payment_TransferredBy", fields: [paymentTransferredBy], references: [id])
 
   @@index([poId])
   @@index([debitNoteId])

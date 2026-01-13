@@ -1353,6 +1353,7 @@ const createPurchaseOrder = async (req, res) => {
           totalIGST,
           totalGST,
           grandTotal: grandTotalINR,
+          fixedGrandTotal: rawGrandTotal, 
           remarks,
           paymentTerms,
           deliveryTerms,
@@ -3705,6 +3706,7 @@ const createDebitNote = async (req, res) => {
       .toDecimalPlaces(4, Decimal.ROUND_DOWN);
     const rawGrandTotal = subTotalINR.plus(totalGST);
     const grandTotalINR = roundGrandTotal(rawGrandTotal);
+    foreignSubTotal = foreignSubTotal.plus(otherChargesTotal);
     const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
       4,
       Decimal.ROUND_DOWN
@@ -3764,6 +3766,7 @@ const createDebitNote = async (req, res) => {
           totalIGST,
           totalGST,
           grandTotal: grandTotalINR,
+          fixedGrandTotal: rawGrandTotal,
           remarks,
           orgInvoiceNo: orgInvoiceNo || null,
           orgInvoiceDate: orgInvoiceDate || null,
@@ -5394,6 +5397,87 @@ const getRawMaterialByWarehouse = async (req, res) => {
 
 //------------------ Payment Request Controllers ----------------------//
 
+const showPendingPayments = async (req, res) => {
+  try {
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
+      where: {
+        grandTotal: { not: null }
+      },
+      include: {
+        payments: {
+          select: {
+            amount: true,
+            paymentStatus: true
+          }
+        },
+        company: { select: { name: true } },
+        vendor: { select: { name: true } },
+
+        // 👇 Add the purchase order items
+        items: {
+          select: {
+            id: true,
+            itemId: true,
+            itemName: true,
+            hsnCode: true,
+            quantity: true,
+          }
+        }
+      }
+    });
+
+    if (!purchaseOrders || purchaseOrders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No Purchase Orders found."
+      });
+    }
+
+    const data = purchaseOrders.map(po => {
+      const totalPaid = po.payments
+        ?.filter(p => p.paymentStatus === true)
+        ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
+      const grandTotal = Number(po.grandTotal || 0);
+      const pendingAmount = grandTotal - totalPaid;
+
+      return {
+        poId: po.id,
+        poNumber: po.poNumber,
+        companyName: po.companyName || po.company?.name,
+        vendorName: po.vendorName || po.vendor?.name,
+        subTotal: Number(po.subTotal || 0),
+        grandTotal,
+        totalPaid,
+        pendingAmount,
+        paymentStatusFlag:
+          pendingAmount > 0 ? "Pending" : "Completed",
+
+        // 👇 Attach the ordered items for the PO
+        orderedItems: po.items?.map(i => ({
+          purchaseOrderItemId: i.id,
+          itemId: i.itemId,
+          itemName: i.itemName,
+          hsnCode: i.hsnCode,
+          quantity: Number(i.quantity),
+        })) || []
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: data.length,
+      data
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+
 const createPaymentRequest = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -5560,5 +5644,6 @@ module.exports = {
   getSystemDashboardData,
   getRawMaterialByWarehouse,
   getPOListByCompany2,
+  showPendingPayments,
   createPaymentRequest,
 };
