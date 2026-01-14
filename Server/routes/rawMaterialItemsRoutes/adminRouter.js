@@ -61,7 +61,7 @@ router.get("/showFailureRedirectStage", adminController.showFailureRedirectStage
 router.get("/showStockUpdateHistory", adminController.showStockUpdateHistory);
 router.get("/showDefectiveItemsList", commonController.getDefectiveItemsListByWarehouse);
 
-router.get("/")
-
+router.get("/showPaymentRequests", tokenVerification(['Admin']), adminController.showDocsVerifiedPaymentRequests);
+router.patch("/updateApprovalStatus", tokenVerification(['Admin']), adminController.approveOrRejectPaymentRequestByAdmin);
 
 module.exports = router;

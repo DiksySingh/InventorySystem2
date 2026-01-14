@@ -6,9 +6,21 @@ const {
 const verificationController = require("../../controllers/rawMaterialItemsController/verificationController");
 
 router.get(
-  "/payment/doc/verify",
+  "/purchase-orders/invoices",
   tokenVerification(["Verification"]),
-  verificationController.showPaymentRequestWithDocuments
+  verificationController.showAllPOWithBills
+);
+
+router.get(
+  "/purchase-orders/payments/requests/show",
+  tokenVerification(["Verification"]),
+  verificationController.showPendingPaymentRequests
+);
+
+router.patch(
+  "/purchase-orders/payments/requests/status",
+  tokenVerification(["Verification"]),
+  verificationController.approveOrRejectPaymentRequest
 );
 
 module.exports = router;

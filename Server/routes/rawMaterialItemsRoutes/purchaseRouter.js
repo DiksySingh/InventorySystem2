@@ -226,4 +226,10 @@ router.post(
   purchaseOrderController.createPaymentRequest
 );
 
+router.get(
+  "/purchase-orders/payments/show",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.showAllPaymentRequests
+);
+
 module.exports = router;

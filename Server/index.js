@@ -25,6 +25,7 @@ const storekeeperRouter = require("./routes/rawMaterialItemsRoutes/storekeeperRo
 const purchaseRouter = require("./routes/rawMaterialItemsRoutes/purchaseRouter");
 const userRouter = require("./routes/rawMaterialItemsRoutes/userRouter");
 const verificationRouter = require("./routes/rawMaterialItemsRoutes/verificationRouter");
+const accountsRouter = require("./routes/rawMaterialItemsRoutes/accountsRouter");
 const testRouter = require("./routes/test");
 
 // Load environment variables
@@ -35,7 +36,7 @@ const PORT = process.env.PORT || 8001;
 
 // MongoDB connection
 mongoose
-  .connect(MONGODB_URL, {
+  .connect(MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -92,6 +93,7 @@ app.use("/line-worker", lineWorkerRouter);
 app.use("/store-keeper", storekeeperRouter);
 app.use("/purchase", purchaseRouter);
 app.use("/verification-dept", verificationRouter);
+app.use("/accounts-dept", accountsRouter);
 app.use("/user", userRouter);
 app.use("/test", testRouter);
 require("./helpers/cron/stockShortageCron");

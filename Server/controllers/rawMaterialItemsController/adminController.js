@@ -237,7 +237,6 @@ const getDefectiveItemsForWarehouse = async (req, res) => {
 //   }
 // };
 
-
 const addWarehouse = async (req, res) => {
   try {
     const { name, state } = req.body;
@@ -722,7 +721,7 @@ const showRawMaterials = async (req, res) => {
         quantity: true,
       },
     });
-  
+
     // Step 2: Enrich each raw material with stock health
     const enrichedRawMaterials = await Promise.all(
       rawMaterialsForItem.map(async (entry) => {
@@ -3606,6 +3605,156 @@ const showStockUpdateHistory = async (req, res) => {
   }
 };
 
+//---------------- Payment Approval Controllers ---------------------//
+
+const showDocsVerifiedPaymentRequests = async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+
+    if (!["Admin"].includes(userRole?.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const paymentRequests = await prisma.payment.findMany({
+      where: {
+        docApprovalStatus: true,           
+        docApprovedBy: { not: null },     
+        adminApprovalStatus: null,
+        approvedByAdmin: null,
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        poId: true,
+        amount: true,
+        billpaymentType: true,
+        paymentRequestedBy: true,
+        createdAt: true,
+        purchaseOrder: {
+          select: {
+            poNumber: true,
+            companyName: true,
+            vendorName: true,
+            currency: true,
+          },
+        },
+        paymentCreatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const formatted = paymentRequests.map((r) => ({
+      paymentRequestId: r.id,
+      poId: r.poId,
+      poNumber: r.purchaseOrder?.poNumber,
+      companyName: r.purchaseOrder?.companyName,
+      vendorName: r.purchaseOrder?.vendorName,
+      currency: r.purchaseOrder?.currency,
+      requestedAmount: Number(r.amount),
+      billpaymentType: r.billpaymentType,
+      paymentRequestedBy: r.paymentCreatedBy?.name,
+      createdAt: r.createdAt,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment requests verified by document team",
+      count: formatted.length,
+      data: formatted,
+    });
+
+  } catch (error) {
+    console.error("ADMIN DOC VERIFIED PAYMENT REQUEST ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const approveOrRejectPaymentRequestByAdmin = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!["Admin"].includes(userRole.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const { paymentRequestId, status, remarks } = req.body;
+
+    if (!paymentRequestId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "paymentRequestId and status are required",
+      });
+    }
+
+    if (!["APPROVED", "REJECTED"].includes(status.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be APPROVED or REJECTED",
+      });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentRequestId }
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment request not found",
+      });
+    }
+
+    if (payment.adminApprovalStatus !== null) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment already processed",
+      });
+    }
+
+
+    // Update
+    const updated = await prisma.payment.update({
+      where: { id: paymentRequestId },
+      data: {
+        adminApprovalStatus: status === "APPROVED" ? true : false,
+        adminApprovalDate: new Date(),
+        adminRemark: remarks.trim() || null,
+        approvedByAdmin: userId
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Payment request ${status.toLowerCase()} successfully`,
+      data: updated,
+    });
+
+  } catch (error) {
+    console.error("Handle Payment Request ERROR:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   showEmployees,
   deactivateEmployee,
@@ -3654,4 +3803,6 @@ module.exports = {
   showStockUpdateHistory,
   detachRawMaterialFromItem,
   detachRawMaterialFromStage,
+  showDocsVerifiedPaymentRequests,
+  approveOrRejectPaymentRequestByAdmin
 };

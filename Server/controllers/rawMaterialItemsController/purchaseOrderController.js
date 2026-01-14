@@ -1193,15 +1193,19 @@ const createPurchaseOrder = async (req, res) => {
     ) {
       for (const ch of normalizedOtherCharges) {
         if (!ch.amount || isNaN(ch.amount)) continue;
-        otherChargesTotal = otherChargesTotal
-          .plus(new Decimal(ch.amount));
+        otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount));
       }
     }
     let inrOtherChargesTotal = 0;
-    if(finalCurrency !== "INR") {
-      inrOtherChargesTotal = otherChargesTotal.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    if (finalCurrency !== "INR") {
+      inrOtherChargesTotal = otherChargesTotal
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
     }
-    subTotalINR = finalCurrency === "INR" ? subTotalINR.plus(otherChargesTotal) : subTotalINR.plus(inrOtherChargesTotal);
+    subTotalINR =
+      finalCurrency === "INR"
+        ? subTotalINR.plus(otherChargesTotal)
+        : subTotalINR.plus(inrOtherChargesTotal);
 
     // GST for normal items
     const poGSTPercent =
@@ -1261,7 +1265,7 @@ const createPurchaseOrder = async (req, res) => {
     const grandTotalINR = roundGrandTotal(rawGrandTotal);
     foreignSubTotal = foreignSubTotal.plus(otherChargesTotal);
     const foreignGrandTotal = roundGrandTotal(foreignSubTotal);
-  
+
     let warehouseName = null;
     const warehouseData = await Warehouse.findById(warehouseId);
     if (warehouseData) {
@@ -1297,7 +1301,7 @@ const createPurchaseOrder = async (req, res) => {
           totalIGST,
           totalGST,
           grandTotal: grandTotalINR,
-          fixedGrandTotal: rawGrandTotal, 
+          fixedGrandTotal: rawGrandTotal,
           remarks,
           paymentTerms,
           deliveryTerms,
@@ -2592,7 +2596,8 @@ const getPOList = async (req, res) => {
 
     const formattedPOList = poList.map((po) => ({
       ...po,
-      displayGrandTotal: po.currency === "INR" ? po.grandTotal : po.foreignGrandTotal,
+      displayGrandTotal:
+        po.currency === "INR" ? po.grandTotal : po.foreignGrandTotal,
     }));
 
     return res.status(200).json({
@@ -3399,7 +3404,7 @@ const createDebitNote = async (req, res) => {
       });
     }
 
-     if (expectedDeliveryDate) {
+    if (expectedDeliveryDate) {
       const debitNoteDateOnly = new Date();
       debitNoteDateOnly.setHours(0, 0, 0, 0);
 
@@ -3617,10 +3622,15 @@ const createDebitNote = async (req, res) => {
       }
     }
     let inrOtherChargesTotal = 0;
-    if(finalCurrency !== "INR") {
-      inrOtherChargesTotal = otherChargesTotal.mul(finalExchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    if (finalCurrency !== "INR") {
+      inrOtherChargesTotal = otherChargesTotal
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
     }
-    subTotalINR = finalCurrency === "INR" ? subTotalINR.plus(otherChargesTotal) : subTotalINR.plus(inrOtherChargesTotal);
+    subTotalINR =
+      finalCurrency === "INR"
+        ? subTotalINR.plus(otherChargesTotal)
+        : subTotalINR.plus(inrOtherChargesTotal);
 
     // GST for normal items
     const debitNoteGSTPercent =
@@ -5370,25 +5380,182 @@ const getRawMaterialByWarehouse = async (req, res) => {
   }
 };
 
+const createVendor2 = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      gstNumber,
+      address,
+      city,
+      state,
+      pincode,
+      country,
+      currency,
+      exchangeRate,
+      contactPerson,
+      contactNumber,
+      alternateNumber,
+      vendorAadhaar,
+      vendorPanCard,
+      bankName,
+      accountHolder,
+      accountNumber,
+      ifscCode
+    } = req.body;
+
+    const performedBy = req.user?.id;
+
+    if (
+      !name ||
+      !gstNumber ||
+      !address ||
+      !contactPerson ||
+      !contactNumber ||
+      //!email ||
+      !country ||
+      !currency ||
+      !exchangeRate ||
+      !pincode
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required.",
+      });
+    }
+
+    const upperCaseName = name.trim();
+    const upperCaseGST = gstNumber.toUpperCase().trim();
+    const upperCaseAddress = address.trim();
+    const lowerCaseEmail = email.toLowerCase().trim();
+
+    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // if (!emailRegex.test(lowerCaseEmail)) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Invalid email format.",
+    //   });
+    // }
+    let aadhaarUrl = pancardUrl = "";
+     if (req.files?.aadhaarFile?.[0]) {
+      aadhaarUrl = req.files.aadhaarFile[0].path;
+    }
+
+    if (req.files?.pancardFile?.[0]) {
+      pancardUrl = req.files.pancardFile[0].path;
+    }
+
+    const existingVendor = await prisma.vendor.findFirst({
+      where: { gstNumber: upperCaseGST },
+    });
+    if (existingVendor) {
+      return res.status(400).json({
+        success: false,
+        message: `A vendor with GST number '${upperCaseGST}' already exists.`,
+      });
+    }
+
+    const allowedCountries = [
+      "INDIA",
+      "USA",
+      "UAE",
+      "UK",
+      "CHINA",
+      "RUSSIA",
+      "OTHER",
+    ];
+    const allowedCurrencies = [
+      "INR",
+      "USD",
+      "EUR",
+      "GBP",
+      "CNY",
+      "AED",
+      "OTHER",
+    ];
+
+    if (country && !allowedCountries.includes(country)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid country. Allowed values: ${allowedCountries.join(", ")}`,
+      });
+    }
+
+    if (currency && !allowedCurrencies.includes(currency)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid currency. Allowed values: ${allowedCurrencies.join(", ")}`,
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const newVendor = await tx.vendor.create({
+        data: {
+          name: upperCaseName,
+          email: lowerCaseEmail || null,
+          gstNumber: upperCaseGST,
+          address: upperCaseAddress,
+          city,
+          state,
+          pincode,
+          country: country || "INDIA",
+          currency: currency || "INR",
+          exchangeRate: exchangeRate || null,
+          contactPerson,
+          contactNumber,
+          alternateNumber: null,
+          createdBy: performedBy,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "Vendor",
+          entityId: newVendor.id,
+          action: "Created",
+          performedBy,
+          oldValue: null,
+          newValue: newVendor,
+        },
+      });
+
+      return newVendor;
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Vendor created successfully.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("❌ Error in createVendor:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 //------------------ Payment Request Controllers ----------------------//
 
 const showPendingPayments = async (req, res) => {
   try {
     const purchaseOrders = await prisma.purchaseOrder.findMany({
       where: {
-        grandTotal: { not: null }
+        grandTotal: { not: null },
+      },
+      orderBy: {
+        poDate: "desc",
       },
       include: {
         payments: {
           select: {
             amount: true,
-            paymentStatus: true
-          }
+            paymentStatus: true,
+          },
         },
         company: { select: { name: true } },
         vendor: { select: { name: true } },
-
-        // 👇 Add the purchase order items
         items: {
           select: {
             id: true,
@@ -5396,58 +5563,68 @@ const showPendingPayments = async (req, res) => {
             itemName: true,
             hsnCode: true,
             quantity: true,
-          }
-        }
-      }
+            unit: true
+          },
+        },
+      },
     });
 
     if (!purchaseOrders || purchaseOrders.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No Purchase Orders found."
+        message: "No Purchase Orders found.",
       });
     }
 
-    const data = purchaseOrders.map(po => {
-      const totalPaid = po.payments
-        ?.filter(p => p.paymentStatus === true)
-        ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+    const data = purchaseOrders.map((po) => {
+      const isINR = (po.currency || "INR").toUpperCase() === "INR";
 
-      const grandTotal = Number(po.grandTotal || 0);
+      const subTotal = Number(isINR ? po.subTotal : po.foreignSubTotal || 0);
+      const grandTotal = Number(
+        isINR ? po.grandTotal : po.foreignGrandTotal || 0
+      );
+
+      const totalPaid =
+        po.payments
+          ?.filter((p) => p.paymentStatus === true)
+          ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
       const pendingAmount = grandTotal - totalPaid;
 
       return {
         poId: po.id,
         poNumber: po.poNumber,
+        poDate: po.poDate,
+        //currency: po.currency || "INR",
         companyName: po.companyName || po.company?.name,
         vendorName: po.vendorName || po.vendor?.name,
-        subTotal: Number(po.subTotal || 0),
+        subTotal,
         grandTotal,
         totalPaid,
         pendingAmount,
-        paymentStatusFlag:
-          pendingAmount > 0 ? "Pending" : "Completed",
-
-        // 👇 Attach the ordered items for the PO
-        orderedItems: po.items?.map(i => ({
-          purchaseOrderItemId: i.id,
-          itemId: i.itemId,
-          itemName: i.itemName,
-          hsnCode: i.hsnCode,
-          quantity: Number(i.quantity),
-        })) || []
+        paymentStatusFlag: pendingAmount > 0 ? "Pending" : "Completed",
+        orderedItems:
+          po.items?.map((i) => ({
+            purchaseOrderItemId: i.id,
+            itemId: i.itemId,
+            itemName: i.itemName,
+            hsnCode: i.hsnCode,
+            quantity: Number(i.quantity),
+            unit: i.unit
+          })) || [],
       };
     });
 
     return res.status(200).json({
       success: true,
+      message: "Data fetched successfully",
       count: data.length,
-      data
+      data,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -5456,7 +5633,6 @@ const createPaymentRequest = async (req, res) => {
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role;
-    console.log(userRole);
 
     if (userRole.name !== "Purchase") {
       return res.status(403).json({
@@ -5465,7 +5641,7 @@ const createPaymentRequest = async (req, res) => {
       });
     }
 
-    const { poId, debitNoteId, amount, billpaymentType, remarks } = req.body;
+    const { poId, debitNoteId, amount, billpaymentType } = req.body;
 
     if (!poId || !amount || !billpaymentType) {
       return res.status(400).json({
@@ -5483,7 +5659,7 @@ const createPaymentRequest = async (req, res) => {
       });
     }
 
-    // Get PO + existing payments
+    // Get PO + payments
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: poId },
       include: {
@@ -5503,40 +5679,41 @@ const createPaymentRequest = async (req, res) => {
       });
     }
 
-    // Ensure PO has a total value
-    if (!po.grandTotal) {
+    // 🔥 Decide totals based on currency
+    const isINR = (po.currency || "INR").toUpperCase() === "INR";
+    const poGrandTotal = Number(isINR ? po.grandTotal : po.foreignGrandTotal);
+
+    if (!poGrandTotal) {
       return res.status(400).json({
         success: false,
-        message: "PO grandTotal missing. Cannot compare payment amount.",
+        message: "PO grandTotal missing based on currency type",
       });
     }
 
-    // Sum all approved/paid amounts
-    const totalPaid = po.payments.reduce((sum, pay) => {
-      return sum + Number(pay.amount);
-    }, 0);
+    // Approved payments sum
+    const totalPaid = po.payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
-    const remainingBalance = Number(po.grandTotal) - totalPaid;
+    const remainingBalance = poGrandTotal - totalPaid;
 
-    // Check if requested amount is within balance
+    // Over-limit check
     if (Number(amount) > remainingBalance) {
       return res.status(400).json({
         success: false,
         message: `Requested amount exceeds remaining PO balance`,
         details: {
-          grandTotal: Number(po.grandTotal),
+          currency: po.currency || "INR",
+          grandTotal: poGrandTotal,
           alreadyPaid: totalPaid,
           remaining: remainingBalance,
         },
       });
     }
 
-    // Validate debit note belongs to this PO (if provided)
+    // Optional Debit Note validation
     if (debitNoteId) {
       const dn = await prisma.debitNote.findUnique({
         where: { id: debitNoteId },
       });
-
       if (!dn || dn.purchaseOrderId !== poId) {
         return res.status(404).json({
           success: false,
@@ -5557,19 +5734,108 @@ const createPaymentRequest = async (req, res) => {
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Payment request successfully submitted",
       summary: {
-        grandTotal: Number(po.grandTotal),
+        currency: po.currency || "INR",
+        grandTotal: poGrandTotal,
         paymentRequested: Number(amount),
         alreadyPaid: totalPaid,
         remainingAfterThis: remainingBalance - Number(amount),
       },
-      //data: payment,
     });
   } catch (error) {
     console.error("CREATE PAYMENT ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const showAllPaymentRequests = async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+    if (!["Purchase"].includes(userRole.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const requests = await prisma.payment.findMany({
+      where: {
+        paymentRequestedBy: req.user?.id,
+      },
+      select: {
+        id: true,
+        poId: true,
+        docApprovedBy: true,
+        docApprovalStatus: true,
+        docApprovalDate: true,
+        docApprovalRemark: true,
+        approvedByAdmin: true,
+        adminApprovalStatus: true,
+        adminApprovalDate: true,
+        adminRemark: true,
+        paymentTransferredBy: true,
+        paymentStatus: true,
+        paymentRemark: true,
+        paymentDate: true,
+        amount: true,
+        createdAt: true,
+        purchaseOrder: {
+          select: {
+            poNumber: true,
+            companyName: true,
+            vendorName: true,
+            currency: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formatted = requests.map((r) => {
+      return {
+        paymentRequestId: r.id,
+        poId: r.poId,
+        poNumber: r.purchaseOrder?.poNumber || null,
+        companyName: r.purchaseOrder?.companyName || null,
+        vendorName: r.purchaseOrder?.vendorName || null,
+        requestedAmount: Number(r.amount),
+        docsVerification: {
+          approvedBy: r.docApprovedBy,
+          status: r.docApprovalStatus,
+          approvedDate: r.docApprovalDate,
+          remarks: r.docApprovalRemark,
+        },
+        adminVerification: {
+          approvedBy: r.approvedByAdmin,
+          status: r.adminApprovalStatus,
+          approvedDate: r.adminApprovalDate,
+          remarks: r.adminRemark, 
+        },
+        accountsVerification: {
+          approvedBy: r.paymentTransferredBy,
+          status: r.paymentStatus,
+          approvedDate: r.paymentDate,
+          remarks: r.paymentRemark,
+        },
+        createdAt: r.createdAt,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "All payment requests fetched successfully",
+      count: formatted.length,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error("SHOW PAYMENT REQUESTS ERROR:", error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -5620,4 +5886,5 @@ module.exports = {
   getPOListByCompany2,
   showPendingPayments,
   createPaymentRequest,
+  showAllPaymentRequests,
 };
