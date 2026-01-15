@@ -677,8 +677,8 @@ model Company {
   contactNumber   String?
   alternateNumber String?
   email           String?
-  country         Country  @default(INDIA)
-  currency        Currency @default(INR)
+  country         String?  @default("INDIA")
+  currency        String?  @default("INR")
   companyAadhaar  String?
   companyPanCard  String?
   accountHolder   String?
@@ -707,8 +707,8 @@ model Vendor {
   state             String?
   pincode           String?
   zipCode           String?
-  country           Country  @default(INDIA)
-  currency          Currency @default(INR)
+  country           String?  @default("INDIA")
+  currency          String?  @default("INR")
   exchangeRate      Decimal?
   contactPerson     String?
   contactNumber     String?
