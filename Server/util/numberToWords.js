@@ -44,6 +44,7 @@ function numberToWords(amount, currencyCode = "INR") {
     currencyCode === "USD" ? "DOLLARS" :
     currencyCode === "EUR" ? "EUROS" :
     currencyCode === "GBP" ? "POUNDS" :
+    currencyCode === "CNY" ? "YUAN" :
     currencyCode;
 
   const minorUnit =
@@ -51,6 +52,7 @@ function numberToWords(amount, currencyCode = "INR") {
     currencyCode === "USD" ? "CENTS" :
     currencyCode === "EUR" ? "CENTS" :
     currencyCode === "GBP" ? "PENCE" :
+    currencyCode === "CNY" ? "FEN" :
     "";
 
   let words = inWords(major) + " " + majorUnit;
