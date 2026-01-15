@@ -697,26 +697,31 @@ model Company {
 }
 
 model Vendor {
-  id              String   @id @default(uuid())
-  name            String
-  email           String?
-  gstNumber       String?
-  address         String?
-  city            String?
-  state           String?
-  pincode         String?
-  country         Country  @default(INDIA)
-  currency        Currency @default(INR)
-  exchangeRate    Decimal?
-  contactPerson   String?
-  contactNumber   String?
-  alternateNumber String?
-  vendorAadhaar   String?
-  vendorPanCard   String?
-  accountHolder   String?
-  bankName        String?
-  accountNumber   String?
-  ifscCode        String?
+  id                String   @id @default(uuid())
+  name              String
+  email             String?
+  mailVerified      Boolean? @default(false)
+  gstNumber         String?
+  address           String?
+  city              String?
+  state             String?
+  pincode           String?
+  zipCode           String?
+  country           Country  @default(INDIA)
+  currency          Currency @default(INR)
+  exchangeRate      Decimal?
+  contactPerson     String?
+  contactNumber     String?
+  contactNoVerified Boolean? @default(false)
+  alternateNumber   String?
+  vendorAadhaar     String?
+  aadhaarUrl        String?
+  vendorPanCard     String?
+  pancardUrl        String?
+  accountHolder     String?
+  bankName          String?
+  accountNumber     String?
+  ifscCode          String?
 
   isActive  Boolean? @default(true)
   createdBy String
@@ -1118,7 +1123,7 @@ model Payment {
   paymentTransferredBy String?
   paymentStatus        Boolean?
   paymentRemark        String?
-  paymentDate          DateTime?        @default(now())
+  paymentDate          DateTime?
   amount               Decimal          @db.Decimal(12, 4)
   billpaymentType      BillPaymentType?
   createdAt            DateTime?        @default(now())
