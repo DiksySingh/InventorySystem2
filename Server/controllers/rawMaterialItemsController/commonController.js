@@ -2864,6 +2864,25 @@ const getCurrencyByCountry = async (req, res) => {
   }
 };
 
+const getCurrencies = async (req, res) => {
+  try {
+    const currencyList = countries.map((c) => c.currency);
+
+    const uniqueCurrencies = [...new Set(currencyList)];
+
+    res.status(200).json({
+      success: true,
+      count: uniqueCurrencies.length,
+      currencies: uniqueCurrencies,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
 
 module.exports = {
   addRole,
@@ -2906,5 +2925,6 @@ module.exports = {
   sendAllSystemStockShortageReport,
   updateWarehouseStockByExcel,
   getCountries,
-  getCurrencyByCountry
+  getCurrencyByCountry,
+  getCurrencies
 };
