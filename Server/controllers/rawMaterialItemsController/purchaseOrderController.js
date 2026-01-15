@@ -278,6 +278,7 @@ const createVendor = async (req, res) => {
       exchangeRate,
       contactPerson,
       contactNumber,
+      zipCode
     } = req.body;
 
     const performedBy = req.user?.id;
@@ -287,11 +288,8 @@ const createVendor = async (req, res) => {
       !address ||
       !contactPerson ||
       !contactNumber ||
-      //!email ||
       !country ||
-      !currency ||
-      !exchangeRate ||
-      !pincode
+      !currency
     ) {
       return res.status(400).json({
         success: false,
@@ -365,7 +363,8 @@ const createVendor = async (req, res) => {
           address: upperCaseAddress,
           city,
           state,
-          pincode,
+          pincode: pincode.trim() || null,
+          zipCode: zipCode.trim() || null,
           country: country || "INDIA",
           currency: currency || "INR",
           exchangeRate: exchangeRate || null,
