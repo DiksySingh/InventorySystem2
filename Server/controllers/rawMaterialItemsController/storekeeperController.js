@@ -1767,7 +1767,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
               throw new Error(`System item ${s.itemId} not found`);
 
             const baseUnit = systemItem.unit?.toLowerCase();
-            const convUnit = systemItem.conversionUnit?.toLowerCase();
+            const convUnit = systemItem.converionUnit?.toLowerCase();
             const factor = Number(systemItem.conversionFactor || 1);
 
             let convertedQty = s.goodQty;
