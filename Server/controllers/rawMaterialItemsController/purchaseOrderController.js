@@ -284,7 +284,6 @@ const createVendor = async (req, res) => {
 
     if (
       !name ||
-      !gstNumber ||
       !address ||
       !contactPerson ||
       !contactNumber ||
@@ -301,7 +300,7 @@ const createVendor = async (req, res) => {
     }
 
     const upperCaseName = name.trim();
-    const upperCaseGST = gstNumber.toUpperCase().trim();
+    const upperCaseGST = gstNumber ? gstNumber.toUpperCase().trim(): null;
     const upperCaseAddress = address.trim();
     const lowerCaseEmail = email.toLowerCase().trim();
 
@@ -312,17 +311,18 @@ const createVendor = async (req, res) => {
     //     message: "Invalid email format.",
     //   });
     // }
-
-    const existingVendor = await prisma.vendor.findFirst({
-      where: { gstNumber: upperCaseGST },
-    });
-    if (existingVendor) {
-      return res.status(400).json({
-        success: false,
-        message: `A vendor with GST number '${upperCaseGST}' already exists.`,
+    if(upperCaseGST) {
+      const existingVendor = await prisma.vendor.findFirst({
+        where: { gstNumber: upperCaseGST },
       });
+      if (existingVendor) {
+        return res.status(400).json({
+          success: false,
+          message: `A vendor with GST number '${upperCaseGST}' already exists.`,
+        });
+      }
     }
-
+    
     const allowedCountries = [
       "INDIA",
       "USA",
@@ -361,7 +361,7 @@ const createVendor = async (req, res) => {
         data: {
           name: upperCaseName,
           email: lowerCaseEmail || null,
-          gstNumber: upperCaseGST,
+          gstNumber: upperCaseGST || null,
           address: upperCaseAddress,
           city,
           state,
@@ -4978,7 +4978,6 @@ function getFinancialYearRange() {
   };
 }
 
-// ----------------------- Date Ranges -----------------------
 function getDateRanges() {
   const now = getISTDate();
 
@@ -5380,7 +5379,11 @@ const getRawMaterialByWarehouse = async (req, res) => {
   }
 };
 
+//---------------------- Vendor API - V2 --------------------//
+
 const createVendor2 = async (req, res) => {
+  let uploadedFiles = []; // keep raw disk paths to delete on failure
+
   try {
     const {
       name,
@@ -5401,7 +5404,7 @@ const createVendor2 = async (req, res) => {
       bankName,
       accountHolder,
       accountNumber,
-      ifscCode
+      ifscCode,
     } = req.body;
 
     const performedBy = req.user?.id;
@@ -5412,7 +5415,6 @@ const createVendor2 = async (req, res) => {
       !address ||
       !contactPerson ||
       !contactNumber ||
-      //!email ||
       !country ||
       !currency ||
       !exchangeRate ||
@@ -5420,90 +5422,91 @@ const createVendor2 = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required.",
+        message: "All required fields must be provided.",
       });
     }
 
     const upperCaseName = name.trim();
     const upperCaseGST = gstNumber.toUpperCase().trim();
     const upperCaseAddress = address.trim();
-    const lowerCaseEmail = email.toLowerCase().trim();
+    const lowerCaseEmail = email?.trim()?.toLowerCase() || null;
 
-    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    // if (!emailRegex.test(lowerCaseEmail)) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Invalid email format.",
-    //   });
-    // }
-    let aadhaarUrl = pancardUrl = "";
-     if (req.files?.aadhaarFile?.[0]) {
-      aadhaarUrl = req.files.aadhaarFile[0].path;
+    let aadhaarUrl = null;
+    let pancardUrl = null;
+
+    // === HANDLE FILES ===
+    if (req.files?.aadhaarFile?.[0]) {
+      const file = req.files.aadhaarFile[0];
+      uploadedFiles.push(file.path);
+
+      const cleanPath = file.path.replace(/\\/g, "/").split("uploads/")[1];
+      aadhaarUrl = `/uploads/${cleanPath}`;
     }
 
     if (req.files?.pancardFile?.[0]) {
-      pancardUrl = req.files.pancardFile[0].path;
+      const file = req.files.pancardFile[0];
+      uploadedFiles.push(file.path);
+
+      const cleanPath = file.path.replace(/\\/g, "/").split("uploads/")[1];
+      pancardUrl = `/uploads/${cleanPath}`;
     }
 
     const existingVendor = await prisma.vendor.findFirst({
       where: { gstNumber: upperCaseGST },
     });
+
     if (existingVendor) {
+      uploadedFiles.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
       return res.status(400).json({
         success: false,
-        message: `A vendor with GST number '${upperCaseGST}' already exists.`,
+        message: `Vendor with GST '${upperCaseGST}' already exists.`,
       });
     }
 
-    const allowedCountries = [
-      "INDIA",
-      "USA",
-      "UAE",
-      "UK",
-      "CHINA",
-      "RUSSIA",
-      "OTHER",
-    ];
-    const allowedCurrencies = [
-      "INR",
-      "USD",
-      "EUR",
-      "GBP",
-      "CNY",
-      "AED",
-      "OTHER",
-    ];
+    const allowedCountries = ["INDIA", "USA", "UAE", "UK", "CHINA", "RUSSIA", "OTHER"];
+    const allowedCurrencies = ["INR", "USD", "EUR", "GBP", "CNY", "AED", "OTHER"];
 
-    if (country && !allowedCountries.includes(country)) {
+    if (!allowedCountries.includes(country)) {
+      uploadedFiles.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
       return res.status(400).json({
         success: false,
-        message: `Invalid country. Allowed values: ${allowedCountries.join(", ")}`,
+        message: `Invalid country. Allowed: ${allowedCountries.join(", ")}`,
       });
     }
 
-    if (currency && !allowedCurrencies.includes(currency)) {
+    if (!allowedCurrencies.includes(currency)) {
+      uploadedFiles.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
       return res.status(400).json({
         success: false,
-        message: `Invalid currency. Allowed values: ${allowedCurrencies.join(", ")}`,
+        message: `Invalid currency. Allowed: ${allowedCurrencies.join(", ")}`,
       });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    // === TRANSACTION ===
+    const vendor = await prisma.$transaction(async (tx) => {
       const newVendor = await tx.vendor.create({
         data: {
           name: upperCaseName,
-          email: lowerCaseEmail || null,
+          email: lowerCaseEmail,
           gstNumber: upperCaseGST,
           address: upperCaseAddress,
           city,
           state,
           pincode,
-          country: country || "INDIA",
-          currency: currency || "INR",
-          exchangeRate: exchangeRate || null,
+          country,
+          currency,
+          exchangeRate,
           contactPerson,
           contactNumber,
-          alternateNumber: null,
+          alternateNumber: alternateNumber || null,
+          vendorAadhaar: vendorAadhaar?.trim() || null,
+          aadhaarUrl,
+          vendorPanCard: vendorPanCard?.trim()?.toUpperCase() || null,
+          pancardUrl,
+          bankName: bankName?.trim() || null,
+          accountHolder: accountHolder?.trim() || null,
+          accountNumber: accountNumber?.trim() || null,
+          ifscCode: ifscCode?.trim()?.toUpperCase() || null,
           createdBy: performedBy,
         },
       });
@@ -5525,11 +5528,232 @@ const createVendor2 = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Vendor created successfully.",
-      data: result,
+      data: vendor,
     });
   } catch (error) {
-    console.error("❌ Error in createVendor:", error);
+    console.error("❌ Error in createVendor2:", error);
+
+    uploadedFiles.forEach((p) => {
+      try {
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      } catch (err) {}
+    });
+
     return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const getVendorById2 = async (req, res) => {
+  try {
+    const id = req.params.id || req.query?.id;
+
+    if (!id) {
+      return res.status(400).json({ message: "Vendor ID is required" });
+    }
+
+    const vendor = await prisma.vendor.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        gstNumber: true,
+        address: true,
+        city: true,
+        state: true,
+        pincode: true,
+        country: true,
+        currency: true,
+        exchangeRate: true,
+        contactPerson: true,
+        contactNumber: true,
+        alternateNumber: true,
+        vendorAadhaar: true,
+        aadhaarUrl: true,
+        vendorPanCard: true,
+        pancardUrl: true,
+        bankName: true,
+        accountHolder: true,
+        accountNumber: true,
+        ifscCode: true,
+        isActive: true,
+      },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    const mask = (v) => v ? v.replace(/\d(?=\d{4})/g, "*") : null;
+
+    const responseVendor = {
+      ...vendor,
+      vendorAadhaar: mask(vendor.vendorAadhaar),
+      vendorPanCard: vendor.vendorPanCard ? vendor.vendorPanCard.replace(/.(?=.{4})/g,"*") : null,
+      aadhaarUrl: vendor.aadhaarUrl ? `${baseUrl}${vendor.aadhaarUrl}` : null,
+      pancardUrl: vendor.pancardUrl ? `${baseUrl}${vendor.pancardUrl}` : null,
+      accountNumber: mask(vendor.accountNumber),
+      ifscCode: vendor.ifscCode ? vendor.ifscCode.replace(/.(?=.{4})/g,"*") : null
+    };
+
+    res.status(200).json({
+      success: true,
+      message: `Data fetched successfully`,
+      data: responseVendor,
+    });
+  } catch (error) {
+    console.error("Error fetching vendor by ID:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const updateVendor2 = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const {
+      name,
+      email,
+      gstNumber,
+      address,
+      city,
+      state,
+      pincode,
+      country,
+      currency,
+      exchangeRate,
+      contactPerson,
+      contactNumber,
+      alternateNumber,
+      vendorAadhaar,
+      vendorPanCard,
+      bankName,
+      accountHolder,
+      accountNumber,
+      ifscCode,
+    } = req.body;
+
+    const existingVendor = await prisma.vendor.findUnique({ where: { id } });
+    if (!existingVendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    const updateData = {
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(gstNumber && { gstNumber }),
+      ...(address && { address }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(pincode && { pincode }),
+      ...(country && { country }),
+      ...(currency && { currency }),
+      ...(exchangeRate && { exchangeRate }),
+      ...(contactPerson && { contactPerson }),
+      ...(contactNumber && { contactNumber }),
+      ...(alternateNumber && { alternateNumber }),
+      ...(vendorAadhaar && { vendorAadhaar }),
+      ...(vendorPanCard && { vendorPanCard }),
+      ...(bankName && { bankName }),
+      ...(accountHolder && { accountHolder }),
+      ...(accountNumber && { accountNumber }),
+      ...(ifscCode && { ifscCode }),
+    };
+
+    // Keep track of what old file to remove only AFTER success
+    let deleteAadhaarAfter = null;
+    let deletePancardAfter = null;
+
+    // Aadhaar file
+    if (req.files?.aadhaarFile?.[0]) {
+      const file = req.files.aadhaarFile[0];
+      const cleanPath = file.path.replace(/\\/g, "/").split("uploads/")[1];
+      updateData.aadhaarUrl = `/uploads/${cleanPath}`;
+      deleteAadhaarAfter = existingVendor.aadhaarUrl;
+    }
+
+    // Pancard file
+    if (req.files?.pancardFile?.[0]) {
+      const file = req.files.pancardFile[0];
+      const cleanPath = file.path.replace(/\\/g, "/").split("uploads/")[1];
+      updateData.pancardUrl = `/uploads/${cleanPath}`;
+      deletePancardAfter = existingVendor.pancardUrl;
+    }
+
+    // Detect changed fields
+    const changedOldValues = {};
+    const changedNewValues = {};
+
+    for (const key in updateData) {
+      if (existingVendor[key] !== updateData[key]) {
+        changedOldValues[key] = existingVendor[key];
+        changedNewValues[key] = updateData[key];
+      }
+    }
+
+    if (Object.keys(changedNewValues).length === 0) {
+      return res.status(400).json({ message: "No fields were changed." });
+    }
+
+    // RUN TRANSACTION
+    const [updatedVendor, auditLog] = await prisma.$transaction([
+      prisma.vendor.update({
+        where: { id },
+        data: updateData,
+      }),
+      prisma.auditLog.create({
+        data: {
+          entityType: "Vendor",
+          entityId: id,
+          action: "Updated",
+          performedBy: userId || null,
+          oldValue: changedOldValues,
+          newValue: changedNewValues,
+        },
+      }),
+    ]);
+
+    // Delete old files ONLY AFTER transaction success
+    if (deleteAadhaarAfter) {
+      const realPath = deleteAadhaarAfter.replace(/^\//, ""); 
+      if (fs.existsSync(realPath)) fs.unlinkSync(realPath);
+    }
+
+    if (deletePancardAfter) {
+      const realPath = deletePancardAfter.replace(/^\//, ""); 
+      if (fs.existsSync(realPath)) fs.unlinkSync(realPath);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Vendor updated successfully",
+      vendor: updatedVendor,
+      //auditLog,
+    });
+  } catch (error) {
+    console.error("Error updating vendor:", error);
+
+    // ROLLBACK FILES — DELETE NEWLY UPLOADED FILES
+    if (req.files?.aadhaarFile?.[0]) {
+      const file = req.files.aadhaarFile[0].path;
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    }
+
+    if (req.files?.pancardFile?.[0]) {
+      const file = req.files.pancardFile[0].path;
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    }
+
+    res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
     });
@@ -5563,7 +5787,7 @@ const showPendingPayments = async (req, res) => {
             itemName: true,
             hsnCode: true,
             quantity: true,
-            unit: true
+            unit: true,
           },
         },
       },
@@ -5610,7 +5834,7 @@ const showPendingPayments = async (req, res) => {
             itemName: i.itemName,
             hsnCode: i.hsnCode,
             quantity: Number(i.quantity),
-            unit: i.unit
+            unit: i.unit,
           })) || [],
       };
     });
@@ -5816,7 +6040,7 @@ const showAllPaymentRequests = async (req, res) => {
           approvedBy: r.approvedByAdmin,
           status: r.adminApprovalStatus,
           approvedDate: r.adminApprovalDate,
-          remarks: r.adminRemark, 
+          remarks: r.adminRemark,
         },
         accountsVerification: {
           approvedBy: r.paymentTransferredBy,
@@ -5884,6 +6108,9 @@ module.exports = {
   getSystemDashboardData,
   getRawMaterialByWarehouse,
   getPOListByCompany2,
+  createVendor2,
+  getVendorById2,
+  updateVendor2,
   showPendingPayments,
   createPaymentRequest,
   showAllPaymentRequests,
