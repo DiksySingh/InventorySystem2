@@ -5,6 +5,7 @@ const {
   tokenVerification,
 } = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
 const uploadDebitNoteBill = require("../../middlewares/rawMaterialMiddlewares/multerConfigDebitNote");
+const uploadVendorDocs = require("../../middlewares/rawMaterialMiddlewares/multerConfigVendor");
 
 router.post(
   "/companies",
@@ -210,6 +211,32 @@ router.get(
   "/warehouses/raw-material",
   tokenVerification(["Purchase", "Store", "Admin"]),
   purchaseOrderController.getRawMaterialByWarehouse
+);
+
+router.post(
+  "/vendors2",
+  tokenVerification(["Purchase"]),
+  uploadVendorDocs.fields([
+    { name: "aadhaarFile", maxCount: 1 },
+    { name: "pancardFile", maxCount: 1 },
+  ]),
+  purchaseOrderController.createVendor2
+);
+
+router.get(
+  "/vendors2/:id",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getVendorById2
+);
+
+router.put(
+  "/vendors2/:id",
+  tokenVerification(["Purchase"]),
+  uploadVendorDocs.fields([
+    { name: "aadhaarFile", maxCount: 1 },
+    { name: "pancardFile", maxCount: 1 },
+  ]),
+  purchaseOrderController.updateVendor2
 );
 
 //------------------- Payment Routes --------------------//

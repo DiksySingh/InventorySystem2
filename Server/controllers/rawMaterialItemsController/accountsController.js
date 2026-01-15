@@ -1,5 +1,55 @@
 const prisma = require("../../config/prismaClient");
 
+const showVendorsBankDetails = async (req, res) => {
+    try {
+         const userRole = req.user?.role;
+
+    if (!["Accounts"].includes(userRole?.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const vendors = await prisma.vendor.findMany({
+        orderBy: {
+            createdAt: "desc"
+        },
+         select: {
+            name: true,
+            gstNumber: true,
+            contactNumber: true,
+            contactPerson: true,
+            bankName: true,
+            accountHolder: true,
+            accountNumber: true,
+            ifscCode: true
+        }
+    });
+
+    if(!vendors) {
+        return res.status(404).json({
+            success: false,
+            message: "No vendors found."
+        });
+    }
+
+    return res.status(200).json({
+        success: true,
+        message: "Vendors fetched successfully",
+        count: vendors.length || 0,
+        data: vendors
+    });
+        
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+
 const showAdminApprovedPaymentRequests = async (req, res) => {
   try {
     const userRole = req.user?.role;
@@ -147,6 +197,7 @@ const approveOrRejectPaymentRequestByAccounts = async (req, res) => {
 };
 
 module.exports = {
+    showVendorsBankDetails,
     showAdminApprovedPaymentRequests,
     approveOrRejectPaymentRequestByAccounts
 }

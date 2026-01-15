@@ -12,6 +12,7 @@ const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchem
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const getDashboardService = require("../../services/systemDashboardService");
 const sendMail = require("../../util/mail/sendMail");
+const countries = require("../../data/countries.json");
 
 const addRole = async (req, res) => {
   try {
@@ -2818,6 +2819,52 @@ const updateWarehouseStockByExcel = async (req, res) => {
   }
 };
 
+const getCountries = async (req, res) => {
+  try {
+    const countryList = countries.map((c) => c.country);
+    res.status(200).json({
+      success: true,
+      count: countryList.length,
+      countries: countryList,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    })
+  }
+};
+
+const getCurrencyByCountry = async (req, res) => {
+  try {
+    const selectedCountry = req.params.country.toUpperCase();
+    const result = countries.find(
+      (c) => c.country.toUpperCase() === selectedCountry
+    );
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: `Country '${selectedCountry}' not found`,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      country: result.country,
+      currency: result.currency,
+    }); 
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
+
 module.exports = {
   addRole,
   showRole,
@@ -2857,5 +2904,7 @@ module.exports = {
   addSystemOrder,
   increaseOrDecreaseSystemOrder,
   sendAllSystemStockShortageReport,
-  updateWarehouseStockByExcel
+  updateWarehouseStockByExcel,
+  getCountries,
+  getCurrencyByCountry
 };

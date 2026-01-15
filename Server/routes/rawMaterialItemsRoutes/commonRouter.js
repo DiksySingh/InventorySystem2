@@ -43,4 +43,17 @@ router.post("/system-order/create", commonController.addSystemOrder);
 router.put("/system-order/update/order-quantity", commonController.increaseOrDecreaseSystemOrder );
 router.post("/warehouse/raw-material/stock/update", commonController.upload.single('file'), commonController.updateWarehouseStockByExcel);
 
+router.get(
+  "/countries",
+  tokenVerification(["Purchase"]),
+  commonController.getCountries
+);
+
+router.get(
+  "/currency/:country",
+  tokenVerification(["Purchase"]),
+  commonController.getCurrencyByCountry
+);
+
+
 module.exports = router;
