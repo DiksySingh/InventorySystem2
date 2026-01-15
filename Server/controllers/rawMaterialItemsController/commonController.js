@@ -1793,14 +1793,14 @@ const updateItem = async (req, res) => {
       if (unit) systemItem.unit = unit;
       if (hsnCode) systemItem.hsnCode = hsnCode;
       if (description) systemItem.description = description;
-      if (conversionUnit) systemItem.conversionUnit = conversionUnit;
+      if (conversionUnit) systemItem.converionUnit = conversionUnit;
 
       if (conversionFactor !== undefined && conversionFactor !== null) {
         systemItem.conversionFactor = Number(conversionFactor);
       } else if (systemItem.conversionFactor == null) {
         // Default to 1 and base unit
         systemItem.conversionFactor = 1;
-        systemItem.conversionUnit = unit || systemItem.unit;
+        systemItem.converionUnit = unit || systemItem.unit;
       }
 
       systemItem.updatedAt = new Date();
