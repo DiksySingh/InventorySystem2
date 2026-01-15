@@ -297,6 +297,16 @@ const createVendor = async (req, res) => {
       });
     }
 
+    if (country === "INDIA") {
+      const trimmed = contactNumber.trim();
+      if (!/^\d{10}$/.test(trimmed)) {
+        return res.status(400).json({
+          success: false,
+          message: `Selected country: ${country}, contact number must be 10 digits without space.`
+        });
+      }
+    }
+
     const upperCaseName = name.trim();
     const upperCaseGST = gstNumber ? gstNumber.toUpperCase().trim(): null;
     const upperCaseAddress = address.trim();
