@@ -615,7 +615,7 @@ const createVendor = async (req, res) => {
     const upperCaseName = name.trim();
     const upperCaseGST = gstNumber ? gstNumber.toUpperCase().trim() : null;
     const upperCaseAddress = address.trim();
-    const lowerCaseEmail = email.toLowerCase().trim();
+    const lowerCaseEmail = email ? email.toLowerCase().trim() : null;
 
     // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     // if (!emailRegex.test(lowerCaseEmail)) {
@@ -983,8 +983,8 @@ const createVendor = async (req, res) => {
           address: upperCaseAddress,
           city,
           state,
-          pincode: pincode.trim() || null,
-          zipCode: zipCode.trim() || null,
+          pincode: pincode ? pincode.trim() : null,
+          zipCode: zipCode ? zipCode.trim() : null,
           country: country || "INDIA",
           currency: currency || "INR",
           exchangeRate: exchangeRate || null,
