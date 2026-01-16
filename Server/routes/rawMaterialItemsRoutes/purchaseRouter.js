@@ -213,6 +213,14 @@ router.get(
   purchaseOrderController.getRawMaterialByWarehouse
 );
 
+//-----------------Version V2 ------------------//
+
+router.get(
+  "/dashboard2",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getPODashboard2
+);
+
 router.post(
   "/vendors2",
   tokenVerification(["Purchase"]),

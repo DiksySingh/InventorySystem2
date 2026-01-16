@@ -55,5 +55,11 @@ router.get(
   commonController.getCurrencyByCountry
 );
 
+router.get(
+  "/currencies",
+  tokenVerification(["Purchase"]),
+  commonController.getCurrencies
+);
+
 
 module.exports = router;
