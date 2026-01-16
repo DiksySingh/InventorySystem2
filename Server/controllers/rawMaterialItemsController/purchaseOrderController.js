@@ -7504,6 +7504,7 @@ const showAllPaymentRequests = async (req, res) => {
         poNumber: r.purchaseOrder?.poNumber || null,
         companyName: r.purchaseOrder?.companyName || null,
         vendorName: r.purchaseOrder?.vendorName || null,
+        currency: r.purchaseOrder?.currency || null,
         requestedAmount: Number(r.amount),
 
         requestedBy: r.payment_RequestedBy?.name || null,
