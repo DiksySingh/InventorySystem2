@@ -66,7 +66,8 @@ const showAllPOWithBills = async (req, res) => {
         companyName: po.companyName,
         vendorName: po.vendorName,
         poDate: po.poDate,
-        hasBill: po.bills.length > 0,              // NEW FLAG
+        hasBill: po.bills.length > 0,   
+        currency: po.currency,           // NEW FLAG
         grandTotal,
         totalPaid,
         remainingAmount: Number(grandTotal) - Number(totalPaid),
