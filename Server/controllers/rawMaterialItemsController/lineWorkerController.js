@@ -2157,6 +2157,394 @@ const startServiceProcess = async (req, res) => {
   }
 };
 
+// const completeServiceProcess = async (req, res) => {
+//   try {
+//     const { serviceProcessId, status, failureReason, remarks } = req.body;
+//     const empId = req.user?.id;
+//     const userWarehouseId = req.user?.warehouseId;
+//     //const warehouseId = "67446a8b27dae6f7f4d985dd";
+
+//     if (!userWarehouseId || userWarehouseId === null) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Warehouse not assinged to user.",
+//       });
+//     }
+
+//     if (!serviceProcessId || !status || !remarks) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Service process ID, status, and remarks are required.",
+//       });
+//     }
+
+//     if (
+//       status === "FAILED" &&
+//       (failureReason === "" ||
+//         failureReason === null ||
+//         failureReason === undefined)
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `For status - ${status}, failureReason is required.`,
+//       });
+//     }
+
+//     if (!empId) {
+//       return res
+//         .status(401)
+//         .json({ success: false, message: "Unauthorized user." });
+//     }
+
+//     const processData = await prisma.service_Process_Record.findFirst({
+//       where: { id: serviceProcessId, warehouseId: userWarehouseId },
+//       include: {
+//         stage: true,
+//         itemType: true,
+//       },
+//     });
+
+//     if (!processData) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Service process not found." });
+//     }
+
+//     if (processData.stage?.name === "COMPLETED") {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Process already completed." });
+//     }
+
+//     // Fetch product by productName to get productId (required for StageFlow & FailureRedirect)
+//     const productData = await prisma.product.findFirst({
+//       where: { productName: processData.productName },
+//       select: { id: true, productName: true },
+//     });
+//     if (!productData) {
+//       throw new Error(`Product not found: ${processData.productName}`);
+//     }
+//     const productId = productData.id;
+
+//     // Helper: Failure redirect (uses productId + itemTypeId + failureReason)
+//     const handleFailureRedirect = async (tx, updatedActivity, reason) => {
+//       const sp = updatedActivity.serviceProcess;
+//       const itemTypeId = sp.itemType.id;
+
+//       const redirectStage = await tx.failureRedirect.findFirst({
+//         where: {
+//           productId,
+//           itemTypeId,
+//           failureReason: reason,
+//         },
+//         select: { redirectStageId: true },
+//       });
+//       console.log(redirectStage);
+
+//       if (!redirectStage) {
+//         throw new Error(
+//           `Failure redirect not found for productId:${productId}, itemTypeId:${itemTypeId}, reason:${reason}`
+//         );
+//       }
+//       let redirectedStageRecord = null;
+//       if (reason === "REJECTED") {
+//         redirectedStageRecord = await tx.stage.findFirst({
+//           where: {
+//             id: redirectStage.redirectStageId,
+//           },
+//           select: {
+//             id: true,
+//             name: true,
+//           },
+//         });
+//       }
+
+//       let disassembleTokenToSet = null;
+//       if (
+//         redirectedStageRecord &&
+//         redirectedStageRecord.name === "Disassemble"
+//       ) {
+//         disassembleTokenToSet = uuid();
+//       }
+
+//       await tx.service_Process_Record.update({
+//         where: { id: sp.id },
+//         data: {
+//           stageId: redirectStage.redirectStageId,
+//           restartedFromStageId: redirectStage.redirectStageId,
+//           status: "REDIRECTED",
+//           ...(disassembleTokenToSet
+//             ? {
+//                 disassembleSessionId: disassembleTokenToSet,
+//                 isDisassemblePending: true,
+//                 disassembleStatus: "PENDING",
+//               }
+//             : {}),
+//         },
+//       });
+
+//       await tx.stageActivity.create({
+//         data: {
+//           serviceProcessId: sp.id,
+//           stageId: redirectStage.redirectStageId,
+//           status: "PENDING",
+//           isCurrent: true,
+//         },
+//       });
+//     };
+
+//     // Helper: move to next stage using productId + itemTypeId + currentStageId
+//     const moveToNextStage = async (tx, updatedActivity) => {
+//       const { serviceProcess, stage } = updatedActivity;
+//       const itemTypeId = serviceProcess.itemType.id;
+
+//       const stageFlow = await tx.stageFlow.findFirst({
+//         where: {
+//           productId,
+//           itemTypeId,
+//           currentStageId: stage.id,
+//         },
+//         select: { nextStageId: true },
+//       });
+
+//       // No stage or nextStage -> process completed
+//       if (!stageFlow || !stageFlow.nextStageId) {
+//         await tx.service_Process_Record.update({
+//           where: { id: serviceProcess.id },
+//           data: {
+//             status: "COMPLETED",
+//             finalStatus: "SUCCESS",
+//             isClosed: true,
+//             isRepaired:
+//               serviceProcess.itemType.name === "SERVICE" ? true : null,
+//             finalRemarks: null,
+//             updatedBy: String(empId),
+//             completedAt: new Date(),
+//           },
+//         });
+//         return null;
+//       }
+
+//       // Move to next stage
+//       await tx.service_Process_Record.update({
+//         where: { id: serviceProcess.id },
+//         data: {
+//           stageId: stageFlow.nextStageId,
+//           status: "IN_PROGRESS",
+//         },
+//       });
+
+//       await tx.stageActivity.create({
+//         data: {
+//           serviceProcessId: serviceProcess.id,
+//           stageId: stageFlow.nextStageId,
+//           status: "PENDING",
+//           isCurrent: true,
+//         },
+//       });
+
+//       return stageFlow.nextStageId;
+//     };
+
+//     // Main transaction: update current activity, then branch logic
+//     const updatedActivity = await prisma.$transaction(async (tx) => {
+//       // find current stage activity
+//       const currentActivity = await tx.stageActivity.findFirst({
+//         where: {
+//           serviceProcessId,
+//           stageId: processData.stage.id,
+//           isCurrent: true,
+//         },
+//       });
+//       if (!currentActivity)
+//         throw new Error("Current stage activity not found.");
+
+//       // update current activity (mark complete / skipped / failed)
+//       const updated = await tx.stageActivity.update({
+//         where: { id: currentActivity.id },
+//         data: {
+//           empId: String(empId),
+//           status,
+//           failureReason: status === "FAILED" ? failureReason : null,
+//           remarks,
+//           isCurrent: false,
+//           completedAt: new Date(),
+//         },
+//         include: {
+//           stage: true,
+//           serviceProcess: {
+//             include: {
+//               itemType: true,
+//             },
+//           },
+//         },
+//       });
+
+//       const { stage } = updated;
+//       const sp = updated.serviceProcess; // shorthand
+
+//       // If Testing stage
+//       if (stage.name === "Testing") {
+//         // CASE: Testing success -> final completion (unchanged)
+//         if (status === "COMPLETED") {
+//           await tx.service_Process_Record.update({
+//             where: { id: sp.id },
+//             data: {
+//               status: "COMPLETED",
+//               finalStatus: "SUCCESS",
+//               isClosed: true,
+//               isRepaired: sp.itemType.name === "SERVICE" ? true : null,
+//               finalRemarks: remarks,
+//               updatedBy: String(empId),
+//               completedAt: new Date(),
+//             },
+//           });
+//         }
+
+//         // CASE: Testing rejected -> redirect to FailureRedirect handling (force REJECTED reason)
+//         else if (status === "REJECTED") {
+//           // Use "REJECTED" as the reason to find redirect (ensure failureRedirect record exists for "REJECTED")
+//           const failReason = "REJECTED";
+//           await handleFailureRedirect(tx, updated, failReason);
+//         }
+
+//         // CASE: Testing failed -> consult failureReason mapping (only if provided)
+//         else if (status === "FAILED" && failureReason) {
+//           await handleFailureRedirect(tx, updated, failureReason);
+//         }
+//       }
+
+//       // SKIPPED -> directly go next (no warehouse logic)
+//       else if (status === "SKIPPED") {
+//         await moveToNextStage(tx, updated);
+//       }
+
+//       // Normal completion -> move to next stage
+//       else if (status === "COMPLETED") {
+//         await moveToNextStage(tx, updated);
+//       }
+
+//       return updated;
+//     });
+
+//     // Refresh latest process record to pick up any disassembleSessionId or updated stage
+//     const latestProcess = await prisma.service_Process_Record.findUnique({
+//       where: { id: serviceProcessId },
+//       include: { stage: true, itemType: true },
+//     });
+
+//     // After transaction: update warehouse stock only when Testing stage + completed
+//     const { stage: updatedStage, serviceProcess } = updatedActivity;
+
+//     if (updatedStage.name === "Testing" && status === "COMPLETED") {
+//       const normalize = (str) =>
+//         str
+//           ?.toLowerCase()
+//           .trim()
+//           .replace(/\s+/g, "")
+//           .replace(/[^a-z0-9.]/g, "");
+
+//       const subItemName = serviceProcess.subItemName;
+//       const freshWarehouse = await WarehouseItems.findOne({
+//         warehouse: new mongoose.Types.ObjectId(serviceProcess.warehouseId),
+//       });
+
+//       console.log(subItemName);
+
+//       const normalizedSub = normalize(subItemName);
+//       const existingItem = freshWarehouse.items.find((it) => {
+//         if (!it.itemName) return false;
+//         return normalize(it.itemName) === normalizedSub;
+//       });
+
+//       if (!existingItem) {
+//         throw new Error(
+//           `Warehouse item not found for "${subItemName}" (normalized: "${normalizedSub}")`
+//         );
+//       }
+
+//       // Increase field
+//       const incField =
+//         serviceProcess.itemType.name === "SERVICE" ? "quantity" : "newStock";
+
+//       const amount = Number(serviceProcess.quantity) || 1;
+//       const matchedItemName = existingItem.itemName;
+
+//       const updateResult = await WarehouseItems.updateOne(
+//         {
+//           _id: freshWarehouse._id,
+//           "items.itemName": matchedItemName,
+//         },
+//         {
+//           $inc: {
+//             [`items.$.${incField}`]: amount, // Increase qty/newStock
+//             "items.$.defective": -amount, // Decrease defective
+//           },
+//         }
+//       );
+
+//       console.log("warehouse updateResult:", updateResult);
+
+//       if (!updateResult.acknowledged || updateResult.modifiedCount === 0) {
+//         console.warn(
+//           "Atomic update didn't modify any document; running fallback save..."
+//         );
+
+//         const idx = freshWarehouse.items.findIndex(
+//           (it) => it.itemName === matchedItemName
+//         );
+
+//         if (idx !== -1) {
+//           // Increase qty / newStock
+//           freshWarehouse.items[idx][incField] =
+//             (freshWarehouse.items[idx][incField] || 0) + amount;
+
+//           // Decrease defective
+//           freshWarehouse.items[idx].defective =
+//             (freshWarehouse.items[idx].defective || 0) - amount;
+
+//           await freshWarehouse.save();
+//           console.log("Fallback save completed.");
+//         } else {
+//           throw new Error(
+//             "Failed to update warehouse: item disappeared between read and update."
+//           );
+//         }
+//       }
+//     }
+
+//     if (
+//       latestProcess.stage?.name === "Disassemble" &&
+//       latestProcess.disassembleSessionId
+//     ) {
+//       return res.status(200).json({
+//         success: true,
+//         message:
+//           "Moved to Disassemble stage. Submit reusable items form to close process.",
+//         data: {
+//           stageActivity: updatedActivity,
+//           serviceProcessId: serviceProcessId,
+//         },
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Stage processed successfully & moved to next stage.",
+//       data: {
+//         stageActivity: updatedActivity,
+//         serviceProcessId: serviceProcessId,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("❌ Error in completeServiceProcess:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal Server Error",
+//     });
+//   }
+// };
+
 const completeServiceProcess = async (req, res) => {
   try {
     const { serviceProcessId, status, failureReason, remarks } = req.body;
@@ -2463,12 +2851,17 @@ const completeServiceProcess = async (req, res) => {
         );
       }
 
-      // Increase field
-      const incField =
-        serviceProcess.itemType.name === "SERVICE" ? "quantity" : "newStock";
+      const isService = serviceProcess.itemType.name === "SERVICE";
+      const updateOps = {
+        [`items.$.${isService ? "quantity" : "newStock"}`]: amount,
+      };
 
       const amount = Number(serviceProcess.quantity) || 1;
       const matchedItemName = existingItem.itemName;
+
+      if (isService) {
+        updateOps["items.$.defective"] = -amount;
+      }
 
       const updateResult = await WarehouseItems.updateOne(
         {
@@ -2476,10 +2869,7 @@ const completeServiceProcess = async (req, res) => {
           "items.itemName": matchedItemName,
         },
         {
-          $inc: {
-            [`items.$.${incField}`]: amount, // Increase qty/newStock
-            "items.$.defective": -amount, // Decrease defective
-          },
+          $inc: updateOps,
         }
       );
 
@@ -2495,13 +2885,22 @@ const completeServiceProcess = async (req, res) => {
         );
 
         if (idx !== -1) {
-          // Increase qty / newStock
-          freshWarehouse.items[idx][incField] =
-            (freshWarehouse.items[idx][incField] || 0) + amount;
+          // // Increase qty / newStock
+          // freshWarehouse.items[idx][incField] =
+          //   (freshWarehouse.items[idx][incField] || 0) + amount;
 
-          // Decrease defective
-          freshWarehouse.items[idx].defective =
-            (freshWarehouse.items[idx].defective || 0) - amount;
+          // // Decrease defective
+          // freshWarehouse.items[idx].defective =
+          //   (freshWarehouse.items[idx].defective || 0) - amount;
+          if (isService) {
+            freshWarehouse.items[idx].quantity =
+              (freshWarehouse.items[idx].quantity || 0) + amount;
+            freshWarehouse.items[idx].defective =
+              (freshWarehouse.items[idx].defective || 0) - amount;
+          } else {
+            freshWarehouse.items[idx].newStock =
+              (freshWarehouse.items[idx].newStock || 0) + amount;
+          }
 
           await freshWarehouse.save();
           console.log("Fallback save completed.");
