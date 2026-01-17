@@ -2865,13 +2865,13 @@ const completeServiceProcess = async (req, res) => {
         );
       }
 
+      const amount = Number(serviceProcess.quantity) || 1;
+      const matchedItemName = existingItem.itemName;
+
       const isService = serviceProcess.itemType.name === "SERVICE";
       const updateOps = {
         [`items.$.${isService ? "quantity" : "newStock"}`]: amount,
       };
-
-      const amount = Number(serviceProcess.quantity) || 1;
-      const matchedItemName = existingItem.itemName;
 
       if (isService) {
         updateOps["items.$.defective"] = -amount;
