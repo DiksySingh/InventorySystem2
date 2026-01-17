@@ -7387,7 +7387,7 @@ const createPaymentRequest = async (req, res) => {
 const showAllPaymentRequests = async (req, res) => {
   try {
     const userRole = req.user?.role;
-    if (!["Purchase"].includes(userRole.name)) {
+    if (!["Purchase", "Admin"].includes(userRole.name)) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized access",

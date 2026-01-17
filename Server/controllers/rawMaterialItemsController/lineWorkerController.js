@@ -1802,6 +1802,20 @@ const createServiceProcess = async (req, res) => {
 
     if (!itemType) throw new Error("ItemType not found");
 
+    if(empRole === "Disassemble") {
+      const warehouseItemsData = await WarehouseItems.findOne({
+        warehouse: warehouseId
+      });
+
+      if(!warehouseItemsData) {
+        throw new Error("Warehouse Items Data Not Found");
+      }
+
+      const itemData = warehouseItemsData.items.find((item) => item.itemName === subItemName);
+      if(itemData.defective <= 0) {
+        throw new Error(`Defective is ${itemData.defective} for ${itemData.itemName}. Service process cannot be created.`)
+      }
+    }
     // --- Prevent duplicate process (warehouse-wise) ---
     const existingProcess = await prisma.service_Process_Record.findFirst({
       where: {
