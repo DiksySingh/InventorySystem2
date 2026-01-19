@@ -1771,7 +1771,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
             const convUnit = systemItem.converionUnit?.toLowerCase();
             console.log("System Item Con Unit: ", convUnit);
             const factor = Number(systemItem.conversionFactor || 1);
-            cconsole.log("System Item Conv Factor: ", factor);
+            console.log("System Item Conv Factor: ", factor);
 
             let convertedQty = s.goodQty;
             if (baseUnit && s.poUnit !== baseUnit) {
