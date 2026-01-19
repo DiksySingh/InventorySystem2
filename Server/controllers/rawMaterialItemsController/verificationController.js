@@ -163,7 +163,7 @@ const showPendingPaymentRequests = async (req, res) => {
         currency,
         requestedAmount: Number(pay.amount),
         billpaymentType: pay.billpaymentType,
-        payementRequestedBy: pay.paymentCreatedBy.name,
+        paymentRequestedBy: pay.paymentCreatedBy.name,
         createdAt: pay.createdAt
       };
     });
