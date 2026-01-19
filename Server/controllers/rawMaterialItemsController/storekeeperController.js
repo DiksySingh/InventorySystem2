@@ -1529,19 +1529,19 @@ const purchaseOrderReceivingBill = async (req, res) => {
 
       const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
       if (!poItem) {
-        throw new Error(`PO item ${purchaseOrderItemId} not found.`);
+        throw new Error(`PO item not found.`);
       }
 
       if (itemSource === "mongo") {
         const systemItem = await SystemItem.findById(itemId);
-        if (!systemItem) throw new Error(`SystemItem ${itemId} not found.`);
+        if (!systemItem) throw new Error(`SystemItem not found.`);
       } else if (itemSource === "mysql") {
         const rawMat = await prisma.rawMaterial.findUnique({
           where: { id: itemId },
         });
-        if (!rawMat) throw new Error(`RawMaterial ${itemId} not found.`);
+        if (!rawMat) throw new Error(`RawMaterial not found.`);
       } else {
-        throw new Error(`Invalid itemSource for ${itemId}.`);
+        throw new Error(`Invalid itemSource.`);
       }
     }
   };
@@ -1726,7 +1726,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
             where: { id: s.itemId },
           });
           if (!rawMat)
-            throw new Error(`Raw material not found for ${s.itemId}`);
+            throw new Error(`Raw material not found for ${s.itemName}`);
 
           const baseUnit = rawMat.unit?.toLowerCase();
           const convUnit = rawMat.conversionUnit?.toLowerCase();
@@ -1764,7 +1764,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
           )) {
             const systemItem = await SystemItem.findById(s.itemId);
             if (!systemItem)
-              throw new Error(`System item ${s.itemId} not found`);
+              throw new Error(`System item ${s.itemName} not found`);
 
             const baseUnit = systemItem.unit?.toLowerCase().trim();
             console.log("System Item Unit: ", baseUnit);
@@ -1779,7 +1779,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
                 convertedQty = s.goodQty / factor;
               else
                 throw new Error(
-                  `Invalid unit for system item ${systemItem._id}`
+                  `Invalid unit for system item ${systemItem.itemName}`
                 );
             }
 
