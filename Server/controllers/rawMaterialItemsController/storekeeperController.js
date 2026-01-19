@@ -1765,10 +1765,10 @@ const purchaseOrderReceivingBill = async (req, res) => {
             const systemItem = await SystemItem.findById(s.itemId);
             if (!systemItem)
               throw new Error(`System item ${s.itemName} not found`);
-
+           
             const baseUnit = systemItem.unit?.toLowerCase().trim();
             console.log("System Item Unit: ", baseUnit);
-            const convUnit = systemItem.converionUnit ? systemItem.converionUnit?.toLowerCase() : systemItem.conversionUnit?.toLowerCase();
+            const convUnit = systemItem.conversionUnit?.toLowerCase() || systemItem.converionUnit.toLowerCase();
             console.log("System Item Con Unit: ", convUnit);
             const factor = Number(systemItem.conversionFactor || 1);
             console.log("System Item Conv Factor: ", factor);
