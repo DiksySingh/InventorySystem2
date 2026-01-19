@@ -147,7 +147,7 @@ const approveOrRejectPaymentRequestByAccounts = async (req, res) => {
     if (!["PAID", "REJECTED"].includes(status.toUpperCase())) {
       return res.status(400).json({
         success: false,
-        message: "Status must be APPROVED or REJECTED",
+        message: "Status must be PAID or REJECTED",
       });
     }
 
