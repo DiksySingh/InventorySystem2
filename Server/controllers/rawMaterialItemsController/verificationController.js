@@ -236,7 +236,7 @@ const approveOrRejectPaymentRequest = async (req, res) => {
     const updated = await prisma.payment.update({
       where: { id: paymentRequestId },
       data: {
-        docApprovalStatus: status === "APPROVED" ? true : false,
+        docApprovalStatus: status.toUpperCase() === "APPROVED" ? true : false,
         docApprovalDate: new Date(),
         docApprovalRemark: remarks.trim(),
         docApprovedBy: userId

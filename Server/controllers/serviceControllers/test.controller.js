@@ -152,7 +152,7 @@ const W2W = async (req, res) => {
 
 const getServicePersonForStates = async (req, res) => {
   try {
-    const state = ["Maharashtra", "Punjab", "Chhattisgarh", "Rajasthan"];
+    const state = ["Maharashtra", "Punjab", "Chattisgarh", "Rajasthan"];
 
     // Assuming you have a ServicePerson model to fetch service persons from MongoDB
     const servicePersons = await ServicePerson.find({ state: { $in: state } });
@@ -161,8 +161,9 @@ const getServicePersonForStates = async (req, res) => {
     const data = servicePersons.map((person) => ({
       Name: person.name,
       Contact: person.contact,
-      Email: person.email,
       State: person.state,
+      Latitude: person.latitude || "",
+      Longitude: person.longitude || ""
     }));
 
     // Create a new worksheet from the data

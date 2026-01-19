@@ -3732,7 +3732,7 @@ const approveOrRejectPaymentRequestByAdmin = async (req, res) => {
     const updated = await prisma.payment.update({
       where: { id: paymentRequestId },
       data: {
-        adminApprovalStatus: status === "APPROVED" ? true : false,
+        adminApprovalStatus: status.toUpperCase() === "APPROVED" ? true : false,
         adminApprovalDate: new Date(),
         adminRemark: remarks.trim() || null,
         approvedByAdmin: userId
