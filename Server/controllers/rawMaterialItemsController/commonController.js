@@ -1429,12 +1429,13 @@ function parseConversionFactor(value) {
     return 1;
   }
 
-  if(typeof value !== "number") {
+  // normalize to string
+  if (typeof value === "number") {
     value = value.toString();
   }
 
   if (typeof value !== "string") {
-    throw new Error("conversionFactor must be a string");
+    throw new Error("conversionFactor must be a string or number");
   }
 
   const trimmed = value.trim();
@@ -1480,13 +1481,17 @@ const createItem = async (req, res) => {
     ====================================================== */
     let numericConversionFactor;
     try {
-      numericConversionFactor = parseConversionFactor(conversionFactor);
+      numericConversionFactor =
+        conversionFactor === undefined || conversionFactor === null
+          ? 1
+          : parseConversionFactor(String(conversionFactor));
     } catch (err) {
       return res.status(400).json({
         success: false,
         message: err.message,
       });
     }
+
 
     const finalConversionUnit = conversionUnit || unit;
 
