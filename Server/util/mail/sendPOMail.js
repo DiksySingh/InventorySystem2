@@ -5,7 +5,7 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: process.env.PO_SMTP_USER, // system mail
+    user: process.env.PO_SMTP_USER,
     pass: process.env.PO_SMTP_PASS,
   },
 });
@@ -16,8 +16,8 @@ const sendMail = async ({
   text,
   html,
   attachments,
-  senderName,     // 👤 person name
-  replyTo,        // 👤 person email
+  senderName,    
+  replyTo,
   cc,
   bcc,
 }) => {
@@ -25,7 +25,7 @@ const sendMail = async ({
     from: senderName
       ? `"${senderName}" <${process.env.SMTP_USER}>`
       : `<${process.env.SMTP_USER}>`,
-    replyTo,       // replies go to person
+    replyTo,
     to,
     cc,
     bcc,
