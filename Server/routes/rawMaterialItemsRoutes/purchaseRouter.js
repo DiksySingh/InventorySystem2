@@ -10,207 +10,207 @@ const uploadVendorDocs = require("../../middlewares/rawMaterialMiddlewares/multe
 router.post(
   "/companies",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.createCompany
+  purchaseOrderController.createCompany,
 );
 
 router.post(
   "/vendors",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.createVendor
+  purchaseOrderController.createVendor,
 );
 
 router.get(
   "/companies",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getCompaniesList
+  purchaseOrderController.getCompaniesList,
 );
 
 router.get(
   "/companies/data",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getCompaniesData
+  purchaseOrderController.getCompaniesData,
 );
 
 router.get(
   "/vendors",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getVendorsList
+  purchaseOrderController.getVendorsList,
 );
 
 router.get(
   "/vendors/data",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getVendorsData
+  purchaseOrderController.getVendorsData,
 );
 
 router.get(
   "/companies/:id",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getCompanyById
+  purchaseOrderController.getCompanyById,
 );
 
 router.get(
   "/vendors/:id",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getVendorById
+  purchaseOrderController.getVendorById,
 );
 
 router.put(
   "/companies/:id",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.updateCompany
+  purchaseOrderController.updateCompany,
 );
 
 router.put(
   "/vendors/:id",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.updateVendor
+  purchaseOrderController.updateVendor,
 );
 
 router.get(
   "/items",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getItemsList
+  purchaseOrderController.getItemsList,
 );
 
 router.get(
   "/items/details/:id",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getItemDetails
+  purchaseOrderController.getItemDetails,
 );
 
 router.post(
   "/purchase-orders/create",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.createPurchaseOrder
+  purchaseOrderController.createPurchaseOrder,
 );
 
 router.post(
   "/purchase-orders/create2",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.createPurchaseOrder2
+  purchaseOrderController.createPurchaseOrder2,
 );
 
 router.get(
   "/purchase-orders/show",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPOList
+  purchaseOrderController.getPOList,
 );
 
 router.get(
   "/purchase-orders/company/:companyId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPOListByCompany2
+  purchaseOrderController.getPOListByCompany2,
 );
 
 router.get(
   "/purchase-orders/details/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPurchaseOrderDetails
+  purchaseOrderController.getPurchaseOrderDetails,
 );
 
 router.put(
   "/purchase-orders/update/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.updatePurchaseOrder
+  purchaseOrderController.updatePurchaseOrder,
 );
 
 router.put(
   "/purchase-orders/update2/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.updatePurchaseOrder2
+  purchaseOrderController.updatePurchaseOrder2,
 );
 
 router.post(
   "/purchase-orders/download/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.downloadPOPDF
+  purchaseOrderController.downloadPOPDF,
 );
 
 router.post(
   "/purchase-orders/download2/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.downloadPOPDF2
+  purchaseOrderController.downloadPOPDF2,
 );
 
 router.get(
   "/dashboard",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPODashboard
+  purchaseOrderController.getPODashboard,
 );
 
 router.get(
   "/warehouses",
   tokenVerification(["Purchase", "Admin"]),
-  purchaseOrderController.getWarehouses
+  purchaseOrderController.getWarehouses,
 );
 
 router.get(
   "/systems",
   tokenVerification(["Purchase", "Admin"]),
-  purchaseOrderController.getSystems
+  purchaseOrderController.getSystems,
 );
 
 router.put(
   "/purchase-orders/cancel/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.cancelPurchaseOrder
+  purchaseOrderController.cancelPurchaseOrder,
 );
 
 //------------ Debit Note Section --------------
 router.get(
   "/purchase-orders/damaged-stock/details/:poId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPurchaseOrderDetailsWithDamagedItems
+  purchaseOrderController.getPurchaseOrderDetailsWithDamagedItems,
 );
 
 router.post(
   "/debit-note/create",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.createDebitNote
+  purchaseOrderController.createDebitNote,
 );
 
 router.get(
   "/:poId/debit-note",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getDebitNoteListByPO
+  purchaseOrderController.getDebitNoteListByPO,
 );
 
 router.post(
   "/:poId/debit-note/download/:debitNoteId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.downloadDebitNote
+  purchaseOrderController.downloadDebitNote,
 );
 
 router.get(
   "/debit-note/details/:debitNoteId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getDebitNoteDetails
+  purchaseOrderController.getDebitNoteDetails,
 );
 
 router.put(
   "/debit-note/update/:debitNoteId",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.updateDebitNote
+  purchaseOrderController.updateDebitNote,
 );
 
 router.post(
   "/debit-note/receive",
   tokenVerification(["Purchase"]),
   uploadDebitNoteBill,
-  purchaseOrderController.debitNoteReceivingBill
+  purchaseOrderController.debitNoteReceivingBill,
 );
 
 router.get(
   "/dashboard/warehouses/:warehouseId/systems/:systemId/orders",
   tokenVerification(["Purchase", "Store", "Admin"]),
-  purchaseOrderController.getSystemDashboardData
+  purchaseOrderController.getSystemDashboardData,
 );
 
 router.get(
   "/warehouses/raw-material",
   tokenVerification(["Purchase", "Store", "Admin"]),
-  purchaseOrderController.getRawMaterialByWarehouse
+  purchaseOrderController.getRawMaterialByWarehouse,
 );
 
 //-----------------Version V2 ------------------//
@@ -218,7 +218,7 @@ router.get(
 router.get(
   "/dashboard2",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getPODashboard2
+  purchaseOrderController.getPODashboard2,
 );
 
 router.post(
@@ -228,13 +228,13 @@ router.post(
     { name: "aadhaarFile", maxCount: 1 },
     { name: "pancardFile", maxCount: 1 },
   ]),
-  purchaseOrderController.createVendor2
+  purchaseOrderController.createVendor2,
 );
 
 router.get(
   "/vendors2/:id",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.getVendorById2
+  purchaseOrderController.getVendorById2,
 );
 
 router.put(
@@ -244,7 +244,7 @@ router.put(
     { name: "aadhaarFile", maxCount: 1 },
     { name: "pancardFile", maxCount: 1 },
   ]),
-  purchaseOrderController.updateVendor2
+  purchaseOrderController.updateVendor2,
 );
 
 //------------------- Payment Routes --------------------//
@@ -252,19 +252,25 @@ router.put(
 router.get(
   "/purchase-orders/payments/pending",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.showPendingPayments
+  purchaseOrderController.showPendingPayments,
 );
 
 router.post(
   "/purchase-orders/payments/request",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.createPaymentRequest
+  purchaseOrderController.createPaymentRequest,
 );
 
 router.get(
   "/purchase-orders/payments/show",
   tokenVerification(["Purchase"]),
-  purchaseOrderController.showAllPaymentRequests
+  purchaseOrderController.showAllPaymentRequests,
+);
+
+router.post(
+  "/purchase-orders/send/:poId",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.sendPOToVendor,
 );
 
 module.exports = router;

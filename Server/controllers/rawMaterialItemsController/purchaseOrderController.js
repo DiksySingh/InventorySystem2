@@ -14,6 +14,8 @@ const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchem
 const ItemComponentMap = require("../../models/systemInventoryModels/itemComponentMapSchema");
 const SystemItemMap = require("../../models/systemInventoryModels/systemItemMapSchema");
 const getDashboardService = require("../../services/systemDashboardService");
+const buildPOPdfBuffer = require("../../helpers/rawMaterialItemsHelpers/poPdf.helper");
+const sendPOMail = require("../../util/mail/sendPOMail");
 
 function getISTDate() {
   const now = new Date();
@@ -6124,6 +6126,7 @@ const createVendor2 = async (req, res) => {
       city,
       state,
       pincode,
+      zipCode,
       country,
       currency,
       exchangeRate,
@@ -6142,14 +6145,11 @@ const createVendor2 = async (req, res) => {
 
     if (
       !name ||
-      !gstNumber ||
       !address ||
       !contactPerson ||
       !contactNumber ||
       !country ||
-      !currency ||
-      !exchangeRate ||
-      !pincode
+      !currency
     ) {
       return res.status(400).json({
         success: false,
@@ -6540,7 +6540,7 @@ const createVendor2 = async (req, res) => {
         data: {
           name: upperCaseName,
           email: lowerCaseEmail,
-          gstNumber: upperCaseGST,
+          gstNumber: gstNumber ? upperCaseGST : null,
           address: upperCaseAddress,
           city,
           state,
@@ -6552,14 +6552,14 @@ const createVendor2 = async (req, res) => {
           contactPerson,
           contactNumber,
           alternateNumber: alternateNumber || null,
-          vendorAadhaar: vendorAadhaar?.trim() || null,
-          aadhaarUrl,
-          vendorPanCard: vendorPanCard?.trim()?.toUpperCase() || null,
-          pancardUrl,
-          bankName: bankName?.trim() || null,
-          accountHolder: accountHolder?.trim() || null,
-          accountNumber: accountNumber?.trim() || null,
-          ifscCode: ifscCode?.trim()?.toUpperCase() || null,
+          vendorAadhaar: vendorAadhaar ? vendorAadhaar?.trim() : null,
+          aadhaarUrl: aadhaarUrl || null,
+          vendorPanCard: vendorPanCard ? vendorPanCard?.trim()?.toUpperCase() : null,
+          pancardUrl: pancardUrl || null,
+          bankName: bankName ? bankName?.trim() : null,
+          accountHolder: accountHolder ? accountHolder?.trim() : null,
+          accountNumber: accountNumber ? accountNumber?.trim() : null,
+          ifscCode: ifscCode ? ifscCode?.trim()?.toUpperCase() : null,
           createdBy: performedBy,
         },
       });
@@ -7550,6 +7550,88 @@ const showAllPaymentRequests = async (req, res) => {
   }
 };
 
+const sendPOToVendor = async (req, res) => {
+  try {
+    const { poId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Department can send PO",
+      });
+    }
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { company: true, vendor: true, items: true },
+    });
+
+    if (!po) {
+      return res.status(404).json({
+        success: false,
+        message: "PO not found",
+      });
+    }
+
+    if (!po.vendor?.email) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor email not found",
+      });
+    }
+
+    const { pdfBuffer, fileName } = await buildPOPdfBuffer({ po, userId });
+
+    await sendPOMail({
+      to: po.vendor.email,
+      subject: `Purchase Order - ${po.poNumber}`,
+      senderName: user.name,
+      replyTo: process.env.PO_SMTP_USER,
+      html: `
+        <p>Dear Sir,</p>
+        <p>Please find attached Purchase Order <b>${po.poNumber}</b>.</p>
+
+        <p>Regards,<br/>
+        ${user.name}<br/>
+        ${po.company.name}<br/>
+        Contact: ${po.company.contactNumber}
+        </p>
+      `,
+      attachments: [
+        {
+          filename: fileName,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+
+    return res.json({
+      success: true,
+      message: "PO sent to vendor successfully",
+    });
+  } catch (err) {
+    console.error("❌ Error sending PO:", err.stack || err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while sending PO",
+    });
+  }
+};
+
 module.exports = {
   createCompany,
   createVendor,
@@ -7597,4 +7679,5 @@ module.exports = {
   showPendingPayments,
   createPaymentRequest,
   showAllPaymentRequests,
+  sendPOToVendor
 };

@@ -11,6 +11,7 @@ const SystemItem = require("../../models/systemInventoryModels/systemItemSchema"
 const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const getDashboardService = require("../../services/systemDashboardService");
+const getStateCityFromPincode = require("../../services/getStateCityFromPincode");
 const sendMail = require("../../util/mail/sendMail");
 const countries = require("../../data/countries.json");
 
@@ -423,7 +424,7 @@ const migrateServiceRecordJSON = async (req, res) => {
     }
 
     console.log(
-      "✅ Migration complete. All strings converted to JSON arrays, nulls preserved."
+      "✅ Migration complete. All strings converted to JSON arrays, nulls preserved.",
     );
     return res.status(200).json({
       success: true,
@@ -1039,11 +1040,11 @@ const getRawMaterialIdByName = async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=rawmaterial_result.xlsx"
+      "attachment; filename=rawmaterial_result.xlsx",
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
 
     return res.send(buffer);
@@ -1269,7 +1270,7 @@ const createRawMaterial = async (req, res) => {
 
       if (unit === conversionUnit && conversionFactor !== 1) {
         throw new Error(
-          "conversionFactor must be 1 when unit and conversionUnit are same"
+          "conversionFactor must be 1 when unit and conversionUnit are same",
         );
       }
     }
@@ -1462,12 +1463,19 @@ function parseConversionFactor(value) {
 
 const createItem = async (req, res) => {
   try {
-    let { name, unit, description, source, hsnCode, conversionUnit, conversionFactor } =
-      req.body;
+    let {
+      name,
+      unit,
+      description,
+      source,
+      hsnCode,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
 
     const empId = req.user?.id;
 
-    if (!name || !unit  || !source) {
+    if (!name || !unit || !source) {
       return res.status(400).json({
         success: false,
         message: "name, unit, source are required",
@@ -1491,7 +1499,6 @@ const createItem = async (req, res) => {
         message: err.message,
       });
     }
-
 
     const finalConversionUnit = conversionUnit || unit;
 
@@ -1689,8 +1696,15 @@ const getItemById = async (req, res) => {
 
 const updateItem = async (req, res) => {
   try {
-    const { id, name, unit, hsnCode, description, conversionUnit, conversionFactor } =
-      req.body;
+    const {
+      id,
+      name,
+      unit,
+      hsnCode,
+      description,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
 
     const empId = req.user?.id;
 
@@ -1747,7 +1761,10 @@ const updateItem = async (req, res) => {
       }
 
       // Set defaults if conversionFactor/conversionUnit are not provided
-      if ((conversionFactor === undefined || conversionFactor === null) && rawMaterial.conversionFactor == null) {
+      if (
+        (conversionFactor === undefined || conversionFactor === null) &&
+        rawMaterial.conversionFactor == null
+      ) {
         updateData.conversionFactor = 1;
         updateData.conversionUnit = unit || rawMaterial.unit; // base unit
       }
@@ -2016,11 +2033,11 @@ const exportRawMaterialsExcel = async (req, res) => {
     // 5️⃣ Send file
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=RawMaterials.xlsx"
+      "attachment; filename=RawMaterials.xlsx",
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
 
     return res.send(excelBuffer);
@@ -2243,7 +2260,6 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
           : "Order quantity decreased successfully",
       data: systemOrder,
     });
-
   } catch (error) {
     console.error("increaseOrDecreaseSystemOrder error:", error);
     return res.status(500).json({
@@ -2275,7 +2291,7 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //        STEP 1: TRACK ITEM USAGE ACROSS SYSTEMS
 //        (COMMON + VARIABLE)
 //     ===================================================== */
-//     const itemUsageMap = new Map(); 
+//     const itemUsageMap = new Map();
 //     // itemId -> { itemName, systems:Set }
 
 //     for (const system of systems) {
@@ -2483,7 +2499,6 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //   }
 // };
 
-
 const sendAllSystemStockShortageReport = async () => {
   try {
     const warehouseId = "690835908a80011de511b648";
@@ -2528,7 +2543,7 @@ const sendAllSystemStockShortageReport = async () => {
 
       dashboardData.commonItems.forEach(registerItem);
       dashboardData.variableItems.forEach((head) =>
-        head.items.forEach(registerItem)
+        head.items.forEach(registerItem),
       );
     }
 
@@ -2637,7 +2652,7 @@ const sendAllSystemStockShortageReport = async () => {
         xlsx.utils.book_append_sheet(
           workbook,
           worksheet,
-          system.systemName.slice(0, 31)
+          system.systemName.slice(0, 31),
         );
       }
     }
@@ -2662,13 +2677,12 @@ const sendAllSystemStockShortageReport = async () => {
       ...singleSheetRows,
     ];
 
-    const consolidatedSheet =
-      xlsx.utils.json_to_sheet(finalSingleSheet);
+    const consolidatedSheet = xlsx.utils.json_to_sheet(finalSingleSheet);
 
     xlsx.utils.book_append_sheet(
       workbook,
       consolidatedSheet,
-      "SYSTEM_STOCK_SHORTAGE"
+      "SYSTEM_STOCK_SHORTAGE",
     );
 
     /* =====================================================
@@ -2754,13 +2768,11 @@ const updateWarehouseStockByExcel = async (req, res) => {
       },
     });
 
-    const existingStockIds = existingStock.map(
-      (stock) => stock.rawMaterialId
-    );
+    const existingStockIds = existingStock.map((stock) => stock.rawMaterialId);
 
     // 🔹 Find missing rawMaterialIds (not present in warehouseStock)
     const missingRows = sheetData.filter(
-      (row) => !existingStockIds.includes(row.rawMaterialId)
+      (row) => !existingStockIds.includes(row.rawMaterialId),
     );
 
     // 🔥 If missing found → generate Excel and return
@@ -2770,7 +2782,7 @@ const updateWarehouseStockByExcel = async (req, res) => {
       xlsx.utils.book_append_sheet(
         missingWorkbook,
         missingSheet,
-        "Missing_WarehouseStock"
+        "Missing_WarehouseStock",
       );
 
       const buffer = xlsx.write(missingWorkbook, {
@@ -2780,11 +2792,11 @@ const updateWarehouseStockByExcel = async (req, res) => {
 
       res.setHeader(
         "Content-Disposition",
-        "attachment; filename=missing-warehouse-stock.xlsx"
+        "attachment; filename=missing-warehouse-stock.xlsx",
       );
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       );
 
       return res.status(200).send(buffer);
@@ -2836,8 +2848,8 @@ const getCountries = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
-    })
+      error: error.message,
+    });
   }
 };
 
@@ -2845,7 +2857,7 @@ const getCurrencyByCountry = async (req, res) => {
   try {
     const selectedCountry = req.params.country.toUpperCase();
     const result = countries.find(
-      (c) => c.country.toUpperCase() === selectedCountry
+      (c) => c.country.toUpperCase() === selectedCountry,
     );
 
     if (!result) {
@@ -2859,12 +2871,12 @@ const getCurrencyByCountry = async (req, res) => {
       success: true,
       country: result.country,
       currency: result.currency,
-    }); 
+    });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -2884,8 +2896,31 @@ const getCurrencies = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
+  }
+};
+
+const getAddressByPincode = async (req, res) => {
+  try {
+    const { pincode } = req.params;
+
+    const address = await getStateCityFromPincode(pincode);
+    if (!address) {
+      return res
+        .status(404)
+        .json({ success: false, message: "PIN code not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Data fetched successfully",
+      data: address,
+    });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ succes: false, message: err.message || "Internal Server Error" });
   }
 };
 
@@ -2931,5 +2966,6 @@ module.exports = {
   updateWarehouseStockByExcel,
   getCountries,
   getCurrencyByCountry,
-  getCurrencies
+  getCurrencies,
+  getAddressByPincode
 };

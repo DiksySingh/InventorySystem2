@@ -131,7 +131,7 @@ async function generatePOBuffer(po, items = []) {
 
       finalAmount = addNum(finalAmount, gstAmount, 4);
     }
-    console.log("itemDetail", it.itemDetail);
+   
     return {
       sno: i + 1,
       itemName: it.itemName || "",
@@ -178,7 +178,7 @@ async function generatePOBuffer(po, items = []) {
       0
     );
     grandTotalCurrency = addNum(itemsTotal, totalOtherChargesCurrency, 4);
-    console.log(grandTotalCurrency)
+    
   } else if (isExempted) {
     totalGST = 0;
     grandTotalCurrency = fixNum(
@@ -247,7 +247,7 @@ async function generatePOBuffer(po, items = []) {
     currencyCode,
     4
   );
-  console.log(grandTotalFormatted);
+  
   const totalOtherChargesFormatted = formatNumberOnly(
     totalOtherChargesCurrency,
     currencyCode,
