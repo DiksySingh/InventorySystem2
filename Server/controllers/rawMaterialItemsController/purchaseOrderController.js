@@ -6139,6 +6139,7 @@ const createVendor2 = async (req, res) => {
       accountHolder,
       accountNumber,
       ifscCode,
+      referenceBy,
     } = req.body;
 
     const performedBy = req.user?.id;
@@ -6560,6 +6561,7 @@ const createVendor2 = async (req, res) => {
           accountHolder: accountHolder ? accountHolder?.trim() : null,
           accountNumber: accountNumber ? accountNumber?.trim() : null,
           ifscCode: ifscCode ? ifscCode?.trim()?.toUpperCase() : null,
+          referenceBy: referenceBy ? referenceBy.trim() : null,
           createdBy: performedBy,
         },
       });
@@ -6634,6 +6636,7 @@ const getVendorById2 = async (req, res) => {
         accountNumber: true,
         ifscCode: true,
         isActive: true,
+        referenceBy: true,
       },
     });
 
@@ -6700,6 +6703,7 @@ const updateVendor2 = async (req, res) => {
       accountHolder,
       accountNumber,
       ifscCode,
+      referenceBy,
     } = req.body;
 
     const existingVendor = await prisma.vendor.findUnique({ where: { id } });
@@ -7072,6 +7076,7 @@ const updateVendor2 = async (req, res) => {
       ...(accountHolder && { accountHolder }),
       ...(accountNumber && { accountNumber }),
       ...(ifscCode && { ifscCode }),
+      ...(referenceBy && { referenceBy }),
     };
 
     // Keep track of what old file to remove only AFTER success

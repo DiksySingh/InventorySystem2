@@ -722,6 +722,7 @@ model Vendor {
   bankName          String?
   accountNumber     String?
   ifscCode          String?
+  referenceBy       String?
 
   isActive  Boolean? @default(true)
   createdBy String
