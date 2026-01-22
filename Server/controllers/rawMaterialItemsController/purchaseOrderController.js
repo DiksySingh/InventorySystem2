@@ -6159,9 +6159,9 @@ const createVendor2 = async (req, res) => {
     }
 
     const upperCaseName = name ? name.trim() : null;
-    const upperCaseGST = gstNumber ? gstNumber.toUpperCase().trim() : null;
+    const upperCaseGST = gstNumber ? gstNumber.toUpperCase().trim() : "";
     const upperCaseAddress = address ? address.trim() : null;
-    const lowerCaseEmail = email ? email?.trim()?.toLowerCase() : null;
+    const lowerCaseEmail = email ? email?.trim()?.toLowerCase() :null;
 
     let aadhaarUrl = null;
     let pancardUrl = null;
