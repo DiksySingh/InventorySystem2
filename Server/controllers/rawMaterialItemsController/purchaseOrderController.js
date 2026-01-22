@@ -6674,6 +6674,7 @@ const getVendorById2 = async (req, res) => {
 };
 
 const updateVendor2 = async (req, res) => {
+  const uploadedFiles = [];
   try {
     const { id } = req.params;
     const userId = req.user?.id;
