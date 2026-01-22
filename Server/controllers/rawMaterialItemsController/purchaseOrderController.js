@@ -6158,10 +6158,10 @@ const createVendor2 = async (req, res) => {
       });
     }
 
-    const upperCaseName = name.trim();
-    const upperCaseGST = gstNumber.toUpperCase().trim();
-    const upperCaseAddress = address.trim();
-    const lowerCaseEmail = email?.trim()?.toLowerCase() || null;
+    const upperCaseName = name ? name.trim() : null;
+    const upperCaseGST = gstNumber ? gstNumber.toUpperCase().trim() : null;
+    const upperCaseAddress = address ? address.trim() : null;
+    const lowerCaseEmail = email ? email?.trim()?.toLowerCase() : null;
 
     let aadhaarUrl = null;
     let pancardUrl = null;
