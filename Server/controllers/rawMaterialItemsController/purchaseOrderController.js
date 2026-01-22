@@ -7171,6 +7171,7 @@ const showPendingPayments = async (req, res) => {
     const purchaseOrders = await prisma.purchaseOrder.findMany({
       where: {
         grandTotal: { not: null },
+        status: { not: "Cancelled" },
       },
       orderBy: {
         poDate: "desc",
