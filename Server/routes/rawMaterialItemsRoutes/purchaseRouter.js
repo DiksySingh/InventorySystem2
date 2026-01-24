@@ -273,4 +273,10 @@ router.post(
   purchaseOrderController.sendPOToVendor,
 );
 
+router.get(
+  "/purchase-orders/receiving",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getPOsReceivings,
+);
+
 module.exports = router;

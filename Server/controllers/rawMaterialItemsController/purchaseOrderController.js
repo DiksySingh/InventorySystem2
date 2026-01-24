@@ -1446,7 +1446,7 @@ const getItemsList = async (req, res) => {
     allItems.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, {
         sensitivity: "base",
-      })
+      }),
     );
 
     return res.status(200).json({
@@ -1770,11 +1770,11 @@ const createPurchaseOrder = async (req, res) => {
     const processedItems = items.map((item) => {
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const rateForeign = new Decimal(item.rate).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const amountForeign = rateForeign
         .mul(qty)
@@ -1860,7 +1860,7 @@ const createPurchaseOrder = async (req, res) => {
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         const rate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
 
         if (gstType === "LGST_ITEMWISE") {
@@ -1913,7 +1913,7 @@ const createPurchaseOrder = async (req, res) => {
           exchangeRate: finalExchangeRate,
           foreignSubTotal: foreignSubTotal.toDecimalPlaces(
             4,
-            Decimal.ROUND_DOWN
+            Decimal.ROUND_DOWN,
           ),
           foreignGrandTotal,
           subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
@@ -2175,11 +2175,11 @@ const createPurchaseOrder2 = async (req, res) => {
     const processedItems = items.map((item) => {
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const rateForeign = new Decimal(item.rate).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const amountForeign = rateForeign
         .mul(qty)
@@ -2258,7 +2258,7 @@ const createPurchaseOrder2 = async (req, res) => {
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         const rate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
 
         if (gstType === "LGST_ITEMWISE") {
@@ -2284,7 +2284,7 @@ const createPurchaseOrder2 = async (req, res) => {
     const grandTotalINR = roundGrandTotal(rawGrandTotal);
     const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
       4,
-      Decimal.ROUND_DOWN
+      Decimal.ROUND_DOWN,
     );
 
     // ------------------------------------
@@ -2305,7 +2305,7 @@ const createPurchaseOrder2 = async (req, res) => {
           exchangeRate: finalExchangeRate,
           foreignSubTotal: foreignSubTotal.toDecimalPlaces(
             4,
-            Decimal.ROUND_DOWN
+            Decimal.ROUND_DOWN,
           ),
           foreignGrandTotal,
           subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
@@ -2551,11 +2551,11 @@ const updatePurchaseOrder = async (req, res) => {
     const processedItems = items.map((item) => {
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const rateForeign = new Decimal(item.rate).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const amountForeign = rateForeign
         .mul(qty)
@@ -2584,7 +2584,7 @@ const updatePurchaseOrder = async (req, res) => {
         itemGSTType = gstType;
         itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
       } else {
         // CASE 3 — Normal IGST/LGST 5/12/18/28
@@ -2660,7 +2660,7 @@ const updatePurchaseOrder = async (req, res) => {
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         const rate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
 
         if (gstType === "LGST_ITEMWISE") {
@@ -2688,7 +2688,7 @@ const updatePurchaseOrder = async (req, res) => {
     const grandTotalINR = roundGrandTotal(rawGrandTotalINR);
     const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
       4,
-      Decimal.ROUND_DOWN
+      Decimal.ROUND_DOWN,
     );
 
     const updatedPO = await prisma.$transaction(async (tx) => {
@@ -2709,7 +2709,7 @@ const updatePurchaseOrder = async (req, res) => {
           exchangeRate: finalExchangeRate.toString(),
           foreignSubTotal: foreignSubTotal.toDecimalPlaces(
             4,
-            Decimal.ROUND_DOWN
+            Decimal.ROUND_DOWN,
           ),
           foreignGrandTotal,
           subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
@@ -2920,11 +2920,11 @@ const updatePurchaseOrder2 = async (req, res) => {
     const processedItems = items.map((item) => {
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const rateForeign = new Decimal(item.rate).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const amountForeign = rateForeign
         .mul(qty)
@@ -2953,7 +2953,7 @@ const updatePurchaseOrder2 = async (req, res) => {
         itemGSTType = gstType;
         itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
       } else {
         // CASE 3 — Normal IGST/LGST 5/12/18/28
@@ -3029,7 +3029,7 @@ const updatePurchaseOrder2 = async (req, res) => {
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         const rate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
 
         if (gstType === "LGST_ITEMWISE") {
@@ -3057,7 +3057,7 @@ const updatePurchaseOrder2 = async (req, res) => {
     const grandTotalINR = roundGrandTotal(rawGrandTotalINR);
     const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
       4,
-      Decimal.ROUND_DOWN
+      Decimal.ROUND_DOWN,
     );
 
     const updatedPO = await prisma.$transaction(async (tx) => {
@@ -3076,7 +3076,7 @@ const updatePurchaseOrder2 = async (req, res) => {
           exchangeRate: finalExchangeRate.toString(),
           foreignSubTotal: foreignSubTotal.toDecimalPlaces(
             4,
-            Decimal.ROUND_DOWN
+            Decimal.ROUND_DOWN,
           ),
           foreignGrandTotal,
           subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
@@ -3404,7 +3404,7 @@ const getPurchaseOrderDetails = async (req, res) => {
     let warehouseName = null;
     if (po.warehouseId) {
       const warehouse = await Warehouse.findById(po.warehouseId).select(
-        "warehouseName"
+        "warehouseName",
       );
       warehouseName = warehouse?.warehouseName || null;
     }
@@ -3705,7 +3705,7 @@ const sendOrResendPO = async (req, res) => {
     const pdfPath = path.join(
       __dirname,
       "../../uploads/purchaseOrder",
-      po.pdfName
+      po.pdfName,
     );
     if (!fs.existsSync(pdfPath)) {
       return res
@@ -4197,11 +4197,11 @@ const createDebitNote = async (req, res) => {
     const processedItems = damagedItems.map((item) => {
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const rateForeign = new Decimal(item.rate).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const amountForeign = rateForeign
         .mul(qty)
@@ -4285,7 +4285,7 @@ const createDebitNote = async (req, res) => {
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         const rate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
 
         if (gstType === "LGST_ITEMWISE") {
@@ -4312,7 +4312,7 @@ const createDebitNote = async (req, res) => {
     foreignSubTotal = foreignSubTotal.plus(otherChargesTotal);
     const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
       4,
-      Decimal.ROUND_DOWN
+      Decimal.ROUND_DOWN,
     );
 
     let warehouseName = po.warehouseName;
@@ -4360,7 +4360,7 @@ const createDebitNote = async (req, res) => {
           exchangeRate: finalExchangeRate,
           foreignSubTotal: foreignSubTotal.toDecimalPlaces(
             4,
-            Decimal.ROUND_DOWN
+            Decimal.ROUND_DOWN,
           ),
           foreignGrandTotal,
           subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
@@ -4398,7 +4398,7 @@ const createDebitNote = async (req, res) => {
 
         if (new Decimal(item.quantity).gt(damaged.quantity)) {
           throw new Error(
-            `Debit quantity exceeds damaged quantity for ${item.itemName}`
+            `Debit quantity exceeds damaged quantity for ${item.itemName}`,
           );
         }
 
@@ -4884,11 +4884,11 @@ const updateDebitNote = async (req, res) => {
     const processedItems = damagedItems.map((item) => {
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const rateForeign = new Decimal(item.rate).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const amountForeign = rateForeign
         .mul(qty)
@@ -4917,7 +4917,7 @@ const updateDebitNote = async (req, res) => {
         itemGSTType = gstType;
         itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
       } else {
         // CASE 3 — Normal IGST/LGST 5/12/18/28
@@ -4993,7 +4993,7 @@ const updateDebitNote = async (req, res) => {
           .toDecimalPlaces(4, Decimal.ROUND_DOWN);
         const rate = new Decimal(item.gstRate).toDecimalPlaces(
           4,
-          Decimal.ROUND_DOWN
+          Decimal.ROUND_DOWN,
         );
 
         if (gstType === "LGST_ITEMWISE") {
@@ -5021,7 +5021,7 @@ const updateDebitNote = async (req, res) => {
     const grandTotalINR = roundGrandTotal(rawGrandTotalINR);
     const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
       4,
-      Decimal.ROUND_DOWN
+      Decimal.ROUND_DOWN,
     );
 
     // -------------------------
@@ -5182,7 +5182,7 @@ const updateDebitNote2 = async (req, res) => {
       finalCurrency === "INR"
         ? new Decimal(1)
         : new Decimal(
-            exchangeRate || existingDebitNote.exchangeRate
+            exchangeRate || existingDebitNote.exchangeRate,
           ).toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
     /* ---------------- TOTALS ---------------- */
@@ -5202,7 +5202,7 @@ const updateDebitNote2 = async (req, res) => {
       }
 
       const existingItem = existingDebitNote.damagedStock.find(
-        (d) => d.id === item.damagedStockId
+        (d) => d.id === item.damagedStockId,
       );
 
       if (!existingItem) {
@@ -5214,11 +5214,11 @@ const updateDebitNote2 = async (req, res) => {
 
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const rateForeign = new Decimal(item.rate).toDecimalPlaces(
         4,
-        Decimal.ROUND_DOWN
+        Decimal.ROUND_DOWN,
       );
       const amountForeign = rateForeign
         .mul(qty)
@@ -5390,7 +5390,7 @@ const debitNoteReceivingBill = async (req, res) => {
     uploadedFilePath = path.join(
       __dirname,
       "../../uploads/debitNote/receivingBill",
-      billFile.filename
+      billFile.filename,
     );
 
     // let purchaseOrderId = null;
@@ -5446,7 +5446,7 @@ const debitNoteReceivingBill = async (req, res) => {
           Number(damaged.quantity) - Number(damaged.receivedQty || 0);
         if (goodQty > remainingQty)
           throw new Error(
-            "Total received quantity exceeds pending damaged quantity"
+            "Total received quantity exceeds pending damaged quantity",
           );
 
         // Update damaged stock
@@ -5466,7 +5466,7 @@ const debitNoteReceivingBill = async (req, res) => {
 
         const poItem = damaged.purchaseOrder.items.find(
           (i) =>
-            i.itemId === damaged.itemId && i.itemSource === damaged.itemSource
+            i.itemId === damaged.itemId && i.itemSource === damaged.itemSource,
         );
 
         if (!poItem) throw new Error("Purchase order item not found");
@@ -5477,14 +5477,14 @@ const debitNoteReceivingBill = async (req, res) => {
         // ❗ CRITICAL VALIDATION
         if (alreadyReceived >= poQty) {
           throw new Error(
-            `${damaged.itemName} already fully received (${poQty}).`
+            `${damaged.itemName} already fully received (${poQty}).`,
           );
         }
 
         if (alreadyReceived + goodQty > poQty) {
           throw new Error(
             `Cannot receive goodQty ${goodQty} for ${damaged.itemName}. 
-     Only ${poQty - alreadyReceived} quantity can be received.`
+     Only ${poQty - alreadyReceived} quantity can be received.`,
           );
         }
 
@@ -5605,7 +5605,7 @@ function getDateRanges() {
   const startOfToday = new Date(
     now.getFullYear(),
     now.getMonth(),
-    now.getDate()
+    now.getDate(),
   );
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -5910,7 +5910,7 @@ const getSystemDashboardData = async (req, res) => {
   try {
     const data = await getDashboardService(
       req.params.systemId,
-      req.params.warehouseId
+      req.params.warehouseId,
     );
 
     return res.status(200).json({
@@ -6012,7 +6012,7 @@ const getPODashboard2 = async (req, res) => {
   try {
     const { startOfToday, startOfMonth, startOfWeek, startFY, endFY } =
       getDateRanges();
-    
+
     // ------------------------------ FASTEST VERSION ------------------------------
     const [activePOs, cancelledPOs, groupedCurrency] = await Promise.all([
       // 1️⃣ Active (NOT Cancelled)
@@ -6033,9 +6033,7 @@ const getPODashboard2 = async (req, res) => {
         _sum: { grandTotal: true },
         _count: { grandTotal: true },
       }),
-
     ]);
-
 
     // -------------------------------- PROCESS DATA --------------------------------
     let poStats = {
@@ -6054,7 +6052,7 @@ const getPODashboard2 = async (req, res) => {
       today: 0,
     };
 
-    activePOs.forEach(po => {
+    activePOs.forEach((po) => {
       const d = po.createdAt;
 
       const rawForeign = Number(po.foreignGrandTotal || po.grandTotal);
@@ -6086,12 +6084,11 @@ const getPODashboard2 = async (req, res) => {
       }
     });
 
-    const currencySummary = groupedCurrency.map(row => ({
+    const currencySummary = groupedCurrency.map((row) => ({
       currency: row.currency,
       totalSpend: Number(row._sum.grandTotal || 0),
       totalPOs: row._count.grandTotal,
     }));
-
 
     // ------------------------------------------------------------------------------
     return res.status(200).json({
@@ -6104,7 +6101,6 @@ const getPODashboard2 = async (req, res) => {
         currencySummary,
       },
     });
-
   } catch (error) {
     console.error("Dashboard Error:", error);
     return res.status(500).json({
@@ -6161,7 +6157,7 @@ const createVendor2 = async (req, res) => {
     const upperCaseName = name ? name.trim() : null;
     const upperCaseGST = gstNumber ? gstNumber.toUpperCase().trim() : "";
     const upperCaseAddress = address ? address.trim() : null;
-    const lowerCaseEmail = email ? email?.trim()?.toLowerCase() :null;
+    const lowerCaseEmail = email ? email?.trim()?.toLowerCase() : null;
 
     let aadhaarUrl = null;
     let pancardUrl = null;
@@ -6555,7 +6551,9 @@ const createVendor2 = async (req, res) => {
           alternateNumber: alternateNumber || null,
           vendorAadhaar: vendorAadhaar ? vendorAadhaar?.trim() : null,
           aadhaarUrl: aadhaarUrl || null,
-          vendorPanCard: vendorPanCard ? vendorPanCard?.trim()?.toUpperCase() : null,
+          vendorPanCard: vendorPanCard
+            ? vendorPanCard?.trim()?.toUpperCase()
+            : null,
           pancardUrl: pancardUrl || null,
           bankName: bankName ? bankName?.trim() : null,
           accountHolder: accountHolder ? accountHolder?.trim() : null,
@@ -7035,7 +7033,7 @@ const updateVendor2 = async (req, res) => {
       "ZWL",
     ];
 
-    if(country) {
+    if (country) {
       if (!allowedCountries.includes(country)) {
         uploadedFiles.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
         return res.status(400).json({
@@ -7044,8 +7042,8 @@ const updateVendor2 = async (req, res) => {
         });
       }
     }
-    
-    if(currency) {
+
+    if (currency) {
       if (!allowedCurrencies.includes(currency)) {
         uploadedFiles.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
         return res.status(400).json({
@@ -7216,7 +7214,7 @@ const showPendingPayments = async (req, res) => {
 
       const subTotal = Number(isINR ? po.subTotal : po.foreignSubTotal || 0);
       const grandTotal = Number(
-        isINR ? po.grandTotal : po.foreignGrandTotal || 0
+        isINR ? po.grandTotal : po.foreignGrandTotal || 0,
       );
 
       const totalPaid =
@@ -7600,13 +7598,18 @@ const sendPOToVendor = async (req, res) => {
       });
     }
 
+    const companyName = (po?.company?.name || "").toLowerCase();
+
     const { pdfBuffer, fileName } = await buildPOPdfBuffer({ po, userId });
 
     await sendPOMail({
-      to: po.vendor.email,
+      companyName: companyName,
+      to: po?.vendor?.email,
       subject: `Purchase Order - ${po.poNumber}`,
-      senderName: user.name,
-      replyTo: process.env.PO_SMTP_USER,
+      senderName: user?.name,
+      replyTo: companyName.includes("galo")
+        ? process.env.GALO_PO_SMTP_USER
+        : process.env.GAUTAM_PO_SMTP_USER,
       html: `
         <p>Dear Sir,</p>
         <p>Please find attached Purchase Order <b>${po.poNumber}</b>.</p>
@@ -7635,6 +7638,87 @@ const sendPOToVendor = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error while sending PO",
+    });
+  }
+};
+
+const getPOsReceivings = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Department can view items receiving",
+      });
+    }
+
+    const pos = await prisma.purchaseOrder.findMany({
+      where: {
+        status: {
+          not: "Cancelled",
+        },
+      },
+      include: {
+        items: true,
+        company: true,
+        vendor: true,
+      },
+      orderBy: {
+        poDate: "desc",
+      },
+    });
+
+    const formattedPOs = pos.map((po) => ({
+      id: po.id,
+      poNumber: po.poNumber,
+      companyId: po.companyId,
+      companyName: po.company?.name,
+      vendorId: po.vendorId,
+      vendorName: po.vendor?.name,
+      warehouseId: po.warehouseId,
+      warehouseName: po.warehouse?.name,
+      poDate: po.poDate,
+      expectedDeliveryDate: po.expectedDeliveryDate,
+      status: po.status,
+      approvalStatus: po.approvalStatus,
+      // ✅ ALL items (no filtering)
+      items: po.items.map((item) => ({
+        id: item.id,
+        itemId: item.itemId,
+        itemSource: item.itemSource,
+        itemName: item.itemName,
+        hsnCode: item.hsnCode,
+        modelNumber: item.modelNumber,
+        unit: item.unit,
+        quantity: Number(item.quantity || 0),
+        receivedQty: Number(item.receivedQty || 0),
+        pendingQty: Number(item.quantity || 0) - Number(item.receivedQty || 0),
+      })),
+    }));
+
+    return res.json({
+      success: true,
+      message: "PO list fetched for Purchase",
+      data: formattedPOs,
+    });
+  } catch (err) {
+    console.error("❌ Purchase PO Fetch Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
     });
   }
 };
@@ -7686,5 +7770,6 @@ module.exports = {
   showPendingPayments,
   createPaymentRequest,
   showAllPaymentRequests,
-  sendPOToVendor
+  sendPOToVendor,
+  getPOsReceivings,
 };
