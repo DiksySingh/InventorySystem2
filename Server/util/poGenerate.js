@@ -131,7 +131,7 @@ async function generatePOBuffer(po, items = []) {
 
       finalAmount = addNum(finalAmount, gstAmount, 4);
     }
-    console.log("itemDetail", it.itemDetail);
+   
     return {
       sno: i + 1,
       itemName: it.itemName || "",
@@ -178,7 +178,7 @@ async function generatePOBuffer(po, items = []) {
       0
     );
     grandTotalCurrency = addNum(itemsTotal, totalOtherChargesCurrency, 4);
-    console.log(grandTotalCurrency)
+    
   } else if (isExempted) {
     totalGST = 0;
     grandTotalCurrency = fixNum(
@@ -213,8 +213,8 @@ async function generatePOBuffer(po, items = []) {
 
   // Paginate rows
   const pages = (function paginateRows(preparedRowsLocal) {
-    const FULL_PAGE = 5;
-    const FOOTER_PAGE = 4;
+    const FULL_PAGE = 8;
+    const FOOTER_PAGE = 7;
     let rows = [...preparedRowsLocal];
     let pagesArr = [];
     const pushPage = (arr, padTo = FULL_PAGE) => {
@@ -247,7 +247,7 @@ async function generatePOBuffer(po, items = []) {
     currencyCode,
     4
   );
-  console.log(grandTotalFormatted);
+  
   const totalOtherChargesFormatted = formatNumberOnly(
     totalOtherChargesCurrency,
     currencyCode,

@@ -1,6 +1,9 @@
+<!doctype html>
+<html>
+
 <head>
     <meta charset="utf-8" />
-    <title>Debit Note</title>
+    <title>Purchase Order</title>
     <style>
  /* ===== EMBED TIMES NEW ROMAN ===== */
         @page {
@@ -25,18 +28,14 @@
 
         .container {
             width: calc(210mm - 24px);
-            /* min-height: calc(297mm - 24px); */
-            height: auto;
+            min-height: calc(297mm - 24px);
             position: relative;
             page-break-after: always;
             padding-top: 10px;
         }
 
-        /* .container:last-child {
+        .container:last-child {
             page-break-after: auto;
-        } */
-         .container + .container {
-            page-break-before: always;
         }
 
         .watermark {
@@ -51,14 +50,8 @@
             object-fit: contain;
         }
 
-        /* .content {
+        .content {
             min-height: 100%;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            z-index: 1;
-        } */
-         .content {
             display: flex;
             flex-direction: column;
             position: relative;
@@ -142,7 +135,8 @@
             border-left: 1px solid #000;
             padding: 4px;
             vertical-align: top;
-            height: 85px;
+            height: auto;
+            height: 60px;
             font-size: 12px;
             white-space: normal;
             word-wrap: break-word;
@@ -204,9 +198,8 @@
         .terms-list {
             margin: 0;
             /* remove all outer spacing */
-            padding-left: 0;
+            padding-left: 13px;
             /* small indent for numbering */
-            list-style-type: none;
             list-style-position: outside;
         }
 
@@ -251,11 +244,7 @@
             display: table-footer-group;
         }
 
-        table,
-        .items,
-        .bottom-rows,
-        .total-amount-rows,
-        .terms-sign {
+        tr {
             page-break-inside: avoid;
         }
     </style>
@@ -311,7 +300,7 @@
 
             <!-- ===== HEADER (REPEAT EVERY PAGE) ===== -->
             <div class="content-box">
-                <div class="title">Debit Note</div>
+                <div class="title">Purchase Order</div>
                 <div class="company"><%= companyName %></div>
                 <div class="company-sub"><%= companySub %></div>
                 <div class="company-sub"><%= companyAddress %></div>
@@ -325,25 +314,23 @@
                     <%= vendorAddress %><br />
                     Email: <%= vendorEmail %><br /> 
                     <strong>Name: <%= vendorContactPerson %>, Mob: <%= vendorPhone %></strong><br /><br />
-                    <strong>GSTIN: <%= vendorGST %></strong><br/>
-                    <strong>Bill Reference: <%= billReference %></strong>
+                    <strong>GSTIN: <%= vendorGST %></strong>
                 </div>
 
                 <div class="right-box">
                     <table style="font-size:14px;font-weight:500;">
-                        <tr><td><b>Dr. Note No. :</b></td><td><%= debitNoteNo %></td></tr>
-                        <tr><td><b>Dr. Note Date :</b></td><td><%= drNoteDate %></td></tr>
-                        <tr><td><b>Org. Inv. No. :</b></td><td><%= orgInvoiceNo %></td></tr>
-                        <tr><td><b>Org. Inv. Date :</b></td><td><%= orgInvoiceDate %></td></tr>
-                        <tr><td><b>GR/RR No. :</b></td><td><%= gr_rr_no %></td></tr>
-                        <tr><td><b>Transport :</b></td><td><%= transport %></td></tr>
-                        <tr><td><b>Vehicle No. :</b></td><td><%= vehicleNumber %></td></tr>
-                        <tr><td><b>Station :</b></td><td><%= station %></td></tr>
+                        <tr><td><b>Order No :</b></td><td><%= poNumber %></td></tr>
+                        <tr><td><b>Dated :</b></td><td><%= poDate %></td></tr>
+                        <tr><td><b>Payment Terms :</b></td><td><%= paymentTerms %></td></tr>
+                        <tr><td><b>Delivery Terms :</b></td><td><%= deliveryTerms %></td></tr>
+                        <tr><td><b>Contact Person :</b></td><td><%= contactPerson %></td></tr>
+                        <tr><td><b>Cell No :</b></td><td><%= cellNo %></td></tr>
+                        <tr><td><b>Warranty :</b></td><td><%= warranty %></td></tr>
                     </table>
                 </div>
             </div>
 
-            <!-- <div class="note">We are pleased to place the order for the following items:</div> -->
+            <div class="note">We are pleased to place the order for the following items:</div>
 
             <% if (pages.length > 1 && pageIndex > 0) {
                 let safeTotal = parseAmount(previousTotal);
@@ -579,7 +566,10 @@
                 <div class="terms">
                     <strong style="text-decoration:underline; margin-bottom: 0px;">Terms & Conditions</strong>
                     <ol class="terms-list">
-                        <li>E. & O.E.</li>
+                        <li>Any taxes, expense, charges not mentioned in this P.O, will not be applicable & P.O is inclusive of all taxes i.e. GST.</li>
+                        <li>All material will be dispatched to site.</li>
+                        <li>If the supplied qty is in excess of P.O qty, we may reject the excess supplied qty without any economic consideration.</li>
+                        <li>All disputes subject to Delhi Jurisdiction.</li>
                     </ol>
                 </div>
                 <div class="signature">
