@@ -7708,7 +7708,6 @@ const getPOsReceivings = async (req, res) => {
         pendingQty: Number(item.quantity || 0) - Number(item.receivedQty || 0),
       })),
     }));
-    console.log(formattedPOs);
 
     return res.json({
       success: true,
