@@ -7689,7 +7689,7 @@ const getPOsReceivings = async (req, res) => {
       vendorId: po.vendorId,
       vendorName: po.vendor?.name,
       warehouseId: po.warehouseId,
-      warehouseName: po.warehouse?.name,
+      warehouseName: po.warehouseName,
       poDate: po.poDate,
       expectedDeliveryDate: po.expectedDeliveryDate,
       status: po.status,
@@ -7708,6 +7708,7 @@ const getPOsReceivings = async (req, res) => {
         pendingQty: Number(item.quantity || 0) - Number(item.receivedQty || 0),
       })),
     }));
+    console.log(formattedPOs);
 
     return res.json({
       success: true,
