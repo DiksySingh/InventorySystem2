@@ -570,7 +570,7 @@ const createCompany = async (req, res) => {
   }
 };
 
-const createVendor = async (req, res) => {
+const createVendor2 = async (req, res) => {
   try {
     const {
       name,
@@ -1109,7 +1109,7 @@ const updateCompany = async (req, res) => {
   }
 };
 
-const updateVendor = async (req, res) => {
+const updateVendor2 = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
@@ -1370,7 +1370,7 @@ const getVendorsData = async (req, res) => {
   }
 };
 
-const getVendorById = async (req, res) => {
+const getVendorById2 = async (req, res) => {
   try {
     const id = req.params.id || req.query?.id;
 
@@ -6110,7 +6110,7 @@ const getPODashboard2 = async (req, res) => {
   }
 };
 
-const createVendor2 = async (req, res) => {
+const createVendor = async (req, res) => {
   let uploadedFiles = []; // keep raw disk paths to delete on failure
 
   try {
@@ -6599,7 +6599,7 @@ const createVendor2 = async (req, res) => {
   }
 };
 
-const getVendorById2 = async (req, res) => {
+const getVendorById = async (req, res) => {
   try {
     const id = req.params.id || req.query?.id;
 
@@ -6674,7 +6674,7 @@ const getVendorById2 = async (req, res) => {
   }
 };
 
-const updateVendor2 = async (req, res) => {
+const updateVendor = async (req, res) => {
   const uploadedFiles = [];
   try {
     const { id } = req.params;
