@@ -222,4 +222,9 @@ router.get(
   commonController.getAddressByPincode,
 );
 
+router.get(
+  "/raw-material/stock",
+  commonController.exportRawMaterialStockByWarehouse,
+);
+
 module.exports = router;

@@ -7399,39 +7399,6 @@ const showAllPaymentRequests = async (req, res) => {
       });
     }
 
-    // const requests = await prisma.payment.findMany({
-    //   where: {
-    //     paymentRequestedBy: req.user?.id,
-    //   },
-    //   select: {
-    //     id: true,
-    //     poId: true,
-    //     docApprovedBy: true,
-    //     docApprovalStatus: true,
-    //     docApprovalDate: true,
-    //     docApprovalRemark: true,
-    //     approvedByAdmin: true,
-    //     adminApprovalStatus: true,
-    //     adminApprovalDate: true,
-    //     adminRemark: true,
-    //     paymentTransferredBy: true,
-    //     paymentStatus: true,
-    //     paymentRemark: true,
-    //     paymentDate: true,
-    //     amount: true,
-    //     createdAt: true,
-    //     purchaseOrder: {
-    //       select: {
-    //         poNumber: true,
-    //         companyName: true,
-    //         vendorName: true,
-    //         currency: true,
-    //       },
-    //     },
-    //   },
-    //   orderBy: { createdAt: "desc" },
-    // });
-
     const requests = await prisma.payment.findMany({
       where: {
         paymentRequestedBy: req.user?.id,
@@ -7471,36 +7438,6 @@ const showAllPaymentRequests = async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
-
-    // const formatted = requests.map((r) => {
-    //   return {
-    //     paymentRequestId: r.id,
-    //     poId: r.poId,
-    //     poNumber: r.purchaseOrder?.poNumber || null,
-    //     companyName: r.purchaseOrder?.companyName || null,
-    //     vendorName: r.purchaseOrder?.vendorName || null,
-    //     requestedAmount: Number(r.amount),
-    //     docsVerification: {
-    //       approvedBy: r.docApprovedBy,
-    //       status: r.docApprovalStatus,
-    //       approvedDate: r.docApprovalDate,
-    //       remarks: r.docApprovalRemark,
-    //     },
-    //     adminVerification: {
-    //       approvedBy: r.approvedByAdmin,
-    //       status: r.adminApprovalStatus,
-    //       approvedDate: r.adminApprovalDate,
-    //       remarks: r.adminRemark,
-    //     },
-    //     accountsVerification: {
-    //       approvedBy: r.paymentTransferredBy,
-    //       status: r.paymentStatus,
-    //       approvedDate: r.paymentDate,
-    //       remarks: r.paymentRemark,
-    //     },
-    //     createdAt: r.createdAt,
-    //   };
-    // });
 
     const formatted = requests.map((r) => {
       return {

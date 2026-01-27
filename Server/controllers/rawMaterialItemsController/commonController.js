@@ -2162,6 +2162,68 @@ const updateItemsFromExcel = async (req, res) => {
   }
 };
 
+const exportRawMaterialStockByWarehouse = async (req, res) => {
+  try {
+    const { warehouseId } = req.query;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "warehouseId is required in query",
+      });
+    }
+
+    // Fetch zero stock materials
+    const data = await prisma.warehouseStock.findMany({
+      where: {
+        warehouseId,
+        quantity: 0,
+        isUsed: true
+      },
+      include: {
+        rawMaterial: {
+          select: { name: true },
+        },
+      },
+    });
+
+    // Create Excel
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Zero Stock Report");
+
+    sheet.columns = [
+      { header: "Raw Material Name", key: "rawMaterialName", width: 30 },
+      { header: "Quantity", key: "quantity", width: 10 },
+    ];
+
+    data.forEach((item) => {
+      sheet.addRow({
+        rawMaterialName: item.rawMaterial?.name || "Unknown",
+        quantity: item.quantity,
+      });
+    });
+
+    // Response headers
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=zero_stock_${warehouseId}.xlsx`,
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Excel Export Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to export zero stock report",
+    });
+  }
+};
+
 const addSystemOrder = async (req, res) => {
   try {
     const { systemId, pumpId, pumpHead } = req.body;
@@ -2967,5 +3029,6 @@ module.exports = {
   getCountries,
   getCurrencyByCountry,
   getCurrencies,
-  getAddressByPincode
+  getAddressByPincode,
+  exportRawMaterialStockByWarehouse,
 };
