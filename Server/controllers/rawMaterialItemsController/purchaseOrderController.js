@@ -6139,6 +6139,7 @@ const createVendor = async (req, res) => {
     } = req.body;
 
     const performedBy = req.user?.id;
+    console.log("Req: ", req);
     console.log("Req Body: ", req?.body);
     if (
       !name ||
