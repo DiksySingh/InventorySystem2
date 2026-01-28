@@ -24,11 +24,11 @@ const getLineWorkerList = async (req, res) => {
         role: true,
       },
     });
-
-    if (empData?.role?.name !== "Store") {
+    const validRoles = ['Store', 'Production'];
+    if (validRoles.includes(empData?.role?.name)) {
       return res.status(400).json({
         success: false,
-        message: "Only Store Keeper Have Access To The Line-Workers",
+        message: "Only Store Keeper & Production Have Access To The Line-Workers",
       });
     }
 
