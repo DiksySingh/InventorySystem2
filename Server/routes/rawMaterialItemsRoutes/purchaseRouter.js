@@ -16,6 +16,10 @@ router.post(
 router.post(
   "/vendors",
   tokenVerification(["Purchase"]),
+  uploadVendorDocs.fields([
+    { name: "aadhaarFile", maxCount: 1 },
+    { name: "pancardFile", maxCount: 1 },
+  ]),
   purchaseOrderController.createVendor,
 );
 
@@ -64,6 +68,10 @@ router.put(
 router.put(
   "/vendors/:id",
   tokenVerification(["Purchase"]),
+  uploadVendorDocs.fields([
+    { name: "aadhaarFile", maxCount: 1 },
+    { name: "pancardFile", maxCount: 1 },
+  ]),
   purchaseOrderController.updateVendor,
 );
 
