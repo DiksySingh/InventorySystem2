@@ -9,7 +9,7 @@ const uploadPurchaseOrderBill = require("../../middlewares/rawMaterialMiddleware
 
 router.get(
   "/getLineWorkerList",
-  tokenVerification(["Store"]),
+  tokenVerification(["Store", "Production"]),
   storekeeperController.getLineWorkerList
 );
 
@@ -45,7 +45,7 @@ router.post(
 
 router.get(
   "/getUserItemStock",
-  tokenVerification(["Store"]),
+  tokenVerification(["Store", "Production"]),
   storekeeperController.getUserItemStock
 );
 
@@ -71,7 +71,7 @@ router.post(
 
 router.get(
   "/showProcessData",
-  tokenVerification(["Store"]),
+  tokenVerification(["Store", "Production"]),
   storekeeperController.showProcessData
 );
 
@@ -138,7 +138,7 @@ router.post(
 
 router.get(
   "/directItemIssue/history",
-  tokenVerification(["Store"]),
+  tokenVerification(["Store", "Production"]),
   storekeeperController.getDirectItemIssueHistory
 );
 

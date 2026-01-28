@@ -217,7 +217,7 @@ router.get(
 
 router.get(
   "/warehouses/raw-material",
-  tokenVerification(["Purchase", "Store", "Admin"]),
+  tokenVerification(["Purchase", "Store", "Admin", "Production"]),
   purchaseOrderController.getRawMaterialByWarehouse,
 );
 
@@ -283,7 +283,7 @@ router.post(
 
 router.get(
   "/purchase-orders/receiving",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Production"]),
   purchaseOrderController.getPOsReceivings,
 );
 

@@ -1,5 +1,6 @@
 const prisma = require("../../config/prismaClient");
 const Decimal = require("decimal.js");
+const mongoose = require('mongoose');
 const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
@@ -1897,6 +1898,35 @@ const createPurchaseOrder = async (req, res) => {
     // 💾 Save Purchase Order
     // ------------------------------------
     const newPO = await prisma.$transaction(async (tx) => {
+      if (mysqlIds.length) {
+        const existingMysqlItems = await tx.rawMaterial.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true },
+        });
+
+        const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
+
+        for (const id of mysqlIds) {
+          if (!mysqlSet.has(id)) {
+            throw new Error(`Raw Material Not Found: ${id}`);
+          }
+        }
+      }
+
+      // 2️⃣ Validate Mongo Items (Mongo can't be inside Prisma TX but validate here logically)
+      if (mongoIds.length) {
+        const existingMongoItems = await SystemItem.find({
+          _id: { $in: mongoIds.map((id) => new mongoose.Types.ObjectId(id)) },
+        }).select("_id");
+
+        const mongoSet = new Set(existingMongoItems.map((m) => String(m._id)));
+
+        for (const id of mongoIds) {
+          if (!mongoSet.has(id)) {
+            throw new Error(`System Item Not Found: ${id}`);
+          }
+        }
+      }
       const po = await tx.purchaseOrder.create({
         data: {
           poNumber,
@@ -6139,7 +6169,7 @@ const createVendor = async (req, res) => {
     } = req.body;
 
     const performedBy = req.user?.id;
-    
+
     if (
       !name ||
       !address ||
