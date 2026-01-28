@@ -1719,7 +1719,7 @@ const createPurchaseOrder = async (req, res) => {
     // Validate each item
     for (const item of items) {
       if (item.source === "mongo" && !mongoSet.has(item.id)) {
-        throw new Error(`System Item with id '${item.id}' Not Found in`);
+        throw new Error(`System Item with id '${item.id}' Not Found`);
       }
 
       if (item.source === "mysql" && !mysqlSet.has(item.id)) {
@@ -6139,7 +6139,7 @@ const createVendor = async (req, res) => {
     } = req.body;
 
     const performedBy = req.user?.id;
-    console.log(req.body);
+    console.log("Req Body: ", req?.body);
     if (
       !name ||
       !address ||
