@@ -24,7 +24,7 @@ const getLineWorkerList = async (req, res) => {
         role: true,
       },
     });
-    const validRoles = ['Store', 'Production'];
+    const validRoles = ["Store", "Production"];
     if (validRoles.includes(empData?.role?.name)) {
       return res.status(400).json({
         success: false,
@@ -38,7 +38,7 @@ const getLineWorkerList = async (req, res) => {
         role: {
           is: {
             name: {
-              notIn: ["Admin", "SuperAdmin", "Store", "Purchase", 'Accounts', 'Verification'],
+              notIn: ["Admin", "SuperAdmin", "Store", "Purchase", 'Accounts', 'Verification', 'Production'],
             },
           },
         },
