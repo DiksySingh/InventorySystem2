@@ -1521,12 +1521,13 @@ const purchaseOrderReceivingBill = async (req, res) => {
 
   const validateItems = async (items, po) => {
     for (const item of items) {
+      console.log(item);
       const { itemId, itemSource, purchaseOrderItemId } = item;
 
       if (!itemId || !itemSource || !purchaseOrderItemId) {
         throw new Error("Invalid item data.");
       }
-
+      console.log(purchaseOrderItemId, itemId, itemSource);
       const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
       if (!poItem) {
         throw new Error(`PO item not found.`);
