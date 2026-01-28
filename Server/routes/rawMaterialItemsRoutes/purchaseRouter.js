@@ -149,7 +149,7 @@ router.get(
 
 router.get(
   "/warehouses",
-  tokenVerification(["Purchase", "Admin"]),
+  tokenVerification(["Purchase", "Admin", "Production"]),
   purchaseOrderController.getWarehouses,
 );
 

@@ -5984,6 +5984,7 @@ const getRawMaterialByWarehouse = async (req, res) => {
         id: true,
         name: true,
         unit: true,
+        conversionUnit: true,
         warehouseStock: {
           where: {
             warehouseId,
@@ -6008,6 +6009,7 @@ const getRawMaterialByWarehouse = async (req, res) => {
         stock: formatStock(stock),
         rawStock: stock, // only for sorting
         unit: data.unit,
+        conversionUnit: data.conversionUnit ? data?.conversionUnit : null,
         isUsed,
         outOfStock: stock === 0,
       };
