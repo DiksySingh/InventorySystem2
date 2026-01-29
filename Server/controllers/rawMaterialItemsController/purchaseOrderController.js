@@ -5732,6 +5732,126 @@ const getPODashboard = async (req, res) => {
   }
 };
 
+const createWarehouse = async (req, res) => {
+  const { warehouseName } = req.body;
+  const createdBy = req.user?.id;
+
+  if (!warehouseName) {
+    return res.status(400).json({
+      success: false,
+      message: "Warehouse name is required",
+    });
+  }
+
+  try {
+    // ---------- CHECK EXISTING ----------
+    const trimmedWarehouseName = warehouseName.trim();
+    const existingWarehouse = await Warehouse.findOne({
+      warehouseName: trimmedWarehouseName,
+    });
+
+    if (existingWarehouse) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse already exists",
+      });
+    }
+
+    // ---------- CREATE WAREHOUSE ----------
+    const savedWarehouse = await new Warehouse({
+      warehouseName: trimmedWarehouseName,
+    }).save();
+
+    const warehouseId = savedWarehouse._id.toString();
+
+    // ======================================================
+    // 1️⃣ RAW MATERIAL → WAREHOUSE STOCK (MYSQL) [FAST]
+    // ======================================================
+    const [rawMaterials, existingStocks] = await Promise.all([
+      prisma.rawMaterial.findMany({
+        select: { id: true, unit: true, isUsed: true },
+      }),
+      prisma.warehouseStock.findMany({
+        where: { warehouseId },
+        select: { id: true, rawMaterialId: true, isUsed: true },
+      }),
+    ]);
+
+    const stockMap = new Map();
+    existingStocks.forEach((s) => {
+      stockMap.set(s.rawMaterialId, s);
+    });
+
+    const createData = [];
+    const updatePromises = [];
+
+    for (const rm of rawMaterials) {
+      const stock = stockMap.get(rm.id);
+
+      if (!stock) {
+        // 🆕 create missing
+        createData.push({
+          warehouseId,
+          rawMaterialId: rm.id,
+          quantity: 0,
+          unit: rm.unit,
+          isUsed: rm.isUsed,
+        });
+      } else if (stock.isUsed !== rm.isUsed) {
+        // 🔁 update ONLY isUsed
+        updatePromises.push(
+          prisma.warehouseStock.update({
+            where: { id: stock.id },
+            data: { isUsed: rm.isUsed },
+          })
+        );
+      }
+    }
+
+    if (createData.length) {
+      await prisma.warehouseStock.createMany({
+        data: createData,
+        skipDuplicates: true,
+      });
+    }
+
+    if (updatePromises.length) {
+      await Promise.all(updatePromises);
+    }
+
+    // ======================================================
+    // 2️⃣ SYSTEM ITEM → INSTALLATION INVENTORY (MONGODB)
+    // ======================================================
+    const systemItems = await SystemItem.find({}, { _id: 1 });
+
+    if (systemItems.length) {
+      await InstallationInventory.insertMany(
+        systemItems.map((item) => ({
+          warehouseId: savedWarehouse._id,
+          systemItemId: item._id,
+          quantity: 0,
+          createdBy,
+        })),
+        { ordered: false }
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Warehouse added and inventories initialized",
+      data: savedWarehouse,
+    });
+  } catch (error) {
+    console.error("Add Warehouse Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const getWarehouses = async (req, res) => {
   try {
     const allWarehouses = await Warehouse.find({
@@ -7693,6 +7813,50 @@ const getPOsReceivings = async (req, res) => {
   }
 };
 
+const createUnit = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    const unitName = name.trim(); // Trim only once
+
+    // Check if item already exists
+    const existingUnit = await prisma.unit.findUnique({
+      where: { name: unitName },
+    });
+
+    if (existingUnit) {
+      return res.status(400).json({
+        success: false,
+        message: "Unit Already Exists",
+      });
+    }
+
+    const addUnit = await prisma.unit.create({
+      data: {
+        name: name,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Unit Added Successfully`,
+      data: addUnit,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCompany,
   createVendor,
@@ -7716,6 +7880,7 @@ module.exports = {
   getPODashboard,
   getCompaniesData,
   getVendorsData,
+  createWarehouse,
   getWarehouses,
   getSystems,
   cancelPurchaseOrder,
@@ -7742,4 +7907,5 @@ module.exports = {
   showAllPaymentRequests,
   sendPOToVendor,
   getPOsReceivings,
+  createUnit
 };

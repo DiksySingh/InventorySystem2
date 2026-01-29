@@ -287,4 +287,16 @@ router.get(
   purchaseOrderController.getPOsReceivings,
 );
 
+router.post(
+  "/warehouses/create",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.createWarehouse,
+);
+
+router.post(
+  "/units/create",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.createUnit,
+);
+
 module.exports = router;
