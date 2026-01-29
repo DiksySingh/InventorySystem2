@@ -554,8 +554,8 @@ async function generatePOBuffer(po, items = []) {
 
   // Paginate rows
   const pages = (function paginateRows(preparedRowsLocal) {
-    const FULL_PAGE = 8;
-    const FOOTER_PAGE = 7;
+    const FULL_PAGE = 7;
+    const FOOTER_PAGE = 6;
     let rows = [...preparedRowsLocal];
     let pagesArr = [];
     const pushPage = (arr, padTo = FULL_PAGE) => {
