@@ -299,4 +299,13 @@ router.post(
   purchaseOrderController.createUnit,
 );
 
+router.post(
+  "/vendor/invoices/upload",
+  tokenVerification(["Purchase"]),
+  uploadVendorDocs.fields([
+    { name: "invoiceFile", maxCount: 1 },
+  ]),
+  purchaseOrderController.uploadVendorInvoice,
+);
+
 module.exports = router;

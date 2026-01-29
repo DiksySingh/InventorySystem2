@@ -1,6 +1,6 @@
 const prisma = require("../../config/prismaClient");
 const Decimal = require("decimal.js");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
@@ -5803,7 +5803,7 @@ const createWarehouse = async (req, res) => {
           prisma.warehouseStock.update({
             where: { id: stock.id },
             data: { isUsed: rm.isUsed },
-          })
+          }),
         );
       }
     }
@@ -5832,7 +5832,7 @@ const createWarehouse = async (req, res) => {
           quantity: 0,
           createdBy,
         })),
-        { ordered: false }
+        { ordered: false },
       );
     }
 
@@ -5855,7 +5855,15 @@ const createWarehouse = async (req, res) => {
 const getWarehouses = async (req, res) => {
   try {
     const allWarehouses = await Warehouse.find({
-      warehouseName: { $nin: ["Sirsa", "Hisar", "Jind", "Fatehabad", "Maharashtra Warehouse - Ambad"] },
+      warehouseName: {
+        $nin: [
+          "Sirsa",
+          "Hisar",
+          "Jind",
+          "Fatehabad",
+          "Maharashtra Warehouse - Ambad",
+        ],
+      },
     }).select("_id warehouseName");
 
     if (allWarehouses.length === 0) {
@@ -7746,13 +7754,14 @@ const getPOsReceivings = async (req, res) => {
       where: { id: userId },
       include: { role: true },
     });
-    
-    const validRoles = ['Purchase', 'Production'];
+
+    const validRoles = ["Purchase", "Production"];
 
     if (!validRoles.includes(user.role?.name)) {
       return res.status(403).json({
         success: false,
-        message: "Only Purchase & Production department can view items receiving",
+        message:
+          "Only Purchase & Production department can view items receiving",
       });
     }
     const pos = await prisma.purchaseOrder.findMany({
@@ -7857,6 +7866,149 @@ const createUnit = async (req, res) => {
   }
 };
 
+const uploadVendorInvoice = async (req, res) => {
+  let uploadedFiles = [];
+  try {
+    const { vendorId, poId, invoiceNumber } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    const validRoles = ["Purchase"];
+
+    if (!validRoles.includes(user.role?.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase department can only upload invoices",
+      });
+    }
+
+    if (!vendorId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "vendorId is required" });
+    }
+
+    if (!poId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "poId is required" });
+    }
+
+    if (!invoiceNumber) {
+      return res
+        .status(400)
+        .json({ success: false, message: "invoiceNumber is required" });
+    }
+
+    const existingVendor = await prisma.vendor.findUnique({
+      where: {
+        id: vendorId,
+      },
+    });
+
+    if (!existingVendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: {
+        id: poId,
+      },
+    });
+
+    if (!existingPO) {
+      return res.status(404).json({
+        success: false,
+        message: "PO not found",
+      });
+    }
+
+    const existingVendorInvoice = await prisma.vendorInvoices.findUnique({
+      where: {
+        vendorId_poId_invoiceNumber: {
+          vendorId,
+          poId,
+          invoiceNumber,
+        },
+      },
+    });
+
+    if (existingVendorInvoice) {
+      return res.status(400).json({
+        success: false,
+        message: `Invoice ${invoiceNumber} already exists`,
+      });
+    }
+
+    let invoiceUrl = null;
+
+    if (req.files?.invoiceFile?.[0]) {
+      const file = req.files?.invoiceFile?.[0];
+      uploadedFiles.push(file.path);
+
+      const cleanPath = file.path.replace(/\\/g, "/").split("uploads/")[1];
+      invoiceUrl = `/uploads/${cleanPath}`;
+    }
+
+    const invoice = await prisma.$transaction(async (tx) => {
+      const vendorInvoice = await tx.vendorInvoices.create({
+        data: {
+          vendorId: vendorId,
+          poId: poId,
+          invoiceNumber,
+          invoiceUrl: invoiceUrl || null,
+          createdBy: userId,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "VendorInvoices",
+          entityId: vendorInvoice.id,
+          action: "Created",
+          performedBy: userId,
+          oldValue: null,
+          newValue: vendorInvoice,
+        },
+      });
+
+      return vendorInvoice;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Invoice ${invoiceNumber} uploaded for ${existingVendor.name}`,
+    });
+  } catch (error) {
+    console.error("❌ Error in uploadVendorInvoice:", error);
+
+    uploadedFiles.forEach((p) => {
+      try {
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      } catch (err) {}
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 module.exports = {
   createCompany,
   createVendor,
@@ -7907,5 +8059,6 @@ module.exports = {
   showAllPaymentRequests,
   sendPOToVendor,
   getPOsReceivings,
-  createUnit
+  createUnit,
+  uploadVendorInvoice,
 };

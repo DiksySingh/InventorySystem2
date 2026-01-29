@@ -23,6 +23,9 @@ const storage = multer.diskStorage({
     if (file.fieldname === "pancardFile") {
       uploadPath = path.join(uploadPath, "pancard");
     }
+    if (file.fieldname === "invoiceFile") {
+      uploadPath = path.join(uploadPath, "invoices");
+    }
 
     ensureDirExists(uploadPath);
     cb(null, uploadPath);
