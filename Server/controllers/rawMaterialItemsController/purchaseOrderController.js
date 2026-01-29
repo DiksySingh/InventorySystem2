@@ -5735,7 +5735,7 @@ const getPODashboard = async (req, res) => {
 const getWarehouses = async (req, res) => {
   try {
     const allWarehouses = await Warehouse.find({
-      warehouseName: { $nin: ["Sirsa", "Hisar", "Jind", "Fatehabad"] },
+      warehouseName: { $nin: ["Sirsa", "Hisar", "Jind", "Fatehabad", "Maharashtra Warehouse - Ambad"] },
     }).select("_id warehouseName");
 
     if (allWarehouses.length === 0) {
