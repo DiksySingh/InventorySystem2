@@ -1559,6 +1559,8 @@ const createPurchaseOrder = async (req, res) => {
       otherCharges = [],
     } = req.body;
 
+    console.log("Req Body: ", req.body);
+
     const userId = req.user?.id;
     if (!userId)
       return res
@@ -1643,9 +1645,10 @@ const createPurchaseOrder = async (req, res) => {
     }
 
     const isItemWise = gstType.includes("ITEMWISE");
-
+    console.log("Items List: ", items);
     // Validate items
     for (const item of items) {
+      console.log("Item: ", item);
       if (!item.id || !item.name || !item.unit) {
         return res.status(400).json({
           success: false,
@@ -1695,6 +1698,8 @@ const createPurchaseOrder = async (req, res) => {
         });
       }
     }
+    console.log("MongoIds: ", mongoIds);
+    console.log("MySQLIds: ", mysqlIds);
 
     // Fetch all mongo items in one query
     let existingMongoItems = [];
@@ -1715,15 +1720,19 @@ const createPurchaseOrder = async (req, res) => {
 
     // Convert to fast lookup sets
     const mongoSet = new Set(existingMongoItems.map((m) => String(m._id)));
+    console.log("MongoSet: ", mongoSet);
     const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
+    console.log("MySQLSet: ", mysqlSet);
 
     // Validate each item
     for (const item of items) {
       if (item.source === "mongo" && !mongoSet.has(item.id)) {
+        console.log(`MongoId not found`)
         throw new Error(`System Item with id '${item.id}' Not Found`);
       }
 
       if (item.source === "mysql" && !mysqlSet.has(item.id)) {
+        console.log("MySqlId Not Found")
         throw new Error(`Raw Material with id '${item.id}' Not Found`);
       }
     }
