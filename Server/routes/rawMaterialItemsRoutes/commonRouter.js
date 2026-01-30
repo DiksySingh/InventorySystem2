@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const commonController = require("../../controllers/rawMaterialItemsController/commonController");
+const purchaseOrderController = require("../../controllers/rawMaterialItemsController/purchaseOrderController");
 const {
   tokenVerification,
 } = require("../../middlewares/rawMaterialMiddlewares/tokenVerification");
@@ -225,6 +226,12 @@ router.get(
 router.get(
   "/raw-material/stock",
   commonController.exportRawMaterialStockByWarehouse,
+);
+
+router.get(
+  "/vendors/invoices",
+  tokenVerification(["Purchase", "Verification"]),
+  purchaseOrderController.getVendorPOInvoices,
 );
 
 module.exports = router;

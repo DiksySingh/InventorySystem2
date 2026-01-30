@@ -1727,12 +1727,12 @@ const createPurchaseOrder = async (req, res) => {
     // Validate each item
     for (const item of items) {
       if (item.source === "mongo" && !mongoSet.has(item.id)) {
-        console.log(`MongoId not found`)
+        console.log(`MongoId not found`);
         throw new Error(`System Item with id '${item.id}' Not Found`);
       }
 
       if (item.source === "mysql" && !mysqlSet.has(item.id)) {
-        console.log("MySqlId Not Found")
+        console.log("MySqlId Not Found");
         throw new Error(`Raw Material with id '${item.id}' Not Found`);
       }
     }
@@ -7989,6 +7989,65 @@ const uploadVendorInvoice = async (req, res) => {
   }
 };
 
+const getVendorPOInvoices = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const { vendorId, fromDate, toDate} = req.query;
+
+    const where = {};
+
+    if (vendorId) where.vendorId = vendorId;
+
+    if (fromDate || toDate) {
+      where.poDate = {};
+      if (fromDate) where.poDate.gte = new Date(fromDate);
+      if (toDate) where.poDate.lte = new Date(toDate);
+    }
+   
+    const pos = await prisma.purchaseOrder.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { poDate: "desc" },
+      include: {
+        invoices: {
+          select: {
+            invoiceUrl: true,
+            invoiceNumber: true,
+          },
+        },
+      },
+    });
+
+    // Transform response
+    const data = pos.map(po => ({
+      poId: po.id,
+      poNumber: po.poNumber,
+      vendorId: po.vendorId,
+      vendorName: po.vendorName,
+      //grandTotal: po.currency === "INR" ? po.grandTotal : po.foreignGrandTotal,
+      invoices: po.invoices
+    }));
+
+    // Total Count
+    const total = await prisma.purchaseOrder.count({ where });
+
+    res.json({
+      success: true,
+      page,
+      limit,
+      totalRecords: total,
+      data,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 module.exports = {
   createCompany,
   createVendor,
@@ -8041,4 +8100,5 @@ module.exports = {
   getPOsReceivings,
   createUnit,
   uploadVendorInvoice,
+  getVendorPOInvoices
 };

@@ -737,6 +737,7 @@ model Vendor {
   returnToVendor ReturnToVendor[]
   user           User             @relation(fields: [createdBy], references: [id])
   debitNotes     DebitNote[]
+  vendorInvoices VendorInvoices[]
 }
 
 model BankDetail {
@@ -838,6 +839,7 @@ model PurchaseOrder {
   bills                    PurchaseOrderBill[]
   user                     User?                     @relation(fields: [createdBy], references: [id])
   purchaseOrDebitNoteTerms PurchaseOrDebitNoteTerm[]
+  invoices                 VendorInvoices[]
 }
 
 model PurchaseOrderItem {
@@ -1160,18 +1162,20 @@ model AuditLog {
 }
 
 model VendorInvoices {
-  id         String   @id @default(uuid())
-  vendorId   String
-  poId       String?
+  id            String   @id @default(uuid())
+  vendorId      String
+  poId          String?
   invoiceNumber String?
-  invoiceUrl String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
+  invoiceUrl    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
 
-  invoiceCreatedBy User? @relation("invoice_CreatedBy", fields: [createdBy], references: [id])
-  invoiceUpdatedBy User? @relation("invoice_UpdatedBy", fields: [updatedBy], references: [id])
+  invoiceCreatedBy User?          @relation("invoice_CreatedBy", fields: [createdBy], references: [id])
+  invoiceUpdatedBy User?          @relation("invoice_UpdatedBy", fields: [updatedBy], references: [id])
+  vendor           Vendor?        @relation(fields: [vendorId], references: [id])
+  purchaseOrder    PurchaseOrder? @relation(fields: [poId], references: [id])
 
   @@unique([vendorId, poId, invoiceNumber])
 }
