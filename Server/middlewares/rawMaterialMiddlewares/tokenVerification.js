@@ -5,16 +5,19 @@ module.exports.tokenVerification = (allowedRoles) => {
   return async (req, res, next) => {
     try {
       const token = req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+      console.log("Token: ", token)
       if (!token) {
-        return res.status(401).json({ success: false, message: "No token provided" });
+        return res.status(403).json({ success: false, message: "No token provided" });
       }
-
-      // 🔥 DO NOT USE CALLBACK. CALLBACKS BLOCK POOL RELEASE.
+     
       let decoded;
+      
+
       try {
         decoded = jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
+        console.log("Decoded Data: ", decoded);
       } catch (err) {
-        return res.status(401).json({
+        return res.status(403).json({
           success: false,
           message: err.name === "TokenExpiredError" ? "Token expired" : "Invalid token",
         });
@@ -32,9 +35,9 @@ module.exports.tokenVerification = (allowedRoles) => {
           role: { select: { name: true } }
         }
       });
-
+      console.log("User: ", user);
       if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" });
+        return res.status(403).json({ success: false, message: "User not found" });
       }
 
       if (!user.isActive) {
