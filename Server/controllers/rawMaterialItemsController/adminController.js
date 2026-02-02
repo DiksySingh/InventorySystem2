@@ -3812,6 +3812,7 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
         approvedByAdmin: userId,
       },
     });
+    console.log("Result: ", result);
 
     return res.status(200).json({
       success: true,
