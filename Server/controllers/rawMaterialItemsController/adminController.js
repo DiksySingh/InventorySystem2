@@ -744,7 +744,7 @@ const showRawMaterials = async (req, res) => {
           quantityUsedInThisItem: quantity,
           stockIsLow,
         };
-      })
+      }),
     );
 
     // Step 3: Sort: low stock first, then all in ascending order of stock
@@ -1155,7 +1155,7 @@ const addServiceRecord = async (req, res) => {
     // ✅ Call external API (non-blocking, errors handled)
     try {
       const response = await axios.post(
-        `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`
+        `http://88.222.214.93:5000/common/update-item-defective?itemName=${subItem}&quantity=${quantity}&isRepaired=${isRepaired}`,
       );
       console.log("API Response:", response.data);
     } catch (apiError) {
@@ -1369,7 +1369,7 @@ const getItemRawMaterials = async (req, res) => {
 
     // Filter items that contain the keyword
     const matchedItems = allItems.filter((item) =>
-      item.name.toLowerCase().includes(keyword)
+      item.name.toLowerCase().includes(keyword),
     );
 
     if (matchedItems.length === 0) {
@@ -1447,14 +1447,14 @@ const getRepairedServiceRecords = async (req, res) => {
               quantity: part.quantity,
               unit: part.unit,
             };
-          })
+          }),
         );
 
         return {
           ...record,
           repairedParts: rawMaterialDetails,
         };
-      })
+      }),
     );
 
     res.status(200).json({
@@ -1497,14 +1497,14 @@ const getRejectedServiceRecords = async (req, res) => {
               quantity: part.quantity,
               unit: part.unit,
             };
-          })
+          }),
         );
 
         return {
           ...record,
           repairedParts: rawMaterialDetails,
         };
-      })
+      }),
     );
 
     res.status(200).json({
@@ -2120,7 +2120,7 @@ const produceNewItem = async (req, res) => {
           `Insufficient stock for ${rm.rawMaterial?.name ?? "Unknown Material"} 
           (required: ${(rm.quantity || 0) * quantityProduced}, available: ${
             rm.rawMaterial?.stock ?? 0
-          })`
+          })`,
       );
       await session.abortTransaction();
       session.endSession();
@@ -2143,7 +2143,7 @@ const produceNewItem = async (req, res) => {
         prisma.rawMaterial.update({
           where: { id: rm.rawMaterialId },
           data: { stock: { decrement: totalUsed } },
-        })
+        }),
       );
 
       manufacturingUsages.push(
@@ -2155,7 +2155,7 @@ const produceNewItem = async (req, res) => {
             unit: rm.rawMaterial?.unit ?? null,
             manufacturingDate: timestamp,
           },
-        })
+        }),
       );
     }
 
@@ -2175,7 +2175,7 @@ const produceNewItem = async (req, res) => {
     }
 
     const itemToUpdate = warehouseItemsData.items.find(
-      (item) => item.itemName === subItem
+      (item) => item.itemName === subItem,
     );
     if (!itemToUpdate) {
       await session.abortTransaction();
@@ -2303,7 +2303,7 @@ const getItemsProducibleCount = async (req, res) => {
     // Filter manually if name query param is passed
     const filteredItems = name
       ? items.filter((item) =>
-          item.name.toLowerCase().includes(name.toLowerCase())
+          item.name.toLowerCase().includes(name.toLowerCase()),
         )
       : items;
 
@@ -2671,7 +2671,7 @@ const addBOM = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Duplicate BOM entries already exist for rawMaterials: ${duplicates.join(
-          ", "
+          ", ",
         )}`,
       });
     }
@@ -2917,7 +2917,7 @@ const updateBOM = async (req, res) => {
       const newIds = rawMaterialList.map((r) => r.rawMaterialId);
 
       const toRemove = existingRecords.filter(
-        (r) => !newIds.includes(r.rawMaterialId)
+        (r) => !newIds.includes(r.rawMaterialId),
       );
       await tx.itemRawMaterial.deleteMany({
         where: {
@@ -2945,8 +2945,8 @@ const updateBOM = async (req, res) => {
               quantity: rm.quantity,
               //updatedBy: req?.user?.id
             },
-          })
-        )
+          }),
+        ),
       );
       return upserts;
     });
@@ -3214,8 +3214,8 @@ const updateStageRawMaterial = async (req, res) => {
               stageId,
               rawMaterialId: rm.rawMaterialId,
             },
-          })
-        )
+          }),
+        ),
       );
 
       return { addedOrUpdated: upserts, removed: toRemove };
@@ -3620,8 +3620,8 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
 
     const paymentRequests = await prisma.payment.findMany({
       where: {
-        docApprovalStatus: true,           
-        docApprovedBy: { not: null },     
+        docApprovalStatus: true,
+        docApprovedBy: { not: null },
         adminApprovalStatus: null,
         approvedByAdmin: null,
       },
@@ -3670,7 +3670,6 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
       count: formatted.length,
       data: formatted,
     });
-
   } catch (error) {
     console.error("ADMIN DOC VERIFIED PAYMENT REQUEST ERROR:", error);
     return res.status(500).json({
@@ -3727,7 +3726,6 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
 //       });
 //     }
 
-
 //     // Update
 //     const updated = await prisma.payment.update({
 //       where: { id: paymentRequestId },
@@ -3759,7 +3757,7 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role;
-
+    console.log(userId, userRole, req.body);
     if (!userRole || userRole.name !== "Admin") {
       return res.status(403).json({
         success: false,
@@ -3805,7 +3803,7 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
     // ✅ Bulk update
     const result = await prisma.payment.updateMany({
       where: {
-        id: { in: pendingPayments.map(p => p.id) },
+        id: { in: pendingPayments.map((p) => p.id) },
       },
       data: {
         adminApprovalStatus: status.toUpperCase() === "APPROVED",
@@ -3821,7 +3819,6 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
       approvedCount: result.count,
       skippedCount: paymentRequestIds.length - result.count,
     });
-
   } catch (error) {
     console.error("Bulk Payment Approval ERROR:", error);
     return res.status(500).json({
@@ -3831,6 +3828,173 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
   }
 };
 
+const getPOsForAdminApproval = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const { vendorId, fromDate, toDate } = req.query;
+
+    const where = {
+      status: "Approval_Sent",
+      approvalStatus: "Pending",
+    };
+
+    if (vendorId) {
+      where.vendorId = vendorId;
+    }
+
+    if (fromDate || toDate) {
+      where.poDate = {};
+      if (fromDate) where.poDate.gte = new Date(fromDate);
+      if (toDate) where.poDate.lte = new Date(toDate);
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.purchaseOrder.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { poDate: "desc" },
+        select: {
+          id: true,
+          poNumber: true,
+          poDate: true,
+          companyId: true,
+          companyName: true,
+          vendorId: true,
+          vendorName: true,
+          currency: true,
+          grandTotal: true,
+          foreignGrandTotal: true,
+          status: true,
+          approvalStatus: true,
+          items: {
+            select: {
+              id: true,
+              itemId: true,
+              itemSource: true,
+              itemName: true,
+              quantity: true,
+              unit: true,
+            },
+          },
+        },
+      }),
+      prisma.purchaseOrder.count({ where }),
+    ]);
+
+    const formattedData = data.map((po) => ({
+      poId: po.id,
+      poNumber: po.poNumber,
+      companyId: po.companyId,
+      companyName: po.companyName,
+      vendorId: po.vendorId,
+      vendorName: po.vendorName,
+      currency: po.currency,
+      grandTotal: po.currency === "INR" ? po.grandTotal : po.foreignGrandTotal,
+      status: po.status,
+      approvalStatus: po.approvalStatus,
+      poDate: po.poDate,
+      items: po.items,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      page,
+      limit,
+      totalRecords: total,
+      data: formattedData,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const poApprovalAction = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const { poId, status, rejectionReason } = req.body;
+
+    if (userRole?.name !== "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin privileges required.",
+      });
+    }
+    if (!poId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed: poId and status are required.",
+      });
+    }
+
+    if (!["APPROVED", "REJECTED"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Allowed values are APPROVED or REJECTED.",
+      });
+    }
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      select: { status: true },
+    });
+
+    if (!po) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase order not found.",
+      });
+    }
+
+    if (po.status !== "Approval_Sent") {
+      return res.status(400).json({
+        success: false,
+        message: "Purchase order is not pending for approval.",
+      });
+    }
+
+    const updateData =
+      status === "APPROVED"
+        ? {
+            status: "Admin_Approved",
+            approvalStatus: "Approved",
+            approvedAt: new Date(),
+            approvedBy: userId,
+          }
+        : {
+            status: "Admin_Rejected",
+            approvalStatus: "Rejected",
+            approvedBy: userId,
+            rejectionReason: rejectionReason || "Rejected by admin",
+          };
+
+    await prisma.purchaseOrder.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({
+      success: true,
+      message:
+        action === "approve"
+          ? "PO approved successfully"
+          : "PO rejected successfully",
+    });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: err.message || "Internal Server Error",
+      });
+  }
+};
 
 module.exports = {
   showEmployees,
@@ -3881,5 +4045,6 @@ module.exports = {
   detachRawMaterialFromItem,
   detachRawMaterialFromStage,
   showDocsVerifiedPaymentRequests,
-  approveOrRejectMultiplePaymentsByAdmin
+  approveOrRejectMultiplePaymentsByAdmin,
+  getPOsForAdminApproval,
 };
