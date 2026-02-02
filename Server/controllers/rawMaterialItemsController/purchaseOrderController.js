@@ -8081,7 +8081,7 @@ const sendPOForApproval = async (req, res) => {
     }
 
     await prisma.purchaseOrder.update({
-      where: { poId },
+      where: { id: poId },
       data: {
         status: "Approval_Sent",
         approvalStatus: "Pending",
