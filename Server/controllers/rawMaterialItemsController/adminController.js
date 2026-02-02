@@ -3681,24 +3681,102 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
   }
 };
 
-const approveOrRejectPaymentRequestByAdmin = async (req, res) => {
+// const approveOrRejectPaymentRequestByAdmin = async (req, res) => {
+//   try {
+//     const userId = req.user?.id;
+//     const userRole = req.user?.role;
+
+//     if (!["Admin"].includes(userRole.name)) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Unauthorized access",
+//       });
+//     }
+
+//     const { paymentRequestId, status, remarks } = req.body;
+
+//     if (!paymentRequestId || !status) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "paymentRequestId and status are required",
+//       });
+//     }
+
+//     if (!["APPROVED", "REJECTED"].includes(status.toUpperCase())) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Status must be APPROVED or REJECTED",
+//       });
+//     }
+
+//     const payment = await prisma.payment.findUnique({
+//       where: { id: paymentRequestId }
+//     });
+
+//     if (!payment) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Payment request not found",
+//       });
+//     }
+
+//     if (payment.adminApprovalStatus !== null) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Payment already processed",
+//       });
+//     }
+
+
+//     // Update
+//     const updated = await prisma.payment.update({
+//       where: { id: paymentRequestId },
+//       data: {
+//         adminApprovalStatus: status.toUpperCase() === "APPROVED" ? true : false,
+//         adminApprovalDate: new Date(),
+//         adminRemark: remarks.trim() || null,
+//         approvedByAdmin: userId
+//       },
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: `Payment request ${status.toLowerCase()} successfully`,
+//       data: updated,
+//     });
+
+//   } catch (error) {
+//     console.error("Handle Payment Request ERROR:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role;
 
-    if (!["Admin"].includes(userRole.name)) {
+    if (!userRole || userRole.name !== "Admin") {
       return res.status(403).json({
         success: false,
         message: "Unauthorized access",
       });
     }
 
-    const { paymentRequestId, status, remarks } = req.body;
+    const { paymentRequestIds, status, remarks } = req.body;
 
-    if (!paymentRequestId || !status) {
+    if (
+      !Array.isArray(paymentRequestIds) ||
+      paymentRequestIds.length === 0 ||
+      !status
+    ) {
       return res.status(400).json({
         success: false,
-        message: "paymentRequestId and status are required",
+        message: "paymentRequestIds (array) and status are required",
       });
     }
 
@@ -3709,51 +3787,50 @@ const approveOrRejectPaymentRequestByAdmin = async (req, res) => {
       });
     }
 
-    const payment = await prisma.payment.findUnique({
-      where: { id: paymentRequestId }
+    // ✅ Fetch only pending payments
+    const pendingPayments = await prisma.payment.findMany({
+      where: {
+        id: { in: paymentRequestIds },
+        adminApprovalStatus: null,
+      },
     });
 
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment request not found",
-      });
-    }
-
-    if (payment.adminApprovalStatus !== null) {
+    if (pendingPayments.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Payment already processed",
+        message: "No pending payment requests found",
       });
     }
 
-
-    // Update
-    const updated = await prisma.payment.update({
-      where: { id: paymentRequestId },
+    // ✅ Bulk update
+    const result = await prisma.payment.updateMany({
+      where: {
+        id: { in: pendingPayments.map(p => p.id) },
+      },
       data: {
-        adminApprovalStatus: status.toUpperCase() === "APPROVED" ? true : false,
+        adminApprovalStatus: status.toUpperCase() === "APPROVED",
         adminApprovalDate: new Date(),
-        adminRemark: remarks.trim() || null,
-        approvedByAdmin: userId
+        adminRemark: remarks?.trim() || null,
+        approvedByAdmin: userId,
       },
     });
 
     return res.status(200).json({
       success: true,
-      message: `Payment request ${status.toLowerCase()} successfully`,
-      data: updated,
+      message: `${result.count} payment requests ${status.toLowerCase()} successfully`,
+      approvedCount: result.count,
+      skippedCount: paymentRequestIds.length - result.count,
     });
 
   } catch (error) {
-    console.error("Handle Payment Request ERROR:", error.message);
+    console.error("Bulk Payment Approval ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message,
     });
   }
 };
+
 
 module.exports = {
   showEmployees,
@@ -3804,5 +3881,5 @@ module.exports = {
   detachRawMaterialFromItem,
   detachRawMaterialFromStage,
   showDocsVerifiedPaymentRequests,
-  approveOrRejectPaymentRequestByAdmin
+  approveOrRejectMultiplePaymentsByAdmin
 };

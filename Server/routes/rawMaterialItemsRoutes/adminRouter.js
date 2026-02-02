@@ -62,6 +62,6 @@ router.get("/showStockUpdateHistory", adminController.showStockUpdateHistory);
 router.get("/showDefectiveItemsList", commonController.getDefectiveItemsListByWarehouse);
 
 router.get("/showPaymentRequests", tokenVerification(['Admin']), adminController.showDocsVerifiedPaymentRequests);
-router.patch("/updateApprovalStatus", tokenVerification(['Admin']), adminController.approveOrRejectPaymentRequestByAdmin);
+router.patch("/updateApprovalStatus", tokenVerification(['Admin']), adminController.approveOrRejectMultiplePaymentsByAdmin);
 
 module.exports = router;
