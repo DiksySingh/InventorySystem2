@@ -3757,7 +3757,7 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role;
-    console.log(userId, userRole, req.body);
+  
     if (!userRole || userRole.name !== "Admin") {
       return res.status(403).json({
         success: false,
@@ -3812,7 +3812,6 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
         approvedByAdmin: userId,
       },
     });
-    console.log("Result: ", result);
 
     return res.status(200).json({
       success: true,

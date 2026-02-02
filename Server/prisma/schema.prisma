@@ -615,6 +615,9 @@ enum GSTType {
 enum POStatus {
   Draft
   Generated_Downloaded
+  Approval_Sent
+  Admin_Approved
+  Admin_Rejected
   PartiallyReceived
   Received
   Cancelled

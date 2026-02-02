@@ -5,17 +5,15 @@ module.exports.tokenVerification = (allowedRoles) => {
   return async (req, res, next) => {
     try {
       const token = req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
-      console.log("Token: ", token)
+
       if (!token) {
         return res.status(403).json({ success: false, message: "No token provided" });
       }
      
       let decoded;
-      
 
       try {
         decoded = jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
-        console.log("Decoded Data: ", decoded);
       } catch (err) {
         return res.status(403).json({
           success: false,
@@ -35,7 +33,7 @@ module.exports.tokenVerification = (allowedRoles) => {
           role: { select: { name: true } }
         }
       });
-      console.log("User: ", user);
+
       if (!user) {
         return res.status(403).json({ success: false, message: "User not found" });
       }

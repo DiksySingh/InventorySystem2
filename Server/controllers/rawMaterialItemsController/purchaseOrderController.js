@@ -7995,7 +7995,7 @@ const getVendorPOInvoices = async (req, res) => {
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const { vendorId, fromDate, toDate} = req.query;
+    const { vendorId, fromDate, toDate } = req.query;
 
     const where = {};
 
@@ -8006,7 +8006,7 @@ const getVendorPOInvoices = async (req, res) => {
       if (fromDate) where.poDate.gte = new Date(fromDate);
       if (toDate) where.poDate.lte = new Date(toDate);
     }
-   
+
     const pos = await prisma.purchaseOrder.findMany({
       where,
       skip,
@@ -8023,13 +8023,13 @@ const getVendorPOInvoices = async (req, res) => {
     });
 
     // Transform response
-    const data = pos.map(po => ({
+    const data = pos.map((po) => ({
       poId: po.id,
       poNumber: po.poNumber,
       vendorId: po.vendorId,
       vendorName: po.vendorName,
       //grandTotal: po.currency === "INR" ? po.grandTotal : po.foreignGrandTotal,
-      invoices: po.invoices
+      invoices: po.invoices,
     }));
 
     // Total Count
@@ -8045,6 +8045,57 @@ const getVendorPOInvoices = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+const sendPOForApproval = async (req, res) => {
+  try {
+    const { poId } = req.params;
+    const userRole = req.user?.role;
+
+    if (userRole.name !== "Purchase") {
+      return res.status(400).json({
+        success: false,
+        message: "You are not authorized to perform this action.",
+      });
+    }
+
+    if (!poId) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed: purchase order data is required",
+      });
+    }
+
+    const po = await prisma.purchaseOrder.findUnique({ where: { id: poId } });
+
+    if (!po) {
+      return res.status(404).json({ success: false, message: "PO not found" });
+    }
+
+    if (po.status !== "Draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only Draft PO can be sent for approval",
+      });
+    }
+
+    await prisma.purchaseOrder.update({
+      where: { poId },
+      data: {
+        status: "Approval_Sent",
+        approvalStatus: "Pending",
+      },
+    });
+
+    return res
+      .status(200)
+      .json({ success: true, message: "PO sent for approval" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 
@@ -8100,5 +8151,6 @@ module.exports = {
   getPOsReceivings,
   createUnit,
   uploadVendorInvoice,
-  getVendorPOInvoices
+  getVendorPOInvoices,
+  sendPOForApproval,
 };

@@ -302,10 +302,14 @@ router.post(
 router.post(
   "/vendor/invoices/upload",
   tokenVerification(["Purchase"]),
-  uploadVendorDocs.fields([
-    { name: "invoiceFile", maxCount: 1 },
-  ]),
+  uploadVendorDocs.fields([{ name: "invoiceFile", maxCount: 1 }]),
   purchaseOrderController.uploadVendorInvoice,
+);
+
+router.put(
+  "/purchase-orders/:poId/send-for-approval",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.sendPOForApproval,
 );
 
 module.exports = router;
