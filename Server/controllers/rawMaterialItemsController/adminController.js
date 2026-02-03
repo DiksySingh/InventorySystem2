@@ -3969,19 +3969,20 @@ const poApprovalAction = async (req, res) => {
         : {
             status: "Admin_Rejected",
             approvalStatus: "Rejected",
-            approvedBy: userId,
+            rejectedBy: userId,
+            rejectedAt: new Date(),
             rejectionReason: rejectionReason || "Rejected by admin",
           };
 
     await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: poId },
       data: updateData,
     });
 
     res.json({
       success: true,
       message:
-        action === "approve"
+        status === "APPROVED"
           ? "PO approved successfully"
           : "PO rejected successfully",
     });
@@ -4047,4 +4048,5 @@ module.exports = {
   showDocsVerifiedPaymentRequests,
   approveOrRejectMultiplePaymentsByAdmin,
   getPOsForAdminApproval,
+  poApprovalAction
 };

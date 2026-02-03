@@ -1590,9 +1590,16 @@ const purchaseOrderReceivingBill = async (req, res) => {
       where: { id: purchaseOrderId },
       include: { items: true },
     });
+
     if (!po) throw new Error("Purchase Order not found.");
+
+    if (po.approvalStatus !== "Approved") {
+      throw new Error("Cannot receive items as PO not approved by admin.")
+    }
+    
     if (["Cancelled", "Received"].includes(po.status))
       throw new Error(`PO already ${po.status}.`);
+
     if (String(po.warehouseId) !== warehouseId)
       return res
         .status(403)

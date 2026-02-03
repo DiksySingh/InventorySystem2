@@ -64,5 +64,6 @@ router.get("/showDefectiveItemsList", commonController.getDefectiveItemsListByWa
 router.get("/showPaymentRequests", tokenVerification(['Admin']), adminController.showDocsVerifiedPaymentRequests);
 router.patch("/updateApprovalStatus", tokenVerification(['Admin']), adminController.approveOrRejectMultiplePaymentsByAdmin);
 router.get("/getPOsForApproval", tokenVerification(['Admin']), adminController.getPOsForAdminApproval);
+router.put("/poApprovalAction", tokenVerification(['Admin']), adminController.poApprovalAction);
 
 module.exports = router;

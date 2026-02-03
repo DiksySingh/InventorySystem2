@@ -806,7 +806,9 @@ model PurchaseOrder {
   status               POStatus         @default(Draft)
   approvalStatus       POApprovalStatus @default(Pending)
   approvedBy           String?
+  rejectedBy           String?
   approvedAt           DateTime?
+  rejectedAt           DateTime?
   rejectionReason      String?
   remarks              String?
   pdfUrl               String?
