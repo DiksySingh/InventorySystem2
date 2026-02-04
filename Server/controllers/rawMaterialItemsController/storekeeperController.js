@@ -1593,13 +1593,13 @@ const purchaseOrderReceivingBill = async (req, res) => {
 
     if (!po) throw new Error("Purchase Order not found.");
 
-    if (po.approvalStatus !== "Approved") {
-      throw new Error("Cannot receive items as PO not approved by admin.")
-    }
+    // if (po.approvalStatus !== "Approved") {
+    //   throw new Error("Cannot receive items as PO not approved by admin.")
+    // }
 
-    if (po.approvalStatus === 'Rejected') {
-      throw new Error("Cannot receive items as PO is rejected by admin");
-    }
+    // if (po.approvalStatus === 'Rejected') {
+    //   throw new Error("Cannot receive items as PO is rejected by admin");
+    // }
     
     if (["Cancelled", "Received"].includes(po.status))
       throw new Error(`PO already ${po.status}.`);
