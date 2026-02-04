@@ -6124,11 +6124,20 @@ const getRawMaterialByWarehouse = async (req, res) => {
     });
 
     const sortedData = formattedData.sort((a, b) => {
-      if (a.isUsed === b.isUsed) {
-        return a.rawStock - b.rawStock;
+      // Step 1: In-stock first, out-of-stock last
+      if (a.outOfStock !== b.outOfStock) {
+        return a.outOfStock ? 1 : -1;
       }
-      return a.isUsed ? -1 : 1;
+
+      // Step 2: Then sort by isUsed
+      if (a.isUsed !== b.isUsed) {
+        return a.isUsed ? -1 : 1;
+      }
+
+      // Step 3: Then sort by stock quantity
+      return a.rawStock - b.rawStock;
     });
+
 
     const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
 

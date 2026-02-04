@@ -2986,6 +2986,143 @@ const getAddressByPincode = async (req, res) => {
   }
 };
 
+const bulkUploadRawMaterial = async (req, res) => {
+  try {
+    const empId = req.user?.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    /* =====================================================
+       📄 READ EXCEL
+    ====================================================== */
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    if (!rows.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel is empty",
+      });
+    }
+
+    /* =====================================================
+       🏭 FETCH WAREHOUSES (Mongo)
+    ====================================================== */
+    const warehouses = await Warehouse.find({});
+    if (!warehouses.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No warehouses found",
+      });
+    }
+
+    /* =====================================================
+       🧹 PREPARE RAW MATERIAL DATA
+    ====================================================== */
+    const rawMaterialData = [];
+    const skipped = [];
+
+    for (let row of rows) {
+      const name = row.name?.trim();
+      const unit = row.unit?.trim();
+      const conversionUnit = row.conversionUnit?.trim() || unit;
+      const conversionFactor = row.conversionFactor
+        ? Number(row.conversionFactor)
+        : 1;
+
+      if (!name || !unit) {
+        skipped.push({ name, reason: "Missing name or unit" });
+        continue;
+      }
+
+      rawMaterialData.push({
+        name,
+        unit,
+        stock: 0,
+        conversionUnit,
+        conversionFactor,
+        createdBy: empId,
+      });
+    }
+
+    if (!rawMaterialData.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid rows to insert",
+      });
+    }
+
+    /* =====================================================
+       🚀 TRANSACTION (FAST)
+    ====================================================== */
+    await prisma.$transaction(async (tx) => {
+      /* 1️⃣ INSERT RAW MATERIALS */
+      await tx.rawMaterial.createMany({
+        data: rawMaterialData,
+        skipDuplicates: true, // IMPORTANT
+      });
+
+      /* 2️⃣ FETCH CREATED RAW MATERIALS */
+      const createdMaterials = await tx.rawMaterial.findMany({
+        where: {
+          name: {
+            in: rawMaterialData.map((r) => r.name),
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          unit: true,
+        },
+      });
+
+      /* 3️⃣ BUILD WAREHOUSE STOCK */
+      const warehouseStockData = [];
+
+      for (let material of createdMaterials) {
+        for (let wh of warehouses) {
+          warehouseStockData.push({
+            warehouseId: wh._id.toString(),
+            rawMaterialId: material.id,
+            quantity: 0,
+            unit: material.unit,
+            isUsed: true,
+          });
+        }
+      }
+
+      /* 4️⃣ INSERT WAREHOUSE STOCK */
+      await tx.warehouseStock.createMany({
+        data: warehouseStockData,
+        skipDuplicates: true,
+      });
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Bulk Raw Material Upload Successful",
+      summary: {
+        totalRows: rows.length,
+        inserted: rawMaterialData.length,
+        skipped,
+      },
+    });
+  } catch (error) {
+    console.error("Bulk Upload Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -3031,4 +3168,5 @@ module.exports = {
   getCurrencies,
   getAddressByPincode,
   exportRawMaterialStockByWarehouse,
+  bulkUploadRawMaterial
 };

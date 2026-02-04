@@ -234,4 +234,11 @@ router.get(
   purchaseOrderController.getVendorPOInvoices,
 );
 
+router.post(
+  "/raw-material/excel-upload",
+  tokenVerification(["Purchase"]),
+  commonController.upload.single("file"),
+  commonController.bulkUploadRawMaterial,
+);
+
 module.exports = router;
