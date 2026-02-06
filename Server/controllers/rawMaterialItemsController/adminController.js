@@ -4,6 +4,7 @@ const axios = require("axios");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const ExcelJs = require("exceljs");
+const generatePO = require("../../util/generatePO");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 
 const getDefectiveItemsForWarehouse = async (req, res) => {
@@ -3997,6 +3998,77 @@ const poApprovalAction = async (req, res) => {
   }
 };
 
+const previewPOPdf = async (req, res) => {
+  try {
+    const { poId } = req.query;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: User not found.",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Only Admin is allowed to preview PO.",
+      });
+    }
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { company: true, vendor: true, items: true },
+    });
+
+    if (!po) {
+      return res.status(404).json({ success: false, message: "PO not found." });
+    }
+
+    // Freeze item values exactly as stored
+    const items = po.items.map((it) => ({
+      itemName: it.itemName,
+      hsnCode: it.hsnCode || "-",
+      quantity: Number(it.quantity),
+      modelNumber: it.modelNumber || null,
+      itemDetail: it.itemDetail || null,
+      unit: it.unit || "Nos",
+      rate: Number(it.rate),
+      total: Number(it.total),
+      gstRate: it.gstRate ? Number(it.gstRate) : 0,
+      rateInForeign: it.rateInForeign ? Number(it.rateInForeign) : null,
+      amountInForeign: it.amountInForeign ? Number(it.amountInForeign) : null,
+    }));
+
+    const pdfBuffer = await generatePO(po, items);
+
+    // sanitize vendor name
+    const vendor = po.vendor.name.split(" ")[0];
+    const fileName = `${vendor}-PO-${po.poNumber}.pdf`;
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Length": Buffer.byteLength(pdfBuffer),
+      "Content-Disposition": `inline; filename="${fileName}"`,
+    });
+
+    return res.end(pdfBuffer);
+  } catch (err) {
+    console.error("❌ Error generating PO PDF:", err.stack || err);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error while generating PO PDF",
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   showEmployees,
   deactivateEmployee,
@@ -4048,5 +4120,6 @@ module.exports = {
   showDocsVerifiedPaymentRequests,
   approveOrRejectMultiplePaymentsByAdmin,
   getPOsForAdminApproval,
-  poApprovalAction
+  poApprovalAction,
+  previewPOPdf
 };
