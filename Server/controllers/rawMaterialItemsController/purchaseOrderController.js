@@ -3455,10 +3455,12 @@ const downloadPOPDF = async (req, res) => {
       include: { role: true },
     });
 
-    if (!user || user.role?.name !== "Purchase") {
+    const allowedRoles = ['Purchase', 'Admin'];
+
+    if (!user || !allowedRoles.includes(user.role?.name)) {
       return res.status(403).json({
         success: false,
-        message: "Access Denied: Only Purchase Department can generate PO.",
+        message: `Access Denied: Only ${allowedRoles.join(' & ')} can generate PO.`,
       });
     }
 
