@@ -3719,7 +3719,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
 
       invoices: r.purchaseOrder?.invoices?.map((inv) => ({
         invoiceNumber: inv.invoiceNumber,
-        invoiceUrl: inv.invoiceFile,
+        invoiceUrl: inv.invoiceUrl,
       })) || [],
     }));
 
