@@ -3619,6 +3619,39 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
       });
     }
 
+    // const paymentRequests = await prisma.payment.findMany({
+    //   where: {
+    //     docApprovalStatus: true,
+    //     docApprovedBy: { not: null },
+    //     adminApprovalStatus: null,
+    //     approvedByAdmin: null,
+    //   },
+    //   orderBy: { createdAt: "desc" },
+    //   select: {
+    //     id: true,
+    //     poId: true,
+    //     amount: true,
+    //     billpaymentType: true,
+    //     paymentRequestedBy: true,
+    //     createdAt: true,
+    //     purchaseOrder: {
+    //       select: {
+    //         poNumber: true,
+    //         companyName: true,
+    //         vendorName: true,
+    //         currency: true,
+    //       },
+    //     },
+    //     paymentCreatedBy: {
+    //       select: {
+    //         id: true,
+    //         name: true,
+    //         email: true,
+    //       },
+    //     },
+    //   },
+    // });
+
     const paymentRequests = await prisma.payment.findMany({
       where: {
         docApprovalStatus: true,
@@ -3640,6 +3673,12 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
             companyName: true,
             vendorName: true,
             currency: true,
+            invoices: {
+              select: {
+                invoiceNumber: true,
+                invoiceUrl: true,
+              },
+            },
           },
         },
         paymentCreatedBy: {
@@ -3652,6 +3691,20 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
       },
     });
 
+
+    // const formatted = paymentRequests.map((r) => ({
+    //   paymentRequestId: r.id,
+    //   poId: r.poId,
+    //   poNumber: r.purchaseOrder?.poNumber,
+    //   companyName: r.purchaseOrder?.companyName,
+    //   vendorName: r.purchaseOrder?.vendorName,
+    //   currency: r.purchaseOrder?.currency,
+    //   requestedAmount: Number(r.amount),
+    //   billpaymentType: r.billpaymentType,
+    //   paymentRequestedBy: r.paymentCreatedBy?.name,
+    //   createdAt: r.createdAt,
+    // }));
+
     const formatted = paymentRequests.map((r) => ({
       paymentRequestId: r.id,
       poId: r.poId,
@@ -3663,7 +3716,13 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
       billpaymentType: r.billpaymentType,
       paymentRequestedBy: r.paymentCreatedBy?.name,
       createdAt: r.createdAt,
+
+      invoices: r.purchaseOrder?.invoices?.map((inv) => ({
+        invoiceNumber: inv.invoiceNumber,
+        invoiceUrl: inv.invoiceFile,
+      })) || [],
     }));
+
 
     return res.status(200).json({
       success: true,
