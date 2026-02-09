@@ -12,7 +12,7 @@ router.post(
   tokenVerification(["Purchase"]),
   purchaseOrderController.createCompany,
 );
-
+[]
 router.post(
   "/vendors",
   tokenVerification(["Purchase"]),
@@ -283,7 +283,7 @@ router.post(
 
 router.get(
   "/purchase-orders/receiving",
-  tokenVerification(["Purchase", "Production"]),
+  tokenVerification(["Purchase", "Production", "Admin"]),
   purchaseOrderController.getPOsReceivings,
 );
 

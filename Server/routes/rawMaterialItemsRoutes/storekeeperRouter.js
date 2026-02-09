@@ -71,7 +71,7 @@ router.post(
 
 router.get(
   "/showProcessData",
-  tokenVerification(["Store", "Production"]),
+  tokenVerification(["Store", "Production", "Admin"]),
   storekeeperController.showProcessData
 );
 

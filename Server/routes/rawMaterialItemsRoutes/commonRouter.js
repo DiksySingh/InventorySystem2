@@ -57,6 +57,8 @@ router.get(
     "Winding Connection",
     "Assemble",
     "Testing",
+    "Admin",
+    "Production"
   ]),
   commonController.getProduct,
 );
@@ -107,7 +109,7 @@ router.get(
 );
 router.get(
   "/getItemType",
-  tokenVerification(["Admin", "Store"]),
+  tokenVerification(["Admin", "Store", "Production"]),
   commonController.getItemType,
 );
 router.post(
