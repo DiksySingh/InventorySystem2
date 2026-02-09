@@ -5632,6 +5632,88 @@ function getDateRanges() {
   return { startOfToday, startOfMonth, startOfWeek, startFY, endFY };
 }
 
+// const getPODashboard = async (req, res) => {
+//   try {
+//     const { startOfToday, startOfMonth, startOfWeek, startFY, endFY } =
+//       getDateRanges();
+
+//     const statusFilter = {
+//       NOT: {
+//         status: "Cancelled",
+//       },
+//     };
+
+//     // ------------------------------ FASTEST VERSION ------------------------------
+//     const [counts, spend] = await Promise.all([
+//       // Single count query (MySQL evaluates all conditions internally)
+//       prisma.purchaseOrder.findMany({
+//         select: { createdAt: true },
+//       }),
+
+//       // Single spend sum query
+//       prisma.purchaseOrder.findMany({
+//         select: { createdAt: true, grandTotal: true },
+//       }),
+//     ]);
+
+//     // -------------------------------- PROCESS DATA --------------------------------
+//     let poStats = {
+//       total: 0,
+//       yearly: 0,
+//       monthly: 0,
+//       weekly: 0,
+//       today: 0,
+//     };
+
+//     let spendStats = {
+//       total: 0,
+//       yearly: 0,
+//       monthly: 0,
+//       weekly: 0,
+//       today: 0,
+//     };
+
+//     counts.forEach((po) => {
+//       const d = po.createdAt;
+
+//       poStats.total++;
+
+//       if (d >= startFY && d <= endFY) poStats.yearly++;
+//       if (d >= startOfMonth) poStats.monthly++;
+//       if (d >= startOfWeek) poStats.weekly++;
+//       if (d >= startOfToday) poStats.today++;
+//     });
+
+//     spend.forEach((po) => {
+//       const d = po.createdAt;
+//       const amount = Number(po.grandTotal);
+
+//       spendStats.total += amount;
+
+//       if (d >= startFY && d <= endFY) spendStats.yearly += amount;
+//       if (d >= startOfMonth) spendStats.monthly += amount;
+//       if (d >= startOfWeek) spendStats.weekly += amount;
+//       if (d >= startOfToday) spendStats.today += amount;
+//     });
+
+//     // ------------------------------------------------------------------------------
+//     return res.status(200).json({
+//       success: true,
+//       message: "PO dashboard stats fetched successfully",
+//       data: {
+//         poStats,
+//         spendStats,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Dashboard Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal Server Error",
+//     });
+//   }
+// };
+
 const getPODashboard = async (req, res) => {
   try {
     const { startOfToday, startOfMonth, startOfWeek, startFY, endFY } =
@@ -5645,13 +5727,13 @@ const getPODashboard = async (req, res) => {
 
     // ------------------------------ FASTEST VERSION ------------------------------
     const [counts, spend] = await Promise.all([
-      // Single count query (MySQL evaluates all conditions internally)
       prisma.purchaseOrder.findMany({
+        where: statusFilter,
         select: { createdAt: true },
       }),
 
-      // Single spend sum query
       prisma.purchaseOrder.findMany({
+        where: statusFilter,
         select: { createdAt: true, grandTotal: true },
       }),
     ]);

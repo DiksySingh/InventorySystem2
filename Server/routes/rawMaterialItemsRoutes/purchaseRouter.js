@@ -143,7 +143,7 @@ router.post(
 
 router.get(
   "/dashboard",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getPODashboard,
 );
 
