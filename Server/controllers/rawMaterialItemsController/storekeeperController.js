@@ -28,7 +28,8 @@ const getLineWorkerList = async (req, res) => {
     if (!validRoles.includes(empData?.role?.name)) {
       return res.status(400).json({
         success: false,
-        message: "Only Store Keeper & Production Have Access To The Line-Workers",
+        message:
+          "Only Store Keeper & Production Have Access To The Line-Workers",
       });
     }
 
@@ -38,7 +39,15 @@ const getLineWorkerList = async (req, res) => {
         role: {
           is: {
             name: {
-              notIn: ["Admin", "SuperAdmin", "Store", "Purchase", 'Accounts', 'Verification', 'Production'],
+              notIn: [
+                "Admin",
+                "SuperAdmin",
+                "Store",
+                "Purchase",
+                "Accounts",
+                "Verification",
+                "Production",
+              ],
             },
           },
         },
@@ -293,7 +302,7 @@ const showIncomingItemRequest = async (req, res) => {
         });
 
         return { ...req, rawMaterialRequested: enriched };
-      })
+      }),
     );
 
     res.json({
@@ -452,7 +461,7 @@ const sanctionItemForRequest = async (req, res) => {
 
         if (!rawMaterialData) {
           throw new Error(
-            `Raw material not found for ID: ${rawMaterial.rawMaterialId}`
+            `Raw material not found for ID: ${rawMaterial.rawMaterialId}`,
           );
         }
 
@@ -466,13 +475,13 @@ const sanctionItemForRequest = async (req, res) => {
 
         if (!warehouseStock) {
           throw new Error(
-            `Stock not available in warehouse for ${rawMaterialData.name}`
+            `Stock not available in warehouse for ${rawMaterialData.name}`,
           );
         }
 
         if (Number(warehouseStock.quantity) < Number(rawMaterial.quantity)) {
           throw new Error(
-            `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds warehouse stock`
+            `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds warehouse stock`,
           );
         }
 
@@ -570,7 +579,7 @@ const getUserItemStock = async (req, res) => {
       },
     });
 
-    const balanceSummary = balanceRaw.map(item => ({
+    const balanceSummary = balanceRaw.map((item) => ({
       rawMaterialId: item.rawMaterial.id,
       rawMaterialName: item.rawMaterial.name,
       quantity: item.quantity,
@@ -587,15 +596,15 @@ const getUserItemStock = async (req, res) => {
         rawMaterialIssued: true,
         issuedAt: true,
         remarks: true,
-        issuedToUser: { select: {name: true} },
+        issuedToUser: { select: { name: true } },
         issuedByUser: { select: { name: true } },
         issuedToName: true,
       },
       orderBy: { issuedAt: "desc" },
     });
 
-    const issueRMIds = directRaw.flatMap(i =>
-      safeParse(i.rawMaterialIssued).map(rm => rm.rawMaterialId)
+    const issueRMIds = directRaw.flatMap((i) =>
+      safeParse(i.rawMaterialIssued).map((rm) => rm.rawMaterialId),
     );
 
     /* ======================
@@ -620,8 +629,8 @@ const getUserItemStock = async (req, res) => {
       orderBy: { requestedAt: "desc" },
     });
 
-    const requestRMIds = requestRaw.flatMap(r =>
-      safeParse(r.rawMaterialRequested).map(rm => rm.rawMaterialId)
+    const requestRMIds = requestRaw.flatMap((r) =>
+      safeParse(r.rawMaterialRequested).map((rm) => rm.rawMaterialId),
     );
 
     /* ======================
@@ -635,15 +644,15 @@ const getUserItemStock = async (req, res) => {
     });
 
     const RM_LOOKUP = Object.fromEntries(
-      rawMaterials.map(rm => [rm.id, rm.name])
+      rawMaterials.map((rm) => [rm.id, rm.name]),
     );
 
     /* ======================
      * FORMAT ISSUES
      * ====================== */
-    const directIssues = directRaw.map(issue => ({
+    const directIssues = directRaw.map((issue) => ({
       id: issue.id,
-      items: safeParse(issue.rawMaterialIssued).map(rm => ({
+      items: safeParse(issue.rawMaterialIssued).map((rm) => ({
         rawMaterialId: rm.rawMaterialId,
         rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
         quantity: rm.quantity,
@@ -658,9 +667,9 @@ const getUserItemStock = async (req, res) => {
     /* ======================
      * FORMAT REQUEST HISTORY
      * ====================== */
-    const requestHistory = requestRaw.map(r => ({
+    const requestHistory = requestRaw.map((r) => ({
       id: r.id,
-      items: safeParse(r.rawMaterialRequested).map(rm => ({
+      items: safeParse(r.rawMaterialRequested).map((rm) => ({
         rawMaterialId: rm.rawMaterialId,
         rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
         quantity: rm.quantity,
@@ -673,11 +682,7 @@ const getUserItemStock = async (req, res) => {
       declinedBy: r.declinedByUser?.name || null,
       declinedDate: r.declinedAt,
       declinedRemarks: r.declinedRemarks || null,
-      status: r.declined
-        ? "DECLINED"
-        : r.approved
-        ? "APPROVED"
-        : "PENDING",
+      status: r.declined ? "DECLINED" : r.approved ? "APPROVED" : "PENDING",
       materialGiven: !!r.materialGiven,
     }));
 
@@ -690,7 +695,6 @@ const getUserItemStock = async (req, res) => {
         itemsRequested: requestHistory,
       },
     });
-
   } catch (error) {
     console.log("❌ ERROR: ", error);
     return res.status(500).json({
@@ -731,7 +735,7 @@ const getUserItemStockDetails = async (req, res) => {
       },
     });
 
-    const balanceSummary = balanceRaw.map(item => ({
+    const balanceSummary = balanceRaw.map((item) => ({
       rawMaterialId: item.rawMaterial.id,
       rawMaterialName: item.rawMaterial.name,
       quantity: item.quantity,
@@ -748,15 +752,15 @@ const getUserItemStockDetails = async (req, res) => {
         rawMaterialIssued: true,
         issuedAt: true,
         remarks: true,
-        issuedToUser: { select: {name: true} },
+        issuedToUser: { select: { name: true } },
         issuedByUser: { select: { name: true } },
         issuedToName: true,
       },
       orderBy: { issuedAt: "desc" },
     });
 
-    const issueRMIds = directRaw.flatMap(i =>
-      safeParse(i.rawMaterialIssued).map(rm => rm.rawMaterialId)
+    const issueRMIds = directRaw.flatMap((i) =>
+      safeParse(i.rawMaterialIssued).map((rm) => rm.rawMaterialId),
     );
 
     /* ======================
@@ -781,8 +785,8 @@ const getUserItemStockDetails = async (req, res) => {
       orderBy: { requestedAt: "desc" },
     });
 
-    const requestRMIds = requestRaw.flatMap(r =>
-      safeParse(r.rawMaterialRequested).map(rm => rm.rawMaterialId)
+    const requestRMIds = requestRaw.flatMap((r) =>
+      safeParse(r.rawMaterialRequested).map((rm) => rm.rawMaterialId),
     );
 
     /* ======================
@@ -796,15 +800,15 @@ const getUserItemStockDetails = async (req, res) => {
     });
 
     const RM_LOOKUP = Object.fromEntries(
-      rawMaterials.map(rm => [rm.id, rm.name])
+      rawMaterials.map((rm) => [rm.id, rm.name]),
     );
 
     /* ======================
      * FORMAT ISSUES
      * ====================== */
-    const directIssues = directRaw.map(issue => ({
+    const directIssues = directRaw.map((issue) => ({
       id: issue.id,
-      items: safeParse(issue.rawMaterialIssued).map(rm => ({
+      items: safeParse(issue.rawMaterialIssued).map((rm) => ({
         rawMaterialId: rm.rawMaterialId,
         rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
         quantity: rm.quantity,
@@ -819,9 +823,9 @@ const getUserItemStockDetails = async (req, res) => {
     /* ======================
      * FORMAT REQUEST HISTORY
      * ====================== */
-    const requestHistory = requestRaw.map(r => ({
+    const requestHistory = requestRaw.map((r) => ({
       id: r.id,
-      items: safeParse(r.rawMaterialRequested).map(rm => ({
+      items: safeParse(r.rawMaterialRequested).map((rm) => ({
         rawMaterialId: rm.rawMaterialId,
         rawMaterialName: RM_LOOKUP[rm.rawMaterialId] || "Unknown",
         quantity: rm.quantity,
@@ -834,11 +838,7 @@ const getUserItemStockDetails = async (req, res) => {
       declinedBy: r.declinedByUser?.name || null,
       declinedDate: r.declinedAt,
       declinedRemarks: r.declinedRemarks || null,
-      status: r.declined
-        ? "DECLINED"
-        : r.approved
-        ? "APPROVED"
-        : "PENDING",
+      status: r.declined ? "DECLINED" : r.approved ? "APPROVED" : "PENDING",
       materialGiven: !!r.materialGiven,
     }));
 
@@ -850,7 +850,6 @@ const getUserItemStockDetails = async (req, res) => {
         itemsRequested: requestHistory,
       },
     });
-
   } catch (error) {
     console.log("❌ ERROR: ", error);
     return res.status(500).json({
@@ -876,7 +875,10 @@ const showProcessData = async (req, res) => {
     } = req.query;
 
     const warehouseId = req.user?.warehouseId;
-    if (!warehouseId) {
+    const userRole = req.user?.role;
+    const isAdmin = userRole?.name === "Admin";
+
+    if (!isAdmin && !warehouseId) {
       return res.status(400).json({
         success: false,
         message: "Warehouse not assigned to user",
@@ -917,7 +919,7 @@ const showProcessData = async (req, res) => {
             23,
             59,
             59,
-            999
+            999,
           );
           break;
 
@@ -929,7 +931,7 @@ const showProcessData = async (req, res) => {
         case "Custom":
           if (!startDate || !endDate) {
             throw new Error(
-              "Start date and end date required for Custom filter"
+              "Start date and end date required for Custom filter",
             );
           }
           startIST = new Date(startDate);
@@ -950,10 +952,9 @@ const showProcessData = async (req, res) => {
     };
 
     setDateFilter();
-
-    filterConditions.AND.push({
-      warehouseId,
-    });
+    if (!isAdmin) {
+      filterConditions.AND.push({ warehouseId });
+    }
 
     // ---------- BASIC FILTERS ----------
     if (status) filterConditions.AND.push({ status });
@@ -1103,7 +1104,7 @@ const updateStock = async (req, res) => {
 
         if (!rawMaterial.rawMaterialId || isNaN(quantity) || quantity <= 0) {
           throw new Error(
-            "Invalid rawMaterial data: rawMaterialId and valid quantity required"
+            "Invalid rawMaterial data: rawMaterialId and valid quantity required",
           );
         }
 
@@ -1113,7 +1114,7 @@ const updateStock = async (req, res) => {
 
         if (!existingRawMaterial) {
           throw new Error(
-            `Raw Material not found: ${rawMaterial.rawMaterialId}`
+            `Raw Material not found: ${rawMaterial.rawMaterialId}`,
           );
         }
 
@@ -1173,7 +1174,7 @@ const updateStock = async (req, res) => {
           } catch (unlinkErr) {
             console.error(`Failed to delete file ${filePath}:`, unlinkErr);
           }
-        })
+        }),
       );
     }
 
@@ -1222,7 +1223,7 @@ const getStockMovementHistory = async (req, res) => {
     // Optional (recommended):
     // remove batches with no movements for this warehouse
     const filteredBatches = batches.filter(
-      (batch) => batch.stockMovement.length > 0
+      (batch) => batch.stockMovement.length > 0,
     );
 
     const formattedBatches = filteredBatches.map((batch) => ({
@@ -1400,7 +1401,7 @@ const markSystemItemUsedOrNotUsed = async (req, res) => {
         updatedByEmpId: empId,
         updatedAt: new Date(),
       },
-      { new: true }
+      { new: true },
     );
 
     await prisma.auditLog.create({
@@ -1569,7 +1570,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
     uploadedFilePath = path.join(
       __dirname,
       "../../uploads/purchaseOrder/receivingBill",
-      billFile.filename
+      billFile.filename,
     );
 
     if (
@@ -1600,7 +1601,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
     // if (po.approvalStatus === 'Rejected') {
     //   throw new Error("Cannot receive items as PO is rejected by admin");
     // }
-    
+
     if (["Cancelled", "Received"].includes(po.status))
       throw new Error(`PO already ${po.status}.`);
 
@@ -1716,10 +1717,10 @@ const purchaseOrderReceivingBill = async (req, res) => {
           select: { quantity: true, receivedQty: true },
         });
         const allReceived = updatedItems.every(
-          (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0)
+          (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0),
         );
         const anyReceived = updatedItems.some(
-          (i) => Number(i.receivedQty || 0) > 0
+          (i) => Number(i.receivedQty || 0) > 0,
         );
 
         let newStatus = po.status;
@@ -1772,7 +1773,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
         // ================= MONGO STOCK =================
         try {
           for (const s of stockUpdates.filter(
-            (s) => s.itemSource === "mongo"
+            (s) => s.itemSource === "mongo",
           )) {
             const systemItem = await SystemItem.findById(s.itemId);
             if (!systemItem)
@@ -1784,7 +1785,9 @@ const purchaseOrderReceivingBill = async (req, res) => {
               systemItem.conversionUnit ??
               systemItem.converionUnit ??
               ""
-            )?.toLowerCase().trim();
+            )
+              ?.toLowerCase()
+              .trim();
             console.log("System Item Con Unit: ", convUnit);
             const factor = Number(systemItem.conversionFactor || 1);
             console.log("System Item Conv Factor: ", factor);
@@ -1792,7 +1795,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
             console.log({
               poUnit: s.poUnit?.toLowerCase().trim(),
               baseUnit,
-              convUnit
+              convUnit,
             });
             let convertedQty = s.goodQty;
             if (baseUnit && s.poUnit !== baseUnit) {
@@ -1800,7 +1803,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
                 convertedQty = s.goodQty / factor;
               else
                 throw new Error(
-                  `Invalid unit for system item ${systemItem.itemName}`
+                  `Invalid unit for system item ${systemItem.itemName}`,
                 );
             }
 
@@ -1855,7 +1858,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
         });
 
         return { receiptResults, stockUpdates };
-      }
+      },
     );
 
     return res.status(200).json({
@@ -1936,7 +1939,7 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
     uploadedFilePath = path.join(
       __dirname,
       "../../uploads/purchaseOrder/receivingBill",
-      billFile.filename
+      billFile.filename,
     );
 
     if (
@@ -2072,10 +2075,10 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
           select: { quantity: true, receivedQty: true },
         });
         const allReceived = updatedItems.every(
-          (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0)
+          (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0),
         );
         const anyReceived = updatedItems.some(
-          (i) => Number(i.receivedQty || 0) > 0
+          (i) => Number(i.receivedQty || 0) > 0,
         );
 
         let newStatus = po.status;
@@ -2128,7 +2131,7 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
         // ================= MONGO STOCK =================
         try {
           for (const s of stockUpdates.filter(
-            (s) => s.itemSource === "mongo"
+            (s) => s.itemSource === "mongo",
           )) {
             const systemItem = await SystemItem.findById(s.itemId);
             if (!systemItem)
@@ -2144,7 +2147,7 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
                 convertedQty = s.goodQty * factor;
               else
                 throw new Error(
-                  `Invalid unit for system item ${systemItem._id}`
+                  `Invalid unit for system item ${systemItem._id}`,
                 );
             }
 
@@ -2199,7 +2202,7 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
         });
 
         return { receiptResults, stockUpdates };
-      }
+      },
     );
 
     return res.status(200).json({
@@ -2315,7 +2318,7 @@ const directItemIssue = async (req, res) => {
       // Merge duplicate rawMaterialIds
       materialMap.set(
         item.rawMaterialId,
-        (materialMap.get(item.rawMaterialId) || 0) + quantity
+        (materialMap.get(item.rawMaterialId) || 0) + quantity,
       );
     }
 
@@ -2334,13 +2337,13 @@ const directItemIssue = async (req, res) => {
 
         if (!warehouseStock) {
           throw new Error(
-            `Stock not found in warehouse for rawMaterialId ${rawMaterialId}`
+            `Stock not found in warehouse for rawMaterialId ${rawMaterialId}`,
           );
         }
 
         if (warehouseStock.quantity < quantity) {
           throw new Error(
-            `Insufficient stock for rawMaterialId ${rawMaterialId}. Available: ${warehouseStock.quantity}, Required: ${quantity}`
+            `Insufficient stock for rawMaterialId ${rawMaterialId}. Available: ${warehouseStock.quantity}, Required: ${quantity}`,
           );
         }
 
@@ -2445,8 +2448,8 @@ const getDirectItemIssueHistory = async (req, res) => {
         history.flatMap((issue) =>
           Array.isArray(issue.rawMaterialIssued)
             ? issue.rawMaterialIssued.map((item) => item.rawMaterialId)
-            : []
-        )
+            : [],
+        ),
       ),
     ];
 
@@ -2680,7 +2683,7 @@ const sanctionItemForRequest2 = async (req, res) => {
 
         if (!rawMaterialData) {
           throw new Error(
-            `Raw material not found for ID: ${rawMaterial.rawMaterialId}`
+            `Raw material not found for ID: ${rawMaterial.rawMaterialId}`,
           );
         }
 
@@ -2694,13 +2697,13 @@ const sanctionItemForRequest2 = async (req, res) => {
 
         if (!warehouseStock) {
           throw new Error(
-            `Stock not available in warehouse for ${rawMaterialData.name}`
+            `Stock not available in warehouse for ${rawMaterialData.name}`,
           );
         }
 
         if (Number(warehouseStock.quantity) < Number(rawMaterial.quantity)) {
           throw new Error(
-            `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds warehouse stock`
+            `Can't sanction! Requested quantity for ${rawMaterialData.name} exceeds warehouse stock`,
           );
         }
 
@@ -2824,7 +2827,7 @@ const showProcessData2 = async (req, res) => {
             23,
             59,
             59,
-            999
+            999,
           );
           break;
 
@@ -2836,7 +2839,7 @@ const showProcessData2 = async (req, res) => {
         case "Custom":
           if (!startDate || !endDate) {
             throw new Error(
-              "Start date and end date required for Custom filter"
+              "Start date and end date required for Custom filter",
             );
           }
           startIST = new Date(startDate);
@@ -3010,7 +3013,7 @@ const updateStock2 = async (req, res) => {
 
         if (!rawMaterial.rawMaterialId || isNaN(quantity) || quantity <= 0) {
           throw new Error(
-            "Invalid rawMaterial data: rawMaterialId and valid quantity required"
+            "Invalid rawMaterial data: rawMaterialId and valid quantity required",
           );
         }
 
@@ -3020,7 +3023,7 @@ const updateStock2 = async (req, res) => {
 
         if (!existingRawMaterial) {
           throw new Error(
-            `Raw Material not found: ${rawMaterial.rawMaterialId}`
+            `Raw Material not found: ${rawMaterial.rawMaterialId}`,
           );
         }
 
@@ -3080,7 +3083,7 @@ const updateStock2 = async (req, res) => {
           } catch (unlinkErr) {
             console.error(`Failed to delete file ${filePath}:`, unlinkErr);
           }
-        })
+        }),
       );
     }
 
@@ -3129,7 +3132,7 @@ const getStockMovementHistory2 = async (req, res) => {
     // Optional (recommended):
     // remove batches with no movements for this warehouse
     const filteredBatches = batches.filter(
-      (batch) => batch.stockMovement.length > 0
+      (batch) => batch.stockMovement.length > 0,
     );
 
     const formattedBatches = filteredBatches.map((batch) => ({

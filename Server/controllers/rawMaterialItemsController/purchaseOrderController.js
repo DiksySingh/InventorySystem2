@@ -7746,13 +7746,13 @@ const getPOsReceivings = async (req, res) => {
       include: { role: true },
     });
 
-    const validRoles = ["Purchase", "Production"];
+    const validRoles = ["Purchase", "Production", "Admin"];
 
     if (!validRoles.includes(user.role?.name)) {
       return res.status(403).json({
         success: false,
         message:
-          "Only Purchase & Production department can view items receiving",
+          "Only Purchase, Production & Admin department can view items receiving",
       });
     }
     const pos = await prisma.purchaseOrder.findMany({
