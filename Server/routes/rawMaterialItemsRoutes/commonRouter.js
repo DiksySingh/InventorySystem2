@@ -170,7 +170,7 @@ router.put(
 );
 router.get(
   "/unit/view",
-  tokenVerification(["Purchase", "Store"]),
+  tokenVerification(["Purchase", "Store", "Admin"]),
   commonController.showUnit,
 );
 router.post(

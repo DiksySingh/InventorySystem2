@@ -25,7 +25,7 @@ router.post(
 
 router.get(
   "/companies",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getCompaniesList,
 );
 
@@ -37,7 +37,7 @@ router.get(
 
 router.get(
   "/vendors",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getVendorsList,
 );
 
@@ -101,7 +101,7 @@ router.post(
 
 router.get(
   "/purchase-orders/show",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getPOList,
 );
 
