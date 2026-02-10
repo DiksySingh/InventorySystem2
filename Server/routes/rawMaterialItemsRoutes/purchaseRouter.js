@@ -9,13 +9,13 @@ const uploadVendorDocs = require("../../middlewares/rawMaterialMiddlewares/multe
 
 router.post(
   "/companies",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createCompany,
 );
-[]
+[];
 router.post(
   "/vendors",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   uploadVendorDocs.fields([
     { name: "aadhaarFile", maxCount: 1 },
     { name: "pancardFile", maxCount: 1 },
@@ -31,7 +31,7 @@ router.get(
 
 router.get(
   "/companies/data",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getCompaniesData,
 );
 
@@ -43,31 +43,31 @@ router.get(
 
 router.get(
   "/vendors/data",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getVendorsData,
 );
 
 router.get(
   "/companies/:id",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getCompanyById,
 );
 
 router.get(
   "/vendors/:id",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getVendorById,
 );
 
 router.put(
   "/companies/:id",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.updateCompany,
 );
 
 router.put(
   "/vendors/:id",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   uploadVendorDocs.fields([
     { name: "aadhaarFile", maxCount: 1 },
     { name: "pancardFile", maxCount: 1 },
@@ -77,25 +77,25 @@ router.put(
 
 router.get(
   "/items",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getItemsList,
 );
 
 router.get(
   "/items/details/:id",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getItemDetails,
 );
 
 router.post(
   "/purchase-orders/create",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createPurchaseOrder,
 );
 
 router.post(
   "/purchase-orders/create2",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createPurchaseOrder2,
 );
 
@@ -107,25 +107,25 @@ router.get(
 
 router.get(
   "/purchase-orders/company/:companyId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getPOListByCompany2,
 );
 
 router.get(
   "/purchase-orders/details/:poId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getPurchaseOrderDetails,
 );
 
 router.put(
   "/purchase-orders/update/:poId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.updatePurchaseOrder,
 );
 
 router.put(
   "/purchase-orders/update2/:poId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.updatePurchaseOrder2,
 );
 
@@ -137,7 +137,7 @@ router.post(
 
 router.post(
   "/purchase-orders/download2/:poId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.downloadPOPDF2,
 );
 
@@ -161,50 +161,50 @@ router.get(
 
 router.put(
   "/purchase-orders/cancel/:poId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.cancelPurchaseOrder,
 );
 
 //------------ Debit Note Section --------------
 router.get(
   "/purchase-orders/damaged-stock/details/:poId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getPurchaseOrderDetailsWithDamagedItems,
 );
 
 router.post(
   "/debit-note/create",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createDebitNote,
 );
 
 router.get(
   "/:poId/debit-note",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getDebitNoteListByPO,
 );
 
 router.post(
   "/:poId/debit-note/download/:debitNoteId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.downloadDebitNote,
 );
 
 router.get(
   "/debit-note/details/:debitNoteId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getDebitNoteDetails,
 );
 
 router.put(
   "/debit-note/update/:debitNoteId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.updateDebitNote,
 );
 
 router.post(
   "/debit-note/receive",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   uploadDebitNoteBill,
   purchaseOrderController.debitNoteReceivingBill,
 );
@@ -225,13 +225,13 @@ router.get(
 
 router.get(
   "/dashboard2",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getPODashboard2,
 );
 
 router.post(
   "/vendors2",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   uploadVendorDocs.fields([
     { name: "aadhaarFile", maxCount: 1 },
     { name: "pancardFile", maxCount: 1 },
@@ -241,13 +241,13 @@ router.post(
 
 router.get(
   "/vendors2/:id",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.getVendorById2,
 );
 
 router.put(
   "/vendors2/:id",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   uploadVendorDocs.fields([
     { name: "aadhaarFile", maxCount: 1 },
     { name: "pancardFile", maxCount: 1 },
@@ -259,25 +259,25 @@ router.put(
 
 router.get(
   "/purchase-orders/payments/pending",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.showPendingPayments,
 );
 
 router.post(
   "/purchase-orders/payments/request",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createPaymentRequest,
 );
 
 router.get(
   "/purchase-orders/payments/show",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.showAllPaymentRequests,
 );
 
 router.post(
   "/purchase-orders/send/:poId",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.sendPOToVendor,
 );
 
@@ -289,27 +289,34 @@ router.get(
 
 router.post(
   "/warehouses/create",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createWarehouse,
 );
 
 router.post(
   "/units/create",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createUnit,
 );
 
 router.post(
   "/vendor/invoices/upload",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   uploadVendorDocs.fields([{ name: "invoiceFile", maxCount: 1 }]),
   purchaseOrderController.uploadVendorInvoice,
 );
 
 router.put(
   "/purchase-orders/:poId/send-for-approval",
-  tokenVerification(["Purchase"]),
+  tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.sendPOForApproval,
 );
+
+router.post(
+  "/model/create",
+  tokenVerification(["Purchase", "Admin"]),
+  purchaseOrderController.addBOMModel,
+);
+
 
 module.exports = router;
