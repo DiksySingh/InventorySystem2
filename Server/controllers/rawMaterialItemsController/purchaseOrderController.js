@@ -14,6 +14,7 @@ const System = require("../../models/systemInventoryModels/systemSchema");
 const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchema");
 const ItemComponentMap = require("../../models/systemInventoryModels/itemComponentMapSchema");
 const SystemItemMap = require("../../models/systemInventoryModels/systemItemMapSchema");
+const BOM = require("../../models/systemInventoryModels/bomModelSchema");
 const getDashboardService = require("../../services/systemDashboardService");
 const buildPOPdfBuffer = require("../../helpers/rawMaterialItemsHelpers/poPdf.helper");
 const sendPOMail = require("../../util/mail/sendPOMail");
@@ -8192,6 +8193,55 @@ const sendPOForApproval = async (req, res) => {
   }
 };
 
+const addBOMModel = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if(!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+
+
+    const {name , description} = req.body;
+    if(!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Model name is required"
+      });
+    }
+    const capsModelName = name.toUpperCase().trim();
+    const existingModel = await BOM.findOne({
+      name: capsModelName
+    });
+
+    if(existingModel) {
+      return res.status(400).json({
+        success: false,
+        message: "Model already exists."
+      });
+    }
+
+    const newModel = await BOM.create({
+      name: capsModelName,
+      description: description || "",
+      createdBy: userId
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Model created successfully",
+      data: newModel
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
 module.exports = {
   createCompany,
   createVendor,
@@ -8246,4 +8296,5 @@ module.exports = {
   uploadVendorInvoice,
   getVendorPOInvoices,
   sendPOForApproval,
+  addBOMModel,
 };

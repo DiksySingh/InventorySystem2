@@ -1,46 +1,57 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const itemComponentMapSchema = new Schema({
+const itemComponentMapSchema = new Schema(
+  {
     systemId: {
-        type: Schema.Types.ObjectId,
-        ref: "System",
-        required: true
+      type: Schema.Types.ObjectId,
+      ref: "System",
+      required: true,
     },
     systemItemId: {
-        type: Schema.Types.ObjectId,
-        ref: "SystemItem",
-        required: true  
+      type: Schema.Types.ObjectId,
+      ref: "SystemItem",
+      required: true,
     },
     subItemId: {
-        type: Schema.Types.ObjectId,
-        ref: "SystemItem",
-        required: true  
+      type: Schema.Types.ObjectId,
+      ref: "SystemItem",
+      required: true,
+    },
+    bomId: {
+      type: Schema.Types.ObjectId,
+      ref: "BOM",
+      required: true,
     },
     quantity: {
-        type: Number,
-        required: true
+      type: Number,
+      required: true,
     },
     unit: {
-        type: String,
+      type: String,
     },
     createdAt: {
-        type: Date,
-        default: Date.now,
+      type: Date,
+      default: Date.now,
     },
     updatedAt: {
-        type: Date,
+      type: Date,
     },
     createdBy: {
-        type: Schema.Types.ObjectId,
-        ref: "Admin",
-        required: true
+      type: Schema.Types.ObjectId,
+      ref: "Admin",
+      required: true,
     },
     updatedBy: {
-        type: Schema.Types.ObjectId,
-        ref: "Admin"
-    }
-}, {collection: "inItemComponentMap"});
+      type: Schema.Types.ObjectId,
+      ref: "Admin",
+    },
+  },
+  { collection: "inItemComponentMap" },
+);
 
-const ItemComponentMap = mongoose.model("ItemComponentMap", itemComponentMapSchema);
+const ItemComponentMap = mongoose.model(
+  "ItemComponentMap",
+  itemComponentMapSchema,
+);
 module.exports = ItemComponentMap;

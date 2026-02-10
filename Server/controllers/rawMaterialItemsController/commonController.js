@@ -9,6 +9,7 @@ const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema")
 const System = require("../../models/systemInventoryModels/systemSchema");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
 const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchema");
+const BOM = require("../../models/systemInventoryModels/bomModelSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const getDashboardService = require("../../services/systemDashboardService");
 const getStateCityFromPincode = require("../../services/getStateCityFromPincode");
@@ -2374,10 +2375,9 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //       };
 
 //       dashboardData.commonItems.forEach(registerItem);
-
-//       dashboardData.variableItems.forEach((head) => {
-//         head.items.forEach(registerItem);
-//       });
+//       dashboardData.variableItems.forEach((head) =>
+//         head.items.forEach(registerItem),
+//       );
 //     }
 
 //     /* =====================================================
@@ -2394,9 +2394,6 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //       const systemRows = [];
 
 //       /* ================= COMMON ITEMS ================= */
-//       const commonDesiredSystem =
-//         dashboardData.summary.motorCommonSystem.totalDesired;
-
 //       dashboardData.commonItems.forEach((item) => {
 //         if (item.shortageQty <= 0) return;
 //         hasAnyShortage = true;
@@ -2404,7 +2401,7 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //         const itemId = item.itemId.toString();
 //         const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-//         // 🔁 MULTI-SYSTEM ITEM
+//         // 🔁 GLOBAL COMMON ITEM
 //         if (usedInSystems > 1) {
 //           if (!globalItemMap.has(itemId)) {
 //             globalItemMap.set(itemId, {
@@ -2412,29 +2409,23 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //               PumpHead: "ALL",
 //               ItemType: "GLOBAL",
 //               ItemName: item.itemName,
-//               BOM_Qty: item.bomQty,
 //               Stock_Qty: item.stockQty,
-//               Desired_Systems: 0,
 //               Required_Qty: 0,
-//               Shortage_Qty: 0,
+//               Shortage_Qty: 0, // calculated later
 //             });
 //           }
 
 //           const g = globalItemMap.get(itemId);
-//           g.Desired_Systems += commonDesiredSystem;
 //           g.Required_Qty += item.requiredQty;
-//           g.Shortage_Qty += item.shortageQty;
 //         }
-//         // 🔁 SINGLE SYSTEM
+//         // 🔁 SYSTEM-SPECIFIC COMMON
 //         else {
 //           const row = {
 //             SystemName: system.systemName,
 //             PumpHead: "ALL",
 //             ItemType: "Common",
 //             ItemName: item.itemName,
-//             BOM_Qty: item.bomQty,
 //             Stock_Qty: item.stockQty,
-//             Desired_Systems: commonDesiredSystem,
 //             Required_Qty: item.requiredQty,
 //             Shortage_Qty: item.shortageQty,
 //           };
@@ -2446,8 +2437,6 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 
 //       /* ================= VARIABLE ITEMS ================= */
 //       dashboardData.variableItems.forEach((head) => {
-//         const headDesiredSystem = head.desiredSystems;
-
 //         head.items.forEach((item) => {
 //           if (item.shortageQty <= 0) return;
 //           hasAnyShortage = true;
@@ -2455,7 +2444,7 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //           const itemId = item.itemId.toString();
 //           const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
 
-//           // 🔁 MULTI-SYSTEM VARIABLE ITEM
+//           // 🔁 GLOBAL VARIABLE ITEM
 //           if (usedInSystems > 1) {
 //             if (!globalItemMap.has(itemId)) {
 //               globalItemMap.set(itemId, {
@@ -2463,29 +2452,23 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //                 PumpHead: "MULTI",
 //                 ItemType: "GLOBAL",
 //                 ItemName: item.itemName,
-//                 BOM_Qty: item.bomQty,
 //                 Stock_Qty: item.stockQty,
-//                 Desired_Systems: 0,
 //                 Required_Qty: 0,
-//                 Shortage_Qty: 0,
+//                 Shortage_Qty: 0, // calculated later
 //               });
 //             }
 
 //             const g = globalItemMap.get(itemId);
-//             g.Desired_Systems += headDesiredSystem;
 //             g.Required_Qty += item.requiredQty;
-//             g.Shortage_Qty += item.shortageQty;
 //           }
-//           // 🔁 SINGLE SYSTEM VARIABLE
+//           // 🔁 SYSTEM-SPECIFIC VARIABLE
 //           else {
 //             const row = {
 //               SystemName: system.systemName,
 //               PumpHead: head.pumpHead,
 //               ItemType: "VARIABLE",
 //               ItemName: item.itemName,
-//               BOM_Qty: item.bomQty,
 //               Stock_Qty: item.stockQty,
-//               Desired_Systems: headDesiredSystem,
 //               Required_Qty: item.requiredQty,
 //               Shortage_Qty: item.shortageQty,
 //             };
@@ -2502,7 +2485,7 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //         xlsx.utils.book_append_sheet(
 //           workbook,
 //           worksheet,
-//           system.systemName.slice(0, 31)
+//           system.systemName.slice(0, 31),
 //         );
 //       }
 //     }
@@ -2513,24 +2496,30 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //     }
 
 //     /* =====================================================
-//        FINAL CONSOLIDATED SHEET
+//        STEP 4: FINAL SHORTAGE CALCULATION (GLOBAL ITEMS)
+//     ===================================================== */
+//     for (const g of globalItemMap.values()) {
+//       g.Shortage_Qty = Math.max(g.Required_Qty - g.Stock_Qty, 0);
+//     }
+
+//     /* =====================================================
+//        STEP 5: FINAL CONSOLIDATED SHEET
 //     ===================================================== */
 //     const finalSingleSheet = [
 //       ...Array.from(globalItemMap.values()),
 //       ...singleSheetRows,
 //     ];
 
-//     const consolidatedSheet =
-//       xlsx.utils.json_to_sheet(finalSingleSheet);
+//     const consolidatedSheet = xlsx.utils.json_to_sheet(finalSingleSheet);
 
 //     xlsx.utils.book_append_sheet(
 //       workbook,
 //       consolidatedSheet,
-//       "SYSTEM_STOCK_SHORTAGE"
+//       "SYSTEM_STOCK_SHORTAGE",
 //     );
 
 //     /* =====================================================
-//        SEND MAIL
+//        STEP 6: SEND MAIL
 //     ===================================================== */
 //     const excelBuffer = xlsx.write(workbook, {
 //       bookType: "xlsx",
@@ -2543,14 +2532,18 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
 //         process.env.ADMIN_EMAIL,
 //         process.env.DEVELOPER_EMAIL,
 //       ],
-//       subject: "⚠️ Stock Shortage Report (Synced Items)",
-//       text: "Attached is the synced system-wise stock shortage report.",
+//       subject: "⚠️ Stock Shortage Report (Final)",
+//       text:
+//         "Attached is the system-wise stock shortage report. " +
+//         "BOM Qty and Desired Systems have been removed as requested.",
 //       attachments: [
 //         {
 //           filename: `Stock_Shortage_${new Date()
 //             .toISOString()
 //             .slice(0, 10)}.xlsx`,
 //           content: excelBuffer,
+//           contentType:
+//             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 //         },
 //       ],
 //     });
@@ -2581,13 +2574,15 @@ const sendAllSystemStockShortageReport = async () => {
 
     /* =====================================================
        STEP 1: TRACK ITEM USAGE ACROSS SYSTEMS
-       (COMMON + VARIABLE)
     ===================================================== */
     const itemUsageMap = new Map();
     // itemId -> { itemName, systems:Set }
 
+    const dashboardCache = new Map();
+
     for (const system of systems) {
       const dashboardData = await getDashboardService(system._id, warehouseId);
+      dashboardCache.set(system._id.toString(), dashboardData);
 
       const registerItem = (item) => {
         const itemId = item.itemId?.toString();
@@ -2600,26 +2595,26 @@ const sendAllSystemStockShortageReport = async () => {
           });
         }
 
-        itemUsageMap.get(itemId).systems.add(system.systemName);
+        itemUsageMap.get(itemId).systems.add(system._id.toString());
       };
 
       dashboardData.commonItems.forEach(registerItem);
       dashboardData.variableItems.forEach((head) =>
-        head.items.forEach(registerItem),
+        head.items.forEach(registerItem)
       );
     }
 
     /* =====================================================
        STEP 2: COLLECTORS
     ===================================================== */
-    const globalItemMap = new Map(); // multi-system items
+    const globalItemMap = new Map(); // itemId -> global row
     const singleSheetRows = [];
 
     /* =====================================================
        STEP 3: MAIN LOOP
     ===================================================== */
     for (const system of systems) {
-      const dashboardData = await getDashboardService(system._id, warehouseId);
+      const dashboardData = dashboardCache.get(system._id.toString());
       const systemRows = [];
 
       /* ================= COMMON ITEMS ================= */
@@ -2640,12 +2635,16 @@ const sendAllSystemStockShortageReport = async () => {
               ItemName: item.itemName,
               Stock_Qty: item.stockQty,
               Required_Qty: 0,
-              Shortage_Qty: 0, // calculated later
+              Shortage_Qty: 0,
+              systemsCounted: new Set(), // 🔒 prevent double count
             });
           }
 
           const g = globalItemMap.get(itemId);
-          g.Required_Qty += item.requiredQty;
+          if (!g.systemsCounted.has(system._id.toString())) {
+            g.Required_Qty += item.requiredQty;
+            g.systemsCounted.add(system._id.toString());
+          }
         }
         // 🔁 SYSTEM-SPECIFIC COMMON
         else {
@@ -2683,12 +2682,16 @@ const sendAllSystemStockShortageReport = async () => {
                 ItemName: item.itemName,
                 Stock_Qty: item.stockQty,
                 Required_Qty: 0,
-                Shortage_Qty: 0, // calculated later
+                Shortage_Qty: 0,
+                systemsCounted: new Set(),
               });
             }
 
             const g = globalItemMap.get(itemId);
-            g.Required_Qty += item.requiredQty;
+            if (!g.systemsCounted.has(system._id.toString())) {
+              g.Required_Qty += item.requiredQty;
+              g.systemsCounted.add(system._id.toString());
+            }
           }
           // 🔁 SYSTEM-SPECIFIC VARIABLE
           else {
@@ -2714,7 +2717,7 @@ const sendAllSystemStockShortageReport = async () => {
         xlsx.utils.book_append_sheet(
           workbook,
           worksheet,
-          system.systemName.slice(0, 31),
+          system.systemName.slice(0, 31)
         );
       }
     }
@@ -2729,6 +2732,7 @@ const sendAllSystemStockShortageReport = async () => {
     ===================================================== */
     for (const g of globalItemMap.values()) {
       g.Shortage_Qty = Math.max(g.Required_Qty - g.Stock_Qty, 0);
+      delete g.systemsCounted; // cleanup
     }
 
     /* =====================================================
@@ -2744,7 +2748,7 @@ const sendAllSystemStockShortageReport = async () => {
     xlsx.utils.book_append_sheet(
       workbook,
       consolidatedSheet,
-      "SYSTEM_STOCK_SHORTAGE",
+      "SYSTEM_STOCK_SHORTAGE"
     );
 
     /* =====================================================
@@ -2757,8 +2761,8 @@ const sendAllSystemStockShortageReport = async () => {
 
     await sendMail({
       to: [
-        process.env.PURCHASE_EMAIL,
-        process.env.ADMIN_EMAIL,
+        // process.env.PURCHASE_EMAIL,
+        // process.env.ADMIN_EMAIL,
         process.env.DEVELOPER_EMAIL,
       ],
       subject: "⚠️ Stock Shortage Report (Final)",
@@ -3123,6 +3127,132 @@ const bulkUploadRawMaterial = async (req, res) => {
   }
 };
 
+const createInfraItem = async (req, res) => {
+  try {
+    let {
+      name,
+      unit,
+      description,
+      hsnCode,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
+
+    const empId = req.user?.id;
+
+    if (!name || !unit) {
+      return res.status(400).json({
+        success: false,
+        message: "name, unit, source are required",
+      });
+    }
+
+    const trimmedName = name.trim();
+
+    /* =====================================================
+       🔁 SAFE CONVERSION LOGIC (STRING BASED)
+    ====================================================== */
+    let numericConversionFactor;
+    try {
+      numericConversionFactor =
+        conversionFactor === undefined || conversionFactor === null
+          ? 1
+          : parseConversionFactor(String(conversionFactor));
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
+    const finalConversionUnit = conversionUnit || unit;
+
+      const existingItem = await prisma.infraMaterial.findUnique({
+        where: { name: trimmedName },
+      });
+
+      if (existingItem) {
+        return res.status(400).json({
+          success: false,
+          message: "Infra material already exists",
+        });
+      }
+
+      const warehouses = await Warehouse.find({});
+      if (!warehouses.length) {
+        return res.status(400).json({
+          success: false,
+          message: "No warehouses found",
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const infraMaterial = await tx.infraMaterial.create({
+          data: {
+            name: trimmedName,
+            description: description || null,
+            unit,
+            hsnCode: hsnCode || null,
+            conversionUnit: finalConversionUnit,
+            conversionFactor: numericConversionFactor,
+            createdBy: empId,
+          },
+        });
+
+        const warehouseStockData = warehouses.map((wh) => ({
+          warehouseId: wh._id.toString(),
+          infraItemId: infraMaterial.id,
+          quantity: 0,
+          damagedQty: 0,
+          unit,
+          isUsed: true,
+        }));
+
+        await tx.warehouseStock.createMany({
+          data: warehouseStockData,
+          skipDuplicates: true,
+        });
+
+        return infraMaterial;
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Infra Material Created Successfully",
+        data: result,
+      });
+  } catch (error) {
+    console.error("Create Item Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const showModels = async (req, res) => {
+  try {
+    const models = await BOM.find({ isActive: true })
+      .select("_id name")
+      .sort({ name: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: models.length ? "Models fetched successfully" : "No models found",
+      data: models || []
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+
 module.exports = {
   addRole,
   showRole,
@@ -3168,5 +3298,6 @@ module.exports = {
   getCurrencies,
   getAddressByPincode,
   exportRawMaterialStockByWarehouse,
-  bulkUploadRawMaterial
+  bulkUploadRawMaterial,
+  showModels
 };

@@ -243,4 +243,6 @@ router.post(
   commonController.bulkUploadRawMaterial,
 );
 
+router.get("/model/show", commonController.showModels);
+
 module.exports = router;

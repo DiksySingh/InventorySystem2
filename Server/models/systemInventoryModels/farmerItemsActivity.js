@@ -25,6 +25,10 @@ const farmerItemsActivitySchema = new Schema({
         ref: "System",
         required: true
     },
+    bomId: {
+        type: Schema.Types.ObjectId,
+        ref: "BOM",
+    },
     itemsList: [
         {
             systemItemId: {
