@@ -12,6 +12,11 @@ const showAllPOWithBills = async (req, res) => {
     }
 
     const pos = await prisma.purchaseOrder.findMany({
+      where: {
+        NOT: {
+          status: "Cancelled",
+        },
+      },
       select: {
         id: true,
         poNumber: true,
@@ -53,12 +58,15 @@ const showAllPOWithBills = async (req, res) => {
       const isINR = (po.currency || "INR").toUpperCase() === "INR";
 
       const grandTotal = Number(
-        isINR ? po.grandTotal : po.foreignGrandTotal || 0
+        isINR ? po.grandTotal : po.foreignGrandTotal || 0,
       );
 
-      const totalPaid = po.payments
-        ?.filter((p) => p.paymentStatus === true && p.adminApprovalStatus === true)
-        ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      const totalPaid =
+        po.payments
+          ?.filter(
+            (p) => p.paymentStatus === true && p.adminApprovalStatus === true,
+          )
+          ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
 
       return {
         poId: po.id,
@@ -66,13 +74,13 @@ const showAllPOWithBills = async (req, res) => {
         companyName: po.companyName,
         vendorName: po.vendorName,
         poDate: po.poDate,
-        hasBill: po.bills.length > 0,   
-        currency: po.currency,           // NEW FLAG
+        hasBill: po.bills.length > 0,
+        currency: po.currency, // NEW FLAG
         grandTotal,
         totalPaid,
         remainingAmount: Number(grandTotal) - Number(totalPaid),
         items: po.items,
-        bills: po.bills,                           // If empty => no invoice uploaded yet
+        bills: po.bills, // If empty => no invoice uploaded yet
       };
     });
 
@@ -105,7 +113,7 @@ const showPendingPaymentRequests = async (req, res) => {
 
     const payments = await prisma.payment.findMany({
       where: {
-        docApprovalStatus: null
+        docApprovalStatus: null,
       },
       include: {
         purchaseOrder: {
@@ -116,30 +124,30 @@ const showPendingPaymentRequests = async (req, res) => {
               select: {
                 amount: true,
                 paymentStatus: true,
-                adminApprovalStatus: true
-              }
-            }
-          }
+                adminApprovalStatus: true,
+              },
+            },
+          },
         },
         debitNote: {
           select: {
             id: true,
             debitNoteNo: true,
-            drNoteDate: true
-          }
+            drNoteDate: true,
+          },
         },
         paymentCreatedBy: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    const formatted = payments.map(pay => {
+    const formatted = payments.map((pay) => {
       const po = pay.purchaseOrder;
       const currency = (po.currency || "INR").toUpperCase();
       const isINR = currency === "INR";
@@ -164,7 +172,7 @@ const showPendingPaymentRequests = async (req, res) => {
         requestedAmount: Number(pay.amount),
         billpaymentType: pay.billpaymentType,
         paymentRequestedBy: pay.paymentCreatedBy.name,
-        createdAt: pay.createdAt
+        createdAt: pay.createdAt,
       };
     });
 
@@ -172,9 +180,8 @@ const showPendingPaymentRequests = async (req, res) => {
       success: true,
       message: "Pending payment requests",
       count: formatted.length,
-      data: formatted
+      data: formatted,
     });
-
   } catch (error) {
     console.error("SHOW PAYMENT REQUEST ERROR:", error);
     return res.status(500).json({
@@ -214,7 +221,7 @@ const approveOrRejectPaymentRequest = async (req, res) => {
     }
 
     const payment = await prisma.payment.findUnique({
-      where: { id: paymentRequestId }
+      where: { id: paymentRequestId },
     });
 
     if (!payment) {
@@ -231,7 +238,6 @@ const approveOrRejectPaymentRequest = async (req, res) => {
       });
     }
 
-
     // Update
     const updated = await prisma.payment.update({
       where: { id: paymentRequestId },
@@ -239,7 +245,7 @@ const approveOrRejectPaymentRequest = async (req, res) => {
         docApprovalStatus: status.toUpperCase() === "APPROVED" ? true : false,
         docApprovalDate: new Date(),
         docApprovalRemark: remarks.trim(),
-        docApprovedBy: userId
+        docApprovedBy: userId,
       },
     });
 
@@ -248,7 +254,6 @@ const approveOrRejectPaymentRequest = async (req, res) => {
       message: `Payment request ${status.toLowerCase()} successfully`,
       data: updated,
     });
-
   } catch (error) {
     console.error("Handle Payment Request ERROR:", error.message);
     return res.status(500).json({
