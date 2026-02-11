@@ -7599,6 +7599,7 @@ const createPaymentRequest = async (req, res) => {
         billpaymentType,
         createdBy: userId,
         paymentRequestedBy: userId,
+        paymentDate: null,
       },
     });
 
