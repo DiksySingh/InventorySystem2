@@ -4074,10 +4074,10 @@ const previewPOPdf = async (req, res) => {
       include: { role: true },
     });
 
-    if (!user || user.role?.name !== "Admin") {
+    if (!["Admin", "Verification"].includes(user.role?.name)) {
       return res.status(403).json({
         success: false,
-        message: "Access Denied: Only Admin is allowed to preview PO.",
+        message: "Access Denied: Only Admin & Verification is allowed to preview PO.",
       });
     }
 
