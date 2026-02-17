@@ -61,8 +61,12 @@ model User {
   adminApprovedPayments     Payment[]                    @relation("approvedBy_Admin")
   paymentTransferred        Payment[]                    @relation("payment_TransferredBy")
 
-  invoiceCreated VendorInvoices[] @relation("invoice_CreatedBy")
-  invoiceUpdated VendorInvoices[] @relation("invoice_UpdatedBy")
+  invoiceCreated    VendorInvoices[]  @relation("invoice_CreatedBy")
+  invoiceUpdated    VendorInvoices[]  @relation("invoice_UpdatedBy")
+  infraItemsCreated InfraMaterial[]   @relation("InfraItemCreatedByUser")
+  infraItemsUpdated InfraMaterial[]   @relation("InfroItemUpdatedByUser")
+  toolsCreatedBy    ToolsEquipments[] @relation("ToolsCreatedByUser")
+  toolsUpdatedBy    ToolsEquipments[] @relation("ToolsUpdatedByUser")
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -153,19 +157,35 @@ model StageRawMaterial {
   @@unique([stageId, rawMaterialId])
 }
 
-model WarehouseStock {
-  id            String   @id @default(uuid())
-  warehouseId   String? // MongoDB warehouse _id
-  rawMaterialId String?
-  quantity      Float?   @default(0)
-  unit          String?
-  isUsed        Boolean? @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+enum ItemCategory {
+  RAW
+  INFRA
+  TOOL
+  INSTALLATION
+}
 
-  rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+model WarehouseStock {
+  id              String         @id @default(uuid())
+  warehouseId     String? // MongoDB warehouse _id
+  rawMaterialId   String?
+  infraItemId     String?
+  toolEquipmentId String?
+  itemId          String?
+  itemType        ItemCategory?
+  quantity        Float?         @default(0)
+  damagedQty      Float?         @default(0)
+  unit            String?
+  isUsed          Boolean?       @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  rawMaterial     RawMaterial?     @relation(fields: [rawMaterialId], references: [id])
+  infraItem       InfraMaterial?   @relation(fields: [infraItemId], references: [id])
+  toolsEquipments ToolsEquipments? @relation(fields: [toolEquipmentId], references: [id])
 
   @@unique([warehouseId, rawMaterialId])
+  @@unique([warehouseId, infraItemId])
+  @@unique([warehouseId, toolEquipmentId])
   @@index([warehouseId])
 }
 
@@ -180,19 +200,25 @@ model StockMovementBatch {
 }
 
 model StockMovement {
-  id            String   @id @default(uuid())
-  batchId       String?
-  rawMaterialId String?
-  userId        String?
-  warehouseId   String?
-  quantity      Float?
-  unit          String?
-  type          String?
-  timestamp     DateTime @default(now())
+  id              String   @id @default(uuid())
+  batchId         String?
+  rawMaterialId   String?
+  infraItemId     String?
+  toolEquipmentId String?
+  userId          String?
+  warehouseId     String?
+  itemId          String?
+  itemType        ItemCategory?
+  quantity        Float?
+  unit            String?
+  type            String?
+  timestamp       DateTime @default(now())
 
-  rawMaterial RawMaterial?        @relation(fields: [rawMaterialId], references: [id])
-  user        User?               @relation(fields: [userId], references: [id])
-  batch       StockMovementBatch? @relation(fields: [batchId], references: [id])
+  rawMaterial     RawMaterial?        @relation(fields: [rawMaterialId], references: [id])
+  infraItem       InfraMaterial?      @relation(fields: [infraItemId], references: [id])
+  user            User?               @relation(fields: [userId], references: [id])
+  batch           StockMovementBatch? @relation(fields: [batchId], references: [id])
+  toolsEquipments ToolsEquipments?    @relation(fields: [toolEquipmentId], references: [id])
 
   @@index([rawMaterialId], map: "StockMovement_rawMaterialId_fkey")
   @@index([warehouseId], map: "StockMovement_warehouseId_fkey")
@@ -370,6 +396,7 @@ model ItemRequestData {
   serviceProcessId     String?
   isProcessRequest     Boolean   @default(false) // true = tied to specific process, false = advance/global
   rawMaterialRequested Json?
+  materialRequested    Json?
   requestedTo          String?
   requestedBy          String?
   requestedAt          DateTime  @default(now())
@@ -401,7 +428,7 @@ model DirectItemIssue {
   isProcessIssue   Boolean @default(false)
 
   rawMaterialIssued Json? // same structure as rawMaterialRequested
-
+  materialIssued    Json?
   issuedTo     String? // Line worker (receiver)
   issuedBy     String? // Storekeeper (issuer)
   issuedAt     DateTime @default(now())
@@ -518,6 +545,8 @@ model ItemUsage {
   serviceProcessId String?
   empId            String?
   rawMaterialId    String?
+  itemId            String?
+  itemType          ItemCategory?
   quantityUsed     Float?
   unit             String?
 
@@ -535,6 +564,8 @@ model UserItemStock {
   id            String   @id @default(uuid())
   empId         String?
   rawMaterialId String?
+  itemId        String?
+  itemType      ItemCategory?
   quantity      Float    @default(0)
   unit          String?
   createdAt     DateTime @default(now())
@@ -544,6 +575,7 @@ model UserItemStock {
   rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
 
   @@unique([empId, rawMaterialId])
+  @@unique([empId, itemId, itemType])
   @@map("UserItemStock")
 }
 
@@ -778,6 +810,7 @@ model Counter {
 
 model PurchaseOrder {
   id            String   @id @default(uuid())
+  heading       String?
   poNumber      String   @unique
   financialYear String?
   companyId     String
@@ -826,16 +859,17 @@ model PurchaseOrder {
   warranty             String?
   expectedDeliveryDate DateTime?
 
-  otherCharges  Json?
-  warehouseId   String?
-  warehouseName String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  otherCharges      Json?
+  warehouseId       String?
+  warehouseName     String?
+  termsConditionsId String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   company                  Company                   @relation(fields: [companyId], references: [id])
   vendor                   Vendor                    @relation(fields: [vendorId], references: [id])
   bankDetail               BankDetail?               @relation(fields: [bankDetailId], references: [id])
+  termsConditions          Terms_Conditions?         @relation(fields: [termsConditionsId], references: [id])
   items                    PurchaseOrderItem[]
   payments                 Payment[]
   returnToVendor           ReturnToVendor[]
@@ -1048,7 +1082,8 @@ model DebitNoteBill {
 
 model Terms_Conditions {
   id        String   @id @default(uuid())
-  term      String?  @db.VarChar(500)
+  heading   String?
+  terms     Json?
   isActive  Boolean? @default(true)
   createdAt DateTime @default(now())
   createdBy String?
@@ -1058,6 +1093,7 @@ model Terms_Conditions {
   TermsCreatedBy           User?                     @relation("TermsCreatedBy", fields: [createdBy], references: [id])
   TermsUpdatedBy           User?                     @relation("TermsUpdatedBy", fields: [updatedBy], references: [id])
   purchaseOrDebitNoteTerms PurchaseOrDebitNoteTerm[]
+  purchaseOrders           PurchaseOrder[]
 }
 
 model PurchaseOrDebitNoteTerm {
@@ -1116,6 +1152,7 @@ enum BillPaymentType {
   Advance_Payment
   Partial_Payment
   Full_Payment
+  Full_Payment_In_Advance
 }
 
 model Payment {
@@ -1183,4 +1220,46 @@ model VendorInvoices {
   purchaseOrder    PurchaseOrder? @relation(fields: [poId], references: [id])
 
   @@unique([vendorId, poId, invoiceNumber])
+}
+
+model InfraMaterial {
+  id               String   @id @default(uuid())
+  name             String?  @unique
+  unit             String?
+  hsnCode          String?
+  conversionUnit   String?
+  conversionFactor Float?
+  isUsed           Boolean? @default(true)
+  description      String?
+
+  createdAt DateTime @default(now())
+  createdBy String?
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  infraItemCreatedBy User?            @relation("InfraItemCreatedByUser", fields: [createdBy], references: [id])
+  infraItemUpdatedBy User?            @relation("InfroItemUpdatedByUser", fields: [updatedBy], references: [id])
+  warehouseStocks    WarehouseStock[]
+  stockMovements     StockMovement[]
+}
+
+model ToolsEquipments {
+  id               String   @id @default(uuid())
+  name             String?  @unique
+  unit             String?
+  hsnCode          String?
+  conversionUnit   String?
+  conversionFactor Float?
+  isUsed           Boolean? @default(true)
+  description      String?
+
+  createdAt DateTime @default(now())
+  createdBy String?
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  toolsCreatedBy  User?            @relation("ToolsCreatedByUser", fields: [createdBy], references: [id])
+  toolsUpdatedBy  User?            @relation("ToolsUpdatedByUser", fields: [updatedBy], references: [id])
+  warehouseStocks WarehouseStock[]
+  stockMovements  StockMovement[]
 }
