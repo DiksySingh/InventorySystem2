@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
+const xlsx = require("xlsx");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const generatePO = require("../../util/generatePO");
@@ -18,6 +19,9 @@ const BOM = require("../../models/systemInventoryModels/bomModelSchema");
 const getDashboardService = require("../../services/systemDashboardService");
 const buildPOPdfBuffer = require("../../helpers/rawMaterialItemsHelpers/poPdf.helper");
 const sendPOMail = require("../../util/mail/sendPOMail");
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 function getISTDate() {
   const now = new Date();
@@ -3456,12 +3460,12 @@ const downloadPOPDF = async (req, res) => {
       include: { role: true },
     });
 
-    const allowedRoles = ['Purchase', 'Admin'];
+    const allowedRoles = ["Purchase", "Admin"];
 
     if (!user || !allowedRoles.includes(user.role?.name)) {
       return res.status(403).json({
         success: false,
-        message: `Access Denied: Only ${allowedRoles.join(' & ')} can generate PO.`,
+        message: `Access Denied: Only ${allowedRoles.join(" & ")} can generate PO.`,
       });
     }
 
@@ -3571,16 +3575,23 @@ const downloadPOPDF2 = async (req, res) => {
       include: { role: true },
     });
 
-    if (!user || user.role?.name !== "Purchase") {
+    const allowedRoles = ["Purchase", "Admin"];
+
+    if (!user || !allowedRoles.includes(user.role?.name)) {
       return res.status(403).json({
         success: false,
-        message: "Access Denied: Only Purchase Department can generate PO.",
+        message: `Access Denied: Only ${allowedRoles.join(" & ")} can generate PO.`,
       });
     }
 
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: poId },
-      include: { company: true, vendor: true, items: true },
+      include: {
+        company: true,
+        vendor: true,
+        items: true,
+        termsConditions: true,
+      },
     });
 
     if (!po) {
@@ -5984,6 +5995,74 @@ const getSystems = async (req, res) => {
   }
 };
 
+const uploadTermsFromExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file required",
+      });
+    }
+
+    // READ BUFFER (no file saved)
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+
+    const sheetName = workbook.SheetNames[0];
+    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (!rows.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel is empty",
+      });
+    }
+
+    let heading = null;
+    const terms = [];
+
+    for (const row of rows) {
+      if (!heading && row.heading) {
+        heading = String(row.heading).trim();
+      }
+
+      if (row.terms) {
+        terms.push(String(row.terms).trim());
+      }
+    }
+
+    if (!heading)
+      return res
+        .status(400)
+        .json({ success: false, message: "Heading missing" });
+
+    if (!terms.length)
+      return res
+        .status(400)
+        .json({ success: false, message: "No terms found" });
+
+    // INSERT
+    const data = await prisma.terms_Conditions.create({
+      data: {
+        heading,
+        terms,
+        createdBy: req.user?.id,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Terms imported successfully",
+      data,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 const addTermCondition = async (req, res) => {
   try {
     const { term } = req.body;
@@ -6081,7 +6160,8 @@ const getAllTerms = async (req, res) => {
       },
       select: {
         id: true,
-        term: true,
+        heading: true,
+        terms: true,
         isActive: true,
       },
     });
@@ -6222,7 +6302,6 @@ const getRawMaterialByWarehouse = async (req, res) => {
       // Step 3: Then sort by stock quantity
       return a.rawStock - b.rawStock;
     });
-
 
     const cleanedData = sortedData.map(({ rawStock, ...rest }) => rest);
 
@@ -7518,12 +7597,139 @@ const createPaymentRequest = async (req, res) => {
       });
     }
 
-    const validTypes = ["Advance_Payment", "Partial_Payment", "Full_Payment"];
+    const validTypes = ["Advance_Payment", "Partial_Payment", "Full_Payment", "Full_Payment_In_Advance"];
     if (!validTypes.includes(billpaymentType)) {
       return res.status(400).json({
         success: false,
         message:
-          "billpaymentType must be one of: Advance_Payment, Partial_Payment, Full_Payment",
+          "billpaymentType must be one of: Advance_Payment, Partial_Payment, Full_Payment, Full_Payment_In_Advance",
+      });
+    }
+
+    // Get PO + payments
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: {
+        payments: {
+          where: {
+            paymentStatus: true,
+            adminApprovalStatus: true,
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase Order not found",
+      });
+    }
+
+    // 🔥 Decide totals based on currency
+    const isINR = (po.currency || "INR").toUpperCase() === "INR";
+    const poGrandTotal = Number(isINR ? po.grandTotal : po.foreignGrandTotal);
+
+    if (!poGrandTotal) {
+      return res.status(400).json({
+        success: false,
+        message: "PO grandTotal missing based on currency type",
+      });
+    }
+
+    // Approved payments sum
+    const totalPaid = po.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+    const remainingBalance = poGrandTotal - totalPaid;
+
+    // Over-limit check
+    if (Number(amount) > remainingBalance) {
+      return res.status(400).json({
+        success: false,
+        message: `Requested amount exceeds remaining PO balance`,
+        details: {
+          currency: po.currency || "INR",
+          grandTotal: poGrandTotal,
+          alreadyPaid: totalPaid,
+          remaining: remainingBalance,
+        },
+      });
+    }
+
+    // Optional Debit Note validation
+    if (debitNoteId) {
+      const dn = await prisma.debitNote.findUnique({
+        where: { id: debitNoteId },
+      });
+      if (!dn || dn.purchaseOrderId !== poId) {
+        return res.status(404).json({
+          success: false,
+          message: "Debit Note not found for this PO",
+        });
+      }
+    }
+
+    // Create Payment Request
+    const payment = await prisma.payment.create({
+      data: {
+        poId,
+        debitNoteId: debitNoteId || null,
+        amount,
+        billpaymentType,
+        createdBy: userId,
+        paymentRequestedBy: userId,
+        paymentDate: null,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Payment request successfully submitted",
+      summary: {
+        currency: po.currency || "INR",
+        grandTotal: poGrandTotal,
+        paymentRequested: Number(amount),
+        alreadyPaid: totalPaid,
+        remainingAfterThis: remainingBalance - Number(amount),
+      },
+    });
+  } catch (error) {
+    console.error("CREATE PAYMENT ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const createPaymentRequest2 = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (userRole.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Team can request payment",
+      });
+    }
+
+    const { poId, debitNoteId, amount, billpaymentType } = req.body;
+
+    if (!poId || !amount || !billpaymentType) {
+      return res.status(400).json({
+        success: false,
+        message: "poId, amount & billpaymentType are required",
+      });
+    }
+
+    const validTypes = ["Advance_Payment", "Partial_Payment", "Full_Payment","Full_Payment_In_Advance"];
+    if (!validTypes.includes(billpaymentType)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "billpaymentType must be one of: Advance_Payment, Partial_Payment, Full_Payment, Full_Payment_In_Advance",
       });
     }
 
@@ -8201,48 +8407,1222 @@ const sendPOForApproval = async (req, res) => {
 const addBOMModel = async (req, res) => {
   try {
     const userId = req.user?.id;
-    if(!userId) {
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized"
+        message: "Unauthorized",
       });
     }
 
-
-    const {name , description} = req.body;
-    if(!name) {
+    const { name, description } = req.body;
+    if (!name) {
       return res.status(400).json({
         success: false,
-        message: "Model name is required"
+        message: "Model name is required",
       });
     }
     const capsModelName = name.toUpperCase().trim();
     const existingModel = await BOM.findOne({
-      name: capsModelName
+      name: capsModelName,
     });
 
-    if(existingModel) {
+    if (existingModel) {
       return res.status(400).json({
         success: false,
-        message: "Model already exists."
+        message: "Model already exists.",
       });
     }
 
     const newModel = await BOM.create({
       name: capsModelName,
       description: description || "",
-      createdBy: userId
+      createdBy: userId,
     });
 
     return res.status(201).json({
       success: true,
       message: "Model created successfully",
-      data: newModel
+      data: newModel,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+// Version 2 API
+
+const getItemsList2 = async (req, res) => {
+  try {
+    /* =====================================================
+       🔴 RAW MATERIAL (Prisma)
+    ====================================================== */
+    const rawMaterials = await prisma.rawMaterial.findMany({
+      select: { id: true, name: true },
+    });
+
+    const formattedRaw = rawMaterials.map((item) => ({
+      id: item.id,
+      name: item.name,
+      itemType: "RAW",
+      source: "mysql",
+    }));
+
+    /* =====================================================
+       🔵 INFRA MATERIAL (Prisma)
+    ====================================================== */
+    const infraMaterials = await prisma.infraMaterial.findMany({
+      select: { id: true, name: true },
+    });
+
+    const formattedInfra = infraMaterials.map((item) => ({
+      id: item.id,
+      name: item.name,
+      itemType: "INFRA",
+      source: "mysql",
+    }));
+
+    /* =====================================================
+       🟡 TOOLS & EQUIPMENTS (Prisma)
+    ====================================================== */
+    const tools = await prisma.toolsEquipments.findMany({
+      select: { id: true, name: true },
+    });
+
+    const formattedTools = tools.map((item) => ({
+      id: item.id,
+      name: item.name,
+      itemType: "TOOL",
+      source: "mysql",
+    }));
+
+    /* =====================================================
+       🟢 INSTALLATION (Mongo)
+    ====================================================== */
+    const mongoItems = await SystemItem.find({}, { itemName: 1 }).lean();
+
+    const formattedMongo = mongoItems.map((item) => ({
+      id: item._id.toString(),
+      name: item.itemName,
+      itemType: "INSTALLATION",
+      source: "mongo",
+    }));
+
+    /* =====================================================
+       🔁 MERGE ALL
+    ====================================================== */
+    const allItems = [
+      ...formattedRaw,
+      ...formattedInfra,
+      ...formattedTools,
+      ...formattedMongo,
+    ];
+
+    /* =====================================================
+       🔤 SORT BY NAME (CASE-INSENSITIVE)
+    ====================================================== */
+    allItems.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+      }),
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Items fetched successfully",
+      count: allItems.length,
+      items: allItems,
+    });
+  } catch (error) {
+    console.error("Get Items List Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch items",
+    });
+  }
+};
+
+const getItemDetails2 = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    /* =====================================================
+       🔴 RAW MATERIAL (Prisma)
+    ====================================================== */
+    const rawMaterial = await prisma.rawMaterial.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        hsnCode: true,
+        description: true,
+        conversionUnit: true,
+        conversionFactor: true,
+      },
+    });
+
+    if (rawMaterial) {
+      return res.status(200).json({
+        success: true,
+        itemType: "RAW",
+        source: "mysql",
+        item: rawMaterial,
+      });
+    }
+
+    /* =====================================================
+       🔵 INFRA MATERIAL (Prisma)
+    ====================================================== */
+    const infraMaterial = await prisma.infraMaterial.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        hsnCode: true,
+        description: true,
+        conversionUnit: true,
+        conversionFactor: true,
+      },
+    });
+
+    if (infraMaterial) {
+      return res.status(200).json({
+        success: true,
+        itemType: "INFRA",
+        source: "mysql",
+        item: infraMaterial,
+      });
+    }
+
+    /* =====================================================
+       🟡 TOOLS & EQUIPMENTS (Prisma)
+    ====================================================== */
+    const tool = await prisma.toolsEquipments.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        hsnCode: true,
+        description: true,
+        conversionUnit: true,
+        conversionFactor: true,
+      },
+    });
+
+    if (tool) {
+      return res.status(200).json({
+        success: true,
+        itemType: "TOOL",
+        source: "mysql",
+        item: tool,
+      });
+    }
+
+    /* =====================================================
+       🟢 INSTALLATION (Mongo)
+    ====================================================== */
+    const mongoItem = await SystemItem.findById(id, {
+      itemName: 1,
+      unit: 1,
+      hsnCode: 1,
+      description: 1,
+      converionUnit: 1,
+      conversionFactor: 1,
+    }).lean();
+
+    if (mongoItem) {
+      return res.status(200).json({
+        success: true,
+        itemType: "INSTALLATION",
+        source: "mongo",
+        item: {
+          id: mongoItem._id.toString(),
+          name: mongoItem.itemName,
+          unit: mongoItem.unit || "",
+          hsnCode: mongoItem.hsnCode || "",
+          description: mongoItem.description || "",
+          conversionUnit: mongoItem.converionUnit || mongoItem.unit || "",
+          conversionFactor: mongoItem.conversionFactor || 1,
+        },
+      });
+    }
+
+    /* =====================================================
+       ❌ NOT FOUND
+    ====================================================== */
+    return res.status(404).json({
+      success: false,
+      message: "Item data not found",
+    });
+  } catch (error) {
+    console.error("Get Item Details Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch item details",
+    });
+  }
+};
+
+const createPurchaseOrder3 = async (req, res) => {
+  try {
+    const {
+      heading,
+      warehouseId,
+      companyId,
+      vendorId,
+      gstType,
+      items,
+      remarks,
+      paymentTerms,
+      deliveryTerms,
+      warranty,
+      contactPerson,
+      cellNo,
+      currency,
+      exchangeRate,
+      expectedDeliveryDate,
+      otherCharges = [],
+      termsConditionsId,
+    } = req.body;
+
+    console.log("Req Body: ", req.body);
+
+    const userId = req.user?.id;
+    if (!userId)
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Department can create PO",
+      });
+    }
+
+    if (!warehouseId || !companyId || !vendorId || !gstType || !items?.length) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Receiving Warheouse, Company, Vendor, GST Type & Items are required",
+      });
+    }
+
+    if (expectedDeliveryDate) {
+      const poDateOnly = new Date();
+      poDateOnly.setHours(0, 0, 0, 0);
+
+      const expectedDateOnly = new Date(expectedDeliveryDate);
+      expectedDateOnly.setHours(0, 0, 0, 0);
+
+      // if (poDateOnly.getTime() === expectedDateOnly.getTime()) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Expected Delivery Date cannot be same as PO Date",
+      //   });
+      // }
+
+      if (expectedDateOnly < poDateOnly) {
+        return res.status(400).json({
+          success: false,
+          message: "Expected Delivery Date cannot be before PO Date",
+        });
+      }
+    }
+
+    if (termsConditionsId) {
+      const terms = await prisma.terms_Conditions.findUnique({
+        where: {
+          id: termsConditionsId,
+        },
+      });
+      if (!terms) {
+        return res.status(404).json({
+          success: false,
+          message: "Terms & Conditions Not Found",
+        });
+      }
+    }
+
+    let normalizedOtherCharges = [];
+
+    // Case 1: Frontend sends single empty object → treat as empty
+    if (
+      Array.isArray(otherCharges) &&
+      otherCharges.length === 1 &&
+      otherCharges[0]?.name === "" &&
+      otherCharges[0]?.amount === ""
+    ) {
+      normalizedOtherCharges = [];
+    }
+    // Case 2: Validate proper other charges
+    else if (Array.isArray(otherCharges) && otherCharges.length > 0) {
+      for (const ch of otherCharges) {
+        if (
+          !ch.name ||
+          ch.name.trim() === "" ||
+          ch.amount === "" ||
+          ch.amount == null ||
+          isNaN(ch.amount)
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid otherCharges: name and amount are required for each charge",
+          });
+        }
+
+        normalizedOtherCharges.push({
+          name: ch.name.trim(),
+          amount: new Decimal(ch.amount),
+        });
+      }
+    }
+
+    const isItemWise = gstType.includes("ITEMWISE");
+    console.log("Items List: ", items);
+    // Validate items
+    for (const item of items) {
+      console.log("Item: ", item);
+      if (!item.id || !item.name || !item.unit) {
+        return res.status(400).json({
+          success: false,
+          message: "Items must include id, name, unit",
+        });
+      }
+      if (!item.rate || !item.quantity || Number(item.quantity) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Each item must have valid quantity & rate",
+        });
+      }
+      if (isItemWise && (item.gstRate == null || item.gstRate === "")) {
+        return res.status(400).json({
+          success: false,
+          message: "Each item must have gstRate for item-wise GST PO",
+        });
+      }
+      if (!isItemWise && item.gstRate) {
+        return res.status(400).json({
+          success: false,
+          message: "gstRate is only allowed when PO GST type is ITEMWISE",
+        });
+      }
+    }
+
+    const mongoIds = [];
+    const mysqlIds = [];
+
+    // Separate IDs by source
+    for (const item of items) {
+      if (!item.source) {
+        return res.status(400).json({
+          success: false,
+          message: "item.source is required (mongo/mysql)",
+        });
+      }
+
+      if (item.source === "mongo") {
+        mongoIds.push(item.id);
+      } else if (item.source === "mysql") {
+        mysqlIds.push(item.id);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid item.source '${item.source}'. Use 'mongo' or 'mysql'.`,
+        });
+      }
+    }
+    console.log("MongoIds: ", mongoIds);
+    console.log("MySQLIds: ", mysqlIds);
+
+    // Fetch all mongo items in one query
+    let existingMongoItems = [];
+    if (mongoIds.length) {
+      existingMongoItems = await SystemItem.find({ _id: { $in: mongoIds } })
+        .select("_id")
+        .lean();
+    }
+
+    // Fetch all mysql items in one query
+    // let existingMysqlItems = [];
+    // if (mysqlIds.length) {
+    //   existingMysqlItems = await prisma.rawMaterial.findMany({
+    //     where: { id: { in: mysqlIds } },
+    //     select: { id: true },
+    //   });
+    // }
+
+    // Fetch all mysql items in one go (RAW + INFRA + TOOLS)
+    let existingMysqlItems = [];
+
+    if (mysqlIds.length) {
+      const [rawItems, infraItems, toolItems] = await Promise.all([
+        prisma.rawMaterial.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true },
+        }),
+        prisma.infraMaterial.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true },
+        }),
+        prisma.toolsEquipments.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true },
+        }),
+      ]);
+
+      existingMysqlItems = [...rawItems, ...infraItems, ...toolItems];
+    }
+
+    // Convert to fast lookup sets
+    const mongoSet = new Set(existingMongoItems.map((m) => String(m._id)));
+    console.log("MongoSet: ", mongoSet);
+    const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
+    console.log("MySQLSet: ", mysqlSet);
+
+    // Validate each item
+    for (const item of items) {
+      if (item.source === "mongo" && !mongoSet.has(item.id)) {
+        console.log(`MongoId not found`);
+        throw new Error(`Material with id '${item.id}' Not Found`);
+      }
+
+      if (item.source === "mysql" && !mysqlSet.has(item.id)) {
+        console.log("MySqlId Not Found");
+        throw new Error(`Material with id '${item.id}' Not Found`);
+      }
+    }
+    // Fetch company & vendor
+    const [company, vendor] = await Promise.all([
+      prisma.company.findUnique({ where: { id: companyId } }),
+      prisma.vendor.findUnique({ where: { id: vendorId } }),
+    ]);
+
+    if (!company || !vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Company/Vendor not found",
+      });
+    }
+
+    // PO currency and exchange rate
+    const finalCurrency = currency || "INR";
+    const finalExchangeRate =
+      exchangeRate && Number(exchangeRate) > 0
+        ? new Decimal(exchangeRate).toDecimalPlaces(4, Decimal.ROUND_DOWN)
+        : new Decimal(1);
+
+    const poNumber = await generatePONumber(company);
+    if (await prisma.purchaseOrder.findUnique({ where: { poNumber } })) {
+      return res.status(400).json({
+        success: false,
+        message: `PO ${poNumber} already exists`,
+      });
+    }
+
+    // ------------------------------------
+    // 🧮 Subtotal & GST Calculations
+    // ------------------------------------
+    let foreignSubTotal = new Decimal(0);
+    let subTotalINR = new Decimal(0);
+    let totalCGST = new Decimal(0);
+    let totalSGST = new Decimal(0);
+    let totalIGST = new Decimal(0);
+
+    const normalItems = [];
+    const itemWiseItems = [];
+
+    // Process items for DB
+    const processedItems = items.map((item) => {
+      const qty = new Decimal(item.quantity).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN,
+      );
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN,
+      );
+      const amountForeign = rateForeign
+        .mul(qty)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+
+      foreignSubTotal = foreignSubTotal.plus(amountForeign);
+      subTotalINR = subTotalINR.plus(amountINR);
+
+      isItemWise ? itemWiseItems.push(item) : normalItems.push(item);
+
+      return {
+        itemId: item.id,
+        itemSource: item.source,
+        itemName: item.name,
+        hsnCode: item.hsnCode || null,
+        modelNumber: item.modelNumber || null,
+        itemDetail: item.itemDetail || null,
+        unit: item.unit,
+        rateInForeign: currency !== "INR" ? rateForeign : null,
+        amountInForeign: currency !== "INR" ? amountForeign : null,
+        rate: new Decimal(item.rate),
+        gstRate: isItemWise ? new Decimal(item.gstRate) : null,
+        quantity: qty,
+        total: amountINR,
+        itemGSTType: isItemWise ? gstType : null,
+      };
+    });
+
+    // Add otherCharges to subtotal
+    let otherChargesTotal = new Decimal(0);
+    if (
+      Array.isArray(normalizedOtherCharges) &&
+      normalizedOtherCharges.length > 0
+    ) {
+      for (const ch of normalizedOtherCharges) {
+        if (!ch.amount || isNaN(ch.amount)) continue;
+        otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount));
+      }
+    }
+    let inrOtherChargesTotal = 0;
+    if (finalCurrency !== "INR") {
+      inrOtherChargesTotal = otherChargesTotal
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    }
+    subTotalINR =
+      finalCurrency === "INR"
+        ? subTotalINR.plus(otherChargesTotal)
+        : subTotalINR.plus(inrOtherChargesTotal);
+
+    // GST for normal items
+    const poGSTPercent =
+      isItemWise || gstType.includes("EXEMPTED")
+        ? null
+        : getGSTPercent(gstType);
+
+    if (normalItems.length && poGSTPercent) {
+      const normalTotalINR = subTotalINR;
+
+      if (gstType.startsWith("LGST")) {
+        totalCGST = totalCGST
+          .plus(normalTotalINR.mul(poGSTPercent.div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        totalSGST = totalSGST
+          .plus(normalTotalINR.mul(poGSTPercent.div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      } else if (gstType.startsWith("IGST")) {
+        totalIGST = totalIGST
+          .plus(normalTotalINR.mul(poGSTPercent.div(100)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      }
+    }
+
+    // Item-wise GST
+    if (isItemWise) {
+      for (const item of itemWiseItems) {
+        const totalINR = new Decimal(item.rate)
+          .mul(item.quantity)
+          .mul(finalExchangeRate)
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        const rate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN,
+        );
+
+        if (gstType === "LGST_ITEMWISE") {
+          totalCGST = totalCGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+          totalSGST = totalSGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        } else if (gstType === "IGST_ITEMWISE") {
+          totalIGST = totalIGST
+            .plus(totalINR.mul(rate.div(100)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        }
+      }
+    }
+
+    const totalGST = totalCGST
+      .plus(totalSGST)
+      .plus(totalIGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const rawGrandTotal = subTotalINR.plus(totalGST);
+    const grandTotalINR = roundGrandTotal(rawGrandTotal);
+    foreignSubTotal = foreignSubTotal.plus(otherChargesTotal);
+    const foreignGrandTotal = roundGrandTotal(foreignSubTotal);
+
+    let warehouseName = null;
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if (warehouseData) {
+      warehouseName = warehouseData?.warehouseName;
+    }
+    console.log(warehouseName);
+    // ------------------------------------
+    // 💾 Save Purchase Order
+    // ------------------------------------
+    const newPO = await prisma.$transaction(async (tx) => {
+      const po = await tx.purchaseOrder.create({
+        data: {
+          heading: heading || "Purchase Order",
+          poNumber,
+          financialYear: getFinancialYear(),
+          companyId,
+          companyName: company.name,
+          vendorId,
+          vendorName: vendor.name,
+          warehouseId,
+          warehouseName,
+          gstType,
+          gstRate: poGSTPercent,
+          currency: finalCurrency,
+          exchangeRate: finalExchangeRate,
+          foreignSubTotal: foreignSubTotal.toDecimalPlaces(
+            4,
+            Decimal.ROUND_DOWN,
+          ),
+          foreignGrandTotal,
+          subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
+          totalCGST,
+          totalSGST,
+          totalIGST,
+          totalGST,
+          grandTotal: grandTotalINR,
+          fixedGrandTotal: rawGrandTotal,
+          remarks,
+          paymentTerms,
+          deliveryTerms,
+          warranty,
+          contactPerson,
+          cellNo,
+          termsConditionsId: termsConditionsId || null,
+          createdBy: userId,
+          expectedDeliveryDate: expectedDeliveryDate
+            ? new Date(expectedDeliveryDate)
+            : null,
+          otherCharges: normalizedOtherCharges,
+          items: {
+            create: processedItems,
+          },
+        },
+        include: { items: true },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "PurchaseOrder",
+          entityId: po.id,
+          action: "CREATED",
+          performedBy: userId,
+          newValue: po,
+        },
+      });
+
+      return po;
+    });
+    console.log("Saved PO: ", newPO);
+    return res.status(201).json({
+      success: true,
+      message: "✅ Purchase Order created successfully",
+      data: newPO,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Server error while creating PO",
+    });
+  }
+};
+
+const updatePurchaseOrder3 = async (req, res) => {
+  try {
+    const { poId } = req.params;
+    const {
+      warehouseId,
+      companyId,
+      vendorId,
+      gstType,
+      items,
+      remarks,
+      paymentTerms,
+      deliveryTerms,
+      warranty,
+      contactPerson,
+      cellNo,
+      currency,
+      exchangeRate,
+      expectedDeliveryDate,
+      otherCharges = [],
+    } = req.body;
+
+    const userId = req.user?.id;
+    if (!userId)
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Department can update PO",
+      });
+    }
+
+    let normalizedOtherCharges = [];
+    if (
+      Array.isArray(otherCharges) &&
+      otherCharges.length === 1 &&
+      otherCharges[0]?.name === "" &&
+      otherCharges[0]?.amount === ""
+    ) {
+      normalizedOtherCharges = [];
+    }
+    // Case 2: Validate proper other charges
+    else if (Array.isArray(otherCharges) && otherCharges.length > 0) {
+      for (const ch of otherCharges) {
+        if (
+          !ch.name ||
+          ch.name.trim() === "" ||
+          ch.amount === "" ||
+          ch.amount == null ||
+          isNaN(ch.amount)
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid otherCharges: name and amount are required for each charge",
+          });
+        }
+
+        normalizedOtherCharges.push({
+          name: ch.name.trim(),
+          amount: new Decimal(ch.amount),
+        });
+      }
+    }
+
+    const existingPO = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { items: true },
+    });
+
+    if (!existingPO)
+      return res.status(404).json({ success: false, message: "PO not found" });
+
+    // if (existingPO.status !== "Draft") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Only Draft PO can be updated",
+    //   });
+    // }
+
+    if (expectedDeliveryDate) {
+      const poDateOnly = new Date(existingPO.poDate);
+      poDateOnly.setHours(0, 0, 0, 0);
+
+      const expectedDateOnly = new Date(expectedDeliveryDate);
+      expectedDateOnly.setHours(0, 0, 0, 0);
+
+      // if (poDateOnly.getTime() === expectedDateOnly.getTime()) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message:
+      //       "Expected Delivery Date cannot be the same as Purchase Order Date",
+      //   });
+      // }
+
+      if (expectedDateOnly < poDateOnly) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Expected Delivery Date cannot be earlier than Purchase Order Date",
+        });
+      }
+    }
+
+    if (!items?.length)
+      return res.status(400).json({
+        success: false,
+        message: "At least one item is required",
+      });
+
+    const isItemWise = gstType.includes("ITEMWISE");
+
+    // Validate items
+    for (const item of items) {
+      if (!item.id || !item.name || !item.unit)
+        return res.status(400).json({
+          success: false,
+          message: "Each item must include id, name, and unit",
+        });
+
+      if (!item.rate || !item.quantity || Number(item.quantity) <= 0)
+        return res.status(400).json({
+          success: false,
+          message: "Each item must have valid rate and quantity",
+        });
+
+      if (isItemWise && (item.gstRate == null || item.gstRate === ""))
+        return res.status(400).json({
+          success: false,
+          message: "Each item must have gstRate for item-wise GST PO",
+        });
+
+      if (!isItemWise && item.gstRate)
+        return res.status(400).json({
+          success: false,
+          message: "gstRate is only allowed when PO GST type is ITEMWISE",
+        });
+    }
+
+    // ------------------------------------
+    // 🔎 Validate item existence (Mongo + MySQL ALL tables)
+    // ------------------------------------
+    const mongoIds = [];
+    const mysqlIds = [];
+
+    for (const item of items) {
+      if (!item.source) {
+        return res.status(400).json({
+          success: false,
+          message: "item.source is required (mongo/mysql)",
+        });
+      }
+
+      if (item.source === "mongo") {
+        mongoIds.push(item.id);
+      } else if (item.source === "mysql") {
+        mysqlIds.push(item.id);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid item.source '${item.source}'. Use 'mongo' or 'mysql'.`,
+        });
+      }
+    }
+
+    // Fetch Mongo items
+    let existingMongoItems = [];
+    if (mongoIds.length) {
+      existingMongoItems = await SystemItem.find({
+        _id: { $in: mongoIds },
+      })
+        .select("_id")
+        .lean();
+    }
+
+    // Fetch MySQL items (RAW + INFRA + TOOLS)
+    let existingMysqlItems = [];
+
+    if (mysqlIds.length) {
+      const [rawItems, infraItems, toolItems] = await Promise.all([
+        prisma.rawMaterial.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true },
+        }),
+        prisma.infraMaterial.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true },
+        }),
+        prisma.tools_Equipments.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true },
+        }),
+      ]);
+
+      existingMysqlItems = [...rawItems, ...infraItems, ...toolItems];
+    }
+
+    const mongoSet = new Set(existingMongoItems.map((m) => String(m._id)));
+    const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
+
+    // Final Validation
+    for (const item of items) {
+      if (item.source === "mongo" && !mongoSet.has(item.id)) {
+        throw new Error(`System Item with id '${item.id}' Not Found`);
+      }
+
+      if (item.source === "mysql" && !mysqlSet.has(item.id)) {
+        throw new Error(`Item with id '${item.id}' Not Found in MySQL tables`);
+      }
+    }
+
+    const oldValue = JSON.parse(JSON.stringify(existingPO));
+
+    // Fetch vendor
+    const vendorToUseId = vendorId || existingPO.vendorId;
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: vendorToUseId },
+    });
+
+    if (!vendor)
+      return res
+        .status(404)
+        .json({ success: false, message: "Vendor not found" });
+
+    const companyToUseId = companyId || existingPO.companyId;
+    const company = await prisma.company.findUnique({
+      where: { id: companyToUseId },
+    });
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: "Company not found",
+      });
+    }
+
+    const finalCurrency = currency || "INR";
+    const finalExchangeRate =
+      finalCurrency === "INR"
+        ? new Decimal(1)
+        : new Decimal(exchangeRate || 1).toDecimalPlaces(4, Decimal.ROUND_DOWN);
+
+    // -------------------------
+    // Totals
+    // -------------------------
+    let foreignSubTotal = new Decimal(0);
+    let subTotalINR = new Decimal(0);
+    let totalCGST = new Decimal(0);
+    let totalSGST = new Decimal(0);
+    let totalIGST = new Decimal(0);
+
+    const normalItems = [];
+    const itemWiseItems = [];
+
+    // -------------------------
+    // ⭐ UNIVERSAL GST LOGIC FOR EACH ITEM ⭐
+    // -------------------------
+    const processedItems = items.map((item) => {
+      const qty = new Decimal(item.quantity).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN,
+      );
+      const rateForeign = new Decimal(item.rate).toDecimalPlaces(
+        4,
+        Decimal.ROUND_DOWN,
+      );
+      const amountForeign = rateForeign
+        .mul(qty)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      const amountINR = amountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+
+      foreignSubTotal = foreignSubTotal.plus(amountForeign);
+      subTotalINR = subTotalINR.plus(amountINR);
+
+      isItemWise ? itemWiseItems.push(item) : normalItems.push(item);
+
+      let itemGSTType = null;
+      let itemGSTRate = null;
+
+      const isExempted = gstType.includes("EXEMPTED");
+      const isItemWiseGST = gstType.includes("ITEMWISE");
+
+      if (isExempted) {
+        // CASE 1 — EXEMPTED
+        itemGSTType = null;
+        itemGSTRate = null;
+      } else if (isItemWiseGST) {
+        // CASE 2 — ITEMWISE
+        itemGSTType = gstType;
+        itemGSTRate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN,
+        );
+      } else {
+        // CASE 3 — Normal IGST/LGST 5/12/18/28
+        itemGSTRate = null;
+        itemGSTType = null;
+      }
+
+      return {
+        itemId: item.id,
+        itemSource: item.source,
+        itemName: item.name,
+        hsnCode: item.hsnCode || null,
+        modelNumber: item.modelNumber || null,
+        itemDetail: item.itemDetail || null,
+        unit: item.unit,
+
+        rateInForeign: finalCurrency !== "INR" ? rateForeign : null,
+        amountInForeign: finalCurrency !== "INR" ? amountForeign : null,
+
+        rate: new Decimal(item.rate),
+        quantity: qty,
+
+        gstRate: itemGSTRate,
+        itemGSTType: itemGSTType,
+
+        total: amountINR,
+      };
+    });
+
+    // OTHER CHARGES
+    let otherChargesTotal = new Decimal(0);
+    if (Array.isArray(otherCharges)) {
+      for (const ch of otherCharges) {
+        if (ch == null) continue;
+        const amt = ch.amount ?? ch.value ?? null;
+        if (amt == null || isNaN(amt)) continue;
+        otherChargesTotal = otherChargesTotal
+          .plus(new Decimal(amt))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      }
+    }
+    subTotalINR = subTotalINR.plus(otherChargesTotal);
+
+    // GST FOR NORMAL ITEMS
+    const poGSTPercent =
+      isItemWise || gstType.includes("EXEMPTED")
+        ? null
+        : getGSTPercent(gstType);
+
+    if (normalItems.length && poGSTPercent) {
+      const normalTotalINR = subTotalINR;
+
+      if (gstType.startsWith("LGST")) {
+        totalCGST = totalCGST
+          .plus(normalTotalINR.mul(new Decimal(poGSTPercent).div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        totalSGST = totalSGST
+          .plus(normalTotalINR.mul(new Decimal(poGSTPercent).div(200)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      } else if (gstType.startsWith("IGST")) {
+        totalIGST = totalIGST
+          .plus(normalTotalINR.mul(new Decimal(poGSTPercent).div(100)))
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      }
+    }
+
+    // GST FOR ITEMWISE
+    if (isItemWise) {
+      for (const item of itemWiseItems) {
+        const totalINR = new Decimal(item.rate)
+          .mul(item.quantity)
+          .mul(finalExchangeRate)
+          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        const rate = new Decimal(item.gstRate).toDecimalPlaces(
+          4,
+          Decimal.ROUND_DOWN,
+        );
+
+        if (gstType === "LGST_ITEMWISE") {
+          totalCGST = totalCGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+          totalSGST = totalSGST
+            .plus(totalINR.mul(rate.div(200)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        } else if (gstType === "IGST_ITEMWISE") {
+          totalIGST = totalIGST
+            .plus(totalINR.mul(rate.div(100)))
+            .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        }
+      }
+    }
+
+    const totalGST = totalCGST
+      .plus(totalSGST)
+      .plus(totalIGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const rawGrandTotalINR = subTotalINR
+      .plus(totalGST)
+      .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    const grandTotalINR = roundGrandTotal(rawGrandTotalINR);
+    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
+      4,
+      Decimal.ROUND_DOWN,
+    );
+
+    const updatedPO = await prisma.$transaction(async (tx) => {
+      await tx.purchaseOrderItem.deleteMany({
+        where: { purchaseOrderId: poId },
+      });
+
+      const po = await tx.purchaseOrder.update({
+        where: { id: poId },
+        data: {
+          companyId: companyId || existingPO.companyId,
+          companyName: company.name || existingPO.companyName,
+          vendorId: vendorId || existingPO.vendorId,
+          vendorName: vendor.name || existingPO.vendorName,
+          gstType,
+          gstRate: poGSTPercent,
+          currency: finalCurrency,
+          exchangeRate: finalExchangeRate.toString(),
+          foreignSubTotal: foreignSubTotal.toDecimalPlaces(
+            4,
+            Decimal.ROUND_DOWN,
+          ),
+          foreignGrandTotal,
+          subTotal: subTotalINR.toDecimalPlaces(4, Decimal.ROUND_DOWN),
+          totalCGST,
+          totalSGST,
+          totalIGST,
+          totalGST,
+          grandTotal: grandTotalINR,
+          remarks,
+          paymentTerms,
+          deliveryTerms,
+          warranty,
+          contactPerson,
+          cellNo,
+          expectedDeliveryDate: expectedDeliveryDate
+            ? new Date(expectedDeliveryDate)
+            : existingPO.expectedDeliveryDate,
+          otherCharges: normalizedOtherCharges,
+          warehouseId: warehouseId || existingPO.warehouseId,
+          items: {
+            create: processedItems,
+          },
+        },
+        include: { items: true },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: "PurchaseOrder",
+          entityId: po.id,
+          action: "UPDATED",
+          performedBy: userId,
+          oldValue,
+          newValue: po,
+        },
+      });
+
+      return po;
+    });
+
+    res.json({
+      success: true,
+      message: "✅ Purchase Order updated successfully",
+      data: updatedPO,
+    });
+  } catch (err) {
+    console.error("PO Update Error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Server error while updating PO",
     });
   }
 };
@@ -8302,4 +9682,10 @@ module.exports = {
   getVendorPOInvoices,
   sendPOForApproval,
   addBOMModel,
+  upload,
+  //version 2
+  uploadTermsFromExcel,
+  getItemsList2,
+  getItemDetails2,
+  createPurchaseOrder3,
 };
