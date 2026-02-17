@@ -1504,7 +1504,7 @@ const createItem = async (req, res) => {
     const finalConversionUnit = conversionUnit || unit;
 
     /* =====================================================
-       🔴 RAW MATERIAL FLOW (Prisma)
+       🔴 MATERIAL FLOW (Prisma)
     ====================================================== */
     if (source === "Raw Material") {
       const existingItem = await prisma.rawMaterial.findUnique({
@@ -1530,7 +1530,6 @@ const createItem = async (req, res) => {
         const rawMaterial = await tx.rawMaterial.create({
           data: {
             name: trimmedName,
-            stock: 0,
             description: description || null,
             unit,
             hsnCode: hsnCode || null,
@@ -1544,6 +1543,7 @@ const createItem = async (req, res) => {
           warehouseId: wh._id.toString(),
           rawMaterialId: rawMaterial.id,
           quantity: 0,
+          itemType: "RAW",
           unit,
           isUsed: true,
         }));
@@ -1607,6 +1607,292 @@ const createItem = async (req, res) => {
           }).save();
         }
       }
+
+      return res.status(201).json({
+        success: true,
+        message: "Installation Material Created Successfully",
+        data: savedSystemItem,
+      });
+    }
+
+    /* =====================================================
+       ❌ INVALID SOURCE
+    ====================================================== */
+    return res.status(400).json({
+      success: false,
+      message: "Invalid source value",
+    });
+  } catch (error) {
+    console.error("Create Item Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const createItem2 = async (req, res) => {
+  try {
+    let {
+      name,
+      unit,
+      description,
+      source,
+      hsnCode,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
+
+    const empId = req.user?.id;
+
+    if (!name || !unit || !source) {
+      return res.status(400).json({
+        success: false,
+        message: "name, unit, source are required",
+      });
+    }
+
+    const trimmedName = name.trim();
+
+    /* =====================================================
+       🔁 SAFE CONVERSION LOGIC
+    ====================================================== */
+    let numericConversionFactor;
+    try {
+      numericConversionFactor =
+        conversionFactor === undefined || conversionFactor === null
+          ? 1
+          : parseConversionFactor(String(conversionFactor));
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
+    const finalConversionUnit = conversionUnit || unit;
+
+    /* =====================================================
+       🏢 FETCH ALL WAREHOUSES (Used for Prisma Stock Only)
+    ====================================================== */
+    const warehouses = await Warehouse.find({});
+    if (!warehouses.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No warehouses found",
+      });
+    }
+
+    /* =====================================================
+       🔧 HELPER: CREATE WAREHOUSE STOCK ENTRIES
+    ====================================================== */
+    const createWarehouseStockEntries = (
+      warehouses,
+      itemId,
+      type,
+      unit,
+      idField,
+    ) => {
+      return warehouses.map((wh) => ({
+        warehouseId: wh._id.toString(),
+        [idField]: itemId,
+        quantity: 0,
+        itemType: type,
+        unit,
+        isUsed: true,
+      }));
+    };
+
+    /* =====================================================
+       🔴 RAW MATERIAL FLOW (Prisma)
+    ====================================================== */
+    if (source === "Raw Material") {
+      const existingItem = await prisma.rawMaterial.findUnique({
+        where: { name: trimmedName },
+      });
+
+      if (existingItem) {
+        return res.status(400).json({
+          success: false,
+          message: "Raw Material already exists",
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const rawMaterial = await tx.rawMaterial.create({
+          data: {
+            name: trimmedName,
+            description: description || null,
+            unit,
+            hsnCode: hsnCode || null,
+            conversionUnit: finalConversionUnit,
+            conversionFactor: numericConversionFactor,
+            createdBy: empId,
+          },
+        });
+
+        const stockData = createWarehouseStockEntries(
+          warehouses,
+          rawMaterial.id,
+          "RAW",
+          unit,
+          "itemId",
+        );
+
+        await tx.warehouseStock.createMany({
+          data: stockData,
+          skipDuplicates: true,
+        });
+
+        return rawMaterial;
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Raw Material Created Successfully",
+        data: result,
+      });
+    }
+
+    /* =====================================================
+       🔵 INFRA MATERIAL FLOW (Prisma)
+    ====================================================== */
+    if (source === "Infra Material") {
+      const existingItem = await prisma.infraMaterial.findUnique({
+        where: { name: trimmedName },
+      });
+
+      if (existingItem) {
+        return res.status(400).json({
+          success: false,
+          message: "Infra Material already exists",
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const infraMaterial = await tx.infraMaterial.create({
+          data: {
+            name: trimmedName,
+            description: description || null,
+            unit,
+            hsnCode: hsnCode || null,
+            conversionUnit: finalConversionUnit,
+            conversionFactor: numericConversionFactor,
+            createdBy: empId,
+          },
+        });
+
+        const stockData = createWarehouseStockEntries(
+          warehouses,
+          infraMaterial.id,
+          "INFRA",
+          unit,
+          "itemId",
+        );
+
+        await tx.warehouseStock.createMany({
+          data: stockData,
+          skipDuplicates: true,
+        });
+
+        return infraMaterial;
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Infra Material Created Successfully",
+        data: result,
+      });
+    }
+
+    /* =====================================================
+       🟡 TOOLS & EQUIPMENTS FLOW (Prisma)
+    ====================================================== */
+    if (source === "Tools - Equipments") {
+      const existingItem = await prisma.toolsEquipments.findUnique({
+        where: { name: trimmedName },
+      });
+
+      if (existingItem) {
+        return res.status(400).json({
+          success: false,
+          message: "Tools & Equipments already exists",
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const tool = await tx.toolsEquipments.create({
+          data: {
+            name: trimmedName,
+            description: description || null,
+            unit,
+            hsnCode: hsnCode || null,
+            conversionUnit: finalConversionUnit,
+            conversionFactor: numericConversionFactor,
+            createdBy: empId,
+          },
+        });
+
+        const stockData = createWarehouseStockEntries(
+          warehouses,
+          tool.id,
+          "TOOL",
+          unit,
+          "itemId",
+        );
+
+        await tx.warehouseStock.createMany({
+          data: stockData,
+          skipDuplicates: true,
+        });
+
+        return tool;
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Tools & Equipments Created Successfully",
+        data: result,
+      });
+    }
+
+    /* =====================================================
+       🟢 INSTALLATION MATERIAL FLOW (Mongo Only)
+    ====================================================== */
+    if (source === "Installation Material") {
+      const existingSystemItem = await SystemItem.findOne({
+        itemName: trimmedName,
+      });
+
+      if (existingSystemItem) {
+        return res.status(400).json({
+          success: false,
+          message: "System Item already exists",
+        });
+      }
+
+      const newSystemItem = new SystemItem({
+        itemName: trimmedName,
+        unit,
+        hsnCode: hsnCode || null,
+        description: description || null,
+        converionUnit: finalConversionUnit,
+        conversionFactor: numericConversionFactor,
+        createdByEmpId: empId,
+      });
+
+      const savedSystemItem = await newSystemItem.save();
+
+      // Create Installation Inventory for all warehouses
+      const installationInventoryData = warehouses.map((warehouse) => ({
+        warehouseId: warehouse._id,
+        systemItemId: savedSystemItem._id,
+        quantity: 0,
+        createdByEmpId: empId,
+      }));
+
+      await InstallationInventory.insertMany(installationInventoryData);
 
       return res.status(201).json({
         success: true,
@@ -1842,6 +2128,248 @@ const updateItem = async (req, res) => {
     return res.status(404).json({
       success: false,
       message: "Item not found in Raw Material or Installation Material",
+    });
+  } catch (error) {
+    console.error("Update Item Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const updateItem2 = async (req, res) => {
+  try {
+    const {
+      id,
+      name,
+      unit,
+      hsnCode,
+      description,
+      conversionUnit,
+      conversionFactor,
+    } = req.body;
+
+    const empId = req.user?.id;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "id is required",
+      });
+    }
+
+    const trimmedName = name?.trim();
+
+    const updateData = {};
+
+    if (trimmedName) updateData.name = trimmedName;
+    if (unit) updateData.unit = unit;
+    if (hsnCode) updateData.hsnCode = hsnCode;
+    if (description) updateData.description = description;
+    if (conversionUnit) updateData.conversionUnit = conversionUnit;
+
+    if (conversionFactor !== undefined && conversionFactor !== null) {
+      const numericFactor = Number(conversionFactor);
+      if (isNaN(numericFactor) || numericFactor <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "conversionFactor must be > 0",
+        });
+      }
+      updateData.conversionFactor = numericFactor;
+    }
+
+    /* =====================================================
+       🔴 RAW MATERIAL (Prisma)
+    ====================================================== */
+    const rawMaterial = await prisma.rawMaterial.findUnique({
+      where: { id },
+    });
+
+    if (rawMaterial) {
+      if (trimmedName) {
+        const duplicate = await prisma.rawMaterial.findFirst({
+          where: {
+            name: trimmedName,
+            NOT: { id },
+          },
+        });
+
+        if (duplicate) {
+          return res.status(400).json({
+            success: false,
+            message: "Raw Material name already exists",
+          });
+        }
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const updatedItem = await tx.rawMaterial.update({
+          where: { id },
+          data: updateData,
+        });
+
+        if (unit) {
+          await tx.warehouseStock.updateMany({
+            where: { itemId: id },
+            data: { unit },
+          });
+        }
+
+        return updatedItem;
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Raw Material updated successfully",
+        data: updated,
+      });
+    }
+
+    /* =====================================================
+       🔵 INFRA MATERIAL (Prisma)
+    ====================================================== */
+    const infraMaterial = await prisma.infraMaterial.findUnique({
+      where: { id },
+    });
+
+    if (infraMaterial) {
+      if (trimmedName) {
+        const duplicate = await prisma.infraMaterial.findFirst({
+          where: {
+            name: trimmedName,
+            NOT: { id },
+          },
+        });
+
+        if (duplicate) {
+          return res.status(400).json({
+            success: false,
+            message: "Infra Material name already exists",
+          });
+        }
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const updatedItem = await tx.infraMaterial.update({
+          where: { id },
+          data: updateData,
+        });
+
+        if (unit) {
+          await tx.warehouseStock.updateMany({
+            where: { itemId: id },
+            data: { unit },
+          });
+        }
+
+        return updatedItem;
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Infra Material updated successfully",
+        data: updated,
+      });
+    }
+
+    /* =====================================================
+       🟡 TOOLS & EQUIPMENTS (Prisma)
+    ====================================================== */
+    const tool = await prisma.toolsEquipments.findUnique({
+      where: { id },
+    });
+
+    if (tool) {
+      if (trimmedName) {
+        const duplicate = await prisma.toolsEquipments.findFirst({
+          where: {
+            name: trimmedName,
+            NOT: { id },
+          },
+        });
+
+        if (duplicate) {
+          return res.status(400).json({
+            success: false,
+            message: "Tool name already exists",
+          });
+        }
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const updatedItem = await tx.toolsEquipments.update({
+          where: { id },
+          data: updateData,
+        });
+
+        if (unit) {
+          await tx.warehouseStock.updateMany({
+            where: { itemId: id },
+            data: { unit },
+          });
+        }
+
+        return updatedItem;
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Tool updated successfully",
+        data: updated,
+      });
+    }
+
+    /* =====================================================
+       🟢 INSTALLATION MATERIAL (Mongo)
+    ====================================================== */
+    const systemItem = await SystemItem.findById(id);
+
+    if (systemItem) {
+      if (trimmedName) {
+        const duplicate = await SystemItem.findOne({
+          itemName: trimmedName,
+          _id: { $ne: id },
+        });
+
+        if (duplicate) {
+          return res.status(400).json({
+            success: false,
+            message: "System Item name already exists",
+          });
+        }
+
+        systemItem.itemName = trimmedName;
+      }
+
+      if (unit) systemItem.unit = unit;
+      if (hsnCode) systemItem.hsnCode = hsnCode;
+      if (description) systemItem.description = description;
+      if (conversionUnit) systemItem.converionUnit = conversionUnit;
+      if (conversionFactor !== undefined && conversionFactor !== null) {
+        systemItem.conversionFactor = Number(conversionFactor);
+      }
+
+      systemItem.updatedAt = new Date();
+      systemItem.updatedByEmpId = empId;
+
+      await systemItem.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "System Item updated successfully",
+        data: systemItem,
+      });
+    }
+
+    /* =====================================================
+       ❌ NOT FOUND
+    ====================================================== */
+    return res.status(404).json({
+      success: false,
+      message: "Item not found in any source",
     });
   } catch (error) {
     console.error("Update Item Error:", error);
@@ -2179,7 +2707,7 @@ const exportRawMaterialStockByWarehouse = async (req, res) => {
       where: {
         warehouseId,
         quantity: 0,
-        isUsed: true
+        isUsed: true,
       },
       include: {
         rawMaterial: {
@@ -2600,7 +3128,7 @@ const sendAllSystemStockShortageReport = async () => {
 
       dashboardData.commonItems.forEach(registerItem);
       dashboardData.variableItems.forEach((head) =>
-        head.items.forEach(registerItem)
+        head.items.forEach(registerItem),
       );
     }
 
@@ -2717,7 +3245,7 @@ const sendAllSystemStockShortageReport = async () => {
         xlsx.utils.book_append_sheet(
           workbook,
           worksheet,
-          system.systemName.slice(0, 31)
+          system.systemName.slice(0, 31),
         );
       }
     }
@@ -2748,7 +3276,7 @@ const sendAllSystemStockShortageReport = async () => {
     xlsx.utils.book_append_sheet(
       workbook,
       consolidatedSheet,
-      "SYSTEM_STOCK_SHORTAGE"
+      "SYSTEM_STOCK_SHORTAGE",
     );
 
     /* =====================================================
@@ -2784,6 +3312,211 @@ const sendAllSystemStockShortageReport = async () => {
     console.log("📧 Stock shortage mail sent successfully");
   } catch (error) {
     console.error("❌ Stock shortage cron failed:", error);
+  }
+};
+
+const downloadSystemStockShortageReport = async (req, res) => {
+  try {
+    const warehouseId = "690835908a80011de511b648";
+
+    const systems = await System.find({
+      systemName: { $nin: ["10HP AC System"] },
+    })
+      .select("_id systemName")
+      .lean();
+
+    if (!systems.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No systems found",
+      });
+    }
+
+    const workbook = xlsx.utils.book_new();
+    let hasAnyShortage = false;
+
+    const itemUsageMap = new Map();
+    const dashboardCache = new Map();
+
+    /* ================= STEP 1: ITEM USAGE ================= */
+    for (const system of systems) {
+      const dashboardData = await getDashboardService(system._id, warehouseId);
+      dashboardCache.set(system._id.toString(), dashboardData);
+
+      const registerItem = (item) => {
+        const itemId = item.itemId?.toString();
+        if (!itemId) return;
+
+        if (!itemUsageMap.has(itemId)) {
+          itemUsageMap.set(itemId, {
+            itemName: item.itemName,
+            systems: new Set(),
+          });
+        }
+
+        itemUsageMap.get(itemId).systems.add(system._id.toString());
+      };
+
+      dashboardData.commonItems.forEach(registerItem);
+      dashboardData.variableItems.forEach((head) =>
+        head.items.forEach(registerItem),
+      );
+    }
+
+    const globalItemMap = new Map();
+    const singleSheetRows = [];
+
+    /* ================= STEP 2: MAIN LOOP ================= */
+    for (const system of systems) {
+      const dashboardData = dashboardCache.get(system._id.toString());
+      const systemRows = [];
+
+      /* COMMON ITEMS */
+      dashboardData.commonItems.forEach((item) => {
+        if (item.shortageQty <= 0) return;
+        hasAnyShortage = true;
+
+        const itemId = item.itemId.toString();
+        const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
+
+        if (usedInSystems > 1) {
+          if (!globalItemMap.has(itemId)) {
+            globalItemMap.set(itemId, {
+              SystemName: "MULTI SYSTEM",
+              PumpHead: "ALL",
+              ItemType: "GLOBAL",
+              ItemName: item.itemName,
+              Stock_Qty: item.stockQty,
+              Required_Qty: 0,
+              Shortage_Qty: 0,
+              systemsCounted: new Set(),
+            });
+          }
+
+          const g = globalItemMap.get(itemId);
+          if (!g.systemsCounted.has(system._id.toString())) {
+            g.Required_Qty += item.requiredQty;
+            g.systemsCounted.add(system._id.toString());
+          }
+        } else {
+          const row = {
+            SystemName: system.systemName,
+            PumpHead: "ALL",
+            ItemType: "Common",
+            ItemName: item.itemName,
+            Stock_Qty: item.stockQty,
+            Required_Qty: item.requiredQty,
+            Shortage_Qty: item.shortageQty,
+          };
+
+          systemRows.push(row);
+          singleSheetRows.push(row);
+        }
+      });
+
+      /* VARIABLE ITEMS */
+      dashboardData.variableItems.forEach((head) => {
+        head.items.forEach((item) => {
+          if (item.shortageQty <= 0) return;
+          hasAnyShortage = true;
+
+          const itemId = item.itemId.toString();
+          const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
+
+          if (usedInSystems > 1) {
+            if (!globalItemMap.has(itemId)) {
+              globalItemMap.set(itemId, {
+                SystemName: "MULTI SYSTEM",
+                PumpHead: "MULTI",
+                ItemType: "GLOBAL",
+                ItemName: item.itemName,
+                Stock_Qty: item.stockQty,
+                Required_Qty: 0,
+                Shortage_Qty: 0,
+                systemsCounted: new Set(),
+              });
+            }
+
+            const g = globalItemMap.get(itemId);
+            if (!g.systemsCounted.has(system._id.toString())) {
+              g.Required_Qty += item.requiredQty;
+              g.systemsCounted.add(system._id.toString());
+            }
+          } else {
+            const row = {
+              SystemName: system.systemName,
+              PumpHead: head.pumpHead,
+              ItemType: "VARIABLE",
+              ItemName: item.itemName,
+              Stock_Qty: item.stockQty,
+              Required_Qty: item.requiredQty,
+              Shortage_Qty: item.shortageQty,
+            };
+
+            systemRows.push(row);
+            singleSheetRows.push(row);
+          }
+        });
+      });
+
+      if (systemRows.length) {
+        const worksheet = xlsx.utils.json_to_sheet(systemRows);
+        xlsx.utils.book_append_sheet(
+          workbook,
+          worksheet,
+          system.systemName.slice(0, 31),
+        );
+      }
+    }
+
+    if (!hasAnyShortage) {
+      return res.status(404).json({
+        success: false,
+        message: "No stock shortage found",
+      });
+    }
+
+    /* FINAL GLOBAL SHORTAGE */
+    for (const g of globalItemMap.values()) {
+      g.Shortage_Qty = Math.max(g.Required_Qty - g.Stock_Qty, 0);
+      delete g.systemsCounted;
+    }
+
+    const finalSingleSheet = [
+      ...Array.from(globalItemMap.values()),
+      ...singleSheetRows,
+    ];
+
+    const consolidatedSheet = xlsx.utils.json_to_sheet(finalSingleSheet);
+    xlsx.utils.book_append_sheet(
+      workbook,
+      consolidatedSheet,
+      "SYSTEM_STOCK_SHORTAGE",
+    );
+
+    const excelBuffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "buffer",
+    });
+
+    const fileName = `Stock_Shortage_${new Date()
+      .toISOString()
+      .slice(0, 10)}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+
+    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error("Download failed:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate report",
+    });
   }
 };
 
@@ -3129,14 +3862,8 @@ const bulkUploadRawMaterial = async (req, res) => {
 
 const createInfraItem = async (req, res) => {
   try {
-    let {
-      name,
-      unit,
-      description,
-      hsnCode,
-      conversionUnit,
-      conversionFactor,
-    } = req.body;
+    let { name, unit, description, hsnCode, conversionUnit, conversionFactor } =
+      req.body;
 
     const empId = req.user?.id;
 
@@ -3167,60 +3894,60 @@ const createInfraItem = async (req, res) => {
 
     const finalConversionUnit = conversionUnit || unit;
 
-      const existingItem = await prisma.infraMaterial.findUnique({
-        where: { name: trimmedName },
+    const existingItem = await prisma.infraMaterial.findUnique({
+      where: { name: trimmedName },
+    });
+
+    if (existingItem) {
+      return res.status(400).json({
+        success: false,
+        message: "Infra material already exists",
       });
+    }
 
-      if (existingItem) {
-        return res.status(400).json({
-          success: false,
-          message: "Infra material already exists",
-        });
-      }
+    const warehouses = await Warehouse.find({});
+    if (!warehouses.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No warehouses found",
+      });
+    }
 
-      const warehouses = await Warehouse.find({});
-      if (!warehouses.length) {
-        return res.status(400).json({
-          success: false,
-          message: "No warehouses found",
-        });
-      }
-
-      const result = await prisma.$transaction(async (tx) => {
-        const infraMaterial = await tx.infraMaterial.create({
-          data: {
-            name: trimmedName,
-            description: description || null,
-            unit,
-            hsnCode: hsnCode || null,
-            conversionUnit: finalConversionUnit,
-            conversionFactor: numericConversionFactor,
-            createdBy: empId,
-          },
-        });
-
-        const warehouseStockData = warehouses.map((wh) => ({
-          warehouseId: wh._id.toString(),
-          infraItemId: infraMaterial.id,
-          quantity: 0,
-          damagedQty: 0,
+    const result = await prisma.$transaction(async (tx) => {
+      const infraMaterial = await tx.infraMaterial.create({
+        data: {
+          name: trimmedName,
+          description: description || null,
           unit,
-          isUsed: true,
-        }));
-
-        await tx.warehouseStock.createMany({
-          data: warehouseStockData,
-          skipDuplicates: true,
-        });
-
-        return infraMaterial;
+          hsnCode: hsnCode || null,
+          conversionUnit: finalConversionUnit,
+          conversionFactor: numericConversionFactor,
+          createdBy: empId,
+        },
       });
 
-      return res.status(201).json({
-        success: true,
-        message: "Infra Material Created Successfully",
-        data: result,
+      const warehouseStockData = warehouses.map((wh) => ({
+        warehouseId: wh._id.toString(),
+        infraItemId: infraMaterial.id,
+        quantity: 0,
+        damagedQty: 0,
+        unit,
+        isUsed: true,
+      }));
+
+      await tx.warehouseStock.createMany({
+        data: warehouseStockData,
+        skipDuplicates: true,
       });
+
+      return infraMaterial;
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Infra Material Created Successfully",
+      data: result,
+    });
   } catch (error) {
     console.error("Create Item Error:", error);
     return res.status(500).json({
@@ -3240,18 +3967,100 @@ const showModels = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: models.length ? "Models fetched successfully" : "No models found",
-      data: models || []
+      message: models.length
+        ? "Models fetched successfully"
+        : "No models found",
+      data: models || [],
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
 
+const exportPOExcel = async (req, res) => {
+  try {
+    // Fetch data
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
+      where: {
+        status: {
+          not: "Cancelled",
+        },
+      },
+      include: {
+        company: true,
+        vendor: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Create workbook
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Purchase Orders");
+
+    // Columns
+    sheet.columns = [
+      { header: "PO Number", key: "poNumber", width: 20 },
+      { header: "PO Date", key: "poDate", width: 15 },
+      { header: "Company", key: "company", width: 25 },
+      { header: "Vendor", key: "vendor", width: 25 },
+      { header: "Currency", key: "currency", width: 12 },
+      { header: "Amount", key: "amount", width: 18 }, // ONE COLUMN ONLY
+      { header: "Status", key: "status", width: 15 },
+    ];
+
+    // Style header
+    sheet.getRow(1).font = { bold: true };
+
+    // Insert rows
+    purchaseOrders.forEach((po) => {
+      let amount = null;
+
+      if (po.currency === "INR") {
+        amount = po.grandTotal;
+      } else {
+        amount = po.foreignGrandTotal;
+      }
+
+      sheet.addRow({
+        poNumber: po.poNumber,
+        poDate: po.poDate?.toISOString().split("T")[0],
+        company: po.companyName || po.company?.name,
+        vendor: po.vendorName || po.vendor?.name,
+        currency: po.currency,
+        amount: amount ? Number(amount) : 0,
+        status: po.status,
+      });
+    });
+
+    // Format Amount column as currency
+    sheet.getColumn("amount").numFmt = "#,##0.00";
+
+    // Response headers
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=PurchaseOrders.xlsx`
+    );
+
+    // Send file
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Excel export failed",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   addRole,
@@ -3292,6 +4101,7 @@ module.exports = {
   addSystemOrder,
   increaseOrDecreaseSystemOrder,
   sendAllSystemStockShortageReport,
+  downloadSystemStockShortageReport,
   updateWarehouseStockByExcel,
   getCountries,
   getCurrencyByCountry,
@@ -3299,5 +4109,8 @@ module.exports = {
   getAddressByPincode,
   exportRawMaterialStockByWarehouse,
   bulkUploadRawMaterial,
-  showModels
+  showModels,
+  createItem2,
+  updateItem2,
+  exportPOExcel
 };
