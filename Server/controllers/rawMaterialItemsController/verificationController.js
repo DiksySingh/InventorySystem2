@@ -4,7 +4,7 @@ const showAllPOWithBills = async (req, res) => {
   try {
     const userRole = req.user?.role;
 
-    if (!["Verification"].includes(userRole.name)) {
+    if (!["Verification", "Admin"].includes(userRole.name)) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized access",
