@@ -58,7 +58,7 @@ router.get(
     "Assemble",
     "Testing",
     "Admin",
-    "Production"
+    "Production",
   ]),
   commonController.getProduct,
 );
@@ -232,7 +232,7 @@ router.get(
 
 router.get(
   "/vendors/invoices",
-  tokenVerification(["Purchase", "Verification"]),
+  tokenVerification(["Purchase", "Verification", "Admin"]),
   purchaseOrderController.getVendorPOInvoices,
 );
 
@@ -244,5 +244,27 @@ router.post(
 );
 
 router.get("/model/show", commonController.showModels);
+
+router.get(
+  "/download/stock/shortage-report",
+  tokenVerification(["Purchase"]),
+  commonController.downloadSystemStockShortageReport,
+);
+
+router.get("/export/po", commonController.exportPOExcel);
+
+
+// ------------------------- Version 2 API --------------------------//
+router.post(
+  "/item/create2",
+  tokenVerification(["Purchase", "Store"]),
+  commonController.createItem2,
+);
+
+router.put(
+  "/item/update2",
+  tokenVerification(["Purchase", "Store"]),
+  commonController.updateItem2,
+);
 
 module.exports = router;
