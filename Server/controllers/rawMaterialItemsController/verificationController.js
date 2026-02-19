@@ -390,7 +390,7 @@ const showPOBillsByUserCompany = async (req, res) => {
     ? [allotedCompany]
     : [];
 
-
+    console.log(companies);
     const pos = await prisma.purchaseOrder.findMany({
       where: {
         companyId: {
