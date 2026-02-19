@@ -376,7 +376,7 @@ const showPOBillsByUserCompany = async (req, res) => {
   try {
     const userRole = req.user?.role;
     const allotedCompany = req.user?.allotedCompany;
-
+    console.log(allotedCompany);
     if (!["Verification", "Admin"].includes(userRole.name)) {
       return res.status(403).json({
         success: false,
@@ -384,13 +384,34 @@ const showPOBillsByUserCompany = async (req, res) => {
       });
     }
 
-    const companies = Array.isArray(allotedCompany)
-    ? allotedCompany
-    : allotedCompany
-    ? [allotedCompany]
-    : [];
+    // const companies = Array.isArray(allotedCompany)
+    // ? allotedCompany
+    // : allotedCompany
+    // ? [allotedCompany]
+    // : [];
 
-    console.log(companies);
+    // console.log(companies);
+    let companies = req.user?.allotedCompany || [];
+
+    // convert JSON string → array
+    if (typeof companies === "string") {
+      try {
+        const parsed = JSON.parse(companies);
+        companies = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        companies = [companies];
+      }
+    }
+
+    // ensure always array
+    if (!Array.isArray(companies)) companies = [companies];
+
+    // remove empty/null values
+    companies = companies.filter(Boolean).map(String);
+
+    console.log("FINAL COMPANIES:", companies);
+
+
     const pos = await prisma.purchaseOrder.findMany({
       where: {
         companyId: {
@@ -436,7 +457,7 @@ const showPOBillsByUserCompany = async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
-    console.log(pos);
+    //console.log(pos);
     const formatted = pos.map((po) => {
       const isINR = (po.currency || "INR").toUpperCase() === "INR";
 
