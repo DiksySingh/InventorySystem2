@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String?
-  email        String?  @unique
-  contact      String?
-  password     String?
-  roleId       String?
-  block        String?
-  district     String?
-  state        String?
-  isActive     Boolean?
-  refreshToken String?
-  warehouseId  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  id             String   @id @default(uuid())
+  name           String?
+  email          String?  @unique
+  contact        String?
+  password       String?
+  roleId         String?
+  block          String?
+  district       String?
+  state          String?
+  isActive       Boolean?
+  refreshToken   String?
+  warehouseId    String?
+  allotedCompany Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
 
   updatedItems              ItemRawMaterial[]            @relation("UserUpdates")
   stocks                    StockMovement[]
@@ -165,19 +166,19 @@ enum ItemCategory {
 }
 
 model WarehouseStock {
-  id              String         @id @default(uuid())
+  id              String        @id @default(uuid())
   warehouseId     String? // MongoDB warehouse _id
   rawMaterialId   String?
   infraItemId     String?
   toolEquipmentId String?
   itemId          String?
   itemType        ItemCategory?
-  quantity        Float?         @default(0)
-  damagedQty      Float?         @default(0)
+  quantity        Float?        @default(0)
+  damagedQty      Float?        @default(0)
   unit            String?
-  isUsed          Boolean?       @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  isUsed          Boolean?      @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   rawMaterial     RawMaterial?     @relation(fields: [rawMaterialId], references: [id])
   infraItem       InfraMaterial?   @relation(fields: [infraItemId], references: [id])
@@ -200,7 +201,7 @@ model StockMovementBatch {
 }
 
 model StockMovement {
-  id              String   @id @default(uuid())
+  id              String        @id @default(uuid())
   batchId         String?
   rawMaterialId   String?
   infraItemId     String?
@@ -212,7 +213,7 @@ model StockMovement {
   quantity        Float?
   unit            String?
   type            String?
-  timestamp       DateTime @default(now())
+  timestamp       DateTime      @default(now())
 
   rawMaterial     RawMaterial?        @relation(fields: [rawMaterialId], references: [id])
   infraItem       InfraMaterial?      @relation(fields: [infraItemId], references: [id])
@@ -429,12 +430,12 @@ model DirectItemIssue {
 
   rawMaterialIssued Json? // same structure as rawMaterialRequested
   materialIssued    Json?
-  issuedTo     String? // Line worker (receiver)
-  issuedBy     String? // Storekeeper (issuer)
-  issuedAt     DateTime @default(now())
-  issuedToName String?
-  department   String?
-  remarks      String?
+  issuedTo          String? // Line worker (receiver)
+  issuedBy          String? // Storekeeper (issuer)
+  issuedAt          DateTime @default(now())
+  issuedToName      String?
+  department        String?
+  remarks           String?
 
   updatedAt DateTime? @updatedAt
   updatedBy String?
@@ -541,12 +542,12 @@ model FailureRedirect {
 }
 
 model ItemUsage {
-  id               String  @id @default(uuid())
+  id               String        @id @default(uuid())
   serviceProcessId String?
   empId            String?
   rawMaterialId    String?
-  itemId            String?
-  itemType          ItemCategory?
+  itemId           String?
+  itemType         ItemCategory?
   quantityUsed     Float?
   unit             String?
 
@@ -561,15 +562,15 @@ model ItemUsage {
 }
 
 model UserItemStock {
-  id            String   @id @default(uuid())
+  id            String        @id @default(uuid())
   empId         String?
   rawMaterialId String?
   itemId        String?
   itemType      ItemCategory?
-  quantity      Float    @default(0)
+  quantity      Float         @default(0)
   unit          String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   user        User?        @relation(fields: [empId], references: [id])
   rawMaterial RawMaterial? @relation(fields: [rawMaterialId], references: [id])
