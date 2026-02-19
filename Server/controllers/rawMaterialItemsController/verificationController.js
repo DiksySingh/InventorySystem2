@@ -436,7 +436,7 @@ const showPOBillsByUserCompany = async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
-
+    console.log(pos);
     const formatted = pos.map((po) => {
       const isINR = (po.currency || "INR").toUpperCase() === "INR";
 
