@@ -7,7 +7,7 @@ const verificationController = require("../../controllers/rawMaterialItemsContro
 
 router.get(
   "/purchase-orders/invoices",
-  tokenVerification(["Verification", "Admin"]),
+  tokenVerification(["Admin"]),
   verificationController.showAllPOWithBills
 );
 
