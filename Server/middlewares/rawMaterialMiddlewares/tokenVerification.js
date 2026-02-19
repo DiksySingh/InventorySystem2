@@ -30,6 +30,7 @@ module.exports.tokenVerification = (allowedRoles) => {
           email: true,
           warehouseId: true,
           isActive: true,
+          allotedCompany: true,
           role: { select: { name: true } }
         }
       });

@@ -20,6 +20,7 @@ const addUser = async (req, res) => {
       block,
       district,
       state,
+      allotedCompany
     } = req.body;
 
     if (!name || !email || !password || !roleId) {
@@ -61,6 +62,7 @@ const addUser = async (req, res) => {
         state: state || null,
         isActive: true,
         refreshToken: null,
+        allotedCompany: allotedCompany || []
       },
     });
 
@@ -99,6 +101,7 @@ const login = async (req, res) => {
         contact: true,
         isActive: true,
         warehouseId: true,
+        allotedCompany: true,
         roleId: true,
         role: {
           select: {
@@ -158,6 +161,7 @@ const login = async (req, res) => {
           contact: user.contact,
           role: user.role.name,
           warehouseId: user.warehouseId,
+          allotedCompany: user.allotedCompany,
           accessToken,
           refreshToken,
         },
