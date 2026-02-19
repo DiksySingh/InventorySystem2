@@ -23,4 +23,19 @@ router.patch(
   verificationController.approveOrRejectPaymentRequest
 );
 
+//Version 2 - Route
+
+router.get(
+  "/purchase-orders/company-wise/invoices",
+  tokenVerification(["Verification"]),
+  verificationController.showPOBillsByUserCompany
+);
+
+router.get(
+  "/purchase-orders/payments/requests/show2",
+  tokenVerification(["Verification"]),
+  verificationController.showPendingPaymentRequests2
+);
+
+
 module.exports = router;

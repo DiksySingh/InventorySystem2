@@ -101,8 +101,105 @@ const showAllPOWithBills = async (req, res) => {
 };
 
 const showPendingPaymentRequests = async (req, res) => {
-  try {
+  // try {
+  //   const userRole = req.user?.role;
+  //   const allotedCompany = req.user?.allotedCompany;
+
+  //   if (!["Verification"].includes(userRole.name)) {
+  //     return res.status(403).json({
+  //       success: false,
+  //       message: "Unauthorized access",
+  //     });
+  //   }
+
+  //   const companies = Array.isArray(allotedCompany)
+  //   ? allotedCompany
+  //   : allotedCompany
+  //   ? [allotedCompany]
+  //   : [];
+
+  //   const payments = await prisma.payment.findMany({
+  //     where: {
+  //       docApprovalStatus: null,
+  //     },
+  //     include: {
+  //       purchaseOrder: {
+  //         include: {
+  //           vendor: { select: { name: true } },
+  //           company: { select: { name: true } },
+  //           payments: {
+  //             select: {
+  //               amount: true,
+  //               paymentStatus: true,
+  //               adminApprovalStatus: true,
+  //             },
+  //           },
+  //         },
+  //       },
+  //       debitNote: {
+  //         select: {
+  //           id: true,
+  //           debitNoteNo: true,
+  //           drNoteDate: true,
+  //         },
+  //       },
+  //       paymentCreatedBy: {
+  //         select: {
+  //           id: true,
+  //           name: true,
+  //           email: true,
+  //         },
+  //       },
+  //     },
+  //     orderBy: { createdAt: "desc" },
+  //   });
+
+  //   const formatted = payments.map((pay) => {
+  //     const po = pay.purchaseOrder;
+  //     const currency = (po.currency || "INR").toUpperCase();
+  //     const isINR = currency === "INR";
+
+  //     // const grandTotal = Number(
+  //     //   isINR ? po.grandTotal : po.foreignGrandTotal || 0
+  //     // );
+
+  //     // const totalPaid = po.payments
+  //     //   ?.filter(p => p.paymentStatus && p.adminApprovalStatus)
+  //     //   ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
+  //     // const pendingAfterThis = grandTotal - (totalPaid + Number(pay.amount));
+
+  //     return {
+  //       paymentRequestId: pay.id,
+  //       poId: po.id,
+  //       poNumber: po.poNumber,
+  //       companyName: po.company?.name,
+  //       vendorName: po.vendor?.name,
+  //       currency,
+  //       requestedAmount: Number(pay.amount),
+  //       billpaymentType: pay.billpaymentType,
+  //       paymentRequestedBy: pay.paymentCreatedBy.name,
+  //       createdAt: pay.createdAt,
+  //     };
+  //   });
+
+  //   return res.status(200).json({
+  //     success: true,
+  //     message: "Pending payment requests",
+  //     count: formatted.length,
+  //     data: formatted,
+  //   });
+  // } catch (error) {
+  //   console.error("SHOW PAYMENT REQUEST ERROR:", error);
+  //   return res.status(500).json({
+  //     success: false,
+  //     message: "Internal Server Error",
+  //     error: error.message,
+  //   });
+  // }
+    try {
     const userRole = req.user?.role;
+    const allotedCompany = req.user?.allotedCompany;
 
     if (!["Verification"].includes(userRole.name)) {
       return res.status(403).json({
@@ -111,9 +208,28 @@ const showPendingPaymentRequests = async (req, res) => {
       });
     }
 
+    // normalize company
+    const companies = Array.isArray(allotedCompany)
+      ? allotedCompany
+      : allotedCompany
+      ? [allotedCompany]
+      : [];
+
+    if (!companies.length) {
+      return res.status(403).json({
+        success: false,
+        message: "No company assigned",
+      });
+    }
+
     const payments = await prisma.payment.findMany({
       where: {
         docApprovalStatus: null,
+        purchaseOrder: {
+          companyId: {
+            in: companies,
+          },
+        },
       },
       include: {
         purchaseOrder: {
@@ -150,17 +266,6 @@ const showPendingPaymentRequests = async (req, res) => {
     const formatted = payments.map((pay) => {
       const po = pay.purchaseOrder;
       const currency = (po.currency || "INR").toUpperCase();
-      const isINR = currency === "INR";
-
-      // const grandTotal = Number(
-      //   isINR ? po.grandTotal : po.foreignGrandTotal || 0
-      // );
-
-      // const totalPaid = po.payments
-      //   ?.filter(p => p.paymentStatus && p.adminApprovalStatus)
-      //   ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-
-      // const pendingAfterThis = grandTotal - (totalPaid + Number(pay.amount));
 
       return {
         paymentRequestId: pay.id,
@@ -264,8 +369,226 @@ const approveOrRejectPaymentRequest = async (req, res) => {
   }
 };
 
+
+//Version 2 - Controllers
+
+const showPOBillsByUserCompany = async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+    const allotedCompany = req.user?.allotedCompany;
+
+    if (!["Verification", "Admin"].includes(userRole.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const companies = Array.isArray(allotedCompany)
+    ? allotedCompany
+    : allotedCompany
+    ? [allotedCompany]
+    : [];
+
+
+    const pos = await prisma.purchaseOrder.findMany({
+      where: {
+        companyId: {
+          in: companies
+        },
+        NOT: {
+          status: "Cancelled",
+        },
+      },
+      select: {
+        id: true,
+        poNumber: true,
+        companyName: true,
+        vendorName: true,
+        currency: true,
+        poDate: true,
+        grandTotal: true,
+        foreignGrandTotal: true,
+        items: {
+          select: {
+            itemId: true,
+            itemName: true,
+            itemSource: true,
+            quantity: true,
+            unit: true,
+          },
+        },
+        bills: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            fileUrl: true,
+            createdAt: true,
+          },
+        },
+        payments: {
+          select: {
+            amount: true,
+            paymentStatus: true,
+            adminApprovalStatus: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formatted = pos.map((po) => {
+      const isINR = (po.currency || "INR").toUpperCase() === "INR";
+
+      const grandTotal = Number(
+        isINR ? po.grandTotal : po.foreignGrandTotal || 0,
+      );
+
+      const totalPaid =
+        po.payments
+          ?.filter(
+            (p) => p.paymentStatus === true && p.adminApprovalStatus === true,
+          )
+          ?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
+      return {
+        poId: po.id,
+        poNumber: po.poNumber,
+        companyName: po.companyName,
+        vendorName: po.vendorName,
+        poDate: po.poDate,
+        hasBill: po.bills.length > 0,
+        currency: po.currency, // NEW FLAG
+        grandTotal,
+        totalPaid,
+        remainingAmount: Number(grandTotal) - Number(totalPaid),
+        items: po.items,
+        bills: po.bills, // If empty => no invoice uploaded yet
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "All Purchase Orders (with or without invoices)",
+      count: formatted.length,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error("SHOW ALL POS ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const showPendingPaymentRequests2 = async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+    const allotedCompany = req.user?.allotedCompany;
+
+    if (!["Verification"].includes(userRole.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    // normalize company
+    const companies = Array.isArray(allotedCompany)
+      ? allotedCompany
+      : allotedCompany
+      ? [allotedCompany]
+      : [];
+
+    if (!companies.length) {
+      return res.status(403).json({
+        success: false,
+        message: "No company assigned",
+      });
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: {
+        docApprovalStatus: null,
+        purchaseOrder: {
+          companyId: {
+            in: companies,
+          },
+        },
+      },
+      include: {
+        purchaseOrder: {
+          include: {
+            vendor: { select: { name: true } },
+            company: { select: { name: true } },
+            payments: {
+              select: {
+                amount: true,
+                paymentStatus: true,
+                adminApprovalStatus: true,
+              },
+            },
+          },
+        },
+        debitNote: {
+          select: {
+            id: true,
+            debitNoteNo: true,
+            drNoteDate: true,
+          },
+        },
+        paymentCreatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formatted = payments.map((pay) => {
+      const po = pay.purchaseOrder;
+      const currency = (po.currency || "INR").toUpperCase();
+
+      return {
+        paymentRequestId: pay.id,
+        poId: po.id,
+        poNumber: po.poNumber,
+        companyName: po.company?.name,
+        vendorName: po.vendor?.name,
+        currency,
+        requestedAmount: Number(pay.amount),
+        billpaymentType: pay.billpaymentType,
+        paymentRequestedBy: pay.paymentCreatedBy.name,
+        createdAt: pay.createdAt,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Pending payment requests",
+      count: formatted.length,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error("SHOW PAYMENT REQUEST ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   showAllPOWithBills,
   showPendingPaymentRequests,
   approveOrRejectPaymentRequest,
+  showPOBillsByUserCompany,
+  showPendingPaymentRequests2
 };
