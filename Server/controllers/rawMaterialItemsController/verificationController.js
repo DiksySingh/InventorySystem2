@@ -100,7 +100,6 @@ const showAllPOWithBills = async (req, res) => {
   }
 };
 
-const showPendingPaymentRequests = async (req, res) => {
   // try {
   //   const userRole = req.user?.role;
   //   const allotedCompany = req.user?.allotedCompany;
@@ -197,6 +196,8 @@ const showPendingPaymentRequests = async (req, res) => {
   //     error: error.message,
   //   });
   // }
+
+const showPendingPaymentRequests = async (req, res) => {
     try {
     const userRole = req.user?.role;
     const allotedCompany = req.user?.allotedCompany;
