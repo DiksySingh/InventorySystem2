@@ -3650,6 +3650,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
             companyName: true,
             vendorName: true,
             currency: true,
+            otherCharges: true,
             totalGST: true,
             grandTotal: true,
             foreignGrandTotal: true,
@@ -3709,6 +3710,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
         rate: item.rate,
         totalAmount: r.purchaseOrder?.currency === "INR" ? item.total.toFixed(2) : item.amountInForeign,
       })),
+      otherCharges: r.purchaseOrder?.otherCharges.reduce((sum, charges) => sum + Number(charges.amount), 0),
       gstAmount: r.purchaseOrder.totalGST.toFixed(2),
       grandTotal: r.purchaseOrder?.currency === "INR" ? r.purchaseOrder?.grandTotal.toFixed(2) : r.purchaseOrder?.foreignGrandTotal, 
       invoices: r.purchaseOrder?.invoices?.map((inv) => ({
