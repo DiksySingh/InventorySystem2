@@ -20,6 +20,7 @@ const getDashboardService = require("../../services/systemDashboardService");
 const buildPOPdfBuffer = require("../../helpers/rawMaterialItemsHelpers/poPdf.helper");
 const sendPOMail = require("../../util/mail/sendPOMail");
 const multer = require("multer");
+const companyShortName = require("../../util/companyShortName");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
@@ -7889,7 +7890,7 @@ const showAllPaymentRequests = async (req, res) => {
         paymentRequestId: r.id,
         poId: r.poId,
         poNumber: r.purchaseOrder?.poNumber || null,
-        companyName: r.purchaseOrder?.companyName || null,
+        companyName: companyShortName(r.purchaseOrder?.companyName) || null,
         vendorName: r.purchaseOrder?.vendorName || null,
         currency: r.purchaseOrder?.currency || null,
         requestedAmount: Number(r.amount),
