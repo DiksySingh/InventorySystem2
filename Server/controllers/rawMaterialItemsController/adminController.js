@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const ExcelJs = require("exceljs");
 const generatePO = require("../../util/generatePO");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
+const companyShortName = require("../../util/companyShortName");
 
 const getDefectiveItemsForWarehouse = async (req, res) => {
   try {
@@ -3690,7 +3691,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
         },
       },
     });
-
+    
 
     // const formatted = paymentRequests.map((r) => ({
     //   paymentRequestId: r.id,
@@ -3709,7 +3710,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
       paymentRequestId: r.id,
       poId: r.poId,
       poNumber: r.purchaseOrder?.poNumber,
-      companyName: r.purchaseOrder?.companyName,
+      companyName: companyShortName(r.purchaseOrder?.companyName),
       vendorName: r.purchaseOrder?.vendorName,
       currency: r.purchaseOrder?.currency,
       requestedAmount: Number(r.amount),
@@ -4128,6 +4129,164 @@ const previewPOPdf = async (req, res) => {
   }
 };
 
+
+//Version 2 - controllers
+
+const showDocsVerifiedPaymentRequests2 = async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+
+    if (!["Admin"].includes(userRole?.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    // const paymentRequests = await prisma.payment.findMany({
+    //   where: {
+    //     docApprovalStatus: true,
+    //     docApprovedBy: { not: null },
+    //     adminApprovalStatus: null,
+    //     approvedByAdmin: null,
+    //   },
+    //   orderBy: { createdAt: "desc" },
+    //   select: {
+    //     id: true,
+    //     poId: true,
+    //     amount: true,
+    //     billpaymentType: true,
+    //     paymentRequestedBy: true,
+    //     createdAt: true,
+    //     purchaseOrder: {
+    //       select: {
+    //         poNumber: true,
+    //         companyName: true,
+    //         vendorName: true,
+    //         currency: true,
+    //       },
+    //     },
+    //     paymentCreatedBy: {
+    //       select: {
+    //         id: true,
+    //         name: true,
+    //         email: true,
+    //       },
+    //     },
+    //   },
+    // });
+
+    const paymentRequests = await prisma.payment.findMany({
+      where: {
+        docApprovalStatus: true,
+        docApprovedBy: { not: null },
+        adminApprovalStatus: null,
+        approvedByAdmin: null,
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        poId: true,
+        amount: true,
+        billpaymentType: true,
+        paymentRequestedBy: true,
+        createdAt: true,
+        docApprovalStatus: true,    
+        docApprovalDate: true,      
+        docApprovalRemark: true, 
+        doc_ApprovedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        purchaseOrder: {
+          select: {
+            poNumber: true,
+            companyName: true,
+            vendorName: true,
+            currency: true,
+            invoices: {
+              select: {
+                invoiceNumber: true,
+                invoiceUrl: true,
+              },
+            },
+            bills: {
+              select: {
+                invoiceNumber: true,
+                fileUrl: true,
+              },
+            },
+          },
+        },
+        paymentCreatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+
+    // const formatted = paymentRequests.map((r) => ({
+    //   paymentRequestId: r.id,
+    //   poId: r.poId,
+    //   poNumber: r.purchaseOrder?.poNumber,
+    //   companyName: r.purchaseOrder?.companyName,
+    //   vendorName: r.purchaseOrder?.vendorName,
+    //   currency: r.purchaseOrder?.currency,
+    //   requestedAmount: Number(r.amount),
+    //   billpaymentType: r.billpaymentType,
+    //   paymentRequestedBy: r.paymentCreatedBy?.name,
+    //   createdAt: r.createdAt,
+    // }));
+
+    const formatted = paymentRequests.map((r) => ({
+      paymentRequestId: r.id,
+      poId: r.poId,
+      poNumber: r.purchaseOrder?.poNumber,
+      companyName: r.purchaseOrder?.companyName,
+      vendorName: r.purchaseOrder?.vendorName,
+      currency: r.purchaseOrder?.currency,
+      requestedAmount: Number(r.amount),
+      billpaymentType: r.billpaymentType,
+      paymentRequestedBy: r.paymentCreatedBy?.name,
+      createdAt: r.createdAt,
+
+      docsVerifiedBy: r.doc_ApprovedBy?.name,
+      docsVerifyRemark: r.docApprovalRemark,
+      docsVerifiedDate: r.docApprovalDate,
+      invoices: r.purchaseOrder?.invoices?.map((inv) => ({
+        invoiceNumber: inv.invoiceNumber,
+        invoiceUrl: inv.invoiceUrl,
+      })) || [],
+
+      warehouseBills: r.purchaseOrder?.bills?.map((bill) => ({
+        invoiceNumber: bill.invoiceNumber,
+        invoiceUrl: bill.fileUrl
+      })) || [],
+    }));
+
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment requests verified by document team",
+      count: formatted.length,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error("ADMIN DOC VERIFIED PAYMENT REQUEST ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   showEmployees,
   deactivateEmployee,
@@ -4180,5 +4339,6 @@ module.exports = {
   approveOrRejectMultiplePaymentsByAdmin,
   getPOsForAdminApproval,
   poApprovalAction,
-  previewPOPdf
+  previewPOPdf,
+  showDocsVerifiedPaymentRequests2
 };

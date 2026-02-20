@@ -65,6 +65,9 @@ router.get("/showPaymentRequests", tokenVerification(['Admin']), adminController
 router.patch("/updateApprovalStatus", tokenVerification(['Admin']), adminController.approveOrRejectMultiplePaymentsByAdmin);
 router.get("/getPOsForApproval", tokenVerification(['Admin', "Verification"]), adminController.getPOsForAdminApproval);
 router.put("/poApprovalAction", tokenVerification(['Admin']), adminController.poApprovalAction);
-router.get("/previewPOPdf", tokenVerification(['Admin', "Verification"]), adminController.previewPOPdf)
+router.get("/previewPOPdf", tokenVerification(['Admin', "Verification"]), adminController.previewPOPdf);
+
+//Version2 - Routes
+router.get("/showPaymentRequests2", tokenVerification(['Admin']), adminController.showDocsVerifiedPaymentRequests2);
 
 module.exports = router;
