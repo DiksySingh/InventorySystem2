@@ -3620,39 +3620,6 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
       });
     }
 
-    // const paymentRequests = await prisma.payment.findMany({
-    //   where: {
-    //     docApprovalStatus: true,
-    //     docApprovedBy: { not: null },
-    //     adminApprovalStatus: null,
-    //     approvedByAdmin: null,
-    //   },
-    //   orderBy: { createdAt: "desc" },
-    //   select: {
-    //     id: true,
-    //     poId: true,
-    //     amount: true,
-    //     billpaymentType: true,
-    //     paymentRequestedBy: true,
-    //     createdAt: true,
-    //     purchaseOrder: {
-    //       select: {
-    //         poNumber: true,
-    //         companyName: true,
-    //         vendorName: true,
-    //         currency: true,
-    //       },
-    //     },
-    //     paymentCreatedBy: {
-    //       select: {
-    //         id: true,
-    //         name: true,
-    //         email: true,
-    //       },
-    //     },
-    //   },
-    // });
-
     const paymentRequests = await prisma.payment.findMany({
       where: {
         docApprovalStatus: true,
@@ -3668,18 +3635,47 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
         billpaymentType: true,
         paymentRequestedBy: true,
         createdAt: true,
+        docApprovalStatus: true,    
+        docApprovalDate: true,      
+        docApprovalRemark: true, 
+        doc_ApprovedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         purchaseOrder: {
           select: {
             poNumber: true,
             companyName: true,
             vendorName: true,
             currency: true,
+            totalGST: true,
+            grandTotal: true,
+            foreignGrandTotal: true,
             invoices: {
               select: {
                 invoiceNumber: true,
                 invoiceUrl: true,
               },
             },
+            bills: {
+              select: {
+                invoiceNumber: true,
+                fileUrl: true,
+              },
+            },
+            items: {
+              select: {
+                itemName: true,
+                itemSource: true,
+                quantity: true,
+                unit: true,
+                rate: true,
+                total: true,
+                amountInForeign: true,
+              }
+            }
           },
         },
         paymentCreatedBy: {
@@ -3691,20 +3687,6 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
         },
       },
     });
-    
-
-    // const formatted = paymentRequests.map((r) => ({
-    //   paymentRequestId: r.id,
-    //   poId: r.poId,
-    //   poNumber: r.purchaseOrder?.poNumber,
-    //   companyName: r.purchaseOrder?.companyName,
-    //   vendorName: r.purchaseOrder?.vendorName,
-    //   currency: r.purchaseOrder?.currency,
-    //   requestedAmount: Number(r.amount),
-    //   billpaymentType: r.billpaymentType,
-    //   paymentRequestedBy: r.paymentCreatedBy?.name,
-    //   createdAt: r.createdAt,
-    // }));
 
     const formatted = paymentRequests.map((r) => ({
       paymentRequestId: r.id,
@@ -3717,10 +3699,25 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
       billpaymentType: r.billpaymentType,
       paymentRequestedBy: r.paymentCreatedBy?.name,
       createdAt: r.createdAt,
-
+      docsVerifiedBy: r.doc_ApprovedBy?.name,
+      docsVerifyRemark: r.docApprovalRemark,
+      docsVerifiedDate: r.docApprovalDate,
+      items: r.purchaseOrder?.items.map((item) => ({
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unit: item.unit,
+        rate: item.rate,
+        totalAmount: r.purchaseOrder?.currency === "INR" ? item.total.toFixed(2) : item.amountInForeign,
+      })),
+      gstAmount: r.purchaseOrder.totalGST.toFixed(2),
+      grandTotal: r.purchaseOrder?.currency === "INR" ? r.purchaseOrder?.grandTotal.toFixed(2) : r.purchaseOrder?.foreignGrandTotal, 
       invoices: r.purchaseOrder?.invoices?.map((inv) => ({
         invoiceNumber: inv.invoiceNumber,
         invoiceUrl: inv.invoiceUrl,
+      })) || [],
+      warehouseBills: r.purchaseOrder?.bills?.map((bill) => ({
+        invoiceNumber: bill.invoiceNumber,
+        invoiceUrl: bill.fileUrl
       })) || [],
     }));
 
