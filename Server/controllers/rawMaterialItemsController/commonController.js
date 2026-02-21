@@ -12,6 +12,7 @@ const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchem
 const BOM = require("../../models/systemInventoryModels/bomModelSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
 const getDashboardService = require("../../services/systemDashboardService");
+const stockShortageService = require("../../services/stockShortageService");
 const getStateCityFromPincode = require("../../services/getStateCityFromPincode");
 const sendMail = require("../../util/mail/sendMail");
 const countries = require("../../data/countries.json");
@@ -2860,228 +2861,6 @@ const increaseOrDecreaseSystemOrder = async (req, res) => {
   }
 };
 
-// const sendAllSystemStockShortageReport = async () => {
-//   try {
-//     const warehouseId = "690835908a80011de511b648";
-
-//     const systems = await System.find({
-//       systemName: { $nin: ["10HP AC System"] },
-//     })
-//       .select("_id systemName")
-//       .lean();
-
-//     if (!systems.length) {
-//       console.log("❌ No systems found");
-//       return;
-//     }
-
-//     const workbook = xlsx.utils.book_new();
-//     let hasAnyShortage = false;
-
-//     /* =====================================================
-//        STEP 1: TRACK ITEM USAGE ACROSS SYSTEMS
-//        (COMMON + VARIABLE)
-//     ===================================================== */
-//     const itemUsageMap = new Map();
-//     // itemId -> { itemName, systems:Set }
-
-//     for (const system of systems) {
-//       const dashboardData = await getDashboardService(system._id, warehouseId);
-
-//       const registerItem = (item) => {
-//         const itemId = item.itemId?.toString();
-//         if (!itemId) return;
-
-//         if (!itemUsageMap.has(itemId)) {
-//           itemUsageMap.set(itemId, {
-//             itemName: item.itemName,
-//             systems: new Set(),
-//           });
-//         }
-
-//         itemUsageMap.get(itemId).systems.add(system.systemName);
-//       };
-
-//       dashboardData.commonItems.forEach(registerItem);
-//       dashboardData.variableItems.forEach((head) =>
-//         head.items.forEach(registerItem),
-//       );
-//     }
-
-//     /* =====================================================
-//        STEP 2: COLLECTORS
-//     ===================================================== */
-//     const globalItemMap = new Map(); // multi-system items
-//     const singleSheetRows = [];
-
-//     /* =====================================================
-//        STEP 3: MAIN LOOP
-//     ===================================================== */
-//     for (const system of systems) {
-//       const dashboardData = await getDashboardService(system._id, warehouseId);
-//       const systemRows = [];
-
-//       /* ================= COMMON ITEMS ================= */
-//       dashboardData.commonItems.forEach((item) => {
-//         if (item.shortageQty <= 0) return;
-//         hasAnyShortage = true;
-
-//         const itemId = item.itemId.toString();
-//         const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
-
-//         // 🔁 GLOBAL COMMON ITEM
-//         if (usedInSystems > 1) {
-//           if (!globalItemMap.has(itemId)) {
-//             globalItemMap.set(itemId, {
-//               SystemName: "MULTI SYSTEM",
-//               PumpHead: "ALL",
-//               ItemType: "GLOBAL",
-//               ItemName: item.itemName,
-//               Stock_Qty: item.stockQty,
-//               Required_Qty: 0,
-//               Shortage_Qty: 0, // calculated later
-//             });
-//           }
-
-//           const g = globalItemMap.get(itemId);
-//           g.Required_Qty += item.requiredQty;
-//         }
-//         // 🔁 SYSTEM-SPECIFIC COMMON
-//         else {
-//           const row = {
-//             SystemName: system.systemName,
-//             PumpHead: "ALL",
-//             ItemType: "Common",
-//             ItemName: item.itemName,
-//             Stock_Qty: item.stockQty,
-//             Required_Qty: item.requiredQty,
-//             Shortage_Qty: item.shortageQty,
-//           };
-
-//           systemRows.push(row);
-//           singleSheetRows.push(row);
-//         }
-//       });
-
-//       /* ================= VARIABLE ITEMS ================= */
-//       dashboardData.variableItems.forEach((head) => {
-//         head.items.forEach((item) => {
-//           if (item.shortageQty <= 0) return;
-//           hasAnyShortage = true;
-
-//           const itemId = item.itemId.toString();
-//           const usedInSystems = itemUsageMap.get(itemId)?.systems.size || 0;
-
-//           // 🔁 GLOBAL VARIABLE ITEM
-//           if (usedInSystems > 1) {
-//             if (!globalItemMap.has(itemId)) {
-//               globalItemMap.set(itemId, {
-//                 SystemName: "MULTI SYSTEM",
-//                 PumpHead: "MULTI",
-//                 ItemType: "GLOBAL",
-//                 ItemName: item.itemName,
-//                 Stock_Qty: item.stockQty,
-//                 Required_Qty: 0,
-//                 Shortage_Qty: 0, // calculated later
-//               });
-//             }
-
-//             const g = globalItemMap.get(itemId);
-//             g.Required_Qty += item.requiredQty;
-//           }
-//           // 🔁 SYSTEM-SPECIFIC VARIABLE
-//           else {
-//             const row = {
-//               SystemName: system.systemName,
-//               PumpHead: head.pumpHead,
-//               ItemType: "VARIABLE",
-//               ItemName: item.itemName,
-//               Stock_Qty: item.stockQty,
-//               Required_Qty: item.requiredQty,
-//               Shortage_Qty: item.shortageQty,
-//             };
-
-//             systemRows.push(row);
-//             singleSheetRows.push(row);
-//           }
-//         });
-//       });
-
-//       /* ================= SYSTEM SHEET ================= */
-//       if (systemRows.length) {
-//         const worksheet = xlsx.utils.json_to_sheet(systemRows);
-//         xlsx.utils.book_append_sheet(
-//           workbook,
-//           worksheet,
-//           system.systemName.slice(0, 31),
-//         );
-//       }
-//     }
-
-//     if (!hasAnyShortage) {
-//       console.log("✅ No stock shortage found");
-//       return;
-//     }
-
-//     /* =====================================================
-//        STEP 4: FINAL SHORTAGE CALCULATION (GLOBAL ITEMS)
-//     ===================================================== */
-//     for (const g of globalItemMap.values()) {
-//       g.Shortage_Qty = Math.max(g.Required_Qty - g.Stock_Qty, 0);
-//     }
-
-//     /* =====================================================
-//        STEP 5: FINAL CONSOLIDATED SHEET
-//     ===================================================== */
-//     const finalSingleSheet = [
-//       ...Array.from(globalItemMap.values()),
-//       ...singleSheetRows,
-//     ];
-
-//     const consolidatedSheet = xlsx.utils.json_to_sheet(finalSingleSheet);
-
-//     xlsx.utils.book_append_sheet(
-//       workbook,
-//       consolidatedSheet,
-//       "SYSTEM_STOCK_SHORTAGE",
-//     );
-
-//     /* =====================================================
-//        STEP 6: SEND MAIL
-//     ===================================================== */
-//     const excelBuffer = xlsx.write(workbook, {
-//       bookType: "xlsx",
-//       type: "buffer",
-//     });
-
-//     await sendMail({
-//       to: [
-//         process.env.PURCHASE_EMAIL,
-//         process.env.ADMIN_EMAIL,
-//         process.env.DEVELOPER_EMAIL,
-//       ],
-//       subject: "⚠️ Stock Shortage Report (Final)",
-//       text:
-//         "Attached is the system-wise stock shortage report. " +
-//         "BOM Qty and Desired Systems have been removed as requested.",
-//       attachments: [
-//         {
-//           filename: `Stock_Shortage_${new Date()
-//             .toISOString()
-//             .slice(0, 10)}.xlsx`,
-//           content: excelBuffer,
-//           contentType:
-//             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-//         },
-//       ],
-//     });
-
-//     console.log("📧 Stock shortage mail sent successfully");
-//   } catch (error) {
-//     console.error("❌ Stock shortage cron failed:", error);
-//   }
-// };
-
 const sendAllSystemStockShortageReport = async () => {
   try {
     const warehouseId = "690835908a80011de511b648";
@@ -3315,6 +3094,230 @@ const sendAllSystemStockShortageReport = async () => {
   }
 };
 
+const sendAllSystemStockShortageReport2 = async () => {
+  try {
+    const warehouseId = "690835908a80011de511b648";
+
+    const systems = await System.find({
+      systemName: { $nin: ["10HP AC System"] },
+    })
+      .select("_id systemName")
+      .lean();
+
+    if (!systems.length) {
+      console.log("❌ No systems found");
+      return;
+    }
+
+    const workbook = xlsx.utils.book_new();
+
+    /* ============================================
+       MASTER ITEM CONSOLIDATION MAP
+       itemId -> final row
+    ============================================ */
+    const finalItemMap = new Map();
+
+    /* ============================================
+       LOOP ALL SYSTEMS
+    ============================================ */
+    for (const system of systems) {
+      const dashboardData = await stockShortageService(system._id, warehouseId);
+
+      const collectItem = (item) => {
+        const itemId = item.itemId.toString();
+
+        if (!finalItemMap.has(itemId)) {
+          finalItemMap.set(itemId, {
+            ItemName: item.itemName,
+            Stock_Qty: item.stockQty, // same warehouse stock
+            Required_Qty: 0,
+            Shortage_Qty: 0,
+          });
+        }
+
+        const row = finalItemMap.get(itemId);
+
+        // accumulate requirement across systems
+        row.Required_Qty += item.requiredQty;
+
+        // keep highest stock snapshot (warehouse stock same anyway)
+        row.Stock_Qty = Math.max(row.Stock_Qty, item.stockQty);
+      };
+
+      // COMMON ITEMS (includes systemSpecific)
+      dashboardData.commonItems.forEach(collectItem);
+
+      // VARIABLE ITEMS (head wise)
+      dashboardData.variableItems.forEach((head) =>
+        head.items.forEach(collectItem),
+      );
+    }
+
+    /* ============================================
+       FINAL SHORTAGE CALCULATION
+    ============================================ */
+    for (const item of finalItemMap.values()) {
+      item.Shortage_Qty = Math.max(item.Required_Qty - item.Stock_Qty, 0);
+    }
+
+    const finalRows = Array.from(finalItemMap.values());
+
+    if (!finalRows.length) {
+      console.log("✅ No stock shortage");
+      return;
+    }
+
+    /* ============================================
+       EXCEL
+    ============================================ */
+    const worksheet = xlsx.utils.json_to_sheet(finalRows);
+    xlsx.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Consolidated_Stock_Requirement",
+    );
+
+    const excelBuffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "buffer",
+    });
+
+    await sendMail({
+      to: [
+        process.env.PURCHASE_EMAIL,
+        process.env.ADMIN_EMAIL,
+        process.env.DEVELOPER_EMAIL,
+      ],
+      subject: "📊 Consolidated Stock Shortage Requirement",
+      text: "Attached is consolidated requirement across all systems (no duplicates).",
+      attachments: [
+        {
+          filename: `Stock_Shortage${new Date()
+            .toISOString()
+            .slice(0, 10)}.xlsx`,
+          content: excelBuffer,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
+    });
+
+    console.log("📧 Consolidated stock shortage report sent.");
+  } catch (error) {
+    console.error("❌ Stock report failed:", error);
+  }
+};
+
+const sendAllSystemStockShortageReport3 = async () => {
+  try {
+    const warehouseId = "690835908a80011de511b648";
+
+    const systems = await System.find({
+      systemName: { $nin: ["10HP AC System"] },
+    })
+      .select("_id systemName")
+      .lean();
+
+    if (!systems.length) {
+      console.log("❌ No systems found");
+      return;
+    }
+
+    const workbook = xlsx.utils.book_new();
+
+    /* ============================================
+       MASTER ITEM CONSOLIDATION MAP
+       itemId -> final row
+    ============================================ */
+    const finalItemMap = new Map();
+
+    /* ============================================
+       LOOP ALL SYSTEMS
+    ============================================ */
+    for (const system of systems) {
+      const dashboardData = await stockShortageService(system._id, warehouseId);
+
+      const collectItem = (item) => {
+        const itemId = item.itemId.toString();
+
+        if (!finalItemMap.has(itemId)) {
+          finalItemMap.set(itemId, {
+            ItemName: item.itemName,
+            Stock_Qty: item.stockQty, // same warehouse stock
+            Required_Qty: 0,
+            Shortage_Qty: 0,
+          });
+        }
+
+        const row = finalItemMap.get(itemId);
+
+        // accumulate requirement across systems
+        row.Required_Qty += item.requiredQty;
+
+        // keep highest stock snapshot (warehouse stock same anyway)
+        row.Stock_Qty = Math.max(row.Stock_Qty, item.stockQty);
+      };
+
+      // COMMON ITEMS (includes systemSpecific)
+      dashboardData.commonItems.forEach(collectItem);
+
+      // VARIABLE ITEMS (head wise)
+      dashboardData.variableItems.forEach((head) =>
+        head.items.forEach(collectItem),
+      );
+    }
+
+    /* ============================================
+       FINAL SHORTAGE CALCULATION
+    ============================================ */
+    for (const item of finalItemMap.values()) {
+      item.Shortage_Qty = Math.max(item.Required_Qty - item.Stock_Qty, 0);
+    }
+
+    const finalRows = Array.from(finalItemMap.values());
+
+    if (!finalRows.length) {
+      console.log("✅ No stock shortage");
+      return;
+    }
+
+    /* ============================================
+       EXCEL
+    ============================================ */
+    const worksheet = xlsx.utils.json_to_sheet(finalRows);
+    xlsx.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Consolidated_Stock_Requirement",
+    );
+
+    const excelBuffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "buffer",
+    });
+
+    await sendMail({
+      to: [process.env.DEVELOPER_EMAIL],
+      subject: "📊 Consolidated Stock Shortage Requirement",
+      text: "Attached is consolidated requirement across all systems (no duplicates).",
+      attachments: [
+        {
+          filename: `Stock_Shortage${new Date()
+            .toISOString()
+            .slice(0, 10)}.xlsx`,
+          content: excelBuffer,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      ],
+    });
+
+    console.log("📧 Consolidated stock shortage report sent.");
+  } catch (error) {
+    console.error("❌ Stock report failed:", error);
+  }
+};
+
 const downloadSystemStockShortageReport = async (req, res) => {
   try {
     const warehouseId = "690835908a80011de511b648";
@@ -3340,7 +3343,7 @@ const downloadSystemStockShortageReport = async (req, res) => {
 
     /* ================= STEP 1: ITEM USAGE ================= */
     for (const system of systems) {
-      const dashboardData = await getDashboardService(system._id, warehouseId);
+      const dashboardData = await stockShortageService(system._id, warehouseId);
       dashboardCache.set(system._id.toString(), dashboardData);
 
       const registerItem = (item) => {
@@ -3737,9 +3740,9 @@ const bulkUploadRawMaterial = async (req, res) => {
     /* =====================================================
        📄 READ EXCEL
     ====================================================== */
-    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const rows = xlsx.utils.sheet_to_json(sheet, { defval: "" });
 
     if (!rows.length) {
       return res.status(400).json({
@@ -3772,7 +3775,8 @@ const bulkUploadRawMaterial = async (req, res) => {
       const conversionFactor = row.conversionFactor
         ? Number(row.conversionFactor)
         : 1;
-
+      const hsnCode = row.hsnCode?.trim();
+      const description = row.description?.trim();
       if (!name || !unit) {
         skipped.push({ name, reason: "Missing name or unit" });
         continue;
@@ -3784,6 +3788,8 @@ const bulkUploadRawMaterial = async (req, res) => {
         stock: 0,
         conversionUnit,
         conversionFactor,
+        hsnCode,
+        description,
         createdBy: empId,
       });
     }
@@ -4041,12 +4047,12 @@ const exportPOExcel = async (req, res) => {
     // Response headers
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
 
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=PurchaseOrders.xlsx`
+      `attachment; filename=PurchaseOrders.xlsx`,
     );
 
     // Send file
@@ -4101,6 +4107,8 @@ module.exports = {
   addSystemOrder,
   increaseOrDecreaseSystemOrder,
   sendAllSystemStockShortageReport,
+  sendAllSystemStockShortageReport2,
+  sendAllSystemStockShortageReport3,
   downloadSystemStockShortageReport,
   updateWarehouseStockByExcel,
   getCountries,
@@ -4112,5 +4120,5 @@ module.exports = {
   showModels,
   createItem2,
   updateItem2,
-  exportPOExcel
+  exportPOExcel,
 };
