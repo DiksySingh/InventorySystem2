@@ -3651,6 +3651,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
             vendorName: true,
             currency: true,
             otherCharges: true,
+            gstType: true,
             totalGST: true,
             grandTotal: true,
             foreignGrandTotal: true,
@@ -3673,6 +3674,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
                 quantity: true,
                 unit: true,
                 rate: true,
+                gstRate: true,
                 total: true,
                 amountInForeign: true,
               }
@@ -3708,9 +3710,11 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
         quantity: item.quantity,
         unit: item.unit,
         rate: item.rate,
+        gstRate: item.gstRate ? item.gstRate.toFixed(2) : "N/A",
         totalAmount: r.purchaseOrder?.currency === "INR" ? item.total.toFixed(2) : item.amountInForeign,
       })),
       otherCharges: r.purchaseOrder?.otherCharges.reduce((sum, charges) => sum + Number(charges.amount), 0),
+      gstType: r.purchaseOrder?.gstType,
       gstAmount: r.purchaseOrder.totalGST.toFixed(2),
       grandTotal: r.purchaseOrder?.currency === "INR" ? r.purchaseOrder?.grandTotal.toFixed(2) : r.purchaseOrder?.foreignGrandTotal, 
       invoices: r.purchaseOrder?.invoices?.map((inv) => ({
@@ -4131,6 +4135,108 @@ const previewPOPdf = async (req, res) => {
 
 //Version 2 - controllers
 
+const getPOsForAdminApproval2 = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const { vendorId, fromDate, toDate } = req.query;
+
+    const where = {
+      status: "Approval_Sent",
+      approvalStatus: "Pending",
+    };
+
+    if (vendorId) {
+      where.vendorId = vendorId;
+    }
+
+    if (fromDate || toDate) {
+      where.poDate = {};
+      if (fromDate) where.poDate.gte = new Date(fromDate);
+      if (toDate) where.poDate.lte = new Date(toDate);
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.purchaseOrder.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { poDate: "desc" },
+        select: {
+          id: true,
+          poNumber: true,
+          poDate: true,
+          companyId: true,
+          companyName: true,
+          vendorId: true,
+          vendorName: true,
+          currency: true,
+          gstType: true,
+          totalGST: true,
+          otherCharges: true,
+          grandTotal: true,
+          foreignGrandTotal: true,
+          status: true,
+          approvalStatus: true,
+          items: {
+            select: {
+              id: true,
+              itemId: true,
+              itemSource: true,
+              itemName: true,
+              quantity: true,
+              unit: true,
+              rate: true,
+              gstRate: true,
+              total: true,
+              amountInForeign: true,
+            },
+          },
+        },
+      }),
+      prisma.purchaseOrder.count({ where }),
+    ]);
+
+    const formattedData = data.map((po) => ({
+      poId: po.id,
+      poNumber: po.poNumber,
+      companyId: po.companyId,
+      companyName: po.companyName,
+      vendorId: po.vendorId,
+      vendorName: po.vendorName,
+      currency: po.currency,
+      status: po.status,
+      approvalStatus: po.approvalStatus,
+      poDate: po.poDate,
+      gstType: po.gstType,
+      items: po.items.map((item) => ({
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unit: item.unit,
+        rate: item.rate,
+        gstRate: item.gstRate ? item.gstRate.toFixed(2) : "N/A",
+        totalAmount: po.currency === "INR" ? item.total.toFixed(2) : item.amountInForeign,
+      })),
+      otherCharges: po.otherCharges.reduce((sum, charges) => sum + Number(charges.amount), 0),
+      totalGST: po.totalGST ? po.totalGST.toFixed(2) : "N/A",
+      grandTotal: po.currency === "INR" ? po.grandTotal.toFixed(2) : po.foreignGrandTotal,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      page,
+      limit,
+      totalRecords: total,
+      data: formattedData,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 const showDocsVerifiedPaymentRequests2 = async (req, res) => {
   try {
     const userRole = req.user?.role;
@@ -4339,5 +4445,6 @@ module.exports = {
   getPOsForAdminApproval,
   poApprovalAction,
   previewPOPdf,
+  getPOsForAdminApproval2,
   showDocsVerifiedPaymentRequests2
 };
