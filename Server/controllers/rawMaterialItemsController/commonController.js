@@ -3193,7 +3193,7 @@ const sendAllSystemStockShortageReport2 = async () => {
       text: "Attached is consolidated requirement across all systems (no duplicates).",
       attachments: [
         {
-          filename: `Stock_Shortage${new Date()
+          filename: `Stock_Shortage_${new Date()
             .toISOString()
             .slice(0, 10)}.xlsx`,
           content: excelBuffer,
@@ -3303,7 +3303,7 @@ const sendAllSystemStockShortageReport3 = async () => {
       text: "Attached is consolidated requirement across all systems (no duplicates).",
       attachments: [
         {
-          filename: `Stock_Shortage${new Date()
+          filename: `Stock_Shortage_${new Date()
             .toISOString()
             .slice(0, 10)}.xlsx`,
           content: excelBuffer,
