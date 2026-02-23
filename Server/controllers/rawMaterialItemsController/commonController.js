@@ -16,6 +16,7 @@ const stockShortageService = require("../../services/stockShortageService");
 const getStateCityFromPincode = require("../../services/getStateCityFromPincode");
 const sendMail = require("../../util/mail/sendMail");
 const countries = require("../../data/countries.json");
+const {POStatus} = require("@prisma/client");
 
 const addRole = async (req, res) => {
   try {
@@ -4068,6 +4069,98 @@ const exportPOExcel = async (req, res) => {
   }
 };
 
+const getAllVendorsSummary = async (req, res) => {
+  try {
+    const vendors = await prisma.vendor.findMany({
+      where: {
+        purchaseOrders: {
+          some: {
+            status: {
+              not: POStatus.Cancelled,
+            },
+          },
+        },
+      },
+       orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        contactPerson: true,
+        contactNumber: true,
+
+        purchaseOrders: {
+          where: {
+            status: {
+              not: POStatus.Cancelled,
+            },
+          },
+          select: {
+            items: {
+              select: {
+                itemName: true,
+                quantity: true,
+                unit: true,
+                receivedQty: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const finalData = vendors.map((vendor) => {
+      const itemMap = {};
+
+      vendor.purchaseOrders.forEach((po) => {
+        po.items.forEach((item) => {
+
+          if (!itemMap[item.itemName]) {
+            itemMap[item.itemName] = {
+              itemName: item.itemName,
+              unit: item.unit,
+              orderedQty: 0,
+              receivedQty: 0,
+            };
+          }
+
+          itemMap[item.itemName].orderedQty += Number(item.quantity || 0);
+          itemMap[item.itemName].receivedQty += Number(item.receivedQty || 0);
+        });
+      });
+
+      const items = Object.values(itemMap).map((item) => ({
+        ...item,
+        pendingQty: Number((item.orderedQty - item.receivedQty).toFixed(2)),
+      }));
+
+      return {
+        vendorId: vendor.id,
+        vendorName: vendor.name,
+        contactPerson: vendor.contactPerson,
+        contactNumber: vendor.contactNumber,
+        items,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: finalData.length,
+      data: finalData,
+    });
+
+  } catch (error) {
+    console.error("All Vendor Summary Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -4121,4 +4214,5 @@ module.exports = {
   createItem2,
   updateItem2,
   exportPOExcel,
+  getAllVendorsSummary
 };

@@ -4132,7 +4132,6 @@ const previewPOPdf = async (req, res) => {
   }
 };
 
-
 //Version 2 - controllers
 
 const getPOsForAdminApproval2 = async (req, res) => {

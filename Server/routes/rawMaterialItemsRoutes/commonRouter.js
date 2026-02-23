@@ -267,4 +267,6 @@ router.put(
   commonController.updateItem2,
 );
 
+router.get("/vendors/order", commonController.getAllVendorsSummary);
+
 module.exports = router;
