@@ -71,6 +71,8 @@ const {
   addReplacementDispatch2,
   createMaterialDispatchLog,
   getMaterialDispatchLogs,
+  addDispatchSerialNumbers,
+  getDispatchSerialNumbers
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -429,5 +431,10 @@ router.get(
   userVerification(["warehouseAdmin"]),
   getMaterialDispatchLogs
 );
+
+router.post("/dispatch/serial-numbers", userVerification(["warehouseAdmin"]), addDispatchSerialNumbers);
+router.get("/dispatch/serial-numbers/view", userVerification(["warehouseAdmin"]), getDispatchSerialNumbers);
+
+
 
 module.exports = router;

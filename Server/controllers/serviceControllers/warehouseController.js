@@ -1,3 +1,6 @@
+const fs = require("fs");
+const path = require("path");
+const ExcelJS = require("exceljs");
 const axios = require("axios");
 const mongoose = require("mongoose");
 const XLSX = require("xlsx");
@@ -31,10 +34,9 @@ const ReplacementDispatchDetails = require("../../models/systemInventoryModels/r
 const ReplacementDispatchBillPhoto = require("../../models/systemInventoryModels/replacementDispatchBillSchema");
 const MaterialDispatchLog = require("../../models/systemInventoryModels/materialDispatchLog");
 const Item = require("../../models/serviceInventoryModels/itemSchema");
-const fs = require("fs");
-const path = require("path");
-const ExcelJS = require("exceljs");
+const DispatchSerialNumbers = require("../../models/systemInventoryModels/dispatchedSerialNumbers");
 const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchema");
+const BOM = require("../../models/systemInventoryModels/bomModelSchema");
 
 //****************** Admin Access ******************//
 
@@ -2194,7 +2196,7 @@ module.exports.addNewInstallationData2 = async (req, res) => {
   try {
     const { dispatchedSystem, driverName, driverContact, vehicleNumber } =
       req.body;
-
+    console.log(req.body);
     const dispatchedSystems =
       typeof dispatchedSystem === "string"
         ? JSON.parse(dispatchedSystem)
@@ -2232,6 +2234,7 @@ module.exports.addNewInstallationData2 = async (req, res) => {
     const requiredKeys = [
       "installerId",
       "farmerSaralId",
+      "bomId",
       "systemId",
       "pumpId",
       "controllerId",
@@ -2269,6 +2272,24 @@ module.exports.addNewInstallationData2 = async (req, res) => {
 
     for (let i = 0; i < dispatchedSystems.length; i++) {
       const system = dispatchedSystems[i];
+      if (!system.bomId) {
+        throw new Error("BOM not selected for dispatched system");
+      }
+
+      const bom = await BOM.findOne({
+        _id: system.bomId,
+        isActive: true
+      }).session(session);
+
+      if (!bom) {
+        throw new Error("Invalid or inactive BOM selected");
+      }
+      const clampId =
+        system.submersibleClampId &&
+        system.submersibleClampId !== "" &&
+        system.submersibleClampId !== "null"
+          ? system.submersibleClampId
+          : null;
       const billPhotoFile = billPhotosMap[i];
       const billPhotoPath = `/uploads/dispatchedSystems/dispatchBillPhoto/${billPhotoFile.filename}`;
 
@@ -2296,9 +2317,11 @@ module.exports.addNewInstallationData2 = async (req, res) => {
 
       const systemItems = await SystemItemMap.find({
         systemId: system.systemId,
+        bomId: system.bomId
       })
         .populate("systemItemId", "itemName")
         .session(session);
+      
       if (!systemItems.length)
         throw new Error(
           `No system items found for systemId: ${system.systemId}`
@@ -2324,9 +2347,11 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       const pumpComponents = await ItemComponentMap.find({
         systemId: system.systemId,
         systemItemId: system.pumpId,
+        bomId: system.bomId
       })
         .populate("subItemId", "itemName")
         .session(session);
+
       const filteredPumpComponents = pumpComponents.filter((comp) => {
         const name = comp.subItemId?.itemName?.toLowerCase() || "";
         if (name.includes("controller") || name.includes("rmu")) return false;
@@ -2380,6 +2405,22 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       //console.log("Before Final Item List: ", finalItemsList);
       console.log("Before Length: ", finalItemsList.length);
 
+      // let clampItemId = null;
+      // for (const it of systemItems) {
+      //   const name = it.systemItemId?.itemName?.toLowerCase() || "";
+      //   if (name.includes("submersible clamp")) {
+      //     clampItemId = it.systemItemId._id.toString();
+      //     break;
+      //   }
+      // }
+
+      // // 2️⃣ Remove clamp if no clampId provided in request
+      // if (!system.submersibleClampId && clampItemId) {
+      //   finalItemsList = finalItemsList.filter(
+      //     (item) => item.systemItemId.toString() !== clampItemId
+      //   );
+      // }
+
       let clampItemId = null;
       for (const it of systemItems) {
         const name = it.systemItemId?.itemName?.toLowerCase() || "";
@@ -2389,8 +2430,8 @@ module.exports.addNewInstallationData2 = async (req, res) => {
         }
       }
 
-      // 2️⃣ Remove clamp if no clampId provided in request
-      if (!system.submersibleClampId && clampItemId) {
+      // ✅ Remove clamp if clampId NOT provided
+      if (!clampId && clampItemId) {
         finalItemsList = finalItemsList.filter(
           (item) => item.systemItemId.toString() !== clampItemId
         );
@@ -2427,6 +2468,7 @@ module.exports.addNewInstallationData2 = async (req, res) => {
         farmerSaralId: system.farmerSaralId,
         empId: system.installerId,
         systemId: system.systemId,
+        bomId: system.bomId,
         itemsList: finalItemsList,
         panelNumbers: [],
         pumpNumber: "",
@@ -2444,6 +2486,7 @@ module.exports.addNewInstallationData2 = async (req, res) => {
         empId: system.installerId,
         farmerSaralId: system.farmerSaralId,
         systemId: system.systemId,
+        bomId: system.bomId,
         itemsList: finalItemsList,
         extraItemsList: [],
         createdBy: warehousePersonId,
@@ -2481,7 +2524,6 @@ module.exports.addNewInstallationData2 = async (req, res) => {
         );
       }
     }
-    return;
     await dispatchDetails.save({ session });
     await session.commitTransaction();
     session.endSession();
@@ -6964,4 +7006,109 @@ module.exports.getMaterialDispatchLogs = async (req, res) => {
     });
   }
 };
+
+module.exports.addDispatchSerialNumbers = async (req, res) => {
+  try {
+    const {
+      vehicleNumber,
+      farmerSaralIds = [],
+      panels = [],
+      motors = [],
+      pumps = [],
+      controllers = [],
+      rmus = [],
+    } = req.body;
+
+    const createdBy = req.user?.id; // assuming auth middleware
+
+    if (!vehicleNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "vehicleNumber is required",
+      });
+    }
+
+    if (!createdBy) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const duplicate = await DispatchSerialNumbers.findOne({
+      $or: [
+        { farmerSaralIds: { $in: farmerSaralIds } },
+        { panels: { $in: panels } },
+        { motors: { $in: motors } },
+        { pumps: { $in: pumps } },
+        { controllers: { $in: controllers } },
+        { rmus: { $in: rmus } },
+      ],
+    }).lean();
+
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "One or more serial numbers already exist in another dispatch",
+      });
+    }
+
+    const dispatch = await DispatchSerialNumbers.create({
+      vehicleNumber,
+      farmerSaralIds,
+      panels,
+      motors,
+      pumps,
+      controllers,
+      rmus,
+      createdBy,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Dispatch serial numbers added successfully",
+      data: dispatch,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+module.exports.getDispatchSerialNumbers = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const data = await DispatchSerialNumbers.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("createdBy", "name email") // optional
+      .lean();
+
+    const total = await DispatchSerialNumbers.countDocuments();
+
+    return res.status(200).json({
+      success: true,
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 
