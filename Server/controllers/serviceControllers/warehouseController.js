@@ -6834,6 +6834,74 @@ module.exports.addReplacementDispatch2 = async (req, res) => {
   }
 };
 
+module.exports.getAllReplacementDispatches = async (req, res) => {
+  try {
+    const dispatches = await ReplacementDispatchDetails
+      .find()
+      .sort({ createdAt: -1 })
+      .populate("warehouseId", "warehouseName")
+      .populate("dispatchedBy", "name")
+      .populate({
+        path: "dispatchedReplacementActivities",
+        select: "farmerSaralId movementType itemsList sendingDate receivingDate",
+        populate: {
+          path: "itemsList.systemItemId",
+          select: "itemName"
+        }
+      })
+      .lean();
+
+    const dispatchIds = dispatches.map(d => d._id);
+
+    const billPhotos = await ReplacementDispatchBillPhoto.find({
+      replacementDispatchId: { $in: dispatchIds }
+    }).lean();
+
+    const billMap = {};
+    billPhotos.forEach(photo => {
+      billMap[photo.replacementDispatchId.toString()] = photo.billPhoto;
+    });
+
+    // 🔥 FORMAT DATA HERE
+    const formattedData = dispatches.map(dispatch => ({
+      dispatchId: dispatch._id,
+      driverName: dispatch.driverName,
+      driverContact: dispatch.driverContact,
+      vehicleNumber: dispatch.vehicleNumber,
+      movementType: dispatch.movementType,
+      warehouse: dispatch.warehouseId?.warehouseName || null,
+      dispatchedBy: dispatch.dispatchedBy?.name || null,
+      billPhoto: billMap[dispatch._id.toString()] || null,
+      createdAt: dispatch.createdAt,
+
+      replacementActivities: dispatch.dispatchedReplacementActivities.map(activity => ({
+        farmerSaralId: activity.farmerSaralId,
+        movementType: activity.movementType,
+        sendingDate: activity.sendingDate,
+        receivingDate: activity.receivingDate,
+
+        items: activity.itemsList.map(item => ({
+          itemName: item.systemItemId?.itemName || null,
+          quantity: item.quantity
+        }))
+      }))
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: formattedData.length,
+      data: formattedData
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error"
+    });
+  }
+};
+
 module.exports.createMaterialDispatchLog = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -7088,7 +7156,7 @@ module.exports.getDispatchSerialNumbers = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate("createdBy", "name email") // optional
+      .populate("createdBy", "name").select("-__v -updatedAt")
       .lean();
 
     const total = await DispatchSerialNumbers.countDocuments();

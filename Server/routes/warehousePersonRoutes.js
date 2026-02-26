@@ -72,7 +72,8 @@ const {
   createMaterialDispatchLog,
   getMaterialDispatchLogs,
   addDispatchSerialNumbers,
-  getDispatchSerialNumbers
+  getDispatchSerialNumbers,
+  getAllReplacementDispatches,
 } = require("../controllers/serviceControllers/warehouseController");
 const {
   sendingDefectiveItems,
@@ -97,79 +98,79 @@ const upload = multer({ storage: storage });
 router.get(
   "/all-items",
   userVerification(["warehouseAdmin", "serviceperson"]),
-  showItems
+  showItems,
 );
 router.post(
   "/service-person-signup",
   userVerification(["warehouseAdmin"]),
-  servicePersonSignup
+  servicePersonSignup,
 );
 router.get(
   "/dashboard",
   userVerification(["warehouseAdmin"]),
-  warehouseDashboard
+  warehouseDashboard,
 );
 router.post(
   "/add-item-stock",
   userVerification(["warehouseAdmin"]),
-  addWarehouseItemsStock
+  addWarehouseItemsStock,
 );
 router.get(
   "/get-warehouse",
   userVerification(["warehouseAdmin"]),
-  getWarehouse
+  getWarehouse,
 );
 router.get(
   "/all-warehouses",
   userVerification(["warehouseAdmin"]),
-  showWarehouses
+  showWarehouses,
 );
 router.get(
   "/view-items",
   userVerification(["warehouseAdmin"]),
-  viewWarehouseItems
+  viewWarehouseItems,
 );
 router.post(
   "/outgoing-items",
   userVerification(["warehouseAdmin"]),
-  outgoingItemsData
+  outgoingItemsData,
 );
 router.post(
   "/add-incoming-item",
   userVerification(["warehouseAdmin"]),
-  incomingItems
+  incomingItems,
 );
 //----------------------Third Party Servicing -----------------------------//
 router.post(
   "/add-outgoing-item",
   userVerification(["warehouseAdmin"]),
-  addOutgoingItemsData
+  addOutgoingItemsData,
 );
 router.get(
   "/outgoing-items-data",
   userVerification(["warehouseAdmin"]),
-  showOutgoingItemsData
+  showOutgoingItemsData,
 );
 router.post(
   "/add-receiving-items",
   userVerification(["warehouseAdmin"]),
-  addReceivingItemsData
+  addReceivingItemsData,
 );
 router.get(
   "/receiving-items-data",
   userVerification(["warehouseAdmin"]),
-  receivingDataGroupedByOutgoing
+  receivingDataGroupedByOutgoing,
 );
 //-----------------------------------------//
 router.get(
   "/incoming-items-data",
   userVerification(["warehouseAdmin"]),
-  warehouseIncomingItemDetails
+  warehouseIncomingItemDetails,
 );
 router.get(
   "/warehouse-in-out-orders",
   userVerification(["warehouseAdmin"]),
-  warehouseOrderDetails
+  warehouseOrderDetails,
 );
 // router.get("/approved-order-history", userVerification(['warehouseAdmin']), viewOrdersApprovedHistory);
 // router.post("/repair-item", userVerification(['warehouseAdmin']), repairItemData);
@@ -177,54 +178,54 @@ router.get(
 router.get(
   "/repair-items-history",
   userVerification(["warehouseAdmin"]),
-  warehouseRepairItemsData
+  warehouseRepairItemsData,
 );
 router.get(
   "/reject-items-history",
   userVerification(["warehouseAdmin"]),
-  warehouseRejectItemsData
+  warehouseRejectItemsData,
 );
 router.put(
   "/update-incoming-status",
   userVerification(["warehouseAdmin"]),
-  updateOrderStatus
+  updateOrderStatus,
 );
 router.put(
   "/decline-incoming-items",
   userVerification(["warehouseAdmin"]),
-  declinePickupItemsTransaction
+  declinePickupItemsTransaction,
 );
 router.post(
   "/defective-order-data",
   userVerification(["warehouseAdmin"]),
-  sendingDefectiveItems
+  sendingDefectiveItems,
 );
 router.get(
   "/view-defective-orders",
   userVerification(["warehouseAdmin"]),
-  inDefectiveItemsData
+  inDefectiveItemsData,
 );
 router.get(
   "/defective-order-history",
   userVerification(["warehouseAdmin"]),
-  inDefectiveItemsOrderHistory
+  inDefectiveItemsOrderHistory,
 );
 router.get(
   "/outgoing-defective-order",
   userVerification(["warehouseAdmin"]),
-  outgoingDefectiveOrderData
+  outgoingDefectiveOrderData,
 );
 router.put(
   "/update-defective-order-status",
   userVerification(["warehouseAdmin"]),
-  updateDefectiveOrderStatus
+  updateDefectiveOrderStatus,
 );
 //router.delete("/deleteItem", userVerification(["warehouseAdmin"]), deleteItem);
 
 router.get(
   "/warehouse-installation-data",
   userVerification(["warehouseAdmin"]),
-  getWarehouseInstallationData
+  getWarehouseInstallationData,
 );
 
 // router.post("/add-system", userVerification(['warehouseAdmin']), addSystem);
@@ -232,124 +233,124 @@ router.get(
 router.get(
   "/show-systems",
   userVerification(["warehouseAdmin", "admin"]),
-  showSystems
+  showSystems,
 );
 router.get(
   "/show-system-items",
   userVerification(["warehouseAdmin", "admin"]),
-  showSystemItems
+  showSystemItems,
 );
 router.get(
   "/show-system-item-map",
   userVerification(["warehouseAdmin", "admin"]),
-  showSystemItemMapData
+  showSystemItemMapData,
 );
 router.get(
   "/show-item-component",
   userVerification(["warehouseAdmin", "admin"]),
-  showItemComponents
+  showItemComponents,
 );
 router.get(
   "/show-items-subItems",
   userVerification(["warehouseAdmin", "admin"]),
-  getSystemItemsWithSubItems
+  getSystemItemsWithSubItems,
 );
 router.get(
   "/show-pump-data",
   userVerification(["warehouseAdmin", "admin"]),
-  getSystemItemsFromItemComponentMap
+  getSystemItemsFromItemComponentMap,
 );
 router.get(
   "/show-controller-data",
   userVerification(["warehouseAdmin"]),
-  getControllerData
+  getControllerData,
 );
 router.get(
   "/show-clamp-data",
   userVerification(["warehouseAdmin"]),
-  getClampData
+  getClampData,
 );
 router.get(
   "/show-inventory-items",
   userVerification(["warehouseAdmin"]),
-  showInstallationInventoryItems
+  showInstallationInventoryItems,
 );
 router.get(
   "/show-items-stock-status",
   userVerification(["warehouseAdmin"]),
-  showItemsWithStockStatus
+  showItemsWithStockStatus,
 );
 router.put(
   "/update-subItem-quantity",
   userVerification(["warehouseAdmin"]),
-  updateItemQuantity
+  updateItemQuantity,
 );
 router.get(
   "/service-survey-persons",
   userVerification(["warehouseAdmin"]),
-  servicePersonForMaharashtra
+  servicePersonForMaharashtra,
 );
 router.post(
   "/add-new-installation",
   userVerification(["warehouseAdmin"]),
   fileHandler,
-  addNewInstallationData
+  addNewInstallationData,
 );
 router.post(
   "/add-new-installation2",
   userVerification(["warehouseAdmin"]),
   fileHandler,
-  addNewInstallationData2
+  addNewInstallationData2,
 );
 router.get(
   "/get-dispatch-history",
   userVerification(["warehouseAdmin"]),
-  getDispatchHistory
+  getDispatchHistory,
 );
 router.get(
   "/new-installation-data",
   userVerification(["warehouseAdmin"]),
-  showInstallationDataToWarehouse
+  showInstallationDataToWarehouse,
 );
 router.post(
   "/incoming-inventory-items",
   userVerification(["warehouseAdmin"]),
-  itemComingToWarehouse
+  itemComingToWarehouse,
 );
 router.get(
   "/incoming-items-history",
   userVerification(["warehouseAdmin"]),
-  showIncomingItemToWarehouse
+  showIncomingItemToWarehouse,
 );
 router.post(
   "/wtow-transaction",
   userVerification(["warehouseAdmin"]),
-  warehouse2WarehouseTransaction
+  warehouse2WarehouseTransaction,
 );
 router.get(
   "/show-incoming-item",
   userVerification(["warehouseAdmin"]),
-  showIncomingWToWItems
+  showIncomingWToWItems,
 );
 router.get(
   "/show-outgoing-item",
   userVerification(["warehouseAdmin"]),
-  showOutgoingWToWItems
+  showOutgoingWToWItems,
 );
 router.put(
   "/approve-incoming-item",
   userVerification(["warehouseAdmin"]),
-  acceptingWToWIncomingItems
+  acceptingWToWIncomingItems,
 );
 router.get(
   "/approved-incoming-item",
   userVerification(["warehouseAdmin"]),
-  incomingWToWSystemItemsHistory
+  incomingWToWSystemItemsHistory,
 );
 router.get(
   "/approved-outgoing-item",
   userVerification(["warehouseAdmin"]),
-  outgoingWToWSystemItemsHistory
+  outgoingWToWSystemItemsHistory,
 );
 
 // router.get("/get-pump-data", getPumpSetBySystemId);
@@ -360,48 +361,48 @@ router.get("/get-serial-number", getSerialNumber);
 router.post(
   "/check-serial-number",
   userVerification(["warehouseAdmin"]),
-  checkSerialNumber
+  checkSerialNumber,
 );
 router.post(
   "/upload-serial-number",
   upload.single("file"),
-  uploadSerialNumbers
+  uploadSerialNumbers,
 );
 router.put(
   "/update-serial-number",
   upload.single("file"),
-  updateSerialNumbersAsUsed
+  updateSerialNumbersAsUsed,
 );
 router.post(
   "/check-rmu-number",
   userVerification(["warehouseAdmin"]),
-  checkRMUNumber
+  checkRMUNumber,
 );
 router.put(
   "/update-pickup-item-serial",
   userVerification(["warehouseAdmin"]),
-  updateIncomingPickupItemSerial
+  updateIncomingPickupItemSerial,
 );
 router.put(
   "/update-outgoing-item-farmer-details",
   userVerification(["warehouseAdmin"]),
-  updateOutogingItemFarmerDetails
+  updateOutogingItemFarmerDetails,
 );
 router.put(
   "/update-motor-number",
   upload.single("file"),
-  addMotorNumbersFromExcel
+  addMotorNumbersFromExcel,
 );
 router.get("/get-motor-number", exportMotorNumbersExcel);
 router.post(
   "/importDispatchedSystemExcelData",
   upload.single("file"),
-  importDispatchedSystemExcelData
+  importDispatchedSystemExcelData,
 );
 router.get(
   "/get-installer-data",
   userVerification(["warehouseAdmin"]),
-  getInstallerData
+  getInstallerData,
 );
 
 //-------- Replacement Item Dispatch ---------//
@@ -409,32 +410,44 @@ router.post(
   "/dispatch/replacement-items",
   userVerification(["warehouseAdmin"]),
   fileUploadHandler,
-  addReplacementDispatch
+  addReplacementDispatch,
 );
 
 router.post(
   "/dispatch/replacement-items2",
   userVerification(["warehouseAdmin"]),
   fileUploadHandler,
-  addReplacementDispatch2
+  addReplacementDispatch2,
+);
+
+router.get(
+  "/disptach/replacement-items/history",
+  userVerification(["warehouseAdmin"]),
+  getAllReplacementDispatches,
 );
 
 //--------- Material Dispatch for Testing ---------//
 router.post(
   "/dispatch/testing-material",
   userVerification(["warehouseAdmin"]),
-  createMaterialDispatchLog
+  createMaterialDispatchLog,
 );
 
 router.get(
   "/dispatch/testing-material/history",
   userVerification(["warehouseAdmin"]),
-  getMaterialDispatchLogs
+  getMaterialDispatchLogs,
 );
 
-router.post("/dispatch/serial-numbers", userVerification(["warehouseAdmin"]), addDispatchSerialNumbers);
-router.get("/dispatch/serial-numbers/view", userVerification(["warehouseAdmin"]), getDispatchSerialNumbers);
-
-
+router.post(
+  "/dispatch/serial-numbers",
+  userVerification(["warehouseAdmin"]),
+  addDispatchSerialNumbers,
+);
+router.get(
+  "/dispatch/serial-numbers/view",
+  userVerification(["warehouseAdmin"]),
+  getDispatchSerialNumbers,
+);
 
 module.exports = router;
