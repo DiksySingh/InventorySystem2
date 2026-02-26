@@ -27,7 +27,7 @@ router.patch(
 
 router.get(
   "/purchase-orders/company-wise/invoices",
-  tokenVerification(["Verification"]),
+  tokenVerification(["Verification", "Accounts"]),
   verificationController.showPOBillsByUserCompany
 );
 

@@ -378,7 +378,7 @@ const showPOBillsByUserCompany = async (req, res) => {
     const userRole = req.user?.role;
     const allotedCompany = req.user?.allotedCompany;
 
-    if (!["Verification", "Admin"].includes(userRole.name)) {
+    if (!["Verification", "Admin", "Accounts"].includes(userRole.name)) {
       return res.status(403).json({
         success: false,
         message: "Unauthorized access",

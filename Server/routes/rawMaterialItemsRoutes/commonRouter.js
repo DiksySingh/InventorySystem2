@@ -232,7 +232,7 @@ router.get(
 
 router.get(
   "/vendors/invoices",
-  tokenVerification(["Purchase", "Verification", "Admin"]),
+  tokenVerification(["Purchase", "Verification", "Admin", "Accounts"]),
   purchaseOrderController.getVendorPOInvoices,
 );
 
