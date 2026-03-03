@@ -982,41 +982,109 @@ const empDashboard = async (req, res) => {
   }
 };
 
+// const getInstallationDataWithImages = async (req, res) => {
+//   try {
+//     const state = req.query.state;
+//     const data = await NewSystemInstallation.find({ state: state });
+//     let transformedData = [];
+
+//     if (data && data.length > 0) {
+//       for (const install of data) {
+//         const installationObj = install.toObject();
+
+//         const farmerActivity = await FarmerItemsActivity.findOne({
+//           farmerSaralId: installationObj.farmerSaralId,
+//         }).lean();
+
+//         transformedData.push({
+//           ...installationObj,
+//           pitPhoto: buildFullURLs(install.pitPhoto),
+//           earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+//           antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+//           lightingArresterInstallationPhoto: buildFullURLs(
+//             install.lightingArresterInstallationPhoto,
+//           ),
+//           finalFoundationFarmerPhoto: buildFullURLs(
+//             install.finalFoundationFarmerPhoto,
+//           ),
+//           panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+//           controllerBoxFarmerPhoto: buildFullURLs(
+//             install.controllerBoxFarmerPhoto,
+//           ),
+//           waterDischargeFarmerPhoto: buildFullURLs(
+//             install.waterDischargeFarmerPhoto,
+//           ),
+//           installationVideo: buildFullURLs(install.installationVideo), // ✅ Added video field
+
+//           farmerActivity: farmerActivity || null,
+//         });
+//       }
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Completed Installation Data Fetched Successfully",
+//       data: transformedData,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching installation data:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const getInstallationDataWithImages = async (req, res) => {
   try {
     const state = req.query.state;
-    const data = await NewSystemInstallation.find({ state: state });
+
+    const data = await NewSystemInstallation.find({ state }).lean();
+
     let transformedData = [];
 
     if (data && data.length > 0) {
-      for (const install of data) {
-        const installationObj = install.toObject();
 
-        const farmerActivity = await FarmerItemsActivity.findOne({
-          farmerSaralId: installationObj.farmerSaralId,
-        }).lean();
+      // 🔥 Fetch all farmer activities in ONE query
+      const farmerIds = data.map(d => d.farmerSaralId);
+
+      const farmerActivities = await FarmerItemsActivity.find({
+        farmerSaralId: { $in: farmerIds }
+      }).lean();
+
+      // 🔥 Create lookup map
+      const farmerMap = {};
+      farmerActivities.forEach(f => {
+        farmerMap[f.farmerSaralId] = f;
+      });
+
+      // 🔥 Same response structure as your original code
+      for (const install of data) {
+
+        const farmerActivity = farmerMap[install.farmerSaralId] || null;
 
         transformedData.push({
-          ...installationObj,
+          ...install,
           pitPhoto: buildFullURLs(install.pitPhoto),
           earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
           antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
           lightingArresterInstallationPhoto: buildFullURLs(
-            install.lightingArresterInstallationPhoto,
+            install.lightingArresterInstallationPhoto
           ),
           finalFoundationFarmerPhoto: buildFullURLs(
-            install.finalFoundationFarmerPhoto,
+            install.finalFoundationFarmerPhoto
           ),
           panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
           controllerBoxFarmerPhoto: buildFullURLs(
-            install.controllerBoxFarmerPhoto,
+            install.controllerBoxFarmerPhoto
           ),
           waterDischargeFarmerPhoto: buildFullURLs(
-            install.waterDischargeFarmerPhoto,
+            install.waterDischargeFarmerPhoto
           ),
-          installationVideo: buildFullURLs(install.installationVideo), // ✅ Added video field
+          installationVideo: buildFullURLs(install.installationVideo),
 
-          farmerActivity: farmerActivity || null,
+          farmerActivity: farmerActivity,
         });
       }
     }
@@ -1026,6 +1094,7 @@ const getInstallationDataWithImages = async (req, res) => {
       message: "Completed Installation Data Fetched Successfully",
       data: transformedData,
     });
+
   } catch (error) {
     console.error("Error fetching installation data:", error.message);
     return res.status(500).json({
