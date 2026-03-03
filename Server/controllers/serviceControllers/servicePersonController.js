@@ -55,7 +55,7 @@ const updateLatitudeLongitude = async (req, res) => {
       const updatedPerson = await ServicePerson.findOneAndUpdate(
         { contact: phoneNumber },
         { latitude, longitude },
-        { new: true, upsert: false }
+        { new: true, upsert: false },
       );
 
       if (!updatedPerson) {
@@ -109,7 +109,7 @@ const addServicePersonState = async (req, res) => {
       const updatedPerson = await ServicePerson.findOneAndUpdate(
         { contact: phoneNumber },
         { state },
-        { new: true, upsert: false }
+        { new: true, upsert: false },
       );
 
       if (!updatedPerson) {
@@ -182,7 +182,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
         try {
           const saralId = activity.farmerSaralId;
           const response = await axios.get(
-            `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${saralId}`
+            `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${saralId}`,
           );
 
           return {
@@ -192,14 +192,14 @@ const showNewInstallationDataToInstaller = async (req, res) => {
         } catch (err) {
           console.error(
             `Failed for saralId ${activity.farmerSaralId}:`,
-            err.message
+            err.message,
           );
           return {
             ...activity.toObject(),
             farmerDetails: null, // fallback
           };
         }
-      })
+      }),
     );
 
     console.log(activitiesWithFarmerDetails);
@@ -216,6 +216,13 @@ const showNewInstallationDataToInstaller = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+// helper function to safely get ObjectId string
+const getId = (val) => {
+  if (!val) return null;
+  if (val._id) return val._id.toString(); // populated object
+  return val.toString(); // normal ObjectId
 };
 
 const updateStatusOfIncomingItems = async (req, res) => {
@@ -302,8 +309,173 @@ const updateStatusOfIncomingItems = async (req, res) => {
     // Process normal items
     for (const item of farmerActivityData.itemsList) {
       const { systemItemId, quantity } = item;
+
+      if (!systemItemId) continue;
+
+      const index = empAccount.itemsList.findIndex((i) => {
+        const existingId = getId(i.systemItemId);
+        const newId = getId(systemItemId);
+        return existingId && newId && existingId === newId;
+      });
+
+      if (index !== -1) {
+        empAccount.itemsList[index].quantity += parseInt(quantity);
+      } else {
+        empAccount.itemsList.push({
+          systemItemId: getId(systemItemId),
+          quantity: parseInt(quantity),
+        });
+      }
+    }
+    console.log("empAccount after saving:", empAccount);
+    // Process extra items
+    if (farmerActivityData.extraItemsList?.length > 0) {
+      for (const item of farmerActivityData.extraItemsList) {
+        const { systemItemId, quantity } = item;
+
+        if (!systemItemId) continue;
+
+        const index = empAccount.itemsList.findIndex((i) => {
+          const existingId = getId(i.systemItemId);
+          const newId = getId(systemItemId);
+          return existingId && newId && existingId === newId;
+        });
+
+        if (index !== -1) {
+          empAccount.itemsList[index].quantity += parseInt(quantity);
+        } else {
+          empAccount.itemsList.push({
+            systemItemId: getId(systemItemId),
+            quantity: parseInt(quantity),
+          });
+        }
+      }
+
+      empAccount.updatedAt = new Date();
+      empAccount.updatedBy = empId;
+      await empAccount.save({ session });
+    }
+
+    const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(
+      installationId,
+      {
+        $set: {
+          accepted: true,
+          approvalDate: new Date(),
+          updatedAt: new Date(),
+          updatedBy: empId,
+        },
+      },
+      { session },
+      { new: true },
+    );
+    console.log("Farmer Activity Updated Successfully", savedResponse);
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Farmer Activity Updated Successfully",
+      data: "Farmer Activity Updated Successfully",
+    });
+  } catch (error) {
+    console.error("Error in updateStatusOfIncomingItems:", error);
+    await session.abortTransaction();
+    session.endSession();
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const updateStatusOfIncomingItems2 = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { installationId, farmerSaralId } = req.body;
+    const empId = req.body.empId || req.user?.id;
+    console.log("empId:", empId);
+    console.log("farmerSaralId:", farmerSaralId);
+    console.log("installationId:", installationId);
+
+    if (!installationId || !farmerSaralId || !empId) {
+      await session.abortTransaction();
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
+    }
+
+    const query = {
+      _id: new mongoose.Types.ObjectId(installationId),
+      farmerSaralId: farmerSaralId,
+      empId: new mongoose.Types.ObjectId(empId),
+    };
+
+    const farmerActivityData = await FarmerItemsActivity.findOne(query)
+      .populate("itemsList.systemItemId", "itemName")
+      .populate("extraItemsList.systemItemId", "itemName")
+      .session(session);
+
+    console.log("farmerActivityData:", farmerActivityData);
+    if (!farmerActivityData) {
+      await session.abortTransaction();
+      return res
+        .status(400)
+        .json({ success: false, message: "Farmer Activity Data Not Found" });
+    }
+
+    if (farmerActivityData.accepted) {
+      await session.abortTransaction();
+      return res
+        .status(400)
+        .json({ success: false, message: "Farmer Activity Already Accepted" });
+    }
+
+    if (farmerActivityData.installationDone) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Farmer Activity Already Installation Done",
+      });
+    }
+
+    let empAccount = await EmpInstallationAccount.findOne({ empId })
+      .session(session)
+      .populate("itemsList.systemItemId", "itemName");
+    console.log("empAccount:", empAccount);
+    let refType;
+    let empData = await ServicePerson.findOne({ _id: empId }).session(session);
+    if (empData) {
+      refType = "ServicePerson";
+    } else {
+      empData = await SurveyPerson.findOne({ _id: empId }).session(session);
+      if (!empData) {
+        await session.abortTransaction();
+        return res
+          .status(400)
+          .json({ success: false, message: "EmpID Not Found In Database" });
+      }
+      refType = "SurveyPerson";
+    }
+
+    if (!empAccount) {
+      empAccount = new EmpInstallationAccount({
+        empId,
+        referenceType: refType,
+        incoming: false,
+        itemsList: [],
+        createdBy: empId,
+      });
+    }
+
+    // Process normal items
+    for (const item of farmerActivityData.itemsList) {
+      const { systemItemId, quantity } = item;
       const index = empAccount.itemsList.findIndex(
-        (i) => i.systemItemId.toString() === systemItemId.toString()
+        (i) => i.systemItemId.toString() === systemItemId.toString(),
       );
       if (index !== -1) {
         empAccount.itemsList[index].quantity += parseInt(quantity);
@@ -324,7 +496,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
       for (const item of farmerActivityData.extraItemsList) {
         const { systemItemId, quantity } = item;
         const index = empAccount.itemsList.findIndex(
-          (i) => i.systemItemId.toString() === systemItemId.toString()
+          (i) => i.systemItemId.toString() === systemItemId.toString(),
         );
         if (index !== -1) {
           empAccount.itemsList[index].quantity += parseInt(quantity);
@@ -352,7 +524,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         },
       },
       { session },
-      { new: true }
+      { new: true },
     );
     console.log("Farmer Activity Updated Successfully", savedResponse);
     await session.commitTransaction();
@@ -429,7 +601,7 @@ const newSystemInstallation = async (req, res) => {
         const serverPath = path.join(
           __dirname,
           "../uploads/newInstallation",
-          file.filename
+          file.filename,
         );
         const urlPath = `/uploads/newInstallation/${file.filename}`;
 
@@ -456,7 +628,7 @@ const newSystemInstallation = async (req, res) => {
           const serverPath = path.join(
             __dirname,
             "../uploads/newInstallation",
-            file.filename
+            file.filename,
           );
           const urlPath = `/uploads/newInstallation/${file.filename}`;
 
@@ -555,7 +727,7 @@ const newSystemInstallation = async (req, res) => {
     for (const item of farmerActivity.itemsList) {
       const { systemItemId, quantity } = item;
       const existingItem = empAccount.itemsList.find(
-        (i) => i.systemItemId._id.toString() === systemItemId.toString()
+        (i) => i.systemItemId._id.toString() === systemItemId.toString(),
       );
 
       if (!existingItem) {
@@ -589,7 +761,7 @@ const newSystemInstallation = async (req, res) => {
       for (const item of farmerActivity.extraItemsList) {
         const { systemItemId, quantity } = item;
         const existingItem = empAccount.itemsList.find(
-          (i) => i.systemItemId._id.toString() === systemItemId.toString()
+          (i) => i.systemItemId._id.toString() === systemItemId.toString(),
         );
 
         if (!existingItem) {
@@ -674,7 +846,7 @@ const showAcceptedInstallationData = async (req, res) => {
         try {
           const response = await axios.get(
             `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${activity.farmerSaralId}`,
-            { timeout: 5000 }
+            { timeout: 5000 },
           );
           return {
             ...activity,
@@ -683,14 +855,14 @@ const showAcceptedInstallationData = async (req, res) => {
         } catch (err) {
           console.error(
             `Error fetching farmer data for ${activity.farmerSaralId}:`,
-            err.message
+            err.message,
           );
           return {
             ...activity,
             farmerDetails: null,
           };
         }
-      })
+      }),
     );
 
     return res.status(200).json({
@@ -751,7 +923,7 @@ const empDashboard = async (req, res) => {
         select: { _id: 1, itemName: 1 },
       })
       .select(
-        "-_id -__v -createdAt -updatedAt -createdBy -updatedBy -incoming"
+        "-_id -__v -createdAt -updatedAt -createdBy -updatedBy -incoming",
       );
 
     if (empData) {
@@ -792,17 +964,17 @@ const getInstallationDataWithImages = async (req, res) => {
           earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
           antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
           lightingArresterInstallationPhoto: buildFullURLs(
-            install.lightingArresterInstallationPhoto
+            install.lightingArresterInstallationPhoto,
           ),
           finalFoundationFarmerPhoto: buildFullURLs(
-            install.finalFoundationFarmerPhoto
+            install.finalFoundationFarmerPhoto,
           ),
           panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
           controllerBoxFarmerPhoto: buildFullURLs(
-            install.controllerBoxFarmerPhoto
+            install.controllerBoxFarmerPhoto,
           ),
           waterDischargeFarmerPhoto: buildFullURLs(
-            install.waterDischargeFarmerPhoto
+            install.waterDischargeFarmerPhoto,
           ),
           installationVideo: buildFullURLs(install.installationVideo), // ✅ Added video field
 
@@ -875,7 +1047,7 @@ const updateInstallationDataWithFiles = async (req, res) => {
     await NewSystemInstallation.findByIdAndUpdate(
       installationId,
       { $set: updateData },
-      { new: true, session }
+      { new: true, session },
     );
 
     // Step 2: Commit transaction
@@ -910,7 +1082,7 @@ const updateInstallationDataWithFiles = async (req, res) => {
           __dirname,
           "..",
           "uploads/newInstallation",
-          filePath.filename
+          filePath.filename,
         );
         try {
           await fs.unlink(fullPath);
@@ -1001,11 +1173,11 @@ const pickupItemsByServicePerson = async (req, res) => {
     });
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=service_person_pickup_items.xlsx`
+      `attachment; filename=service_person_pickup_items.xlsx`,
     );
 
     await workbook.xlsx.write(res);
@@ -1079,7 +1251,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
 
       if (usedElsewhere)
         throw new Error(
-          `Serial number ${serial} already assigned to another farmer`
+          `Serial number ${serial} already assigned to another farmer`,
         );
     };
 
@@ -1098,7 +1270,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
         await SerialNumber.updateOne(
           { serialNumber: oldPn, state },
           { $set: { isUsed: false } },
-          { session }
+          { session },
         );
 
         if (!newPanels.includes(oldPn)) {
@@ -1119,7 +1291,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
         await SerialNumber.updateOne(
           { serialNumber: newPn, state },
           { $set: { isUsed: true } },
-          { session }
+          { session },
         );
 
         const wasOld = oldPanels.includes(newPn) ? newPn : null;
@@ -1162,7 +1334,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
         await SerialNumber.updateOne(
           { serialNumber: oldSerial, state },
           { $set: { isUsed: false } },
-          { session }
+          { session },
         );
         historyLogs.push({
           farmerSaralId,
@@ -1180,7 +1352,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
         await SerialNumber.updateOne(
           { serialNumber: newSerial, state },
           { $set: { isUsed: true } },
-          { session }
+          { session },
         );
         historyLogs.push({
           farmerSaralId,
@@ -1202,7 +1374,7 @@ const updateFarmerActivitySerialNumbers = async (req, res) => {
     const updatedActivity = await FarmerItemsActivity.findOneAndUpdate(
       { farmerSaralId },
       { $set: { ...updateFields, updatedAt: new Date(), updatedBy: empName } },
-      { new: true, session }
+      { new: true, session },
     );
 
     // =========================
@@ -1239,6 +1411,7 @@ module.exports = {
   addServicePersonState,
   showNewInstallationDataToInstaller,
   updateStatusOfIncomingItems,
+  updateStatusOfIncomingItems2,
   newSystemInstallation,
   empDashboard,
   showAcceptedInstallationData,

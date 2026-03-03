@@ -21,6 +21,7 @@ const {
 const {
     showNewInstallationDataToInstaller,
     updateStatusOfIncomingItems,
+    updateStatusOfIncomingItems2,
     showAcceptedInstallationData,
     newSystemInstallation,
     getInstallationDataWithImages,
@@ -48,6 +49,7 @@ router.get("/show-warehouses", showAllWarehouses);
 router.get("/state-wise-service-persons", stateWiseServiceSurveyPersons);
 router.get("/show-new-install-data", showNewInstallationDataToInstaller);
 router.post("/update-incoming-item-status", updateStatusOfIncomingItems);
+router.post("/update-incoming-item-status2", updateStatusOfIncomingItems2);
 router.get("/accepted-installation-data", showAcceptedInstallationData);
 router.post("/new-system-installation", uploadHandler, newSystemInstallation);
 router.get("/get-new-installation-data", getInstallationDataWithImages);
