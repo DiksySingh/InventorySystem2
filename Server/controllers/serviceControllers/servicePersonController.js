@@ -730,6 +730,16 @@ const newSystemInstallation = async (req, res) => {
       }
     });
 
+    console.log("===== FARMER ITEMS =====");
+    farmerActivity.itemsList.forEach((i) => {
+      console.log("Farmer Item:", getId(i.systemItemId), i.quantity);
+    });
+
+    console.log("===== EMPLOYEE STOCK =====");
+    empAccount.itemsList.forEach((i) => {
+      console.log("Employee Item:", getId(i.systemItemId), i.quantity);
+    });
+
     for (const item of farmerActivity.itemsList) {
       const { systemItemId, quantity } = item;
       // const existingItem = empAccount.itemsList.find(
@@ -741,16 +751,22 @@ const newSystemInstallation = async (req, res) => {
         return existingId && newId && existingId === newId;
       });
 
+      // if (!existingItem) {
+      //   await session.abortTransaction();
+      //   session.endSession();
+      //   await deleteFiles(uploadedFilePaths);
+      //   return res.status(404).json({
+      //     success: false,
+      //     message: "Item Not Found In Employee Account",
+      //   });
+      // }
+
       if (!existingItem) {
-        await session.abortTransaction();
-        session.endSession();
-        await deleteFiles(uploadedFilePaths);
-        return res.status(404).json({
-          success: false,
-          message: "Item Not Found In Employee Account",
-        });
+        console.log("⚠️ Skipping missing item:", systemItemId?.toString());
+        continue; // ✅ Skip instead of aborting
       }
       console.log("existingItem", existingItem);
+
       if (parseInt(existingItem.quantity) < parseInt(quantity)) {
         await session.abortTransaction();
         session.endSession();
@@ -771,18 +787,29 @@ const newSystemInstallation = async (req, res) => {
     ) {
       for (const item of farmerActivity.extraItemsList) {
         const { systemItemId, quantity } = item;
-        const existingItem = empAccount.itemsList.find(
-          (i) => i.systemItemId._id.toString() === systemItemId.toString(),
-        );
+        // const existingItem = empAccount.itemsList.find(
+        //   (i) => i.systemItemId._id.toString() === systemItemId.toString(),
+        // );
+
+        const existingItem = empAccount.itemsList.find((i) => {
+          const existingId = getId(i.systemItemId);
+          const newId = getId(systemItemId);
+          return existingId && newId && existingId === newId;
+        });
+
+        // if (!existingItem) {
+        //   await session.abortTransaction();
+        //   session.endSession();
+        //   await deleteFiles(uploadedFilePaths);
+        //   return res.status(404).json({
+        //     success: false,
+        //     message: "Item Not Found In Employee Account",
+        //   });
+        // }
 
         if (!existingItem) {
-          await session.abortTransaction();
-          session.endSession();
-          await deleteFiles(uploadedFilePaths);
-          return res.status(404).json({
-            success: false,
-            message: "Item Not Found In Employee Account",
-          });
+          console.log("⚠️ Skipping missing extra item:", systemItemId?.toString());
+          continue;
         }
 
         if (parseInt(existingItem.quantity) < parseInt(quantity)) {
