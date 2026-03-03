@@ -1038,56 +1038,60 @@ const empDashboard = async (req, res) => {
 
 const getInstallationDataWithImages = async (req, res) => {
   try {
-    const state = req.query.state;
+    const { state } = req.query;
 
-    const data = await NewSystemInstallation.find({ state }).lean();
+    // 1️⃣ Fetch installations (lean for speed)
+    const installations = await NewSystemInstallation
+      .find({ state })
+      .lean()
+      .select("-__v"); // remove unwanted fields if not needed
 
-    let transformedData = [];
-
-    if (data && data.length > 0) {
-
-      // 🔥 Fetch all farmer activities in ONE query
-      const farmerIds = data.map(d => d.farmerSaralId);
-
-      const farmerActivities = await FarmerItemsActivity.find({
-        farmerSaralId: { $in: farmerIds }
-      }).lean();
-
-      // 🔥 Create lookup map
-      const farmerMap = {};
-      farmerActivities.forEach(f => {
-        farmerMap[f.farmerSaralId] = f;
+    if (!installations.length) {
+      return res.status(200).json({
+        success: true,
+        message: "Completed Installation Data Fetched Successfully",
+        data: [],
       });
-
-      // 🔥 Same response structure as your original code
-      for (const install of data) {
-
-        const farmerActivity = farmerMap[install.farmerSaralId] || null;
-
-        transformedData.push({
-          ...install,
-          pitPhoto: buildFullURLs(install.pitPhoto),
-          earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
-          antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
-          lightingArresterInstallationPhoto: buildFullURLs(
-            install.lightingArresterInstallationPhoto
-          ),
-          finalFoundationFarmerPhoto: buildFullURLs(
-            install.finalFoundationFarmerPhoto
-          ),
-          panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
-          controllerBoxFarmerPhoto: buildFullURLs(
-            install.controllerBoxFarmerPhoto
-          ),
-          waterDischargeFarmerPhoto: buildFullURLs(
-            install.waterDischargeFarmerPhoto
-          ),
-          installationVideo: buildFullURLs(install.installationVideo),
-
-          farmerActivity: farmerActivity,
-        });
-      }
     }
+
+    // 2️⃣ Remove duplicate farmer IDs (important for large data)
+    const farmerIds = [
+      ...new Set(installations.map(i => i.farmerSaralId))
+    ];
+
+    // 3️⃣ Fetch all farmer activities at once
+    const farmerActivities = await FarmerItemsActivity
+      .find({ farmerSaralId: { $in: farmerIds } })
+      .lean();
+
+    // 4️⃣ Convert to Map (faster than object lookup for big data)
+    const farmerMap = new Map();
+    for (const activity of farmerActivities) {
+      farmerMap.set(activity.farmerSaralId, activity);
+    }
+
+    // 5️⃣ Transform (faster .map instead of push in loop)
+    const transformedData = installations.map(install => ({
+      ...install,
+      pitPhoto: buildFullURLs(install.pitPhoto),
+      earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+      antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+      lightingArresterInstallationPhoto: buildFullURLs(
+        install.lightingArresterInstallationPhoto
+      ),
+      finalFoundationFarmerPhoto: buildFullURLs(
+        install.finalFoundationFarmerPhoto
+      ),
+      panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+      controllerBoxFarmerPhoto: buildFullURLs(
+        install.controllerBoxFarmerPhoto
+      ),
+      waterDischargeFarmerPhoto: buildFullURLs(
+        install.waterDischargeFarmerPhoto
+      ),
+      installationVideo: buildFullURLs(install.installationVideo),
+      farmerActivity: farmerMap.get(install.farmerSaralId) || null,
+    }));
 
     return res.status(200).json({
       success: true,
