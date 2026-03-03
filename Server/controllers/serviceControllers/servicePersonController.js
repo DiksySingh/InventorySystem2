@@ -327,6 +327,7 @@ const updateStatusOfIncomingItems = async (req, res) => {
         });
       }
     }
+
     console.log("empAccount after saving:", empAccount);
     // Process extra items
     if (farmerActivityData.extraItemsList?.length > 0) {
@@ -350,11 +351,10 @@ const updateStatusOfIncomingItems = async (req, res) => {
           });
         }
       }
-
-      empAccount.updatedAt = new Date();
-      empAccount.updatedBy = empId;
-      await empAccount.save({ session });
     }
+    empAccount.updatedAt = new Date();
+    empAccount.updatedBy = empId;
+    await empAccount.save({ session });
 
     const savedResponse = await FarmerItemsActivity.findByIdAndUpdate(
       installationId,
@@ -600,7 +600,7 @@ const newSystemInstallation = async (req, res) => {
       for (const file of files) {
         const serverPath = path.join(
           __dirname,
-          "../uploads/newInstallation",
+          "../../uploads/newInstallation",
           file.filename,
         );
         const urlPath = `/uploads/newInstallation/${file.filename}`;
@@ -724,11 +724,22 @@ const newSystemInstallation = async (req, res) => {
       });
     }
 
+    empAccount.itemsList.forEach((i) => {
+      if (!i.systemItemId) {
+        console.log("⚠️ Null systemItemId found:", i);
+      }
+    });
+
     for (const item of farmerActivity.itemsList) {
       const { systemItemId, quantity } = item;
-      const existingItem = empAccount.itemsList.find(
-        (i) => i.systemItemId._id.toString() === systemItemId.toString(),
-      );
+      // const existingItem = empAccount.itemsList.find(
+      //   (i) => i.systemItemId._id.toString() === systemItemId.toString(),
+      // );
+      const existingItem = empAccount.itemsList.find((i) => {
+        const existingId = getId(i.systemItemId);
+        const newId = getId(systemItemId);
+        return existingId && newId && existingId === newId;
+      });
 
       if (!existingItem) {
         await session.abortTransaction();
