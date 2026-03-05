@@ -426,6 +426,14 @@ const showPOBillsByUserCompany = async (req, res) => {
             createdAt: true,
           },
         },
+        invoices: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            invoiceUrl: true,
+            createdAt: true,
+          },
+        },
         payments: {
           select: {
             amount: true,
@@ -464,6 +472,7 @@ const showPOBillsByUserCompany = async (req, res) => {
         remainingAmount: Number(grandTotal) - Number(totalPaid),
         items: po.items,
         bills: po.bills,
+        invoices: po.invoices,
       };
     });
 
