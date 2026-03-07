@@ -12,7 +12,7 @@ router.post(
   tokenVerification(["Purchase", "Admin"]),
   purchaseOrderController.createCompany,
 );
-[];
+
 router.post(
   "/vendors",
   tokenVerification(["Purchase", "Admin"]),
@@ -318,5 +318,39 @@ router.post(
   purchaseOrderController.addBOMModel,
 );
 
+router.get("/vendor/template", purchaseOrderController.downloadVendorTemplate);
+
+//------------------------- Version 2 API --------------------------//
+
+router.post(
+  "/import/terms",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.upload.single("file"),
+  purchaseOrderController.uploadTermsFromExcel,
+);
+
+router.get(
+  "/terms",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.getAllTerms,
+);
+
+router.get(
+  "/items2",
+  tokenVerification(["Purchase", "Admin"]),
+  purchaseOrderController.getItemsList2,
+);
+
+router.get(
+  "/items/details2/:id",
+  tokenVerification(["Purchase", "Admin"]),
+  purchaseOrderController.getItemDetails2,
+);
+
+router.post(
+  "/purchase-orders/create3",
+  tokenVerification(["Purchase", "Admin"]),
+  purchaseOrderController.createPurchaseOrder3,
+);
 
 module.exports = router;

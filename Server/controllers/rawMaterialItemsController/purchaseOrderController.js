@@ -19,8 +19,8 @@ const BOM = require("../../models/systemInventoryModels/bomModelSchema");
 const getDashboardService = require("../../services/systemDashboardService");
 const buildPOPdfBuffer = require("../../helpers/rawMaterialItemsHelpers/poPdf.helper");
 const sendPOMail = require("../../util/mail/sendPOMail");
-const multer = require("multer");
 const companyShortName = require("../../util/companyShortName");
+const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
@@ -183,15 +183,15 @@ const createCompany = async (req, res) => {
       });
     }
 
-    const existingCompany = await prisma.company.findFirst({
-      where: { gstNumber: upperCaseGST },
-    });
-    if (existingCompany) {
-      return res.status(400).json({
-        success: false,
-        message: `A company with GST number '${upperCaseGST}' already exists.`,
-      });
-    }
+    // const existingCompany = await prisma.company.findFirst({
+    //   where: { gstNumber: upperCaseGST },
+    // });
+    // if (existingCompany) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: `A company with GST number '${upperCaseGST}' already exists.`,
+    //   });
+    // }
 
     const allowedCountries = [
       "AFGHANISTAN",
@@ -1110,13 +1110,13 @@ const updateCompany = async (req, res) => {
   } catch (error) {
     console.error("Error updating company:", error);
     res.status(500).json({
-      message: error.message || "Internal Server Error",
+      message: error.message || "Internal Server Error", 
       // error: error.message,
     });
   }
 };
 
-const updateVendor2 = async (req, res) => {
+const updateVendor2 = async (req, res) => { 
   try {
     const { id } = req.params;
     const userId = req.user?.id;
@@ -5996,6 +5996,74 @@ const getSystems = async (req, res) => {
   }
 };
 
+// const uploadTermsFromExcel = async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Excel file required",
+//       });
+//     }
+
+//     // READ BUFFER (no file saved)
+//     const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+
+//     const sheetName = workbook.SheetNames[0];
+//     const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+//     if (!rows.length) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Excel is empty",
+//       });
+//     }
+
+//     let heading = null;
+//     const terms = [];
+
+//     for (const row of rows) {
+//       if (!heading && row.heading) {
+//         heading = String(row.heading).trim();
+//       }
+
+//       if (row.terms) {
+//         terms.push(String(row.terms).trim());
+//       }
+//     }
+
+//     if (!heading)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Heading missing" });
+
+//     if (!terms.length)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "No terms found" });
+
+//     // INSERT
+//     const data = await prisma.terms_Conditions.create({
+//       data: {
+//         heading,
+//         terms,
+//         createdBy: req.user?.id,
+//       },
+//     });
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Terms imported successfully",
+//       data,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 const uploadTermsFromExcel = async (req, res) => {
   try {
     if (!req.file) {
@@ -6005,11 +6073,12 @@ const uploadTermsFromExcel = async (req, res) => {
       });
     }
 
-    // READ BUFFER (no file saved)
     const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
-
     const sheetName = workbook.SheetNames[0];
-    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], {
+      defval: "",
+    });
 
     if (!rows.length) {
       return res.status(400).json({
@@ -6022,26 +6091,40 @@ const uploadTermsFromExcel = async (req, res) => {
     const terms = [];
 
     for (const row of rows) {
-      if (!heading && row.heading) {
-        heading = String(row.heading).trim();
+      const normalizedRow = {};
+      Object.keys(row).forEach((key) => {
+        normalizedRow[key.trim().toLowerCase()] = row[key];
+      });
+
+      if (!heading && normalizedRow.heading) {
+        heading = String(normalizedRow.heading).trim();
       }
 
-      if (row.terms) {
-        terms.push(String(row.terms).trim());
+      // Only require term
+      if (normalizedRow.term) {
+        terms.push({
+          termHeading: normalizedRow.termheading
+            ? String(normalizedRow.termheading).trim()
+            : "",
+          term: String(normalizedRow.term).trim(),
+        });
       }
     }
 
-    if (!heading)
-      return res
-        .status(400)
-        .json({ success: false, message: "Heading missing" });
+    if (!heading) {
+      return res.status(400).json({
+        success: false,
+        message: "Heading missing",
+      });
+    }
 
-    if (!terms.length)
-      return res
-        .status(400)
-        .json({ success: false, message: "No terms found" });
+    if (!terms.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No terms found",
+      });
+    }
 
-    // INSERT
     const data = await prisma.terms_Conditions.create({
       data: {
         heading,
@@ -7598,7 +7681,12 @@ const createPaymentRequest = async (req, res) => {
       });
     }
 
-    const validTypes = ["Advance_Payment", "Partial_Payment", "Full_Payment", "Full_Payment_In_Advance"];
+    const validTypes = [
+      "Advance_Payment",
+      "Partial_Payment",
+      "Full_Payment",
+      "Full_Payment_In_Advance",
+    ];
     if (!validTypes.includes(billpaymentType)) {
       return res.status(400).json({
         success: false,
@@ -7725,7 +7813,12 @@ const createPaymentRequest2 = async (req, res) => {
       });
     }
 
-    const validTypes = ["Advance_Payment", "Partial_Payment", "Full_Payment","Full_Payment_In_Advance"];
+    const validTypes = [
+      "Advance_Payment",
+      "Partial_Payment",
+      "Full_Payment",
+      "Full_Payment_In_Advance",
+    ];
     if (!validTypes.includes(billpaymentType)) {
       return res.status(400).json({
         success: false,
@@ -8453,7 +8546,155 @@ const addBOMModel = async (req, res) => {
   }
 };
 
-// Version 2 API
+const downloadVendorTemplate = async (req, res) => {
+  try {
+    const headers = [
+      "name",
+      "email",
+      "gstNumber",
+      "address",
+      "city",
+      "state",
+      "pincode",
+      "zipCode",
+      "country (e.g. INDIA)",
+      "currency (e.g. INR)",
+      "exchangeRate (e.g. 1 -> INDIA)",
+      "contactPerson",
+      "contactNumber",
+      "vendorAadhaar",
+      "vendorPanCard",
+      "bankName",
+      "accountHolder",
+      "accountNumber",
+      "ifscCode",
+    ];
+
+    const worksheet = xlsx.utils.json_to_sheet([], { header: headers });
+    const workbook = xlsx.utils.book_new();
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Vendor");
+
+    const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=Vendor_Template.xlsx",
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+
+    return res.send(buffer);
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "Template generation failed" });
+  }
+};
+
+const importVendors = async (req, res) => {
+  try {
+    if (!req.file)
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    const rows = xlsx.utils.sheet_to_json(sheet, { defval: "" });
+
+    if (!rows.length)
+      return res.status(400).json({ success: false, message: "Excel file is empty" });
+
+    // Fetch existing GST once
+    const existing = await prisma.vendor.findMany({
+      where: { gstNumber: { not: null } },
+      select: { gstNumber: true }
+    });
+
+    const existingGST = new Set(existing.map(v => v.gstNumber));
+    const fileGST = new Set();
+
+    const validVendors = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const excelRow = i + 2;
+
+      // 1️⃣ Mandatory name
+      if (!row.name || !row.state || !row.address || !row.city || !row.contactPerson || !row.contactNumber) {
+        errors.push({ row: excelRow, reason: "Vendor name, address, city, state, contactPerson, contactNumber missing" });
+        continue;
+      }
+
+      // 2️⃣ GST duplicate in DB
+      if (row.gstNumber && existingGST.has(row.gstNumber)) {
+        errors.push({ row: excelRow, reason: "GST already exists in system" });
+        continue;
+      }
+
+      // 3️⃣ GST duplicate in same file
+      if (row.gstNumber && fileGST.has(row.gstNumber)) {
+        errors.push({ row: excelRow, reason: "Duplicate GST inside file" });
+        continue;
+      }
+
+      fileGST.add(row.gstNumber);
+
+      validVendors.push({
+        name: row.name,
+        email: row.email || null,
+        gstNumber: row.gstNumber || null,
+        address: row.address || null,
+        city: row.city || null,
+        state: row.state || null,
+        pincode: row.pincode || null,
+        zipCode: row.zipCode || null,
+        country: row.country || "INDIA",
+        currency: row.currency || "INR",
+        exchangeRate: row.exchangeRate ? Number(row.exchangeRate) : 1,
+        contactPerson: row.contactPerson || null,
+        contactNumber: row.contactNumber || null,
+        vendorAadhaar: row.vendorAadhaar || null,
+        vendorPanCard: row.vendorPanCard || null,
+        bankName: row.bankName || null,
+        accountHolder: row.accountHolder || null,
+        accountNumber: row.accountNumber || null,
+        ifscCode: row.ifscCode || null,
+        referenceBy: row.referenceBy || "Mr. Sohan Singh",
+        createdBy: req.user?.id,
+      });
+    }
+
+    let inserted = 0;
+
+    if (validVendors.length) {
+      const result = await prisma.vendor.createMany({
+        data: validVendors,
+      });
+      inserted = result.count;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `${inserted} Vendors imported successfully`,
+      totalRows: rows.length,
+      inserted,
+      failed: errors.length,
+      errors,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+// Version 2 API 
 
 const getItemsList2 = async (req, res) => {
   try {
@@ -9684,6 +9925,7 @@ module.exports = {
   sendPOForApproval,
   addBOMModel,
   upload,
+  downloadVendorTemplate,
   //version 2
   uploadTermsFromExcel,
   getItemsList2,
