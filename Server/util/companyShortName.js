@@ -1,6 +1,6 @@
 const companyShortName = (name = "") => {
   if (!name) return "";
-
+  name = name.replace(/\(.*?\)/g, "").trim();
   const normalized = name.toLowerCase().trim();
 
   // ---- Custom Overrides (Always first priority) ----
