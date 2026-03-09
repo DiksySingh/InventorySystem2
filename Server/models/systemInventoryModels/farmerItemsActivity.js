@@ -4,7 +4,8 @@ const Schema = mongoose.Schema;
 const farmerItemsActivitySchema = new Schema({
     referenceType: {
         type: String,
-        required: true,
+        default: null,
+        //required: true,
         enum: ["ServicePerson", "SurveyPerson"], // List of allowed models
     },
     warehouseId: {
@@ -18,7 +19,8 @@ const farmerItemsActivitySchema = new Schema({
     empId: {
         type: Schema.Types.ObjectId,
         refPath: "referenceType",
-        required: true
+        default: null
+        //required: true
     },
     systemId: {
         type: Schema.Types.ObjectId,
@@ -115,11 +117,11 @@ const farmerItemsActivitySchema = new Schema({
     },
     createdBy: {
         type: Schema.Types.ObjectId,
-        refPath: "WarehousePerson",
+        ref: "WarehousePerson",
         required: true
     },
     updatedBy: {
-        type: String,
+        type: Schema.Types.ObjectId,
     }
 }, {collection: "inFarmerItemsActivities"});
 

@@ -6,7 +6,8 @@ const {
     servicePersonBlockData,
     showWarehousePersons,
     showIncomingItemsFromFarmer,
-    getDispatchSerialNumbers
+    getDispatchSerialNumbers,
+    assignInstaller
 } = require("../controllers/serviceControllers/warehouseController");
 const {
     getServicePersonContacts,
@@ -56,9 +57,10 @@ router.get("/get-new-installation-data", getInstallationDataWithImages);
 router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);
 router.get("/show-emp-dashboard", empDashboard);
 router.post("/update-farmer-activity-serial-numbers", updateFarmerActivitySerialNumbers)
-
+     
 router.get("/get-installation-data", getFarmerInstallationDetails);
 router.get("/field-employee-data", allFieldEmployeeData);
 router.get("/dispatched-serial-numbers", getDispatchSerialNumbers);
+router.put("/assign-installer", assignInstaller);
 
 module.exports = router;

@@ -4,7 +4,8 @@ const Schema = mongoose.Schema;
 const installationAssignEmpSchema = new Schema({
     referenceType: {
         type: String,
-        required: true,
+        // required: true,
+        default: null,
         enum: ["ServicePerson", "SurveyPerson"], // List of allowed models
     },
     warehouseId: {
@@ -13,8 +14,9 @@ const installationAssignEmpSchema = new Schema({
     },
     empId: {
         type: Schema.Types.ObjectId,
-        required: true,
+        //required: true,
         refPath: "referenceType", // Dynamically references the model based on referenceType
+        default: null
     },
     farmerSaralId: {
         type: String,
@@ -63,11 +65,10 @@ const installationAssignEmpSchema = new Schema({
     createdBy: {
         type: Schema.Types.ObjectId,
         required: true,
-        refPath: "WarehousePerson",
+        ref: "WarehousePerson",
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
-        refPath: "WarehousePerson",
     }
 }, {collection: "inInstallationAssignEmp"});
 
