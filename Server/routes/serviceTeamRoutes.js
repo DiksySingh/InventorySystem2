@@ -17,7 +17,8 @@ const {
     showAllWarehouses,
     stateWiseServiceSurveyPersons,
     getFarmerInstallationDetails,
-    allFieldEmployeeData
+    allFieldEmployeeData,
+    allFarmerActivites
 } = require("../controllers/serviceControllers/serviceTeamController");
 const {
     showNewInstallationDataToInstaller,
@@ -62,5 +63,5 @@ router.get("/get-installation-data", getFarmerInstallationDetails);
 router.get("/field-employee-data", allFieldEmployeeData);
 router.get("/dispatched-serial-numbers", getDispatchSerialNumbers);
 router.put("/assign-installer", assignInstaller);
-
+router.get("/all-farmer-activities", allFarmerActivites);
 module.exports = router;

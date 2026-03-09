@@ -4,6 +4,7 @@ const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSc
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerItemsActivity");
 const NewSystemInstallation = require("../../models/systemInventoryModels/newSystemInstallationSchema");
+const axios = require("axios");
 
 const BASE_URL = process.env.BASE_URL;
 
@@ -384,6 +385,80 @@ module.exports.allFieldEmployeeData = async (req, res) => {
       success: true,
       message: "Data Fetched Successfully",
       data: cleanedData || [],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.allFarmerActivites = async (req, res) => {
+  try {
+    const activities = await FarmerItemsActivity.find({
+      accepted: false,
+    })
+      .populate({
+        path: "warehouseId",
+        select: {
+          warehouseName: 1,
+        },
+      })
+      .populate({
+        path: "systemId",
+        select: {
+          systemName: 1,
+        },
+      })
+      .populate({
+        path: "itemsList.systemItemId", // Populate subItem details
+        model: "SystemItem",
+        select: {
+          _id: 1,
+          itemName: 1,
+        },
+      })
+      .populate({
+        path: "extraItemsList.systemItemId",
+        model: "SystemItem",
+        select: {
+          _id: 1,
+          itemName: 1,
+        },
+      })
+      .sort({ createdAt: -1 });
+
+    const activitiesWithFarmerDetails = await Promise.all(
+      activities.map(async (activity) => {
+        try {
+          const saralId = activity.farmerSaralId;
+          const response = await axios.get(
+            `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${saralId}`,
+          );
+          console.log(response);
+          return {
+            ...activity.toObject(),
+            farmerDetails: response?.data?.data || null,
+          };
+        } catch (err) {
+          console.error(
+            `Failed for saralId ${activity.farmerSaralId}:`,
+            err.message,
+          );
+          return {
+            ...activity.toObject(),
+            farmerDetails: null, // fallback
+          };
+        }
+      }),
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Data Fetched Successfully",
+      data: activitiesWithFarmerDetails || [],
     });
   } catch (error) {
     return res.status(500).json({
