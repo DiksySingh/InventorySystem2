@@ -2232,9 +2232,8 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       });
 
     const requiredKeys = [
-      "installerId",
+      //"installerId",
       "farmerSaralId",
-      "bomId",
       "systemId",
       "pumpId",
       "controllerId",
@@ -2272,18 +2271,6 @@ module.exports.addNewInstallationData2 = async (req, res) => {
 
     for (let i = 0; i < dispatchedSystems.length; i++) {
       const system = dispatchedSystems[i];
-      if (!system.bomId) {
-        throw new Error("BOM not selected for dispatched system");
-      }
-
-      const bom = await BOM.findOne({
-        _id: system.bomId,
-        isActive: true
-      }).session(session);
-
-      if (!bom) {
-        throw new Error("Invalid or inactive BOM selected");
-      }
       const clampId =
         system.submersibleClampId &&
         system.submersibleClampId !== "" &&
@@ -2302,26 +2289,24 @@ module.exports.addNewInstallationData2 = async (req, res) => {
           `Farmer ${system.farmerSaralId} system already dispatched`
         );
 
-      let empData = await ServicePerson.findById(system.installerId).session(
-        session
-      );
-      let refType = "ServicePerson";
+      // let empData = await ServicePerson.findById(system.installerId).session(
+      //   session
+      // );
+      // let refType = "ServicePerson";
 
-      if (!empData) {
-        empData = await SurveyPerson.findById(system.installerId).session(
-          session
-        );
-        if (!empData) throw new Error("Installer not found");
-        refType = "SurveyPerson";
-      }
+      // if (!empData) {
+      //   empData = await SurveyPerson.findById(system.installerId).session(
+      //     session
+      //   );
+      //   if (!empData) throw new Error("Installer not found");
+      //   refType = "SurveyPerson";
+      // }
 
       const systemItems = await SystemItemMap.find({
         systemId: system.systemId,
-        bomId: system.bomId
       })
         .populate("systemItemId", "itemName")
         .session(session);
-      
       if (!systemItems.length)
         throw new Error(
           `No system items found for systemId: ${system.systemId}`
@@ -2347,11 +2332,9 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       const pumpComponents = await ItemComponentMap.find({
         systemId: system.systemId,
         systemItemId: system.pumpId,
-        bomId: system.bomId
       })
         .populate("subItemId", "itemName")
         .session(session);
-
       const filteredPumpComponents = pumpComponents.filter((comp) => {
         const name = comp.subItemId?.itemName?.toLowerCase() || "";
         if (name.includes("controller") || name.includes("rmu")) return false;
@@ -2463,12 +2446,11 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       }
 
       const farmerActivity = new FarmerItemsActivity({
-        referenceType: refType,
+        //referenceType: refType,
         warehouseId,
         farmerSaralId: system.farmerSaralId,
-        empId: system.installerId,
+        //empId: system.installerId,
         systemId: system.systemId,
-        bomId: system.bomId,
         itemsList: finalItemsList,
         panelNumbers: [],
         pumpNumber: "",
@@ -2481,12 +2463,11 @@ module.exports.addNewInstallationData2 = async (req, res) => {
       await farmerActivity.save({ session });
 
       const assignedEmp = new InstallationAssignEmp({
-        referenceType: refType,
+        //referenceType: refType,
         warehouseId,
-        empId: system.installerId,
+        //empId: system.installerId,
         farmerSaralId: system.farmerSaralId,
         systemId: system.systemId,
-        bomId: system.bomId,
         itemsList: finalItemsList,
         extraItemsList: [],
         createdBy: warehousePersonId,
@@ -2546,6 +2527,86 @@ module.exports.addNewInstallationData2 = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+module.exports.assignInstaller = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { farmerActivityId, farmerSaralId, installerId, updatedByEmpId } = req.body;
+
+    if (!farmerActivityId || !farmerSaralId || !installerId || !updatedByEmpId) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient Data Provided."
+      });
+    }
+
+    const farmerActivity = await FarmerItemsActivity.findById(farmerActivityId).session(session);
+
+    if (!farmerActivity) {
+      throw new Error("Farmer Activity For Installation Not Found.");
+    }
+
+    const installationAssignEmp = await InstallationAssignEmp.findOne({
+      farmerSaralId
+    }).session(session);
+
+    if (!installationAssignEmp) {
+      throw new Error("Installation Assign Emp Not Found.");
+    }
+
+    let refType = null;
+
+    let empData = await ServicePerson.findById(installerId).session(session);
+
+    if (empData) {
+      refType = "ServicePerson";
+    } else {
+      empData = await SurveyPerson.findById(installerId).session(session);
+
+      if (!empData) {
+        throw new Error("Installer Data Not Found.");
+      }
+
+      refType = "SurveyPerson";
+    }
+
+    // Update Farmer Activity
+    farmerActivity.referenceType = refType;
+    farmerActivity.empId = installerId;
+    farmerActivity.updatedAt = new Date();
+    farmerActivity.updatedBy = updatedByEmpId;
+
+    await farmerActivity.save({ session });
+
+    // Update Installation Assign Emp
+    installationAssignEmp.referenceType = refType;
+    installationAssignEmp.empId = installerId;
+    installationAssignEmp.updatedAt = new Date();
+    installationAssignEmp.updatedBy = updatedByEmpId;
+
+    await installationAssignEmp.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: `Installer assigned to farmer with beneficiary id: ${farmerSaralId}`
+    });
+
+  } catch (error) {
+
+    await session.abortTransaction();
+    session.endSession();
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
     });
   }
 };
