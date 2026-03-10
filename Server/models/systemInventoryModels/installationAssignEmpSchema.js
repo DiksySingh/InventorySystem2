@@ -69,6 +69,9 @@ const installationAssignEmpSchema = new Schema({
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
+    }, 
+    updatedByEmp: {
+        type: String
     }
 }, {collection: "inInstallationAssignEmp"});
 

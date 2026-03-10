@@ -2536,9 +2536,9 @@ module.exports.assignInstaller = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { farmerActivityId, farmerSaralId, installerId, updatedByEmpId } = req.body;
+    const { farmerActivityId, farmerSaralId, installerId, updatedByEmp } = req.body;
 
-    if (!farmerActivityId || !farmerSaralId || !installerId || !updatedByEmpId) {
+    if (!farmerActivityId || !farmerSaralId || !installerId || !updatedByEmp) {
       return res.status(400).json({
         success: false,
         message: "Insufficient Data Provided."
@@ -2579,7 +2579,7 @@ module.exports.assignInstaller = async (req, res) => {
     farmerActivity.referenceType = refType;
     farmerActivity.empId = installerId;
     farmerActivity.updatedAt = new Date();
-    farmerActivity.updatedBy = updatedByEmpId;
+    farmerActivity.updatedByEmp = updatedByEmp;
 
     await farmerActivity.save({ session });
 
@@ -2587,7 +2587,7 @@ module.exports.assignInstaller = async (req, res) => {
     installationAssignEmp.referenceType = refType;
     installationAssignEmp.empId = installerId;
     installationAssignEmp.updatedAt = new Date();
-    installationAssignEmp.updatedBy = updatedByEmpId;
+    installationAssignEmp.updatedByEmp = updatedByEmp;
 
     await installationAssignEmp.save({ session });
 
