@@ -482,6 +482,7 @@ module.exports.Login = async (req, res) => {
         warehouse: user.warehouse ? user.warehouse.warehouseName : null,
         contact: user.contact,
         block: user.block || [],
+        state: user.state || null,
         latitude: user.latitude || null,
         longitude: user.longitude || null,
         // accessToken,

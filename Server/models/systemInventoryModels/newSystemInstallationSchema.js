@@ -33,7 +33,7 @@ const newSystemInstallationSchema = new Schema ({
     },
     lightingArresterInstallationPhoto: {
         type: [String],
-    },
+    }, 
     finalFoundationFarmerPhoto: {
         type: [String],
       //  required: true
@@ -53,8 +53,12 @@ const newSystemInstallationSchema = new Schema ({
     installationVideo: {
         type: [String], // Changed to array to allow multiple videos
     },
+    stageId: {
+        type: Schema.Types.ObjectId,
+        ref: "Stage"
+    }, 
     state: {
-        type: String,
+        type: String, 
     },
     createdAt: {
         type: Date,

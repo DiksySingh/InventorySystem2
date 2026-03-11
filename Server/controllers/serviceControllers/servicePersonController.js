@@ -1038,11 +1038,12 @@ const empDashboard = async (req, res) => {
 
 const getInstallationDataWithImages = async (req, res) => {
   try {
-    const { state } = req.query;
+    const state  = req.user?.state;
+    const empId = req.user?._id;
 
     // 1️⃣ Fetch installations (lean for speed)
     const installations = await NewSystemInstallation
-      .find({ state })
+      .find({ state, createdBy: new mongoose.Types.ObjectId(empId) }).sort({createdAt: -1})
       .lean()
       .select("-__v"); // remove unwanted fields if not needed
 
@@ -1090,12 +1091,13 @@ const getInstallationDataWithImages = async (req, res) => {
         install.waterDischargeFarmerPhoto
       ),
       installationVideo: buildFullURLs(install.installationVideo),
-      farmerActivity: farmerMap.get(install.farmerSaralId) || null,
+      //farmerActivity: farmerMap.get(install.farmerSaralId) || null,
     }));
 
     return res.status(200).json({
       success: true,
       message: "Completed Installation Data Fetched Successfully",
+      count: transformedData.length,
       data: transformedData,
     });
 
