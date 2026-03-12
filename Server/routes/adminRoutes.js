@@ -26,13 +26,13 @@ router.get("/stock-update-history", userVerification(['admin']), showStockUpdate
 router.get("/all-items", userVerification(['admin']), showWarehouseItemsData);
 router.get("/dashboard",userVerification(['admin']), showItemsData);
 router.get("/all-warehouse-persons",userVerification(['admin']), viewWarehousePersons);
-router.get("/all-service-persons",userVerification(['admin']), viewServicePersons);
+router.get("/all-service-persons", viewServicePersons);
 router.get("/all-transactions-data", userVerification(["admin"]),allOrderDetails);
 router.get("/upper-order-details", userVerification(["admin"]), allIncomingItemDetails);
 router.put("/update-item-name",userVerification(['admin']), updateItemName);
 router.get("/all-repair-reject-itemData",userVerification(['admin']), allRepairRejectItemsData);
 router.delete("/deactivate-warehouse-person",userVerification(['admin']), deactivateWarehousePerson);
-router.delete("/deactivate-service-person",userVerification(['admin']), deactivateServicePerson);
+router.delete("/deactivate-service-person", deactivateServicePerson);
 router.get("/warehouse-to-warehouse-data", userVerification(['admin']), allDefectiveItemsData);
 
 router.get("/incoming-items-data", userVerification(['admin']), servicePersonIncomingItemsData);
