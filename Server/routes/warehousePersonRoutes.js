@@ -102,7 +102,6 @@ router.get(
 );
 router.post(
   "/service-person-signup",
-  userVerification(["warehouseAdmin"]),
   servicePersonSignup,
 );
 router.get(
