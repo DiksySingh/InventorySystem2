@@ -155,8 +155,9 @@ module.exports.servicePersonSignup = async (req, res) => {
     state,
     district,
     block,
+    createdBy
   } = req.body;
-  if (!name || !email || !contact || !password) {
+  if (!name || !email || !contact || !password || !createdBy) {
     return res.status(400).json({
       success: false,
       message: "All fields are required",
@@ -197,7 +198,7 @@ module.exports.servicePersonSignup = async (req, res) => {
       district: district || "",
       block: blockArray || [],
       createdAt,
-      createdBy: req.user._id,
+      createdBy: createdBy,
       role,
       refreshToken: null,
     });
