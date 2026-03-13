@@ -1437,7 +1437,7 @@ const getPendingPOsForReceiving = async (req, res) => {
       where: {
         warehouseId,
         status: {
-          notIn: ["Cancelled", "Received"],
+          notIn: ["Cancelled", "Received", "Admin_Rejected"],
         },
       },
       include: {
@@ -2770,7 +2770,7 @@ const sanctionItemForRequest2 = async (req, res) => {
     });
   }
 };
-
+ 
 const showProcessData2 = async (req, res) => {
   try {
     const {
@@ -3156,6 +3156,1195 @@ const getStockMovementHistory2 = async (req, res) => {
     });
   }
 };
+
+// Version 3 API //
+
+const getRawMaterialList3 = async (req, res) => {
+  try {
+    const warehouseId = req.user?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user",
+      });
+    }
+
+    const warehouseStocks = await prisma.warehouseStock.findMany({
+      where: { warehouseId },
+      select: {
+        quantity: true,
+        isUsed: true,
+        itemId: true,
+        itemType: true,
+      },
+    });
+
+    // Separate ids by type
+    const rawIds = warehouseStocks.filter(i => i.itemType === "RAW").map(i => i.itemId);
+    const infraIds = warehouseStocks.filter(i => i.itemType === "INFRA").map(i => i.itemId);
+    const toolIds = warehouseStocks.filter(i => i.itemType === "TOOL").map(i => i.itemId);
+
+    const [rawMaterials, infraMaterials, tools] = await Promise.all([
+      prisma.rawMaterial.findMany({
+        where: { id: { in: rawIds } },
+        select: { id: true, name: true, unit: true },
+      }),
+      prisma.infraMaterial.findMany({
+        where: { id: { in: infraIds } },
+        select: { id: true, name: true, unit: true },
+      }),
+      prisma.toolsEquipments.findMany({
+        where: { id: { in: toolIds } },
+        select: { id: true, name: true, unit: true },
+      }),
+    ]);
+
+    const stockMap = {};
+    for (const stock of warehouseStocks) {
+      stockMap[stock.itemId] = stock;
+    }
+
+    const formatItems = (items, type) =>
+      items.map(item => {
+        const stockData = stockMap[item.id] || {};
+        const qty = stockData.quantity ?? 0;
+        const isUsed = stockData.isUsed ?? false;
+
+        return {
+          id: item.id,
+          name: item.name,
+          stock: formatStock(qty),
+          rawStock: qty,
+          unit: item.unit,
+          isUsed,
+          outOfStock: qty === 0,
+          itemType: type,
+        };
+      });
+
+    let allItems = [
+      ...formatItems(rawMaterials, "RAW"),
+      ...formatItems(infraMaterials, "INFRA"),
+      ...formatItems(tools, "TOOL"),
+    ];
+
+    /* =========================================================
+      MONGODB INSTALLATION ITEMS
+    ========================================================== */
+
+    const installationStocks = await InstallationInventory.find({
+      warehouseId: warehouseId,
+    }).lean();
+
+    const installationIds = installationStocks.map(i => i.itemId);
+
+    const installationItems = await SystemItem.find(
+      { _id: { $in: installationIds } },
+      { itemName: 1 }
+    ).lean();
+
+    const installationMap = {};
+    installationItems.forEach(i => {
+      installationMap[i._id.toString()] = i.itemName;
+    });
+
+    const formattedInstallation = installationStocks.map(stock => {
+      const qty = stock.quantity ?? 0;
+
+      return {
+        id: stock.itemId.toString(),
+        name: installationMap[stock.itemId.toString()] || "Unknown",
+        stock: formatStock(qty),
+        rawStock: qty,
+        unit: stock.unit,
+        isUsed: false,
+        outOfStock: qty === 0,
+        itemType: "INSTALLATION",
+      };
+    });
+
+    allItems.push(...formattedInstallation);
+
+    allItems.sort((a, b) => {
+      if (a.isUsed === b.isUsed) return a.rawStock - b.rawStock;
+      return a.isUsed ? -1 : 1;
+    });
+
+    allItems = allItems.map(({ rawStock, ...rest }) => rest);
+
+    return res.status(200).json({
+      success: true,
+      message: "Inventory fetched successfully",
+      data: allItems,
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const getWarehouseRawMaterialList3 = async (req, res) => {
+  try {
+    const warehouseId = req.user?.warehouseId;
+
+    if (!warehouseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not assigned to user.",
+      });
+    }
+
+    const warehouse = await Warehouse.findById(warehouseId);
+    if (!warehouse) {
+      return res.status(400).json({
+        success: false,
+        message: "Warehouse not found.",
+      });
+    }
+
+
+    const warehouseData = await prisma.warehouseStock.findMany({
+      where: { warehouseId },
+      select: {
+        quantity: true,
+        unit: true,
+        isUsed: true,
+        itemId: true,
+        itemType: true,
+      },
+    });
+
+    // separate ids by type
+    const rawIds = warehouseData.filter(i => i.itemType === "RAW").map(i => i.itemId);
+    const infraIds = warehouseData.filter(i => i.itemType === "INFRA").map(i => i.itemId);
+    const toolIds = warehouseData.filter(i => i.itemType === "TOOL").map(i => i.itemId);
+
+    const [rawMaterials, infraMaterials, tools] = await Promise.all([
+      prisma.rawMaterial.findMany({
+        where: { id: { in: rawIds } },
+        select: { id: true, name: true, isUsed: true },
+      }),
+      prisma.infraMaterial.findMany({
+        where: { id: { in: infraIds } },
+        select: { id: true, name: true, isUsed: true },
+      }),
+      prisma.tools_Equipments.findMany({
+        where: { id: { in: toolIds } },
+        select: { id: true, name: true, isUsed: true },
+      }),
+    ]);
+
+    const itemMap = {};
+
+    rawMaterials.forEach(i => itemMap[i.id] = { ...i, type: "RAW" });
+    infraMaterials.forEach(i => itemMap[i.id] = { ...i, type: "INFRA" });
+    tools.forEach(i => itemMap[i.id] = { ...i, type: "TOOL" });
+
+    let formattedData = warehouseData.map(stock => {
+      const itemId = stock.itemId;
+      const item = itemMap[itemId] || {};
+
+      const qty = stock.quantity ?? 0;
+      const isUsed = stock.isUsed ?? item.isUsed ?? false;
+
+      return {
+        id: itemId,
+        name: item.name,
+        stock: formatStock(qty),
+        rawStock: qty,
+        unit: stock.unit,
+        isUsed,
+        outOfStock: qty === 0,
+        itemType: item.type,
+      };
+    });
+
+    /* =========================================================
+      INSTALLATION STOCK (MongoDB)
+    ========================================================== */
+
+    const installationStocks = await InstallationInventory.find({
+      warehouseId: warehouseId,
+    }).lean();
+
+    const installationIds = installationStocks.map(i => i.itemId);
+
+    const installationItems = await SystemItem.find(
+      { _id: { $in: installationIds } },
+      { itemName: 1 }
+    ).lean();
+
+    const installationMap = {};
+    installationItems.forEach(i => {
+      installationMap[i._id.toString()] = i.itemName;
+    });
+
+    const formattedInstallation = installationStocks.map(stock => {
+      const qty = stock.quantity ?? 0;
+
+      return {
+        id: stock.itemId.toString(),
+        name: installationMap[stock.itemId.toString()],
+        stock: formatStock(qty),
+        rawStock: qty,
+        unit: stock.unit,
+        isUsed: false,
+        outOfStock: qty === 0,
+        itemType: "INSTALLATION",
+      };
+    });
+
+    formattedData.push(...formattedInstallation);
+
+    /* =========================================================
+       SORT (UNCHANGED)
+    ========================================================== */
+
+    formattedData.sort((a, b) => {
+      if (a.isUsed === b.isUsed) return a.rawStock - b.rawStock;
+      return a.isUsed ? -1 : 1;
+    });
+
+    const cleanedData = formattedData.map(({ rawStock, ...rest }) => rest);
+
+    return res.status(200).json({
+      success: true,
+      message: `${warehouse.warehouseName} inventory fetched successfully`,
+      data: cleanedData,
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const showIncomingItemRequest3 = async (req, res) => {
+  try {
+    const empId = req.query?.empId;
+    if (!empId) throw new Error("Employee Id Not Found");
+
+    const empData = await prisma.user.findFirst({
+      where: { id: req?.user?.id },
+      include: { role: true },
+    });
+
+    if (empData?.role?.name !== "Store") {
+      return res.status(400).json({
+        success: false,
+        message: "Only Store Keeper Have Access For Incoming Item Request",
+      });
+    }
+
+    const incomingItemRequest = await prisma.itemRequestData.findMany({
+      where: { requestedBy: empId },
+      select: {
+        id: true,
+        warehouseId: true,
+        serviceProcessId: true,
+        isProcessRequest: true,
+        materialRequested: true,
+        requestedBy: true,
+        requestedAt: true,
+        approved: true,
+        approvedBy: true,
+        approvedAt: true,
+        materialGiven: true,
+        declined: true,
+        declinedBy: true,
+        declinedAt: true,
+        declinedRemarks: true,
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+
+    const withNames = await Promise.all(
+      incomingItemRequest.map(async (reqItem) => {
+        const materials = reqItem.rawMaterialRequested || [];
+
+        const rawIds = [];
+        const infraIds = [];
+        const toolIds = [];
+        const installationIds = [];
+
+        for (const m of materials) {
+          if (m.rawMaterialId) rawIds.push(m.rawMaterialId);
+          if (m.infraItemId) infraIds.push(m.infraItemId);
+          if (m.toolsEquipmentId) toolIds.push(m.toolsEquipmentId);
+          if (m.installationItemId) installationIds.push(m.installationItemId);
+        }
+
+        const [rawMaterials, infraMaterials, tools, installationItems] = await Promise.all([
+          prisma.rawMaterial.findMany({
+            where: { id: { in: rawIds } },
+            select: { id: true, name: true, unit: true },
+          }),
+          prisma.infraMaterial.findMany({
+            where: { id: { in: infraIds } },
+            select: { id: true, name: true, unit: true },
+          }),
+          prisma.tools_Equipments.findMany({
+            where: { id: { in: toolIds } },
+            select: { id: true, name: true, unit: true },
+          }),
+          SystemItem.find(
+            { _id: { $in: installationIds } },
+            { itemName: 1, unit: 1 }
+          ).lean(),
+        ]);
+
+        const rawMap = Object.fromEntries(rawMaterials.map(i => [i.id, i]));
+        const infraMap = Object.fromEntries(infraMaterials.map(i => [i.id, i]));
+        const toolMap = Object.fromEntries(tools.map(i => [i.id, i]));
+        const installationMap = Object.fromEntries(
+          installationItems.map(i => [i._id.toString(), i])
+        );
+
+        const enriched = materials.map((m) => {
+          let item = null;
+          let type = null;
+
+          if (m.rawMaterialId && rawMap[m.rawMaterialId]) {
+            item = rawMap[m.rawMaterialId];
+            type = "RAW";
+          }
+          else if (m.infraItemId && infraMap[m.infraItemId]) {
+            item = infraMap[m.infraItemId];
+            type = "INFRA";
+          }
+          else if (m.toolsEquipmentId && toolMap[m.toolsEquipmentId]) {
+            item = toolMap[m.toolsEquipmentId];
+            type = "TOOL";
+          }
+          else if (m.installationItemId && installationMap[m.installationItemId]) {
+            item = installationMap[m.installationItemId];
+            type = "INSTALLATION";
+          }
+
+          return {
+            ...m,
+            name: item?.name || item?.itemName,
+            unit: item?.unit,
+            itemType: type,
+          };
+        });
+
+        return { ...reqItem, materialRequested: enriched };
+      })
+    );
+
+    res.json({
+      success: true,
+      message: "Data fetched successfully",
+      data: withNames,
+    });
+
+  } catch (error) {
+    console.error("ERROR: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+// {
+//   rawMaterialRequested: [
+//     { id: "1", quantity: 2, unit: "Nos", type: "RAW" },
+//     { id: "4", quantity: 1, unit: "Nos", type: "INFRA" },
+//     { id: "7", quantity: 1, unit: "Nos", type: "TOOL" },
+//     { id: "mongoId123", quantity: 1, type: "INSTALLATION" }
+//   ]
+// }
+
+const sanctionItemForRequest3 = async (req, res) => {
+  try {
+    const { itemRequestId } = req.body;
+    const warehouseId = req.user?.warehouseId;
+
+    if (!itemRequestId)
+      return res.status(400).json({ success: false, message: "ItemRequestId Not Found" });
+
+    if (!warehouseId)
+      return res.status(400).json({ success: false, message: "Warehouse not assigned to user" });
+
+    const itemRequestData = await prisma.itemRequestData.findFirst({
+      where: { id: itemRequestId },
+    });
+
+    if (!itemRequestData) throw new Error("Item request not found");
+    if (itemRequestData.approved === null) throw new Error("Item request is not approved.");
+    if (itemRequestData.declined === true) throw new Error("Item request is declined.");
+    if (itemRequestData.materialGiven) throw new Error("Material already sanctioned");
+
+    const items = itemRequestData.rawMaterialRequested;
+
+    if (!Array.isArray(items) || items.length === 0)
+      throw new Error("No material data found in the request");
+
+    const date = new Date();
+
+    /* =====================================================
+       🟢 STEP 1 — PRE VALIDATE INSTALLATION STOCK (Mongo)
+    ===================================================== */
+    for (const item of items) {
+      const type = item.type || "raw";
+
+      if (type === "installation") {
+        const stock = await InstallationInventory.findOne({
+          itemId: item.id,
+          warehouseId,
+        });
+
+        if (!stock)
+          throw new Error(`Installation item not available in warehouse`);
+
+        if (Number(stock.quantity) < Number(item.quantity))
+          throw new Error(`Insufficient Installation stock`);
+      }
+    }
+
+    /* =====================================================
+       🔵 STEP 2 — MYSQL TRANSACTION (RAW + INFRA + TOOL)
+    ===================================================== */
+    await prisma.$transaction(async (tx) => {
+
+      for (const item of items) {
+        const type = item.type || "raw";
+
+        /* ================= RAW ================= */
+        if (type === "raw") {
+
+          const rawMaterialData = await tx.rawMaterial.findFirst({
+            where: { id: item.rawMaterialId || item.id },
+          });
+
+          if (!rawMaterialData)
+            throw new Error(`Raw material not found`);
+
+          const warehouseStock = await tx.warehouseStock.findFirst({
+            where: { warehouseId, rawMaterialId: rawMaterialData.id },
+          });
+
+          if (!warehouseStock)
+            throw new Error(`Stock not available for ${rawMaterialData.name}`);
+
+          if (Number(warehouseStock.quantity) < Number(item.quantity))
+            throw new Error(`Insufficient stock for ${rawMaterialData.name}`);
+
+          await tx.warehouseStock.update({
+            where: { id: warehouseStock.id },
+            data: { quantity: { decrement: Number(item.quantity) } },
+          });
+
+          await tx.userItemStock.upsert({
+            where: {
+              empId_rawMaterialId: {
+                empId: itemRequestData.requestedBy,
+                rawMaterialId: rawMaterialData.id,
+              },
+            },
+            update: { quantity: { increment: Number(item.quantity) } },
+            create: {
+              empId: itemRequestData.requestedBy,
+              rawMaterialId: rawMaterialData.id,
+              quantity: Number(item.quantity),
+              unit: item.unit,
+            },
+          });
+        }
+
+        /* ================= INFRA ================= */
+        else if (type === "infra") {
+
+          const stock = await tx.warehouseStock.findFirst({
+            where: { warehouseId, infraMaterialId: item.id },
+          });
+
+          if (!stock)
+            throw new Error(`Infra item not available in warehouse`);
+
+          if (Number(stock.quantity) < Number(item.quantity))
+            throw new Error(`Insufficient Infra stock`);
+
+          await tx.warehouseStock.update({
+            where: { id: stock.id },
+            data: { quantity: { decrement: Number(item.quantity) } },
+          });
+
+          await tx.userItemStock.upsert({
+            where: {
+              empId_infraMaterialId: {
+                empId: itemRequestData.requestedBy,
+                infraMaterialId: item.id,
+              },
+            },
+            update: { quantity: { increment: Number(item.quantity) } },
+            create: {
+              empId: itemRequestData.requestedBy,
+              infraMaterialId: item.id,
+              quantity: Number(item.quantity),
+            },
+          });
+        }
+
+        /* ================= TOOL ================= */
+        else if (type === "tool") {
+
+          const stock = await tx.warehouseStock.findFirst({
+            where: { warehouseId, toolId: item.id },
+          });
+
+          if (!stock)
+            throw new Error(`Tool not available in warehouse`);
+
+          if (Number(stock.quantity) < Number(item.quantity))
+            throw new Error(`Insufficient Tool stock`);
+
+          await tx.warehouseStock.update({
+            where: { id: stock.id },
+            data: { quantity: { decrement: Number(item.quantity) } },
+          });
+
+          await tx.userItemStock.upsert({
+            where: {
+              empId_toolId: {
+                empId: itemRequestData.requestedBy,
+                toolId: item.id,
+              },
+            },
+            update: { quantity: { increment: Number(item.quantity) } },
+            create: {
+              empId: itemRequestData.requestedBy,
+              toolId: item.id,
+              quantity: Number(item.quantity),
+            },
+          });
+        }
+
+        /* INSTALLATION skipped here (handled after commit) */
+      }
+    });
+
+    /* =====================================================
+       🟢 STEP 3 — MONGO COMMIT (AFTER MYSQL SUCCESS)
+    ===================================================== */
+    for (const item of items) {
+      const type = item.type || "raw";
+
+      if (type === "installation") {
+
+        await InstallationInventory.updateOne(
+          { itemId: item.id, warehouseId },
+          { $inc: { quantity: -Number(item.quantity) } }
+        );
+
+        await InstallationInventory.updateOne(
+          { itemId: item.id, assignedTo: itemRequestData.requestedBy },
+          { $inc: { quantity: Number(item.quantity) } },
+          { upsert: true }
+        );
+      }
+    }
+
+    /* =====================================================
+       🟡 STEP 4 — MARK REQUEST COMPLETE
+    ===================================================== */
+    const result = await prisma.itemRequestData.update({
+      where: { id: itemRequestId },
+      data: {
+        materialGiven: true,
+        updatedAt: date,
+        updatedBy: req.user.id,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Material sanctioned successfully",
+      data: result,
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+const purchaseOrderReceivingBill3 = async (req, res) => {
+  const userId = req.user?.id;
+  const warehouseId = String(req.user?.warehouseId);
+  let uploadedFilePath = null;
+
+  const deleteUploadedFile = async () => {
+    if (uploadedFilePath) {
+      try {
+        await fs.unlink(uploadedFilePath);
+      } catch (err) {
+        console.error("⚠️ Failed to delete uploaded file:", err);
+      }
+    }
+  };
+
+  const validateItems = async (items, po) => {
+    for (const item of items) {
+      console.log(item);
+      const { itemId, itemSource, purchaseOrderItemId } = item;
+
+      if (!itemId || !itemSource || !purchaseOrderItemId) {
+        throw new Error("Invalid item data.");
+      }
+      console.log(purchaseOrderItemId, itemId, itemSource);
+      const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+      if (!poItem) {
+        throw new Error(`PO item not found.`);
+      }
+
+      if (itemSource === "mongo") {
+        const systemItem = await SystemItem.findById(itemId);
+        if (!systemItem) throw new Error(`SystemItem not found.`);
+      } else if (itemSource === "mysql") {
+        const [raw, infra, tool] = await Promise.all([
+          prisma.rawMaterial.findUnique({ where: { id: itemId } }),
+          prisma.infraMaterial.findUnique({ where: { id: itemId } }),
+          prisma.toolsEquipments.findUnique({ where: { id: itemId } }),
+        ]);
+
+        if (!raw && !infra && !tool) {
+          throw new Error(`Item not found.`);
+        }
+      } else {
+        throw new Error(`Invalid itemSource.`);
+      }
+    }
+  };
+
+  try {
+    // ================= PARSE ITEMS =================
+    if (req.body.items) {
+      try {
+        req.body.items = JSON.parse(req.body.items);
+      } catch {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid items JSON." });
+      }
+    }
+
+    const { purchaseOrderId, items, invoiceNumber } = req.body;
+    const billFile = req.files?.billFile?.[0];
+
+    if (!billFile)
+      return res
+        .status(400)
+        .json({ success: false, message: "Bill file is required." });
+    uploadedFilePath = path.join(
+      __dirname,
+      "../../uploads/purchaseOrder/receivingBill",
+      billFile.filename,
+    );
+
+    if (
+      !purchaseOrderId ||
+      !invoiceNumber ||
+      !Array.isArray(items) ||
+      !items.length
+    ) {
+      await deleteUploadedFile();
+      return res.status(400).json({
+        success: false,
+        message: "purchaseOrderId, invoiceNumber & items are required.",
+      });
+    }
+
+    // ================= FETCH PO =================
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: purchaseOrderId },
+      include: { items: true },
+    });
+
+    if (!po) throw new Error("Purchase Order not found.");
+
+    // if (po.approvalStatus !== "Approved") {
+    //   throw new Error("Cannot receive items as PO not approved by admin.")
+    // }
+
+    // if (po.approvalStatus === 'Rejected') {
+    //   throw new Error("Cannot receive items as PO is rejected by admin");
+    // }
+
+    if (["Cancelled", "Received"].includes(po.status))
+      throw new Error(`PO already ${po.status}.`);
+
+    if (String(po.warehouseId) !== warehouseId)
+      return res
+        .status(403)
+        .json({ success: false, message: "Unauthorized warehouse access." });
+
+    await validateItems(items, po);
+    // ================= PRISMA + MONGO ATOMIC =================
+    const { receiptResults, stockUpdates } = await prisma.$transaction(
+      async (tx) => {
+        const receiptResults = [];
+        const stockUpdates = [];
+        const mongoRollbackStack = [];
+
+        // Save bill
+        await tx.purchaseOrderBill.create({
+          data: {
+            purchaseOrderId,
+            invoiceNumber,
+            fileName: billFile.filename,
+            fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
+            mimeType: billFile.mimetype,
+            uploadedBy: userId,
+          },
+        });
+
+        for (const item of items) {
+          const {
+            purchaseOrderItemId,
+            itemId,
+            itemSource,
+            itemName,
+            goodQty = 0,
+            damagedQty = 0,
+            remarks = "",
+          } = item;
+          const poItem = po.items.find((p) => p.id === purchaseOrderItemId);
+          if (!poItem) throw new Error(`PO item ${itemName} not found.`);
+
+          const orderedQty = Number(poItem.quantity || 0);
+          const alreadyReceived = Number(poItem.receivedQty || 0);
+          const poUnit = poItem.unit?.toLowerCase();
+
+          if (alreadyReceived + goodQty > orderedQty)
+            throw new Error(`Over receiving ${itemName}`);
+          const totalReceived = alreadyReceived + goodQty;
+
+          // Receipt entry
+          await tx.purchaseOrderReceipt.create({
+            data: {
+              purchaseOrderId,
+              purchaseOrderItemId,
+              invoiceNumber,
+              itemId,
+              itemSource,
+              itemName,
+              receivedQty: goodQty + damagedQty,
+              goodQty,
+              damagedQty,
+              remarks,
+              createdBy: userId,
+              receivedDate: new Date(),
+            },
+          });
+
+          // Update PO Item receivedQty
+          await tx.purchaseOrderItem.update({
+            where: { id: purchaseOrderItemId },
+            data: { receivedQty: totalReceived },
+          });
+
+          // Damaged stock
+          if (damagedQty > 0) {
+            await tx.damagedStock.create({
+              data: {
+                purchaseOrderId,
+                invoiceNumber,
+                itemId,
+                itemSource,
+                itemName,
+                unit: poItem.unit,
+                quantity: damagedQty,
+                status: "Pending",
+                remarks,
+                createdBy: userId,
+              },
+            });
+          }
+
+          // Stock updates
+          if (goodQty > 0)
+            stockUpdates.push({
+              itemSource,
+              itemId,
+              goodQty,
+              poUnit,
+              warehouseId,
+            });
+          receiptResults.push({
+            itemId,
+            itemName,
+            goodQty,
+            damagedQty,
+            remainingQty: orderedQty - totalReceived,
+          });
+        }
+
+        // PO status update
+        const updatedItems = await tx.purchaseOrderItem.findMany({
+          where: { purchaseOrderId },
+          select: { quantity: true, receivedQty: true },
+        });
+        const allReceived = updatedItems.every(
+          (i) => Number(i.receivedQty || 0) >= Number(i.quantity || 0),
+        );
+        const anyReceived = updatedItems.some(
+          (i) => Number(i.receivedQty || 0) > 0,
+        );
+
+        let newStatus = po.status;
+        if (allReceived) newStatus = "Received";
+        else if (anyReceived) newStatus = "PartiallyReceived";
+
+        if (newStatus !== po.status)
+          await tx.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: newStatus },
+          });
+
+        // MySQL stock update
+        // MySQL stock update (RAW + INFRA + TOOLS)
+        for (const s of stockUpdates.filter((s) => s.itemSource === "mysql")) {
+          // Detect table
+          const [rawMat, infraMat, toolMat] = await Promise.all([
+            tx.rawMaterial.findUnique({ where: { id: s.itemId } }),
+            tx.infraMaterial.findUnique({ where: { id: s.itemId } }),
+            tx.tools_Equipments.findUnique({ where: { id: s.itemId } }),
+          ]);
+
+          const itemData = rawMat || infraMat || toolMat;
+
+          if (!itemData) {
+            throw new Error(`MySQL item not found during stock update.`);
+          }
+
+          const baseUnit = itemData.unit?.toLowerCase();
+          const convUnit = itemData.conversionUnit?.toLowerCase();
+          const factor = Number(itemData.conversionFactor || 1);
+
+          let convertedQty = s.goodQty;
+
+          if (baseUnit && s.poUnit !== baseUnit) {
+            if (convUnit && s.poUnit === convUnit) {
+              convertedQty = s.goodQty / factor;
+            } else {
+              throw new Error(`Invalid unit for item ${itemData.name}`);
+            }
+          }
+
+          // Build WHERE condition dynamically
+          let whereCondition = { warehouseId: s.warehouseId };
+
+          if (rawMat) {
+            whereCondition.rawMaterialId = s.itemId;
+          } else if (infraMat) {
+            whereCondition.infraItemId = s.itemId;
+          } else if (toolMat) {
+            whereCondition.toolsEquipmentId = s.itemId;
+          }
+
+          // Check if stock exists
+          const existingStock = await tx.warehouseStock.findFirst({
+            where: whereCondition,
+          });
+
+          if (!existingStock) {
+            throw new Error(
+              `Stock entry not found in warehouse for item ${itemData.name}`,
+            );
+          }
+
+          // UPDATE ONLY
+          await tx.warehouseStock.update({
+            where: { id: existingStock.id },
+            data: {
+              quantity: {
+                increment: convertedQty,
+              },
+            },
+          });
+        }
+
+        // ================= MONGO STOCK =================
+        try {
+          for (const s of stockUpdates.filter(
+            (s) => s.itemSource === "mongo",
+          )) {
+            const systemItem = await SystemItem.findById(s.itemId);
+            if (!systemItem)
+              throw new Error(`System item ${s.itemName} not found`);
+            console.log(systemItem);
+            const baseUnit = systemItem.unit?.toLowerCase().trim();
+            console.log("System Item Unit: ", baseUnit);
+            const convUnit = (
+              systemItem.conversionUnit ??
+              systemItem.converionUnit ??
+              ""
+            )
+              ?.toLowerCase()
+              .trim();
+            console.log("System Item Con Unit: ", convUnit);
+            const factor = Number(systemItem.conversionFactor || 1);
+            console.log("System Item Conv Factor: ", factor);
+
+            console.log({
+              poUnit: s.poUnit?.toLowerCase().trim(),
+              baseUnit,
+              convUnit,
+            });
+            let convertedQty = s.goodQty;
+            if (baseUnit && s.poUnit !== baseUnit) {
+              if (convUnit && s.poUnit === convUnit)
+                convertedQty = s.goodQty / factor;
+              else
+                throw new Error(
+                  `Invalid unit for system item ${systemItem.itemName}`,
+                );
+            }
+
+            const inv = await InstallationInventory.findOne({
+              warehouseId: s.warehouseId,
+              systemItemId: s.itemId,
+            });
+            if (inv) {
+              mongoRollbackStack.push({
+                type: "update",
+                id: inv._id,
+                oldQty: inv.quantity,
+              });
+              console.log("Previous", inv);
+              inv.quantity += convertedQty;
+              inv.updatedAt = new Date();
+              inv.updatedByEmpId = req.user?.id;
+              await inv.save();
+              console.log("After", inv);
+            } else {
+              const created = await InstallationInventory.create({
+                warehouseId: s.warehouseId,
+                systemItemId: s.itemId,
+                quantity: convertedQty,
+              });
+              mongoRollbackStack.push({ type: "create", id: created._id });
+            }
+          }
+        } catch (mongoErr) {
+          // Rollback Mongo + throw to rollback MySQL via transaction
+          for (const r of mongoRollbackStack.reverse()) {
+            if (r.type === "update")
+              await InstallationInventory.findByIdAndUpdate(r.id, {
+                quantity: r.oldQty,
+              });
+            if (r.type === "create")
+              await InstallationInventory.findByIdAndDelete(r.id);
+          }
+          throw mongoErr;
+        }
+
+        // Audit log
+        await tx.auditLog.create({
+          data: {
+            entityType: "PurchaseOrder",
+            entityId: purchaseOrderId,
+            action: "RECEIVE_PO",
+            performedBy: userId,
+            oldValue: po,
+            newValue: { receiptResults },
+          },
+        });
+
+        return { receiptResults, stockUpdates };
+      },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Purchase Order received successfully.",
+      data: receiptResults,
+    });
+  } catch (err) {
+    console.error("❌ PO Receiving Error:", err);
+    await deleteUploadedFile();
+    return res
+      .status(500)
+      .json({ success: false, message: err.message || "PO receiving failed." });
+  }
+};
+
+const updateStock3 = async (req, res) => {
+  const uploadFiles = [];
+
+  try {
+    const empId = req?.user?.id;
+    const warehouseId = req?.user?.warehouseId;
+    const rawMaterialList = req?.body?.rawMaterialList;
+
+    if (!empId || !warehouseId) {
+      throw new Error("User or Warehouse not found");
+    }
+
+    if (!rawMaterialList) {
+      throw new Error("Raw material list is required");
+    }
+
+    if (!req.files || !req.files.billPhoto) {
+      throw new Error("Bill photo file not uploaded");
+    }
+
+    // ================= Upload bill photos =================
+    const billPhotoUrl = req.files.billPhoto.map((file) => {
+      uploadFiles.push(file.path);
+      return `/uploads/rawMaterial/billPhoto/${file.filename}`;
+    });
+
+    const parsedList = JSON.parse(rawMaterialList);
+
+    if (!Array.isArray(parsedList) || parsedList.length === 0) {
+      throw new Error("Raw material list is empty or invalid");
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+
+      // ================= Create Batch =================
+      const addBillPhoto = await tx.stockMovementBatch.create({
+        data: {
+          billPhotos: billPhotoUrl,
+          createdBy: empId,
+        },
+      });
+
+      // ================= Loop Items =================
+      for (const item of parsedList) {
+
+        // Backward compatibility
+        const itemId = item.itemId;
+        const itemType = item.itemType; // default raw
+        const quantity = Number(item.quantity);
+
+        if (!itemId || !itemType || isNaN(quantity) || quantity <= 0) {
+          throw new Error(
+            "Invalid item data: itemId, itemType and valid quantity required"
+          );
+        }
+
+        // ================= Detect Table =================
+        let raw = null;
+        let infra = null;
+        let tool = null;
+
+        if (itemType === "raw") {
+          raw = await tx.rawMaterial.findUnique({ where: { id: itemId } });
+        } else if (itemType === "infra") {
+          infra = await tx.infraMaterial.findUnique({ where: { id: itemId } });
+        } else if (itemType === "tool") {
+          tool = await tx.toolsEquipments.findUnique({ where: { id: itemId } });
+        } else {
+          throw new Error("Invalid itemType. Must be raw | infra | tool");
+        }
+
+        const itemData = raw || infra || tool;
+
+        if (!itemData) {
+          throw new Error(`Item not found: ${itemId}`);
+        }
+
+        const baseUnit = itemData.unit;
+
+        // ================= Stock Movement =================
+        await tx.stockMovement.create({
+          data: {
+            batchId: addBillPhoto.id,
+            rawMaterialId: raw ? itemId : null,
+            infraItemId: infra ? itemId : null,
+            toolsEquipmentId: tool ? itemId : null,
+            userId: empId,
+            warehouseId,
+            quantity,
+            unit: baseUnit,
+            type: "IN",
+          },
+        });
+
+        // ================= Warehouse Stock UPSERT =================
+        const whereCondition = { warehouseId };
+        // const createData = {
+        //   warehouseId,
+        //   quantity,
+        //   unit: baseUnit,
+        //   isUsed: true,
+        // };
+
+        if (raw) {
+          whereCondition.rawMaterialId = itemId;
+          //createData.rawMaterialId = itemId;
+        } else if (infra) {
+          whereCondition.infraItemId = itemId;
+          //createData.infraItemId = itemId;
+        } else if (tool) {
+          whereCondition.toolsEquipmentId = itemId;
+          //createData.toolsEquipmentId = itemId;
+        }
+
+        await tx.warehouseStock.upsert({
+          where: whereCondition,
+          update: {
+            quantity: { increment: quantity },
+            unit: baseUnit,
+          },
+          //create: createData,
+        });
+      }
+
+      return addBillPhoto;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Stock updated successfully",
+      data: result,
+    });
+
+  } catch (error) {
+    console.log("ERROR: ", error);
+
+    // ================= Cleanup Uploaded Files =================
+    if (uploadFiles.length > 0) {
+      await Promise.all(
+        uploadFiles.map(async (filePath) => {
+          try {
+            await fs.unlink(filePath);
+            console.log(`🗑 Deleted uploaded file: ${filePath}`);
+          } catch (unlinkErr) {
+            console.error(`Failed to delete file ${filePath}:`, unlinkErr);
+          }
+        }),
+      );
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   getLineWorkerList,
