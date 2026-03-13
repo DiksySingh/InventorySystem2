@@ -30,6 +30,7 @@ const {
     empDashboard,
     updateInstallationDataWithFiles,
     updateFarmerActivitySerialNumbers,
+    getInstallationDataForST,
 } = require("../controllers/serviceControllers/servicePersonController");
 const { generateInstallationPDF } = require("../helpers/pdf/generateInstallationPDF");
 const router = require("express").Router();
@@ -54,7 +55,7 @@ router.post("/update-incoming-item-status", updateStatusOfIncomingItems);
 router.post("/update-incoming-item-status2", updateStatusOfIncomingItems2);
 router.get("/accepted-installation-data", showAcceptedInstallationData);
 router.post("/new-system-installation", uploadHandler, newSystemInstallation);
-router.get("/get-new-installation-data", getInstallationDataWithImages);
+router.get("/get-new-installation-data", getInstallationDataForST);
 router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);
 router.get("/show-emp-dashboard", empDashboard);
 router.post("/update-farmer-activity-serial-numbers", updateFarmerActivitySerialNumbers)

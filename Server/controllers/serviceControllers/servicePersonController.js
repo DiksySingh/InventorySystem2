@@ -134,7 +134,7 @@ const addServicePersonState = async (req, res) => {
 
 const showNewInstallationDataToInstaller = async (req, res) => {
   try {
-    const installerId = req.query.installerId || req.user?.id;
+    const installerId = req.query.installerId || req.user?._id;
     console.log(installerId);
     if (!installerId) {
       throw new Error("Employee ID is not valid");
@@ -1088,6 +1088,89 @@ const getInstallationDataWithImages = async (req, res) => {
   }
 };
 
+const getInstallationDataForST = async (req, res) => {
+  try {
+    const state = req.user?.state;
+    // const empId = req.user?._id;
+
+    // 1️⃣ Fetch installations (lean for speed)
+    const installations = await NewSystemInstallation.find({
+      state,
+      //createdBy: new mongoose.Types.ObjectId(empId),
+      // $or: [
+      //   { stageId: new mongoose.Types.ObjectId("69b28055d994f4a0d8666075") },
+      //   { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b") },
+      // ],
+    })
+      .sort({ createdAt: -1 }). populate({
+        path: "stageId",
+        select: {
+          _id: 1,
+          stage: 1
+        }
+      })
+      .lean()
+      .select("-__v"); // remove unwanted fields if not needed
+
+    if (!installations.length) {
+      return res.status(200).json({
+        success: true,
+        message: "Completed Installation Data Fetched Successfully",
+        data: [],
+      });
+    }
+
+    // 2️⃣ Remove duplicate farmer IDs (important for large data)
+    const farmerIds = [...new Set(installations.map((i) => i.farmerSaralId))];
+
+    // 3️⃣ Fetch all farmer activities at once
+    const farmerActivities = await FarmerItemsActivity.find({
+      farmerSaralId: { $in: farmerIds },
+    }).lean();
+
+    // 4️⃣ Convert to Map (faster than object lookup for big data)
+    const farmerMap = new Map();
+    for (const activity of farmerActivities) {
+      farmerMap.set(activity.farmerSaralId, activity);
+    }
+
+    // 5️⃣ Transform (faster .map instead of push in loop)
+    const transformedData = installations.map((install) => ({
+      ...install,
+      pitPhoto: buildFullURLs(install.pitPhoto),
+      earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+      antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+      lightingArresterInstallationPhoto: buildFullURLs(
+        install.lightingArresterInstallationPhoto,
+      ),
+      finalFoundationFarmerPhoto: buildFullURLs(
+        install.finalFoundationFarmerPhoto,
+      ),
+      panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+      controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
+      waterDischargeFarmerPhoto: buildFullURLs(
+        install.waterDischargeFarmerPhoto,
+      ),
+      installationVideo: buildFullURLs(install.installationVideo),
+      //farmerActivity: farmerMap.get(install.farmerSaralId) || null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Completed Installation Data Fetched Successfully",
+      count: transformedData.length,
+      data: transformedData,
+    });
+  } catch (error) {
+    console.error("Error fetching installation data:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 const updateInstallationDataWithFiles = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -1509,4 +1592,5 @@ module.exports = {
   updateInstallationDataWithFiles,
   pickupItemsByServicePerson,
   updateFarmerActivitySerialNumbers,
+  getInstallationDataForST
 };
