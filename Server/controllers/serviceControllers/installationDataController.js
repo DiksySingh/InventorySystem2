@@ -6,6 +6,8 @@ const OutgoingItemDetails = require("../../models/serviceInventoryModels/outgoin
 const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema.js");
 const sendOtp = require("../../helpers/pdf/otpGeneration.js");
 const handleBase64Images = require("../../middlewares/base64ImageHandler.js");
+const Stage = require("../../models/systemInventoryModels/stageSchema.js");
+const Remarks = require("../../models/systemInventoryModels/remarksSchema.js");
 
 module.exports.getPickupItemData = async(req, res) => {
     try{
@@ -410,4 +412,129 @@ module.exports.checkServicePersonLatLong = async (req, res) => {
             error: error.message
         });
     }
+};
+
+module.exports.addStage = async (req, res) => {
+  try {
+    const { stage } = req.body;
+
+    if (!stage) {
+      return res.status(400).json({
+        success: false,
+        message: "Stage is required",
+      });
+    }
+
+    // Optional: prevent duplicate stage
+    const existingStage = await Stage.findOne({ stage: stage.trim() });
+
+    if (existingStage) {
+      return res.status(409).json({
+        success: false,
+        message: "Stage already exists",
+      });
+    }
+
+    const newStage = new Stage({
+      stage: stage.trim(),
+    });
+
+    await newStage.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Stage added successfully",
+      data: newStage,
+    });
+
+  } catch (error) {
+    console.error("Add Stage Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.getAllStages = async (req, res) => {
+  try {
+    const stages = await Stage.find().select("_id stage");
+
+    return res.status(200).json({
+      success: true,
+      count: stages.length,
+      data: stages,
+    });
+
+  } catch (error) {
+    console.error("Get Stages Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.addRemark = async (req, res) => {
+  try {
+    const { remark } = req.body;
+
+    if (!remark) {
+      return res.status(400).json({
+        success: false,
+        message: "Remark is required",
+      });
+    }
+
+    const existingRemark = await Remarks.findOne({ remark: remark.trim() });
+
+    if (existingRemark) {
+      return res.status(409).json({
+        success: false,
+        message: "Remark already exists",
+      });
+    }
+
+    const newRemark = new Remarks({
+      remark: remark.trim(),
+    });
+
+    await newRemark.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Remark added successfully",
+      data: newRemark,
+    });
+
+  } catch (error) {
+    console.error("Add Remark Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.getAllRemarks = async (req, res) => {
+  try {
+    const remarks = await Remarks.find().select("_id remark");
+
+    return res.status(200).json({
+      success: true,
+      count: remarks.length,
+      data: remarks,
+    });
+
+  } catch (error) {
+    console.error("Get Stages Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
 };

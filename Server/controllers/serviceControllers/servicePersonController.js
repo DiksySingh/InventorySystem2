@@ -9,11 +9,13 @@ const NewSystemInstallation = require("../../models/systemInventoryModels/newSys
 const EmpInstallationAccount = require("../../models/systemInventoryModels/empInstallationItemAccount");
 const SerialNumber = require("../../models/systemInventoryModels/serialNumberSchema");
 const SerialNumberHistory = require("../../models/systemInventoryModels/serialNumberHistorySchema");
+const Stage = require("../../models/systemInventoryModels/stageSchema");
 const ExcelJS = require("exceljs");
 const mongoose = require("mongoose");
 const fs = require("fs/promises");
 const path = require("path");
 const { save } = require("pdfkit");
+const StageActivity = require("../../models/systemInventoryModels/stageActivitySchema");
 
 const BASE_URL = process.env.BASE_URL;
 const buildFullURLs = (pathsArray) => {
@@ -667,6 +669,10 @@ const newSystemInstallation = async (req, res) => {
       refType = "SurveyPerson";
     }
 
+    const stage = await Stage.findOne({
+      stage: "Pending"
+    });
+    console.log("Stage: ", stage);
     const newInstallationData = {
       referenceType: refType,
       farmerSaralId,
@@ -685,13 +691,27 @@ const newSystemInstallation = async (req, res) => {
       controllerBoxFarmerPhoto: storedFileURLs.controllerBoxFarmerPhoto || [],
       waterDischargeFarmerPhoto: storedFileURLs.waterDischargeFarmerPhoto || [],
       installationVideo: storedFileURLs.installationVideo || [], // Added installationVideo
-      createdBy: empId,
+      stageId: new mongoose.Types.ObjectId(stage._id),
+      createdBy: new mongoose.Types.ObjectId(empId),
     };
 
     const newInstallation = new NewSystemInstallation(newInstallationData);
     console.log("New Installation Data:", newInstallationData);
+
     const savedResponse = await newInstallation.save({ session });
     console.log("Saved New Installation Response:", savedResponse);
+
+    const stageActivity = new StageActivity({
+      installationId: savedResponse._id,
+      empId: new mongoose.Types.ObjectId(empId),
+      stageId: new mongoose.Types.ObjectId(stage._id),
+      remark: null,
+    });
+    console.log(stageActivity);
+
+    const saveStageActivity = await stageActivity.save({session});
+    console.log(saveStageActivity);
+
     const farmerActivity = await FarmerItemsActivity.findOne({
       farmerSaralId,
     }).session(session);
@@ -808,7 +828,10 @@ const newSystemInstallation = async (req, res) => {
         // }
 
         if (!existingItem) {
-          console.log("⚠️ Skipping missing extra item:", systemItemId?.toString());
+          console.log(
+            "⚠️ Skipping missing extra item:",
+            systemItemId?.toString(),
+          );
           continue;
         }
 
@@ -982,68 +1005,27 @@ const empDashboard = async (req, res) => {
   }
 };
 
-// const getInstallationDataWithImages = async (req, res) => {
-//   try {
-//     const state = req.query.state;
-//     const data = await NewSystemInstallation.find({ state: state });
-//     let transformedData = [];
-
-//     if (data && data.length > 0) {
-//       for (const install of data) {
-//         const installationObj = install.toObject();
-
-//         const farmerActivity = await FarmerItemsActivity.findOne({
-//           farmerSaralId: installationObj.farmerSaralId,
-//         }).lean();
-
-//         transformedData.push({
-//           ...installationObj,
-//           pitPhoto: buildFullURLs(install.pitPhoto),
-//           earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
-//           antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
-//           lightingArresterInstallationPhoto: buildFullURLs(
-//             install.lightingArresterInstallationPhoto,
-//           ),
-//           finalFoundationFarmerPhoto: buildFullURLs(
-//             install.finalFoundationFarmerPhoto,
-//           ),
-//           panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
-//           controllerBoxFarmerPhoto: buildFullURLs(
-//             install.controllerBoxFarmerPhoto,
-//           ),
-//           waterDischargeFarmerPhoto: buildFullURLs(
-//             install.waterDischargeFarmerPhoto,
-//           ),
-//           installationVideo: buildFullURLs(install.installationVideo), // ✅ Added video field
-
-//           farmerActivity: farmerActivity || null,
-//         });
-//       }
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Completed Installation Data Fetched Successfully",
-//       data: transformedData,
-//     });
-//   } catch (error) {
-//     console.error("Error fetching installation data:", error.message);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//       error: error.message,
-//     });
-//   }
-// };
-
 const getInstallationDataWithImages = async (req, res) => {
   try {
-    const state  = req.user?.state;
+    const state = req.user?.state;
     const empId = req.user?._id;
 
     // 1️⃣ Fetch installations (lean for speed)
-    const installations = await NewSystemInstallation
-      .find({ state, createdBy: new mongoose.Types.ObjectId(empId) }).sort({createdAt: -1})
+    const installations = await NewSystemInstallation.find({
+      state,
+      createdBy: new mongoose.Types.ObjectId(empId),
+      $or: [
+        { stageId: new mongoose.Types.ObjectId("69b28055d994f4a0d8666075") },
+        { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b") },
+      ],
+    })
+      .sort({ createdAt: -1 }). populate({
+        path: "stageId",
+        select: {
+          _id: 1,
+          stage: 1
+        }
+      })
       .lean()
       .select("-__v"); // remove unwanted fields if not needed
 
@@ -1056,14 +1038,12 @@ const getInstallationDataWithImages = async (req, res) => {
     }
 
     // 2️⃣ Remove duplicate farmer IDs (important for large data)
-    const farmerIds = [
-      ...new Set(installations.map(i => i.farmerSaralId))
-    ];
+    const farmerIds = [...new Set(installations.map((i) => i.farmerSaralId))];
 
     // 3️⃣ Fetch all farmer activities at once
-    const farmerActivities = await FarmerItemsActivity
-      .find({ farmerSaralId: { $in: farmerIds } })
-      .lean();
+    const farmerActivities = await FarmerItemsActivity.find({
+      farmerSaralId: { $in: farmerIds },
+    }).lean();
 
     // 4️⃣ Convert to Map (faster than object lookup for big data)
     const farmerMap = new Map();
@@ -1072,23 +1052,21 @@ const getInstallationDataWithImages = async (req, res) => {
     }
 
     // 5️⃣ Transform (faster .map instead of push in loop)
-    const transformedData = installations.map(install => ({
+    const transformedData = installations.map((install) => ({
       ...install,
       pitPhoto: buildFullURLs(install.pitPhoto),
       earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
       antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
       lightingArresterInstallationPhoto: buildFullURLs(
-        install.lightingArresterInstallationPhoto
+        install.lightingArresterInstallationPhoto,
       ),
       finalFoundationFarmerPhoto: buildFullURLs(
-        install.finalFoundationFarmerPhoto
+        install.finalFoundationFarmerPhoto,
       ),
       panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
-      controllerBoxFarmerPhoto: buildFullURLs(
-        install.controllerBoxFarmerPhoto
-      ),
+      controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
       waterDischargeFarmerPhoto: buildFullURLs(
-        install.waterDischargeFarmerPhoto
+        install.waterDischargeFarmerPhoto,
       ),
       installationVideo: buildFullURLs(install.installationVideo),
       //farmerActivity: farmerMap.get(install.farmerSaralId) || null,
@@ -1100,7 +1078,6 @@ const getInstallationDataWithImages = async (req, res) => {
       count: transformedData.length,
       data: transformedData,
     });
-
   } catch (error) {
     console.error("Error fetching installation data:", error.message);
     return res.status(500).json({

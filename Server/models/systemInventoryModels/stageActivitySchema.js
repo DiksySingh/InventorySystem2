@@ -16,6 +16,10 @@ const stageActivitySchema = new Schema({
         ref:"Stage",
         required: true,
     },
+    remarkId: {
+        type: Schema.Types.ObjectId,
+        default: null,
+    }
 }, {timestamps: true, collection: "inStageActivities"});
 
 const StageActivity = mongoose.model("StageActivity", stageActivitySchema);

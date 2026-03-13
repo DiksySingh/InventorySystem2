@@ -4,7 +4,10 @@ const SurveyPerson = require("../../models/serviceInventoryModels/surveyPersonSc
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
 const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerItemsActivity");
 const NewSystemInstallation = require("../../models/systemInventoryModels/newSystemInstallationSchema");
+const Stage = require("../../models/systemInventoryModels/stageSchema");
+const StageActivity = require("../../models/systemInventoryModels/stageActivitySchema");
 const axios = require("axios");
+const { default: mongoose } = require("mongoose");
 
 const BASE_URL = process.env.BASE_URL;
 
@@ -342,6 +345,8 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
           ),
         },
         videos: getFullUrl(systemInstallation?.installationVideo),
+        stageId: systemInstallation.stageId,
+        remarks: systemInstallation.remarks
       },
     });
   } catch (error) {
@@ -397,73 +402,123 @@ module.exports.allFieldEmployeeData = async (req, res) => {
 
 module.exports.allFarmerActivites = async (req, res) => {
   try {
-    const activities = await FarmerItemsActivity.find({
-      accepted: false,
-    })
-      .populate({
-        path: "warehouseId",
-        select: {
-          warehouseName: 1,
-        },
-      })
-      .populate({
-        path: "systemId",
-        select: {
-          systemName: 1,
-        },
-      })
-      .populate({
-        path: "itemsList.systemItemId", // Populate subItem details
-        model: "SystemItem",
-        select: {
-          _id: 1,
-          itemName: 1,
-        },
-      })
-      .populate({
-        path: "extraItemsList.systemItemId",
-        model: "SystemItem",
-        select: {
-          _id: 1,
-          itemName: 1,
-        },
-      })
-      .sort({ createdAt: -1 });
+    const activities = await FarmerItemsActivity.find({ accepted: false })
+      .populate("warehouseId", "warehouseName")
+      .populate("systemId", "systemName")
+      .populate("itemsList.systemItemId", "itemName")
+      .populate("extraItemsList.systemItemId", "itemName")
+      .sort({ createdAt: -1 })
+      .lean();
 
-    const activitiesWithFarmerDetails = await Promise.all(
-      activities.map(async (activity) => {
-        try {
-          const saralId = activity.farmerSaralId;
-          const response = await axios.get(
-            `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${saralId}`,
-          );
-          console.log(response);
-          return {
-            ...activity.toObject(),
-            farmerDetails: response?.data?.data || null,
-          };
-        } catch (err) {
-          console.error(
-            `Failed for saralId ${activity.farmerSaralId}:`,
-            err.message,
-          );
-          return {
-            ...activity.toObject(),
-            farmerDetails: null, // fallback
-          };
-        }
-      }),
+    const saralIds = activities.map(a => a.farmerSaralId);
+
+    const farmerResponses = await Promise.all(
+      saralIds.map(id =>
+        axios
+          .get(`http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${id}`)
+          .then(res => ({ saralId: id, data: res?.data?.data }))
+          .catch(() => ({ saralId: id, data: null }))
+      )
     );
+
+    const farmerMap = {};
+    farmerResponses.forEach(f => {
+      farmerMap[f.saralId] = f.data;
+    });
+
+    const activitiesWithFarmerDetails = activities.map(activity => ({
+      ...activity,
+      farmerDetails: farmerMap[activity.farmerSaralId] || null
+    }));
 
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
-      data: activitiesWithFarmerDetails || [],
+      data: activitiesWithFarmerDetails
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
+module.exports.updateStage = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { installationId, stageId, empId, updatedBy, remarkId } = req.body;
+
+    if (!installationId || !stageId || !updatedBy) {
+      return res.status(400).json({
+        success: false,
+        message: "installationId, stageId and updatedBy are required",
+      });
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(installationId) ||
+      !mongoose.Types.ObjectId.isValid(stageId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid ObjectId",
+      });
+    }
+
+    // 1️⃣ Update installation stage
+    const updatedInstallation = await NewSystemInstallation.findByIdAndUpdate(
+      installationId,
+      {
+        stageId: new mongoose.Types.ObjectId(stageId),
+        updatedAt: new Date(),
+        updatedBy: updatedBy,
+      },
+      { new: true, session }
+    );
+
+    if (!updatedInstallation) {
+      await session.abortTransaction();
+      session.endSession();
+
+      return res.status(404).json({
+        success: false,
+        message: "Installation not found",
+      });
+    }
+
+    // 2️⃣ Save stage activity
+    const addStageActivity = new StageActivity({
+      installationId: new mongoose.Types.ObjectId(installationId),
+      empId: new mongoose.Types.ObjectId(empId),
+      stageId: new mongoose.Types.ObjectId(stageId),
+      remarkId: remarkId ? new mongoose.Types.ObjectId(remarkId) : null,
+    });
+
+    await addStageActivity.save({ session });
+
+    // 3️⃣ Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Stage updated successfully",
+      data: updatedInstallation,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Error updating stage:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
       error: error.message,
     });
   }

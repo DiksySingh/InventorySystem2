@@ -56,7 +56,11 @@ const newSystemInstallationSchema = new Schema ({
     stageId: {
         type: Schema.Types.ObjectId,
         ref: "Stage"
-    }, 
+    },
+    remarks: {
+        type: String,
+        default: null,
+    },
     state: {
         type: String, 
     },

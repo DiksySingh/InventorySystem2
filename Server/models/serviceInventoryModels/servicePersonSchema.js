@@ -60,11 +60,9 @@ const servicePersonSchema = new Schema({
     },
     createdBy: {
         type: Schema.Types.ObjectId,
-        ref: 'WarehousePerson'
     },
     updatedBy: {
         type: Schema.Types.ObjectId,
-        ref: 'Admin'
     },
     refreshToken: {
         type: String,
