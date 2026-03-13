@@ -1090,7 +1090,7 @@ const getInstallationDataWithImages = async (req, res) => {
 
 const getInstallationDataForST = async (req, res) => {
   try {
-    const state = req.user?.state;
+    const state = req.query?.state;
     // const empId = req.user?._id;
 
     // 1️⃣ Fetch installations (lean for speed)
