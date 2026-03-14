@@ -561,7 +561,28 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
     const failedFiles = [];
     const pullQuery = {};
 
-    // 🔥 Parallel deletion
+    const installationData = await NewSystemInstallation
+      .findById(installationId)
+      .populate({
+        path: "stageId",
+        select: { stage: 1 }
+      });
+
+    if (!installationData) {
+      return res.status(404).json({
+        success: false,
+        message: "Installation Data Not Found"
+      });
+    }
+
+    if (installationData.stageId?.stage === "Rejected By VT-1") {
+      return res.status(400).json({
+        success: false,
+        message: "Installation already rejected"
+      });
+    }
+
+    // 🔥 Delete files in parallel
     const deleteTasks = rejectedFiles.map(async (file) => {
       try {
         const { type, url } = file;
@@ -571,7 +592,6 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
           return;
         }
 
-        // Convert URL → stored path
         const parsedUrl = new URL(url);
         const filePath = parsedUrl.pathname;
 
@@ -582,12 +602,10 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
         const fullPath = path.join(__dirname, "../../", filePath);
 
-        // Delete file from VPS
         await fs.unlink(fullPath).catch(() => {});
 
         deletedFiles.push(filePath);
 
-        // Prepare MongoDB pull query
         if (!pullQuery[type]) {
           pullQuery[type] = { $in: [] };
         }
@@ -601,17 +619,18 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
     await Promise.all(deleteTasks);
 
-    // Remove paths from arrays
-    if (Object.keys(pullQuery).length > 0) {
-      await NewSystemInstallation.findByIdAndUpdate(
-        installationId,
-        { $pull: pullQuery },
-        { new: true }
-      );
-    }
+    const updateQuery = {
+      $pull: pullQuery,
+      $set: {
+        stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b")
+      }
+    };
 
-    // Get updated document
-    const updatedDoc = await NewSystemInstallation.findById(installationId).lean();
+    const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
+      installationId,
+      updateQuery,
+      { new: true }
+    ).lean();
 
     const setNullQuery = {};
 
@@ -621,7 +640,6 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
       }
     }
 
-    // Set empty arrays → null
     if (Object.keys(setNullQuery).length > 0) {
       await NewSystemInstallation.findByIdAndUpdate(
         installationId,
@@ -646,3 +664,147 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
     });
   }
 };
+
+// module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
+//   try {
+//     const { installationId, rejectedFiles } = req.body;
+
+//     if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Valid installationId is required"
+//       });
+//     }
+
+//     if (!Array.isArray(rejectedFiles) || rejectedFiles.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "rejectedFiles array is required"
+//       });
+//     }
+
+//     const allowedFields = [
+//       "pitPhoto",
+//       "borePhoto",
+//       "earthingFarmerPhoto",
+//       "antiTheftNutBoltPhoto",
+//       "lightingArresterInstallationPhoto",
+//       "finalFoundationFarmerPhoto",
+//       "panelFarmerPhoto",
+//       "controllerBoxFarmerPhoto",
+//       "waterDischargeFarmerPhoto",
+//       "installationVideo"
+//     ];
+
+//     const deletedFiles = [];
+//     const failedFiles = [];
+//     const pullQuery = {};
+
+//     const installationData = await NewSystemInstallation.findById(installationId).populate({
+//       path:"stageId",
+//       select: {
+//         _id: 1,
+//         stage: 1
+//       }
+//     });
+//     if(!installationData) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Installation Data Not Found"
+//       });
+//     }
+
+//     if(installationData.stageId?.stage === "Rejected By VT-1") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Installation data is already rejected. Cannot be rejected until stage becomes pending"
+//       });
+//     }
+
+//     // 🔥 Parallel deletion
+//     const deleteTasks = rejectedFiles.map(async (file) => {
+//       try {
+//         const { type, url } = file;
+
+//         if (!type || !url || !allowedFields.includes(type)) {
+//           failedFiles.push(file);
+//           return;
+//         }
+
+//         // Convert URL → stored path
+//         const parsedUrl = new URL(url);
+//         const filePath = parsedUrl.pathname;
+
+//         if (!filePath.startsWith("/uploads/newInstallation/")) {
+//           failedFiles.push(file);
+//           return;
+//         }
+
+//         const fullPath = path.join(__dirname, "../../", filePath);
+
+//         // Delete file from VPS
+//         await fs.unlink(fullPath).catch(() => {});
+
+//         deletedFiles.push(filePath);
+
+//         // Prepare MongoDB pull query
+//         if (!pullQuery[type]) {
+//           pullQuery[type] = { $in: [] };
+//         }
+
+//         pullQuery[type].$in.push(filePath);
+
+//       } catch (err) {
+//         failedFiles.push(file);
+//       }
+//     });
+
+//     await Promise.all(deleteTasks);
+
+//     // Remove paths from arrays
+//     if (Object.keys(pullQuery).length > 0) {
+//       await NewSystemInstallation.findByIdAndUpdate(
+//         installationId,
+//         { $pull: pullQuery },
+//         { new: true }
+//       );
+//     }
+
+//     // Get updated document
+//     const updatedDoc = await NewSystemInstallation.findById(installationId).lean();
+
+//     const setNullQuery = {};
+
+//     for (const field of allowedFields) {
+//       if (Array.isArray(updatedDoc[field]) && updatedDoc[field].length === 0) {
+//         setNullQuery[field] = null;
+//       }
+//     }
+    
+//     setNullQuery.stageId = new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b");
+
+//     // Set empty arrays → null
+//     if (Object.keys(setNullQuery).length > 0) {
+//       await NewSystemInstallation.findByIdAndUpdate(
+//         installationId,
+//         { $set: setNullQuery }
+//       );
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Rejected photos processed successfully",
+//       deletedFiles,
+//       failedFiles
+//     });
+
+//   } catch (error) {
+//     console.error("Error deleting rejected photos:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message
+//     });
+//   }
+// };
