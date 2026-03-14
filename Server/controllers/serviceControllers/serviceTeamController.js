@@ -557,26 +557,19 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
       "installationVideo"
     ];
 
-    const installation = await NewSystemInstallation.findById(installationId);
-
-    if (!installation) {
-      return res.status(404).json({
-        success: false,
-        message: "Installation not found"
-      });
-    }
-
     const deletedFiles = [];
     const failedFiles = [];
+
     const pullQuery = {};
 
-    for (const file of rejectedFiles) {
+    // 🔥 Create deletion promises (parallel)
+    const deleteTasks = rejectedFiles.map(async (file) => {
       try {
         const { type, url } = file;
 
         if (!type || !url || !allowedFields.includes(type)) {
           failedFiles.push(file);
-          continue;
+          return;
         }
 
         const parsedUrl = new URL(url);
@@ -584,7 +577,7 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
         if (!filePath.startsWith("/uploads/newInstallation/")) {
           failedFiles.push(file);
-          continue;
+          return;
         }
 
         const fullPath = path.join(__dirname, "../../", filePath);
@@ -594,14 +587,22 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
         deletedFiles.push(url);
 
-        pullQuery[type] = url;
+        // Prepare MongoDB pull query
+        if (!pullQuery[type]) {
+          pullQuery[type] = { $in: [] };
+        }
+
+        pullQuery[type].$in.push(url);
 
       } catch (err) {
         failedFiles.push(file);
       }
-    }
+    });
 
-    // Step 1: Pull files from arrays
+    // 🔥 Run all file deletions in parallel
+    await Promise.all(deleteTasks);
+
+    // Remove URLs from arrays
     if (Object.keys(pullQuery).length > 0) {
       await NewSystemInstallation.findByIdAndUpdate(
         installationId,
@@ -609,18 +610,18 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
       );
     }
 
-    // Step 2: Fetch updated document
-    const updatedInstallation = await NewSystemInstallation.findById(installationId);
+    // Fetch updated document
+    const updatedDoc = await NewSystemInstallation.findById(installationId).lean();
 
     const setNullQuery = {};
 
     for (const field of allowedFields) {
-      if (Array.isArray(updatedInstallation[field]) && updatedInstallation[field].length === 0) {
+      if (Array.isArray(updatedDoc[field]) && updatedDoc[field].length === 0) {
         setNullQuery[field] = null;
       }
     }
 
-    // Step 3: Set null if arrays are empty
+    // Set fields to null if empty
     if (Object.keys(setNullQuery).length > 0) {
       await NewSystemInstallation.findByIdAndUpdate(
         installationId,
@@ -630,7 +631,7 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Rejected photos processed",
+      message: "Rejected photos processed successfully",
       deletedFiles,
       failedFiles
     });
