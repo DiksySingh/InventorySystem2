@@ -1091,16 +1091,29 @@ const getInstallationDataWithImages = async (req, res) => {
 const getInstallationDataForST = async (req, res) => {
   try {
     const state = req.query?.state;
-    // const empId = req.user?._id;
-
-    // 1️⃣ Fetch installations (lean for speed)
+    const department = req.query?.department;
+    
+    let stageFilter = {};
+    
+    if(department === "Document Verify Team-1") {
+      stageFilter = {
+        $or: [
+          { stageId: new mongoose.Types.ObjectId("69b28055d994f4a0d8666075") },
+          { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b")}
+        ]
+      };
+    } else if (department === "Document Verify Team-2") {
+      stageFilter = {
+         $or: [
+          { stageId: new mongoose.Types.ObjectId("69b28068d994f4a0d8666078") },
+          { stageId: new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081") }
+        ]
+      }
+    }
+    
     const installations = await NewSystemInstallation.find({
       state,
-      //createdBy: new mongoose.Types.ObjectId(empId),
-      // $or: [
-      //   { stageId: new mongoose.Types.ObjectId("69b28055d994f4a0d8666075") },
-      //   { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b") },
-      // ],
+      ...stageFilter
     })
       .sort({ createdAt: -1 }). populate({
         path: "stageId",
