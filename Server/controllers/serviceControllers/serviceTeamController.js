@@ -559,10 +559,9 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
     const deletedFiles = [];
     const failedFiles = [];
-
     const pullQuery = {};
 
-    // 🔥 Create deletion promises (parallel)
+    // 🔥 Parallel deletion
     const deleteTasks = rejectedFiles.map(async (file) => {
       try {
         const { type, url } = file;
@@ -572,6 +571,7 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
           return;
         }
 
+        // Convert URL → stored path
         const parsedUrl = new URL(url);
         const filePath = parsedUrl.pathname;
 
@@ -582,35 +582,35 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
         const fullPath = path.join(__dirname, "../../", filePath);
 
-        await fs.access(fullPath);
-        await fs.unlink(fullPath);
+        // Delete file from VPS
+        await fs.unlink(fullPath).catch(() => {});
 
-        deletedFiles.push(url);
+        deletedFiles.push(filePath);
 
         // Prepare MongoDB pull query
         if (!pullQuery[type]) {
           pullQuery[type] = { $in: [] };
         }
 
-        pullQuery[type].$in.push(url);
+        pullQuery[type].$in.push(filePath);
 
       } catch (err) {
         failedFiles.push(file);
       }
     });
 
-    // 🔥 Run all file deletions in parallel
     await Promise.all(deleteTasks);
 
-    // Remove URLs from arrays
+    // Remove paths from arrays
     if (Object.keys(pullQuery).length > 0) {
       await NewSystemInstallation.findByIdAndUpdate(
         installationId,
-        { $pull: pullQuery }
+        { $pull: pullQuery },
+        { new: true }
       );
     }
 
-    // Fetch updated document
+    // Get updated document
     const updatedDoc = await NewSystemInstallation.findById(installationId).lean();
 
     const setNullQuery = {};
@@ -621,7 +621,7 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
       }
     }
 
-    // Set fields to null if empty
+    // Set empty arrays → null
     if (Object.keys(setNullQuery).length > 0) {
       await NewSystemInstallation.findByIdAndUpdate(
         installationId,
