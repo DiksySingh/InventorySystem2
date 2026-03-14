@@ -568,14 +568,14 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
     const deletedFiles = [];
     const failedFiles = [];
-    const updateQuery = { $pull: {}, $set: {} };
+    const pullQuery = {};
 
-    for (const photo of rejectedFiles) {
+    for (const file of rejectedFiles) {
       try {
-        const { type, url } = photo;
+        const { type, url } = file;
 
         if (!type || !url || !allowedFields.includes(type)) {
-          failedFiles.push(photo);
+          failedFiles.push(file);
           continue;
         }
 
@@ -583,7 +583,7 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
         const filePath = parsedUrl.pathname;
 
         if (!filePath.startsWith("/uploads/newInstallation/")) {
-          failedFiles.push(photo);
+          failedFiles.push(file);
           continue;
         }
 
@@ -594,26 +594,38 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
         deletedFiles.push(url);
 
-        // Remove from array
-        updateQuery.$pull[type] = url;
-
-        // Check if it was the last item
-        const currentArray = installation[type] || [];
-        if (currentArray.length === 1 && currentArray.includes(url)) {
-          updateQuery.$set[type] = null;
-        }
+        pullQuery[type] = url;
 
       } catch (err) {
-        failedFiles.push(photo);
+        failedFiles.push(file);
       }
     }
 
-    // Clean empty operators
-    if (Object.keys(updateQuery.$pull).length === 0) delete updateQuery.$pull;
-    if (Object.keys(updateQuery.$set).length === 0) delete updateQuery.$set;
+    // Step 1: Pull files from arrays
+    if (Object.keys(pullQuery).length > 0) {
+      await NewSystemInstallation.findByIdAndUpdate(
+        installationId,
+        { $pull: pullQuery }
+      );
+    }
 
-    if (Object.keys(updateQuery).length > 0) {
-      await NewSystemInstallation.findByIdAndUpdate(installationId, updateQuery);
+    // Step 2: Fetch updated document
+    const updatedInstallation = await NewSystemInstallation.findById(installationId);
+
+    const setNullQuery = {};
+
+    for (const field of allowedFields) {
+      if (Array.isArray(updatedInstallation[field]) && updatedInstallation[field].length === 0) {
+        setNullQuery[field] = null;
+      }
+    }
+
+    // Step 3: Set null if arrays are empty
+    if (Object.keys(setNullQuery).length > 0) {
+      await NewSystemInstallation.findByIdAndUpdate(
+        installationId,
+        { $set: setNullQuery }
+      );
     }
 
     return res.status(200).json({
