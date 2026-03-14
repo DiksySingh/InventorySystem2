@@ -527,8 +527,10 @@ module.exports.updateStage = async (req, res) => {
 };
 
 module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
-    const { installationId, rejectedFiles } = req.body;
+    const { installationId, rejectedFiles, updatedByName, updatedByEmpId } = req.body;
 
     if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
       return res.status(400).json({
@@ -541,6 +543,13 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "rejectedFiles array is required"
+      });
+    }
+
+    if(!updatedByName || !updatedByEmpId) {
+      return res.status(400).json({
+        success: false,
+        message: "updatedByName & updatedByEmpId are required"
       });
     }
 
@@ -619,33 +628,51 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
 
     await Promise.all(deleteTasks);
 
-    const updateQuery = {
-      $pull: pullQuery,
-      $set: {
-        stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b")
-      }
-    };
+    await session.withTransaction(async () => {
 
-    const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
-      installationId,
-      updateQuery,
-      { new: true }
-    ).lean();
+      const updateQuery = {
+        $pull: pullQuery,
+        $set: {
+          stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b"),
+          updatedBy: updatedByName,
+          updatedAt: new Date()
+        }
+      };
 
-    const setNullQuery = {};
-
-    for (const field of allowedFields) {
-      if (Array.isArray(updatedDoc[field]) && updatedDoc[field].length === 0) {
-        setNullQuery[field] = null;
-      }
-    }
-
-    if (Object.keys(setNullQuery).length > 0) {
-      await NewSystemInstallation.findByIdAndUpdate(
+      const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
         installationId,
-        { $set: setNullQuery }
-      );
-    }
+        updateQuery,
+        { new: true, session }
+      ).lean();
+
+      const setNullQuery = {};
+
+      for (const field of allowedFields) {
+        if (Array.isArray(updatedDoc[field]) && updatedDoc[field].length === 0) {
+          setNullQuery[field] = null;
+        }
+      }
+
+      if (Object.keys(setNullQuery).length > 0) {
+        await NewSystemInstallation.findByIdAndUpdate(
+          installationId,
+          { $set: setNullQuery },
+          { session }
+        );
+      }
+
+      const addStageActivity = new StageActivity({
+        installationId: new mongoose.Types.ObjectId(installationId),
+        empId: new mongoose.Types.ObjectId(updatedByEmpId),
+        stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b"),
+        remarkId: null
+      });
+
+      await addStageActivity.save({ session });
+
+    });
+
+    session.endSession();
 
     return res.status(200).json({
       success: true,
@@ -655,6 +682,10 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
     });
 
   } catch (error) {
+
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Error deleting rejected photos:", error);
 
     return res.status(500).json({
