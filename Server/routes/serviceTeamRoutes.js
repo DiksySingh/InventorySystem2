@@ -18,7 +18,8 @@ const {
     stateWiseServiceSurveyPersons,
     getFarmerInstallationDetails,
     allFieldEmployeeData,
-    allFarmerActivites
+    allFarmerActivites,
+    deleteRejectedInstallationPhotos
 } = require("../controllers/serviceControllers/serviceTeamController");
 const {
     showNewInstallationDataToInstaller,
@@ -56,6 +57,7 @@ router.post("/update-incoming-item-status2", updateStatusOfIncomingItems2);
 router.get("/accepted-installation-data", showAcceptedInstallationData);
 router.post("/new-system-installation", uploadHandler, newSystemInstallation);
 router.get("/get-new-installation-data", getInstallationDataForST);
+router.put("/delete-rejected-photos", deleteRejectedInstallationPhotos);
 router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);
 router.get("/show-emp-dashboard", empDashboard);
 router.post("/update-farmer-activity-serial-numbers", updateFarmerActivitySerialNumbers)

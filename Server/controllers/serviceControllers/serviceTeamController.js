@@ -6,6 +6,8 @@ const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerIt
 const NewSystemInstallation = require("../../models/systemInventoryModels/newSystemInstallationSchema");
 const Stage = require("../../models/systemInventoryModels/stageSchema");
 const StageActivity = require("../../models/systemInventoryModels/stageActivitySchema");
+const fs = require("fs/promises");
+const path = require("path");
 const axios = require("axios");
 const { default: mongoose } = require("mongoose");
 
@@ -520,6 +522,114 @@ module.exports.updateStage = async (req, res) => {
       success: false,
       message: "Internal server error",
       error: error.message,
+    });
+  }
+};
+
+module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
+  try {
+    const { installationId, rejectedFiles } = req.body;
+
+    if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid installationId is required"
+      });
+    }
+
+    if (!Array.isArray(rejectedFiles) || rejectedFiles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "rejectedFiles array is required"
+      });
+    }
+
+    const allowedFields = [
+      "pitPhoto",
+      "borePhoto",
+      "earthingFarmerPhoto",
+      "antiTheftNutBoltPhoto",
+      "lightingArresterInstallationPhoto",
+      "finalFoundationFarmerPhoto",
+      "panelFarmerPhoto",
+      "controllerBoxFarmerPhoto",
+      "waterDischargeFarmerPhoto",
+      "installationVideo"
+    ];
+
+    const installation = await NewSystemInstallation.findById(installationId);
+
+    if (!installation) {
+      return res.status(404).json({
+        success: false,
+        message: "Installation not found"
+      });
+    }
+
+    const deletedFiles = [];
+    const failedFiles = [];
+    const updateQuery = { $pull: {}, $set: {} };
+
+    for (const photo of rejectedFiles) {
+      try {
+        const { type, url } = photo;
+
+        if (!type || !url || !allowedFields.includes(type)) {
+          failedFiles.push(photo);
+          continue;
+        }
+
+        const parsedUrl = new URL(url);
+        const filePath = parsedUrl.pathname;
+
+        if (!filePath.startsWith("/uploads/newInstallation/")) {
+          failedFiles.push(photo);
+          continue;
+        }
+
+        const fullPath = path.join(__dirname, "../../", filePath);
+
+        await fs.access(fullPath);
+        await fs.unlink(fullPath);
+
+        deletedFiles.push(url);
+
+        // Remove from array
+        updateQuery.$pull[type] = url;
+
+        // Check if it was the last item
+        const currentArray = installation[type] || [];
+        if (currentArray.length === 1 && currentArray.includes(url)) {
+          updateQuery.$set[type] = null;
+        }
+
+      } catch (err) {
+        failedFiles.push(photo);
+      }
+    }
+
+    // Clean empty operators
+    if (Object.keys(updateQuery.$pull).length === 0) delete updateQuery.$pull;
+    if (Object.keys(updateQuery.$set).length === 0) delete updateQuery.$set;
+
+    if (Object.keys(updateQuery).length > 0) {
+      await NewSystemInstallation.findByIdAndUpdate(installationId, updateQuery);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Rejected photos processed",
+      deletedFiles,
+      failedFiles
+    });
+
+  } catch (error) {
+    console.error("Error deleting rejected photos:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message
     });
   }
 };

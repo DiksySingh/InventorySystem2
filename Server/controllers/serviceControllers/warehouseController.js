@@ -266,7 +266,7 @@ module.exports.deactivateWarehousePerson = async (req, res) => {
 };
 
 module.exports.deactivateServicePerson = async (req, res) => {
-  try {
+  try { 
     const { id } = req.query;
     if (!id) {
       return res.status(400).json({
@@ -274,7 +274,7 @@ module.exports.deactivateServicePerson = async (req, res) => {
         message: "ID is required",
       });
     }
-
+ 
     const servicePerson = await ServicePerson.findById(id);
     servicePerson.isActive = false;
     await servicePerson.save();
