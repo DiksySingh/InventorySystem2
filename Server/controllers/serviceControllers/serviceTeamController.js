@@ -589,7 +589,7 @@ module.exports.approveInstallationData = async (req, res) => {
       }
 
       // ✅ VT-2 Approval validation
-      else if (department === "Document Verify Team-2" || department === "Department Head") {
+      else if (department === "Document Verify Team-2") {
 
         if (installationData.stageId?.stage !== "Approved By VT-1") {
           throw new Error("Installation must be Approved By VT-1 before VT-2 approval");
@@ -705,7 +705,7 @@ module.exports.rejectInstallationData = async (req, res) => {
       }
 
       // ✅ VT-2 rejection
-      else if (department === "Document Verify Team-2" || department === "Department Head") {
+      else if (department === "Document Verify Team-2") {
 
         if (installationData.stageId?.stage === "Rejected By VT-2") {
           throw new Error("Installation already rejected by VT-2");

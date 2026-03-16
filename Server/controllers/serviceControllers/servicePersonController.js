@@ -1104,7 +1104,7 @@ const getInstallationDataForST = async (req, res) => {
           { stageId: new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081") }
         ]
       };
-    } else if (department === "Document Verify Team-2" || department === "Department Head") {
+    } else if (department === "Document Verify Team-2") {
       stageFilter = {
          $or: [
           { stageId: new mongoose.Types.ObjectId("69b28068d994f4a0d8666078") },
