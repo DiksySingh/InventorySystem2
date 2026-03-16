@@ -526,6 +526,242 @@ module.exports.updateStage = async (req, res) => {
   }
 };
 
+module.exports.approveInstallationData = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { department, installationId, updatedByName, updatedByEmpId } = req.body;
+
+    if (!department) {
+      return res.status(400).json({
+        success: false,
+        message: "department is required"
+      });
+    }
+
+    if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid installationId"
+      });
+    }
+
+    if (!updatedByName || !updatedByEmpId) {
+      return res.status(400).json({
+        success: false,
+        message: "updatedByName & updatedByEmpId are required"
+      });
+    }
+
+    await session.withTransaction(async () => {
+
+      // 🔹 Get current installation stage
+      const installationData = await NewSystemInstallation
+        .findById(installationId)
+        .populate({
+          path: "stageId",
+          select: { stage: 1 }
+        })
+        .session(session);
+
+      if (!installationData) {
+        throw new Error("Installation not found");
+      }
+
+      let stageId = null;
+
+      // ✅ VT-1 Approval validation
+      if (department === "Document Verify Team-1") {
+
+        if (installationData.stageId?.stage !== "Pending") {
+          throw new Error("Installation must be in Pending stage for VT-1 approval");
+        }
+
+        stageId = new mongoose.Types.ObjectId("69b28068d994f4a0d8666078"); // Approved By VT-1
+      }
+
+      // ✅ VT-2 Approval validation
+      else if (department === "Document Verify Team-2") {
+
+        if (installationData.stageId?.stage !== "Approved By VT-1") {
+          throw new Error("Installation must be Approved By VT-1 before VT-2 approval");
+        }
+
+        stageId = new mongoose.Types.ObjectId("69b28076d994f4a0d866607e"); // Approved By VT-2
+      }
+
+      else {
+        throw new Error("Invalid department");
+      }
+
+      // 🔹 Update stage
+      const updatedInstallation = await NewSystemInstallation.findByIdAndUpdate(
+        installationId,
+        {
+          $set: {
+            stageId: stageId,
+            updatedBy: updatedByName,
+            updatedAt: new Date()
+          }
+        },
+        { new: true, session }
+      );
+
+      if (!updatedInstallation) {
+        throw new Error("Installation not found during update");
+      }
+
+      // 🔹 Save stage activity
+      const stageActivity = new StageActivity({
+        installationId: new mongoose.Types.ObjectId(installationId),
+        empId: new mongoose.Types.ObjectId(updatedByEmpId),
+        stageId: stageId,
+        remarkId: null
+      });
+
+      await stageActivity.save({ session });
+
+    });
+
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Installation approved successfully"
+    });
+
+  } catch (error) {
+
+    session.endSession();
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+module.exports.rejectInstallationData = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { department, installationId, updatedByName, updatedByEmpId, remarkId } = req.body;
+
+    if (!department) {
+      return res.status(400).json({
+        success: false,
+        message: "department is required"
+      });
+    }
+
+    if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid installationId"
+      });
+    }
+
+    if (!updatedByName || !updatedByEmpId) {
+      return res.status(400).json({
+        success: false,
+        message: "updatedByName & updatedByEmpId are required"
+      });
+    }
+
+    if (!remarkId || !mongoose.Types.ObjectId.isValid(remarkId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid remarkId is required"
+      });
+    }
+
+    await session.withTransaction(async () => {
+
+      const installationData = await NewSystemInstallation
+        .findById(installationId)
+        .populate({
+          path: "stageId",
+          select: { stage: 1 }
+        })
+        .session(session);
+
+      if (!installationData) {
+        throw new Error("Installation not found");
+      }
+
+      let stageId = null;
+
+      // ❌ VT-1 cannot reject
+      if (department === "Document Verify Team-1") {
+        throw new Error("VT-1 is not authorized to reject installation");
+      }
+
+      // ✅ VT-2 rejection
+      else if (department === "Document Verify Team-2") {
+
+        if (installationData.stageId?.stage === "Rejected By VT-2") {
+          throw new Error("Installation already rejected by VT-2");
+        }
+
+        if (installationData.stageId?.stage !== "Approved By VT-1") {
+          throw new Error("Installation must be Approved By VT-1 before VT-2 rejection");
+        }
+
+        // Rejected By VT-2 stage
+        stageId = new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081");
+      }
+
+      else {
+        throw new Error("Invalid department");
+      }
+
+      // Update installation
+      const updatedInstallation = await NewSystemInstallation.findByIdAndUpdate(
+        installationId,
+        {
+          $set: {
+            stageId: stageId,
+            updatedBy: updatedByName,
+            updatedAt: new Date()
+          }
+        },
+        { new: true, session }
+      );
+
+      if (!updatedInstallation) {
+        throw new Error("Installation not found during update");
+      }
+
+      // Insert stage activity
+      const stageActivity = new StageActivity({
+        installationId: new mongoose.Types.ObjectId(installationId),
+        empId: new mongoose.Types.ObjectId(updatedByEmpId),
+        stageId: stageId,
+        remarkId: new mongoose.Types.ObjectId(remarkId)
+      });
+
+      await stageActivity.save({ session });
+
+    });
+
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Installation rejected successfully"
+    });
+
+  } catch (error) {
+
+    session.endSession();
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
 module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
   const session = await mongoose.startSession();
 

@@ -22,6 +22,7 @@ const buildFullURLs = (pathsArray) => {
   if (!pathsArray || !Array.isArray(pathsArray)) return [];
   return pathsArray.map((path) => `${BASE_URL}${path}`);
 };
+
 const updateLatitudeLongitude = async (req, res) => {
   try {
     const fileBuffer = req.file.buffer;
@@ -1099,7 +1100,8 @@ const getInstallationDataForST = async (req, res) => {
       stageFilter = {
         $or: [
           { stageId: new mongoose.Types.ObjectId("69b28055d994f4a0d8666075") },
-          { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b")}
+          { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b") },
+          { stageId: new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081") }
         ]
       };
     } else if (department === "Document Verify Team-2") {
@@ -1151,6 +1153,7 @@ const getInstallationDataForST = async (req, res) => {
     const transformedData = installations.map((install) => ({
       ...install,
       pitPhoto: buildFullURLs(install.pitPhoto),
+      borePhoto: buildFullURLs(install.borePhoto),
       earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
       antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
       lightingArresterInstallationPhoto: buildFullURLs(
@@ -1279,6 +1282,131 @@ const updateInstallationDataWithFiles = async (req, res) => {
     }
 
     console.error("Error updating installation data:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const updateInstallationFilesByFieldPerson = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { installationId, latitude, longitude } = req.body;
+
+    if (!installationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Installation ID is required",
+      });
+    }
+
+    const existingDoc = await NewSystemInstallation
+      .findById(installationId)
+      .session(session);
+
+    if (!existingDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Installation not found",
+      });
+    }
+
+    const updateData = {
+      latitude,
+      longitude,
+      updatedAt: new Date(),
+      updatedBy: req.user?.name,
+    };
+
+    const uploadedFilesToDelete = [];
+
+    if (req.files && Object.keys(req.files).length > 0) {
+      for (const field of Object.keys(req.files)) {
+
+        const currentValue = existingDoc[field];
+
+        // Allow upload only if field is empty
+        if (
+          currentValue &&
+          Array.isArray(currentValue) &&
+          currentValue.length > 0
+        ) {
+          continue;
+        }
+
+        const newFilePaths = req.files[field].map((file) => {
+          const newPath = `/uploads/newInstallation/${file.filename}`;
+
+          uploadedFilesToDelete.push(
+            path.join(__dirname, "..", newPath)
+          );
+
+          return newPath;
+        });
+
+        updateData[field] = newFilePaths;
+      }
+    }
+
+    const nextStageId = new mongoose.Types.ObjectId("69b28055d994f4a0d8666075");
+
+    updateData.stageId = nextStageId;
+
+    // 🔹 Update installation
+    const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
+      installationId,
+      { $set: updateData },
+      { new: true, session }
+    );
+
+    // 🔹 Insert stage activity
+    const stageActivity = new StageActivity({
+      installationId: new mongoose.Types.ObjectId(installationId),
+      empId: new mongoose.Types.ObjectId(req.user?._id),
+      stageId: nextStageId,
+      remarkId: null
+    });
+
+    await stageActivity.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Installation files updated and stage updated successfully",
+      data: updatedDoc,
+    });
+
+  } catch (error) {
+
+    await session.abortTransaction();
+    session.endSession();
+
+    // rollback uploaded files
+    if (req.files) {
+      for (const filePath of Object.values(req.files).flat()) {
+        const fullPath = path.join(
+          __dirname,
+          "..",
+          "uploads/newInstallation",
+          filePath.filename
+        );
+
+        try {
+          await fs.unlink(fullPath);
+        } catch (err) {
+          console.warn("Rollback failed to delete uploaded file:", fullPath);
+        }
+      }
+    }
+
+    console.error("Error updating installation data:", error.message);
+
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -1603,6 +1731,7 @@ module.exports = {
   showAcceptedInstallationData,
   getInstallationDataWithImages,
   updateInstallationDataWithFiles,
+  updateInstallationFilesByFieldPerson,
   pickupItemsByServicePerson,
   updateFarmerActivitySerialNumbers,
   getInstallationDataForST
