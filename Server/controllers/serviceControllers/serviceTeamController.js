@@ -402,53 +402,6 @@ module.exports.allFieldEmployeeData = async (req, res) => {
   }
 };
 
-// module.exports.allFarmerActivites = async (req, res) => {
-//   try {
-//     const activities = await FarmerItemsActivity.find({ accepted: false })
-//       .populate("warehouseId", "warehouseName")
-//       .populate("systemId", "systemName")
-//       .populate("itemsList.systemItemId", "itemName")
-//       .populate("extraItemsList.systemItemId", "itemName")
-//       .sort({ createdAt: -1 })
-//       .lean();
-
-//     const saralIds = activities.map(a => a.farmerSaralId);
-
-//     const farmerResponses = await Promise.all(
-//       saralIds.map(id =>
-//         axios
-//           .get(`http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${id}`)
-//           .then(res => ({ saralId: id, data: res?.data?.data }))
-//           .catch(() => ({ saralId: id, data: null }))
-//       )
-//     );
-
-//     const farmerMap = {};
-//     farmerResponses.forEach(f => {
-//       farmerMap[f.saralId] = f.data;
-//     });
-
-//     const activitiesWithFarmerDetails = activities.map(activity => ({
-//       ...activity,
-//       farmerDetails: farmerMap[activity.farmerSaralId] || null
-//     }));
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Data Fetched Successfully",
-//       data: activitiesWithFarmerDetails
-//     });
-
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message
-//     });
-//   }
-// };
-
-
 module.exports.allFarmerActivites = async (req, res) => {
   try {
 
@@ -636,7 +589,7 @@ module.exports.approveInstallationData = async (req, res) => {
       }
 
       // ✅ VT-2 Approval validation
-      else if (department === "Document Verify Team-2") {
+      else if (department === "Document Verify Team-2" || department === "Department Head") {
 
         if (installationData.stageId?.stage !== "Approved By VT-1") {
           throw new Error("Installation must be Approved By VT-1 before VT-2 approval");
@@ -752,7 +705,7 @@ module.exports.rejectInstallationData = async (req, res) => {
       }
 
       // ✅ VT-2 rejection
-      else if (department === "Document Verify Team-2") {
+      else if (department === "Document Verify Team-2" || department === "Department Head") {
 
         if (installationData.stageId?.stage === "Rejected By VT-2") {
           throw new Error("Installation already rejected by VT-2");
