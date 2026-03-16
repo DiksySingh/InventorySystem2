@@ -402,9 +402,63 @@ module.exports.allFieldEmployeeData = async (req, res) => {
   }
 };
 
+// module.exports.allFarmerActivites = async (req, res) => {
+//   try {
+//     const activities = await FarmerItemsActivity.find({ accepted: false })
+//       .populate("warehouseId", "warehouseName")
+//       .populate("systemId", "systemName")
+//       .populate("itemsList.systemItemId", "itemName")
+//       .populate("extraItemsList.systemItemId", "itemName")
+//       .sort({ createdAt: -1 })
+//       .lean();
+
+//     const saralIds = activities.map(a => a.farmerSaralId);
+
+//     const farmerResponses = await Promise.all(
+//       saralIds.map(id =>
+//         axios
+//           .get(`http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${id}`)
+//           .then(res => ({ saralId: id, data: res?.data?.data }))
+//           .catch(() => ({ saralId: id, data: null }))
+//       )
+//     );
+
+//     const farmerMap = {};
+//     farmerResponses.forEach(f => {
+//       farmerMap[f.saralId] = f.data;
+//     });
+
+//     const activitiesWithFarmerDetails = activities.map(activity => ({
+//       ...activity,
+//       farmerDetails: farmerMap[activity.farmerSaralId] || null
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Data Fetched Successfully",
+//       data: activitiesWithFarmerDetails
+//     });
+
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message
+//     });
+//   }
+// };
+
+
 module.exports.allFarmerActivites = async (req, res) => {
   try {
-    const activities = await FarmerItemsActivity.find({ accepted: false })
+
+    const activities = await FarmerItemsActivity.find({
+      //accepted: false,
+      $or: [
+        { empId: null },
+        { empId: { $exists: false } }
+      ]
+    })
       .populate("warehouseId", "warehouseName")
       .populate("systemId", "systemName")
       .populate("itemsList.systemItemId", "itemName")
@@ -424,6 +478,7 @@ module.exports.allFarmerActivites = async (req, res) => {
     );
 
     const farmerMap = {};
+
     farmerResponses.forEach(f => {
       farmerMap[f.saralId] = f.data;
     });
