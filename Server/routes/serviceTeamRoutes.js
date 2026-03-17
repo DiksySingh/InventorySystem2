@@ -74,5 +74,5 @@ router.get("/dispatched-serial-numbers", getDispatchSerialNumbers);
 router.put("/assign-installer", assignInstaller);
 router.get("/all-farmer-activities", allFarmerActivites);
 router.get("/get-verified-installation", getVT2ApprovedByDate);
-router.get("/check-verified-installation", verifyInstallationAtStageVT2)
+router.post("/check-verified-installation", verifyInstallationAtStageVT2)
 module.exports = router;
