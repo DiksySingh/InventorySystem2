@@ -9,7 +9,8 @@ const newSystemInstallationSchema = new Schema ({
     },
     farmerSaralId: {
         type: "String",
-        required: true
+        required: true,
+        uppercase: true
     },
     latitude: {
         type: String,

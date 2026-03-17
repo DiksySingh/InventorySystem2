@@ -14,7 +14,8 @@ const farmerItemsActivitySchema = new Schema({
     },
     farmerSaralId: {
         type: String,
-        required: true
+        required: true,
+        uppercase: true
     },
     empId: {
         type: Schema.Types.ObjectId,
