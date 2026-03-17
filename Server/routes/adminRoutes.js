@@ -18,7 +18,7 @@ const upload = multer({ storage: storage });
 //Admin Accessible Route
 router.post("/warehouse-person-signup", userVerification(['admin']), warehousePersonSignup);
 router.post("/survey-person-signup", userVerification(['admin']), surveyPersonSignup);
-router.put("/update-service-person", userVerification(['admin']), updateServicePerson);
+router.put("/update-service-person", updateServicePerson);
 router.post("/add-warehouse",userVerification(['admin']), addWarehouse);
 router.get("/all-warehouses", userVerification(['admin']), showWarehouses);
 router.post("/add-item", userVerification(['admin']), addWarehouseItems);

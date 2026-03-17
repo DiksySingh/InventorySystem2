@@ -329,6 +329,7 @@ module.exports.updateServicePerson = async (req, res) => {
       longitude,
       latitude,
       updatedAt,
+      updatedBy
     } = req.body;
 
     if (!servicePersonId) {
@@ -365,7 +366,7 @@ module.exports.updateServicePerson = async (req, res) => {
     if (latitude) servicePersonData.latitude = latitude;
 
     servicePersonData.updatedAt = updatedAt;
-    servicePersonData.updatedBy = req.user?._id || null;
+    servicePersonData.updatedBy = updatedBy || null;
 
     const updatedData = await servicePersonData.save();
 

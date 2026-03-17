@@ -940,146 +940,210 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
   }
 };
 
-// module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
-//   try {
-//     const { installationId, rejectedFiles } = req.body;
+module.exports.getVT2ApprovedByDate = async (req, res) => {
+  try {
+    const { date } = req.query;
 
-//     if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Valid installationId is required"
-//       });
-//     }
+    // ✅ 1. Validate date
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date is required",
+      });
+    }
 
-//     if (!Array.isArray(rejectedFiles) || rejectedFiles.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "rejectedFiles array is required"
-//       });
-//     }
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format",
+      });
+    }
 
-//     const allowedFields = [
-//       "pitPhoto",
-//       "borePhoto",
-//       "earthingFarmerPhoto",
-//       "antiTheftNutBoltPhoto",
-//       "lightingArresterInstallationPhoto",
-//       "finalFoundationFarmerPhoto",
-//       "panelFarmerPhoto",
-//       "controllerBoxFarmerPhoto",
-//       "waterDischargeFarmerPhoto",
-//       "installationVideo"
-//     ];
+    // ✅ 2. IST-safe day range
+    const startDate = new Date(parsedDate);
+    startDate.setHours(0, 0, 0, 0);
 
-//     const deletedFiles = [];
-//     const failedFiles = [];
-//     const pullQuery = {};
+    const endDate = new Date(parsedDate);
+    endDate.setHours(23, 59, 59, 999);
 
-//     const installationData = await NewSystemInstallation.findById(installationId).populate({
-//       path:"stageId",
-//       select: {
-//         _id: 1,
-//         stage: 1
-//       }
-//     });
-//     if(!installationData) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Installation Data Not Found"
-//       });
-//     }
+    const data = await StageActivity.aggregate([
+      // ✅ 3. Filter by date FIRST (performance)
+      {
+        $match: {
+          stageId: ObjectId("69b28076d994f4a0d866607e"),
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      // ⚠️ Handle missing stage
+      {
+        $unwind: {
+          path: "$stage",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
 
-//     if(installationData.stageId?.stage === "Rejected By VT-1") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Installation data is already rejected. Cannot be rejected until stage becomes pending"
-//       });
-//     }
+      // ✅ 5. Filter VT-2
+      {
+        $match: {
+          "stage.name": "Approved By VT-2",
+        },
+      },
 
-//     // 🔥 Parallel deletion
-//     const deleteTasks = rejectedFiles.map(async (file) => {
-//       try {
-//         const { type, url } = file;
+      // ✅ 6. Remove duplicates (same installation multiple logs)
+      {
+        $sort: { createdAt: 1 },
+      },
+      {
+        $group: {
+          _id: "$installationId",
+          latest: { $last: "$$ROOT" },
+        },
+      },
+      {
+        $replaceRoot: { newRoot: "$latest" },
+      },
 
-//         if (!type || !url || !allowedFields.includes(type)) {
-//           failedFiles.push(file);
-//           return;
-//         }
+      // ✅ 7. Join Installation
+      {
+        $lookup: {
+          from: "inNewSystemInstallations",
+          localField: "installationId",
+          foreignField: "_id",
+          as: "installation",
+        },
+      },
 
-//         // Convert URL → stored path
-//         const parsedUrl = new URL(url);
-//         const filePath = parsedUrl.pathname;
+      // ⚠️ Handle missing installation
+      {
+        $unwind: {
+          path: "$installation",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
 
-//         if (!filePath.startsWith("/uploads/newInstallation/")) {
-//           failedFiles.push(file);
-//           return;
-//         }
+      // ✅ 8. Only ServicePerson (installer)
+      {
+        $match: {
+          "installation.referenceType": "ServicePerson",
+        },
+      },
 
-//         const fullPath = path.join(__dirname, "../../", filePath);
+      // ✅ 9. Join Installer
+      {
+        $lookup: {
+          from: "inServicePersons",
+          localField: "installation.createdBy",
+          foreignField: "_id",
+          as: "installer",
+        },
+      },
 
-//         // Delete file from VPS
-//         await fs.unlink(fullPath).catch(() => {});
+      // ⚠️ Handle missing installer safely
+      {
+        $unwind: {
+          path: "$installer",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
 
-//         deletedFiles.push(filePath);
+      // ✅ 10. Final Projection (safe fallback values)
+      {
+        $project: {
+          _id: 0,
+          farmerSaralId: {
+            $ifNull: ["$installation.farmerSaralId", "N/A"],
+          },
+          installerName: {
+            $ifNull: ["$installer.name", "Unknown"],
+          },
+          approvedAt: "$createdAt",
+        },
+      },
 
-//         // Prepare MongoDB pull query
-//         if (!pullQuery[type]) {
-//           pullQuery[type] = { $in: [] };
-//         }
+      // ✅ 11. Sort latest first
+      {
+        $sort: { approvedAt: -1 },
+      },
+    ]);
 
-//         pullQuery[type].$in.push(filePath);
+    return res.status(200).json({
+      success: true,
+      count: data.length,
+      data,
+    });
 
-//       } catch (err) {
-//         failedFiles.push(file);
-//       }
-//     });
+  } catch (error) {
+    console.error("VT2 Report Error:", error);
 
-//     await Promise.all(deleteTasks);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
 
-//     // Remove paths from arrays
-//     if (Object.keys(pullQuery).length > 0) {
-//       await NewSystemInstallation.findByIdAndUpdate(
-//         installationId,
-//         { $pull: pullQuery },
-//         { new: true }
-//       );
-//     }
+module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
+  try {
+    const { saralIds } = req.body;
 
-//     // Get updated document
-//     const updatedDoc = await NewSystemInstallation.findById(installationId).lean();
+    // ✅ Hardcoded VT-2 StageId (IMPORTANT)
+    const VT2_STAGE_ID = "69b28076d994f4a0d866607e"; 
 
-//     const setNullQuery = {};
+    // ✅ 1. Validate input
+    if (!Array.isArray(saralIds) || saralIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "saralIds must be a non-empty array",
+      });
+    }
 
-//     for (const field of allowedFields) {
-//       if (Array.isArray(updatedDoc[field]) && updatedDoc[field].length === 0) {
-//         setNullQuery[field] = null;
-//       }
-//     }
-    
-//     setNullQuery.stageId = new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b");
+    // ✅ 2. Normalize input (optional but recommended)
+    const normalizedSaralIds = saralIds.map(id => String(id).trim());
 
-//     // Set empty arrays → null
-//     if (Object.keys(setNullQuery).length > 0) {
-//       await NewSystemInstallation.findByIdAndUpdate(
-//         installationId,
-//         { $set: setNullQuery }
-//       );
-//     }
+    // ✅ 3. Fetch installations (single DB call)
+    const installations = await mongoose
+      .model("NewSystemInstallation")
+      .find({
+        farmerSaralId: { $in: normalizedSaralIds },
+      })
+      .select("farmerSaralId stageId")
+      .lean();
 
-//     return res.status(200).json({
-//       success: true,
-//       message: "Rejected photos processed successfully",
-//       deletedFiles,
-//       failedFiles
-//     });
+    // ✅ 4. Create VT-2 Set (fast lookup)
+    const vt2Set = new Set();
 
-//   } catch (error) {
-//     console.error("Error deleting rejected photos:", error);
+    installations.forEach(inst => {
+      if (
+        inst.stageId &&
+        inst.stageId.toString() === VT2_STAGE_ID
+      ) {
+        vt2Set.add(inst.farmerSaralId);
+      }
+    });
 
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message
-//     });
-//   }
-// };
+    // ✅ 5. Prepare final response
+    const result = normalizedSaralIds.map(id => ({
+      farmerSaralId: id,
+      verified: vt2Set.has(id),
+    }));
+
+    // ✅ 6. Response
+    return res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result,
+    });
+
+  } catch (error) {
+    console.error("VT2 Verify Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
