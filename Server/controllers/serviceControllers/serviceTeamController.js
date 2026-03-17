@@ -1092,7 +1092,6 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
 
     const VT2_STAGE_ID = "69b28076d994f4a0d866607e";
 
-    // ✅ 1. Validate input
     if (!Array.isArray(saralIds) || saralIds.length === 0) {
       return res.status(400).json({
         success: false,
@@ -1100,12 +1099,10 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
       });
     }
 
-    // ✅ 2. Normalize to UPPERCASE
     const normalizedSaralIds = saralIds.map(id =>
       String(id).trim().toUpperCase()
     );
 
-    // ✅ 3. Fetch installations (case-insensitive match)
     const installations = await mongoose
       .model("NewSystemInstallation")
       .aggregate([
@@ -1127,7 +1124,6 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
         }
       ]);
 
-    // ✅ 4. Create VT-2 Set
     const vt2Set = new Set();
 
     installations.forEach(inst => {
@@ -1139,7 +1135,6 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
       }
     });
 
-    // ✅ 5. Prepare response
     const result = normalizedSaralIds.map(id => ({
       farmerSaralId: id,
       verified: vt2Set.has(id),
@@ -1160,65 +1155,3 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
     });
   }
 };
-
-// module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
-//   try {
-//     const { saralIds } = req.body;
-
-//     // ✅ Hardcoded VT-2 StageId (IMPORTANT)
-//     const VT2_STAGE_ID = "69b28076d994f4a0d866607e"; 
-
-//     // ✅ 1. Validate input
-//     if (!Array.isArray(saralIds) || saralIds.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "saralIds must be a non-empty array",
-//       });
-//     }
-
-//     // ✅ 2. Normalize input (optional but recommended)
-//     const normalizedSaralIds = saralIds.map(id => String(id).trim());
-
-//     // ✅ 3. Fetch installations (single DB call)
-//     const installations = await mongoose
-//       .model("NewSystemInstallation")
-//       .find({
-//         farmerSaralId: { $in: normalizedSaralIds },
-//       })
-//       .select("farmerSaralId stageId")
-//       .lean();
-
-//     // ✅ 4. Create VT-2 Set (fast lookup)
-//     const vt2Set = new Set();
-
-//     installations.forEach(inst => {
-//       if (
-//         inst.stageId &&
-//         inst.stageId.toString() === VT2_STAGE_ID
-//       ) {
-//         vt2Set.add(inst.farmerSaralId);
-//       }
-//     });
-
-//     // ✅ 5. Prepare final response
-//     const result = normalizedSaralIds.map(id => ({
-//       farmerSaralId: id,
-//       verified: vt2Set.has(id),
-//     }));
-
-//     // ✅ 6. Response
-//     return res.status(200).json({
-//       success: true,
-//       count: result.length,
-//       data: result,
-//     });
-
-//   } catch (error) {
-//     console.error("VT2 Verify Error:", error);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Server Error",
-//     });
-//   }
-// };
