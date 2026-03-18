@@ -6,6 +6,7 @@ const FarmerItemsActivity = require("../../models/systemInventoryModels/farmerIt
 const NewSystemInstallation = require("../../models/systemInventoryModels/newSystemInstallationSchema");
 const Stage = require("../../models/systemInventoryModels/stageSchema");
 const StageActivity = require("../../models/systemInventoryModels/stageActivitySchema");
+const Remarks = require("../../models/systemInventoryModels/remarksSchema");
 const fs = require("fs/promises");
 const path = require("path");
 const axios = require("axios");
@@ -683,6 +684,14 @@ module.exports.rejectInstallationData = async (req, res) => {
       });
     }
 
+    const existingRemark = await Remarks.findById(remarkId);
+    if(!existingRemark) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid data - remark"
+      });
+    }
+
     await session.withTransaction(async () => {
 
       const installationData = await NewSystemInstallation
@@ -729,6 +738,7 @@ module.exports.rejectInstallationData = async (req, res) => {
         {
           $set: {
             stageId: stageId,
+            remarks: existingRemark.remark,
             updatedBy: updatedByName,
             updatedAt: new Date()
           }
