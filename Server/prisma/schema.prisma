@@ -61,6 +61,7 @@ model User {
   docApprovedPayments       Payment[]                    @relation("doc_ApprovedBy")
   adminApprovedPayments     Payment[]                    @relation("approvedBy_Admin")
   paymentTransferred        Payment[]                    @relation("payment_TransferredBy")
+  paymentRejectedBy         Payment[]                    @relation("payment_RejectedBy")
 
   invoiceCreated    VendorInvoices[]  @relation("invoice_CreatedBy")
   invoiceUpdated    VendorInvoices[]  @relation("invoice_UpdatedBy")
@@ -1175,6 +1176,9 @@ model Payment {
   paymentDate          DateTime?
   amount               Decimal          @db.Decimal(12, 4)
   billpaymentType      BillPaymentType?
+  paymentRejected      Boolean? @default(false)
+  paymentRejectedBy    String?
+  paymentRejectedAt    DateTime?
   createdAt            DateTime?        @default(now())
   createdBy            String?
   updatedAt            DateTime?        @updatedAt
@@ -1183,6 +1187,7 @@ model Payment {
   purchaseOrder         PurchaseOrder @relation(fields: [poId], references: [id])
   debitNote             DebitNote?    @relation(fields: [debitNoteId], references: [id])
   paymentCreatedBy      User?         @relation("paymentCreatedBy", fields: [createdBy], references: [id])
+  payment_RejectedBy     User?         @relation("payment_RejectedBy", fields: [paymentRejectedBy], references: [id])
   payment_RequestedBy   User?         @relation("payment_RequestedBy", fields: [paymentRequestedBy], references: [id])
   doc_ApprovedBy        User?         @relation("doc_ApprovedBy", fields: [docApprovedBy], references: [id])
   approvedBy_Admin      User?         @relation("approvedBy_Admin", fields: [approvedByAdmin], references: [id])
