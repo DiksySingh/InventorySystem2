@@ -7944,7 +7944,7 @@ const showAllPaymentRequests = async (req, res) => {
     if (userRole?.name === "Purchase") {
       whereCondition.paymentRequestedBy = req.user?.id;
     }
-
+    
     const requests = await prisma.payment.findMany({
       where: whereCondition,
       select: {
