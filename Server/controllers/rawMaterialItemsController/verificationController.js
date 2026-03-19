@@ -208,7 +208,7 @@ const showPendingPaymentRequests = async (req, res) => {
         message: "Unauthorized access",
       });
     }
-
+    console.log(allotedCompany);
     // normalize company
     const companies = Array.isArray(allotedCompany)
       ? allotedCompany
@@ -226,6 +226,7 @@ const showPendingPaymentRequests = async (req, res) => {
     const payments = await prisma.payment.findMany({
       where: {
         docApprovalStatus: null,
+        paymentRejected: false,
         purchaseOrder: {
           companyId: {
             in: companies,
@@ -334,6 +335,13 @@ const approveOrRejectPaymentRequest = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Payment request not found",
+      });
+    }
+
+     if(payment.paymentRejected) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment rejected by purchase department",
       });
     }
 

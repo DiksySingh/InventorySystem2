@@ -3626,6 +3626,7 @@ const showDocsVerifiedPaymentRequests = async (req, res) => {
         docApprovedBy: { not: null },
         adminApprovalStatus: null,
         approvedByAdmin: null,
+        paymentRejected: false,
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -3854,6 +3855,10 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
       where: {
         id: { in: paymentRequestIds },
         adminApprovalStatus: null,
+        OR: [
+          { paymentRejected: false },
+          { paymentRejected: null }
+        ]
       },
     });
 
@@ -3874,6 +3879,7 @@ const approveOrRejectMultiplePaymentsByAdmin = async (req, res) => {
         adminApprovalDate: new Date(),
         adminRemark: remarks?.trim() || null,
         approvedByAdmin: userId,
+        updatedBy: userId,
       },
     });
 

@@ -275,6 +275,12 @@ router.get(
   purchaseOrderController.showAllPaymentRequests,
 );
 
+router.put(
+  "/purchase-orders/payments/reject",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.rejectPaymentRequest,
+);
+
 router.post(
   "/purchase-orders/send/:poId",
   tokenVerification(["Purchase", "Admin"]),

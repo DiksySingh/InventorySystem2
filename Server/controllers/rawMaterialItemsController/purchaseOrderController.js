@@ -1110,13 +1110,13 @@ const updateCompany = async (req, res) => {
   } catch (error) {
     console.error("Error updating company:", error);
     res.status(500).json({
-      message: error.message || "Internal Server Error", 
+      message: error.message || "Internal Server Error",
       // error: error.message,
     });
   }
 };
 
-const updateVendor2 = async (req, res) => { 
+const updateVendor2 = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
@@ -7938,6 +7938,7 @@ const showAllPaymentRequests = async (req, res) => {
 
     if (userRole === "Purchase") {
       whereCondition.paymentRequestedBy = req.user?.id;
+      whereCondition.paymentRejected = false;
     }
 
     const requests = await prisma.payment.findMany({
@@ -8015,7 +8016,7 @@ const showAllPaymentRequests = async (req, res) => {
       };
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "All payment requests fetched successfully",
       count: formatted.length,
@@ -8023,7 +8024,84 @@ const showAllPaymentRequests = async (req, res) => {
     });
   } catch (error) {
     console.error("SHOW PAYMENT REQUESTS ERROR:", error);
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+const rejectPaymentRequest = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const empId = req.user?.id;
+
+    if (!empId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid authorization",
+      });
+    }
+
+    const userRole = req.user?.role;
+    if (!["Purchase"].includes(userRole.name)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Request Id is required",
+      });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id: id },
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment request not found.",
+      });
+    }
+
+    if (payment.paymentRejected) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment request already rejected",
+      });
+    }
+
+    if (payment.paymentStatus || payment.paymentTransferredBy) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot reject processed payment",
+      });
+    }
+
+    await prisma.payment.update({
+      where: { id: id },
+      data: {
+        paymentRejected: true,
+        paymentRejectedBy: empId,
+        paymentRejectedAt: new Date(),
+        updatedBy: empId,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment request rejected successfully",
+    });
+
+  } catch (error) {
+    console.error("ERROR:", error);
+    return res.status(500).json({
       success: false,
       message: "Internal Server Error",
       error: error.message,
@@ -8597,7 +8675,9 @@ const downloadVendorTemplate = async (req, res) => {
 const importVendors = async (req, res) => {
   try {
     if (!req.file)
-      return res.status(400).json({ success: false, message: "No file uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
 
     const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
@@ -8606,15 +8686,17 @@ const importVendors = async (req, res) => {
     const rows = xlsx.utils.sheet_to_json(sheet, { defval: "" });
 
     if (!rows.length)
-      return res.status(400).json({ success: false, message: "Excel file is empty" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Excel file is empty" });
 
     // Fetch existing GST once
     const existing = await prisma.vendor.findMany({
       where: { gstNumber: { not: null } },
-      select: { gstNumber: true }
+      select: { gstNumber: true },
     });
 
-    const existingGST = new Set(existing.map(v => v.gstNumber));
+    const existingGST = new Set(existing.map((v) => v.gstNumber));
     const fileGST = new Set();
 
     const validVendors = [];
@@ -8625,8 +8707,19 @@ const importVendors = async (req, res) => {
       const excelRow = i + 2;
 
       // 1️⃣ Mandatory name
-      if (!row.name || !row.state || !row.address || !row.city || !row.contactPerson || !row.contactNumber) {
-        errors.push({ row: excelRow, reason: "Vendor name, address, city, state, contactPerson, contactNumber missing" });
+      if (
+        !row.name ||
+        !row.state ||
+        !row.address ||
+        !row.city ||
+        !row.contactPerson ||
+        !row.contactNumber
+      ) {
+        errors.push({
+          row: excelRow,
+          reason:
+            "Vendor name, address, city, state, contactPerson, contactNumber missing",
+        });
         continue;
       }
 
@@ -8686,7 +8779,6 @@ const importVendors = async (req, res) => {
       failed: errors.length,
       errors,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -8694,7 +8786,7 @@ const importVendors = async (req, res) => {
     });
   }
 };
-// Version 2 API 
+// Version 2 API
 
 const getItemsList2 = async (req, res) => {
   try {
@@ -9917,6 +10009,7 @@ module.exports = {
   showPendingPayments,
   createPaymentRequest,
   showAllPaymentRequests,
+  rejectPaymentRequest,
   sendPOToVendor,
   getPOsReceivings,
   createUnit,

@@ -66,7 +66,8 @@ const showAdminApprovedPaymentRequests = async (req, res) => {
         adminApprovalStatus: true,      
         approvedByAdmin: { not: null },
         paymentStatus: null,
-        paymentTransferredBy: null
+        paymentTransferredBy: null,
+        paymentRejected: false
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -159,6 +160,13 @@ const approveOrRejectPaymentRequestByAccounts = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Payment request not found",
+      });
+    }
+
+    if(payment.paymentRejected) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment rejected by purchase department",
       });
     }
 
