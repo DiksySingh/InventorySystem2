@@ -7934,11 +7934,15 @@ const showAllPaymentRequests = async (req, res) => {
       });
     }
 
-    let whereCondition = {};
+    let whereCondition = {
+      OR: [
+        { paymentRejected: false },
+        { paymentRejected: null }
+      ]
+    };
 
-    if (userRole === "Purchase") {
+    if (userRole?.name === "Purchase") {
       whereCondition.paymentRequestedBy = req.user?.id;
-      whereCondition.paymentRejected = false;
     }
 
     const requests = await prisma.payment.findMany({
