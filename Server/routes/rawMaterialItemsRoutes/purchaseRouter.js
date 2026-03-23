@@ -211,7 +211,7 @@ router.post(
 
 router.get(
   "/dashboard/warehouses/:warehouseId/systems/:systemId/orders",
-  tokenVerification(["Purchase", "Store", "Admin"]),
+  tokenVerification(["Purchase", "Store", "Admin", "Production"]),
   purchaseOrderController.getSystemDashboardData,
 );
 
