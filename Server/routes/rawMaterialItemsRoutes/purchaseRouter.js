@@ -155,7 +155,7 @@ router.get(
 
 router.get(
   "/systems",
-  tokenVerification(["Purchase", "Admin"]),
+  tokenVerification(["Purchase", "Admin", "Production"]),
   purchaseOrderController.getSystems,
 );
 
