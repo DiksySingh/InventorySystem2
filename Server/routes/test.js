@@ -17,7 +17,10 @@ router.post("/sendWhatsAppMessage", test.sendWhatsAppMessage);
 router.post("/match-system-items", test.matchSystemItemsFromExcel);
 router.post("/installation-inventory/update-excel", upload.single('file'), test.updateInstallationInventoryFromExcel);
 router.get("/installation-inventory/stock", test.exportInstallationInventoryExcel);
-router.get("/system-items/export/excel", test.exportSystemItemsExcel)
+router.get("/system-items/export/excel", test.exportSystemItemsExcel);
+router.post("/update-farmer-activities-empId", upload.single("file"), test.updateFarmerActivityEmpIdByExcel);
+router.get("/system-wtow-excel", test.exportSystemWToWExcel);
+router.get("/stock-update-history", test.exportStockUpdateHistoryExcel);
 
 
 module.exports = router;

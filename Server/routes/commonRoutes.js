@@ -31,6 +31,9 @@ const warehouseReports = require("../helpers/pdf/warehouseInOutReport");
 const storage = multer.memoryStorage();
 const installationInventoryReport = require("../helpers/pdf/installationInventoryReport");
 const installationDataController = require("../controllers/serviceControllers/installationDataController");
+const {
+    getPumpDataBySystem
+} = require("../controllers/serviceControllers/warehouseController");
 const upload = multer({ storage });
 
 router.put("/upload-excel", upload.single('file'), updateLatitudeLongitude);
@@ -80,5 +83,6 @@ router.post("/add-stage", installationDataController.addStage);
 router.get("/show-stages", installationDataController.getAllStages);
 router.post("/add-remark", installationDataController.addRemark);
 router.get("/show-remarks", installationDataController.getAllRemarks);
+router.get("/pump-data", getPumpDataBySystem)
 
 module.exports = router;

@@ -268,5 +268,6 @@ router.put(
 );
 
 router.get("/vendors/order", commonController.getAllVendorsSummary);
+router.get("/stock/shortage", commonController.getInstallationShortageData);
 
 module.exports = router;

@@ -7240,4 +7240,64 @@ module.exports.getDispatchSerialNumbers = async (req, res) => {
   }
 };
 
+module.exports.getPumpDataBySystem = async (req, res) => {
+  const { systemId } = req.query;
+
+  try {
+    const items = await ItemComponentMap.find({ systemId }).populate({
+      path: "systemItemId",
+      select: "_id itemName",
+    });
+
+    if (!items || items.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No system items found for the system",
+      });
+    }
+
+    // Filter unique systemItemId
+    const uniqueItemsMap = new Map();
+    items.forEach((item) => {
+      const id = item.systemItemId?._id?.toString();
+      if (id && !uniqueItemsMap.has(id)) {
+        uniqueItemsMap.set(id, {
+          _id: item.systemItemId._id,
+          itemName: item.systemItemId.itemName,
+        });
+      }
+    });
+
+    const uniqueItems = Array.from(uniqueItemsMap.values());
+
+    // ✅ Custom sort for pumps (like "PUMP 3HP DC 30M")
+    const sortedItems = uniqueItems.sort((a, b) => {
+      const extractPumpInfo = (name) => {
+        const match = name.match(/PUMP\s*(\d+)HP.*?(\d+)M/i);
+        return match ? { hp: +match[1], head: +match[2] } : { hp: 0, head: 0 };
+      };
+
+      const aInfo = extractPumpInfo(a.itemName);
+      const bInfo = extractPumpInfo(b.itemName);
+
+      if (aInfo.hp !== bInfo.hp) return aInfo.hp - bInfo.hp; // Sort by HP first
+      return aInfo.head - bInfo.head; // Then by Head (M)
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Unique system items fetched and sorted successfully",
+      data: sortedItems,
+    });
+  } catch (error) {
+    console.error("Error fetching items by systemId:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
 

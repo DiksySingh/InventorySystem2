@@ -11,6 +11,8 @@ const SystemItem = require("../../models/systemInventoryModels/systemItemSchema"
 const SystemOrder = require("../../models/systemInventoryModels/systemOrderSchema");
 const BOM = require("../../models/systemInventoryModels/bomModelSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
+const SystemItemMap = require("../../models/systemInventoryModels/systemItemMapSchema");
+const ItemComponentMap = require("../../models/systemInventoryModels/itemComponentMapSchema");
 const getDashboardService = require("../../services/systemDashboardService");
 const stockShortageService = require("../../services/stockShortageService");
 const getStateCityFromPincode = require("../../services/getStateCityFromPincode");
@@ -3185,8 +3187,8 @@ const sendAllSystemStockShortageReport2 = async () => {
 
     await sendMail({
       to: [
-        process.env.PURCHASE_EMAIL,
-        process.env.ADMIN_EMAIL,
+        // process.env.PURCHASE_EMAIL,
+        // process.env.ADMIN_EMAIL,
         process.env.DEVELOPER_EMAIL,
       ],
       subject: "📊 Consolidated Stock Shortage Requirement",
@@ -4161,6 +4163,300 @@ const getAllVendorsSummary = async (req, res) => {
   }
 };
 
+// const getInstallationShortageData = async (req, res) => {
+//   try {
+//     const { value } = req.query;
+
+//     if (!value || isNaN(value)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Valid value is required",
+//       });
+//     }
+
+//     const installationCount = Number(value);
+
+//     // ✅ 1. Get systems (only required fields)
+//     const systems = await System.find(
+//       {
+//         systemName: { $in: ["3HP DC System", "5HP DC System", "7.5HP DC System"] },
+//       },
+//       { _id: 1, systemName: 1 }
+//     ).lean();
+
+//     const systemMap = {};
+//     const systemIds = [];
+
+//     for (let s of systems) {
+//       const id = s._id.toString();
+//       systemMap[id] = s.systemName;
+//       systemIds.push(s._id);
+//     }
+
+//     // ✅ 2. Parallel DB calls (FASTER)
+//     const [bomItems, componentMap, inventoryData] = await Promise.all([
+//       SystemItemMap.find(
+//         { systemId: { $in: systemIds } },
+//         { systemId: 1, systemItemId: 1, quantity: 1 }
+//       ).lean(),
+
+//       ItemComponentMap.find(
+//         { systemId: { $in: systemIds } },
+//         { systemItemId: 1, subItemId: 1, quantity: 1 }
+//       ).lean(),
+
+//       InstallationInventory.find(
+//         { isUsed: true },
+//         { systemItemId: 1, quantity: 1 }
+//       ).lean(),
+//     ]);
+
+//     // ✅ 3. Get item names separately (lightweight instead of populate)
+//     const itemIds = new Set();
+
+//     bomItems.forEach((b) => itemIds.add(b.systemItemId.toString()));
+//     componentMap.forEach((c) => itemIds.add(c.subItemId.toString()));
+
+//     const items = await SystemItem.find(
+//       { _id: { $in: [...itemIds] } },
+//       { itemName: 1 }
+//     ).lean();
+
+//     const itemNameMap = {};
+//     items.forEach((i) => {
+//       itemNameMap[i._id.toString()] = i.itemName;
+//     });
+
+//     // ✅ 4. Component Lookup (optimized)
+//     const componentLookup = {};
+//     for (let comp of componentMap) {
+//       const parentId = comp.systemItemId.toString();
+//       if (!componentLookup[parentId]) componentLookup[parentId] = [];
+//       componentLookup[parentId].push(comp);
+//     }
+
+//     // ✅ 5. Inventory Map
+//     const inventoryMap = {};
+//     for (let inv of inventoryData) {
+//       const key = inv.systemItemId.toString();
+//       inventoryMap[key] = (inventoryMap[key] || 0) + inv.quantity;
+//     }
+
+//     // ✅ 6. SYSTEM-WISE REQUIREMENT
+//     const systemWiseData = {};
+
+//     for (let bom of bomItems) {
+//       const systemId = bom.systemId.toString();
+//       const systemName = systemMap[systemId];
+
+//       if (!systemWiseData[systemName]) {
+//         systemWiseData[systemName] = {};
+//       }
+
+//       const reqMap = systemWiseData[systemName];
+
+//       const parentId = bom.systemItemId.toString();
+//       const parentQty = bom.quantity * installationCount;
+
+//       // 👉 Main item
+//       if (!reqMap[parentId]) {
+//         reqMap[parentId] = {
+//           itemName: itemNameMap[parentId],
+//           required: 0,
+//         };
+//       }
+//       reqMap[parentId].required += parentQty;
+
+//       // 👉 Sub-items
+//       const subs = componentLookup[parentId];
+//       if (subs) {
+//         for (let sub of subs) {
+//           const subId = sub.subItemId.toString();
+//           const subQty = sub.quantity * parentQty;
+
+//           if (!reqMap[subId]) {
+//             reqMap[subId] = {
+//               itemName: itemNameMap[subId],
+//               required: 0,
+//             };
+//           }
+
+//           reqMap[subId].required += subQty;
+//         }
+//       }
+//     }
+
+//     // ✅ 7. Final shortage calc
+//     const finalResult = {};
+
+//     for (let systemName in systemWiseData) {
+//       const items = systemWiseData[systemName];
+//       finalResult[systemName] = [];
+
+//       for (let key in items) {
+//         const required = items[key].required;
+//         const available = inventoryMap[key] || 0;
+
+//         finalResult[systemName].push({
+//           itemId: key,
+//           itemName: items[key].itemName,
+//           required,
+//           available,
+//           shortage: Math.max(0, required - available),
+//         });
+//       }
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       installationCount,
+//       data: finalResult,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+const getInstallationShortageData = async (req, res) => {
+  try {
+    const { v, wid, sid, pid } = req.query;
+
+    if (!v || isNaN(v) || !wid || !sid || !pid) {
+      return res.status(400).json({
+        success: false,
+        message: "value, warehouseId, systemId and pumpId are required",
+      });
+    }
+
+    const installationCount = Number(v);
+
+    // ✅ 1. Get ALL system items
+    const systemItems = await SystemItemMap.find(
+      { systemId: sid },
+      { systemItemId: 1, quantity: 1 }
+    ).lean();
+
+    // ✅ 2. Get sub-items of selected pump
+    const subItems = await ItemComponentMap.find(
+      { systemId: sid, systemItemId: pid },
+      { subItemId: 1, quantity: 1 }
+    ).lean();
+
+    // ✅ 3. Inventory
+    const inventoryData = await InstallationInventory.find(
+      { warehouseId: wid },
+      { systemItemId: 1, quantity: 1 }
+    ).lean();
+
+    // ✅ 4. Get all item names
+    const itemIds = new Set();
+
+    systemItems.forEach((i) => itemIds.add(i.systemItemId.toString()));
+    subItems.forEach((s) => itemIds.add(s.subItemId.toString()));
+
+    const items = await SystemItem.find(
+      { _id: { $in: [...itemIds] } },
+      { itemName: 1, unit: 1 }
+    ).lean();
+
+    const itemNameMap = {};
+    items.forEach((i) => {
+      itemNameMap[i._id.toString()] = {
+        name: i.itemName,
+        unit: i.unit || ""
+      };
+    });
+
+    // ✅ 5. Identify Pump Items (IMPORTANT LOGIC)
+    const isPump = (name = "") => {
+      return name.toLowerCase().includes("pump");
+    };
+
+    // ✅ 6. Inventory Map
+    const inventoryMap = {};
+    for (let inv of inventoryData) {
+      const key = inv.systemItemId.toString();
+      inventoryMap[key] = (inventoryMap[key] || 0) + inv.quantity;
+    }
+
+    // ✅ 7. Requirement Calculation
+    const requirementMap = {};
+
+    for (let item of systemItems) {
+      const id = item.systemItemId.toString();
+      const itemData = itemNameMap[id] || {};
+      const name = itemData.name || "";
+      const unit = itemData.unit || "";
+
+      // 👉 If it's a pump → only include selected pumpId
+      if (isPump(name)) {
+        if (id !== pid) continue; // ❌ skip other pumps
+      }
+
+      const qty = item.quantity * installationCount;
+
+      if (!requirementMap[id]) {
+        requirementMap[id] = {
+          itemName: name,
+          unit: unit,
+          required: 0,
+        };
+      }
+
+      requirementMap[id].required += qty;
+    }
+
+    // ✅ 8. Add sub-items of selected pump
+    for (let sub of subItems) {
+      const subId = sub.subItemId.toString();
+      const subQty = sub.quantity * installationCount;
+      const subData = itemNameMap[subId] || {};
+      if (!requirementMap[subId]) {
+        requirementMap[subId] = {
+          itemName: subData.name,
+          unit: subData.unit,
+          required: 0,
+        };
+      }
+
+      requirementMap[subId].required += subQty;
+    }
+
+    // ✅ 9. Shortage
+    const result = [];
+
+    for (let key in requirementMap) {
+      const required = requirementMap[key].required;
+      const available = inventoryMap[key] || 0;
+
+      result.push({
+        itemId: key,
+        itemName: requirementMap[key].itemName,
+        unit: requirementMap[key].unit,
+        required,
+        available,
+        shortage: Math.max(0, required - available),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      installationCount,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -4214,5 +4510,6 @@ module.exports = {
   createItem2,
   updateItem2,
   exportPOExcel,
-  getAllVendorsSummary
+  getAllVendorsSummary,
+  getInstallationShortageData
 };

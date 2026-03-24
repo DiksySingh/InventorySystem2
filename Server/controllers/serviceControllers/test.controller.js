@@ -12,8 +12,12 @@ const WarehousePerson = require("../../models/serviceInventoryModels/warehousePe
 const bulkMessage = require("../../helpers/whatsapp/bulkMessageEng");
 const SystemItem = require("../../models/systemInventoryModels/systemItemSchema");
 const InstallationInventory = require("../../models/systemInventoryModels/installationInventorySchema");
+const InstallationAssignEmp = require("../../models/systemInventoryModels/installationAssignEmpSchema");
 const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema");
+const SystemInventoryWToW = require("../../models/systemInventoryModels/systemItemsWToWSchema");
+const StockUpdateActivity = require("../../models/systemInventoryModels/stockUpdateActivity");
 const multer = require("multer");
+const mongoose = require("mongoose");
 
 // 📦 Multer config — store in memory
 const upload = multer({
@@ -493,7 +497,8 @@ const getNotApprovedPickupData = async (req, res) => {
   try {
     // 1. Fetch data where incoming is null or false
     const data = await PickupItem.find({
-      $or: [{ incoming: true }, { incoming: false }],
+      warehouse: "Bhiwani",
+      $or: [{ incoming: true }],
       status: null,
     }).lean();
 
@@ -1015,6 +1020,221 @@ const exportSystemItemsExcel = async (req, res) => {
   }
 };
 
+const updateFarmerActivityEmpIdByExcel = async (req, res) => {
+  try {
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file required"
+      });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (!rows.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is empty"
+      });
+    }
+
+    // extract saralIds
+    const saralIds = rows
+      .map(r => r.farmerSaralId?.toString().trim())
+      .filter(Boolean);
+
+    // get existing saralIds in ONE query
+    const existingRecords = await FarmerItemsActivity.find(
+      { farmerSaralId: { $in: saralIds } },
+      { farmerSaralId: 1 }
+    ).lean();
+
+    const existingSaralSet = new Set(
+      existingRecords.map(r => r.farmerSaralId)
+    );
+
+    const notFoundSaralIds = [];
+
+    const farmerBulkOps = [];
+    const assignBulkOps = [];
+
+    for (const row of rows) {
+
+      const farmerSaralId = row.farmerSaralId?.toString().trim();
+      const empId = row.empId?.toString().trim();
+
+      if (!farmerSaralId || !empId) continue;
+
+      if (!existingSaralSet.has(farmerSaralId)) {
+        notFoundSaralIds.push({
+          farmerSaralId,
+          empId
+        });
+        continue;
+      }
+
+      const objectEmpId = new mongoose.Types.ObjectId(empId);
+
+      farmerBulkOps.push({
+        updateMany: {
+          filter: { farmerSaralId },
+          update: { $set: { empId: objectEmpId, updatedAt: new Date() } }
+        }
+      });
+
+      assignBulkOps.push({
+        updateMany: {
+          filter: { farmerSaralId },
+          update: { $set: { empId: objectEmpId, updatedAt: new Date()} }
+        }
+      });
+
+    }
+
+    // execute bulk updates
+    if (farmerBulkOps.length) {
+      await FarmerItemsActivity.bulkWrite(farmerBulkOps);
+    }
+
+    if (assignBulkOps.length) {
+      await InstallationAssignEmp.bulkWrite(assignBulkOps);
+    }
+
+    const updatedCount = farmerBulkOps.length;
+
+    // return excel if some saralIds missing
+    if (notFoundSaralIds.length > 0) {
+
+      const newWorkbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(notFoundSaralIds);
+
+      XLSX.utils.book_append_sheet(newWorkbook, worksheet, "NotFoundSaralIds");
+
+      const buffer = XLSX.write(newWorkbook, {
+        type: "buffer",
+        bookType: "xlsx"
+      });
+
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=missing_saral_ids.xlsx"
+      );
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+
+      return res.send(buffer);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Employees updated successfully",
+      totalUpdated: updatedCount
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+const exportSystemWToWExcel = async (req, res) => {
+  try {
+    const data = await SystemInventoryWToW.find()
+      .populate("fromWarehouse", "warehouseName")
+      .populate("toWarehouse", "warehouseName")
+      .populate("itemsList.systemItemId", "itemName")
+      .lean();
+
+    // ✅ Flatten data for Excel
+    const formattedData = [];
+
+    data.forEach((doc) => {
+      doc.itemsList.forEach((item) => {
+        formattedData.push({
+          FromWarehouse: doc.fromWarehouse?.warehouseName || "",
+          ToWarehouse: doc.toWarehouse?.warehouseName || "",
+          ItemName: item.systemItemId?.itemName || "",
+          Quantity: item.quantity,
+          DriverName: doc.driverName,
+          DriverContact: doc.driverContact,
+          SerialNumber: doc.serialNumber,
+          Remarks: doc.remarks,
+          Status: doc.status ? "Completed" : "Pending",
+          PickupDate: doc.pickupDate,
+          ArrivedDate: doc.arrivedDate,
+          CreatedAt: doc.createdAt,
+        });
+      });
+    });
+
+    // ✅ Convert to worksheet
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+
+    // ✅ Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "WToW Data");
+
+    // ✅ Write file
+    const filePath = "WToW_Data.xlsx";
+    XLSX.writeFile(workbook, filePath);
+
+    // ✅ Send file to client
+    res.download(filePath);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error exporting data" });
+  }
+};
+
+const exportStockUpdateHistoryExcel = async (req, res) => {
+  try {
+    // ✅ Start date: 1 Jan 2026
+    const startDate = new Date("2026-01-01T00:00:00.000Z");
+
+    const data = await StockUpdateActivity.find({
+      createdAt: { $gte: startDate } // 🔥 filter applied
+    })
+      .populate("warehouseId", "warehouseName")
+      .populate("systemItemId", "itemName")
+      .lean();
+
+    const formattedData = [];
+
+    data.forEach((doc) => {
+      formattedData.push({
+        Warehouse: doc.warehouseId?.warehouseName || "",
+        ItemName: doc.systemItemId?.itemName || "",
+        Quantity: doc.quantity,
+        CreatedAt: doc.createdAt,
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Update History");
+
+    const filePath = "Stock_Update_History.xlsx";
+    XLSX.writeFile(workbook, filePath);
+
+    res.download(filePath);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error exporting data" });
+  }
+};
 
 module.exports = {
   exportActiveUsers,
@@ -1033,5 +1253,8 @@ module.exports = {
   matchSystemItemsFromExcel,
   updateInstallationInventoryFromExcel,
   exportInstallationInventoryExcel,
-  exportSystemItemsExcel
+  exportSystemItemsExcel,
+  updateFarmerActivityEmpIdByExcel,
+  exportSystemWToWExcel,
+  exportStockUpdateHistoryExcel
 };
