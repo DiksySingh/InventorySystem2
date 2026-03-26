@@ -268,6 +268,8 @@ router.put(
 );
 
 router.get("/vendors/order", commonController.getAllVendorsSummary);
+router.post("/purchase-orders/follow-up", tokenVerification(["Production"]), commonController.addPurchaseFollowUp);
+router.get("/purchase-orders/:poId/follow-ups", tokenVerification(["Admin", "Purchase", "Production"]), commonController.getPurchaseOrderWithFollowUps);
 router.get("/stock/shortage", commonController.getInstallationShortageData);
 
 module.exports = router;

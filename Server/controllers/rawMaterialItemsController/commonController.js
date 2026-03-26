@@ -4163,6 +4163,156 @@ const getAllVendorsSummary = async (req, res) => {
   }
 };
 
+const addPurchaseFollowUp = async (req, res) => {
+  try {
+    const {
+      purchaseOrderId,
+      vendorId,
+      expectedDeliveryDate,
+      remark,
+    } = req.body;
+
+    const empId = req.user?.id;
+
+    if (!empId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    if (!purchaseOrderId || !vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: "purchaseOrderId and vendorId are required",
+      });
+    }
+
+    const trimmedRemark = remark?.trim();
+    if (!trimmedRemark) {
+      return res.status(400).json({
+        success: false,
+        message: "Remark is required",
+      });
+    }
+
+    const [poExists, vendorExists] = await Promise.all([
+      prisma.purchaseOrder.findUnique({
+        where: { id: purchaseOrderId },
+        select: { id: true },
+      }),
+      prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!poExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase Order not found",
+      });
+    }
+
+    if (!vendorExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    const followUp = await prisma.purchaseFollowUp.create({
+      data: {
+        purchaseOrderId,
+        vendorId,
+        expectedDeliveryDate: expectedDeliveryDate
+          ? new Date(expectedDeliveryDate)
+          : null,
+        remark: trimmedRemark,
+        followUpBy: empId,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Follow-up added successfully",
+      data: followUp,
+    });
+
+  } catch (error) {
+    console.error("Add FollowUp Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+const getPurchaseOrderWithFollowUps = async (req, res) => {
+  try {
+    const { poId } = req.params;
+
+    if (!poId) {
+      return res.status(400).json({
+        success: false,
+        message: "poId is required",
+      });
+    }
+
+    const purchaseOrder = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      select: {
+        purchaseFollowUp: {
+          orderBy: { followUpDate: "desc" },
+          select: {
+            id: true,
+            expectedDeliveryDate: true,
+            remark: true,
+            followUpDate: true,
+            followUpCreatedBy: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!purchaseOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase Order not found",
+      });
+    }
+
+     const formattedData = purchaseOrder.purchaseFollowUp.map((item) => ({
+      id: item.id,
+      expectedDeliveryDate: item.expectedDeliveryDate,
+      remark: item.remark,
+      createdBy: item.followUpCreatedBy?.name || null,
+      createdAt: item.followUpDate
+    }));
+
+
+    return res.status(200).json({
+      success: true,
+      message: "Follow-Up Fetched Successfully",
+      data: formattedData || []
+    });
+
+  } catch (error) {
+    console.error("Get PO FollowUps Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
 // const getInstallationShortageData = async (req, res) => {
 //   try {
 //     const { value } = req.query;
@@ -4511,5 +4661,7 @@ module.exports = {
   updateItem2,
   exportPOExcel,
   getAllVendorsSummary,
+  addPurchaseFollowUp,
+  getPurchaseOrderWithFollowUps,
   getInstallationShortageData
 };
