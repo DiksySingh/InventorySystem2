@@ -23,7 +23,8 @@ const {
     deleteRejectedInstallationPhotos,
     rejectInstallationData,
     getVT2ApprovedByDate,
-    verifyInstallationAtStageVT2
+    verifyInstallationAtStageVT2,
+    getVT2VerifiedData
 } = require("../controllers/serviceControllers/serviceTeamController");
 const {
     showNewInstallationDataToInstaller,
@@ -75,4 +76,5 @@ router.put("/assign-installer", assignInstaller);
 router.get("/all-farmer-activities", allFarmerActivites);
 router.get("/get-verified-installation", getVT2ApprovedByDate);
 router.post("/check-verified-installation", verifyInstallationAtStageVT2)
+router.get("/verified-installation-data", getVT2VerifiedData);
 module.exports = router;
