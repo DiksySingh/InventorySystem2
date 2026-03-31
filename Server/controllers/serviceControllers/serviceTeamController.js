@@ -582,8 +582,13 @@ module.exports.approveInstallationData = async (req, res) => {
       // ✅ VT-1 Approval validation
       if (department === "Document Verify Team-1") {
 
-        if (installationData.stageId?.stage !== "Pending" || installationData.stageId?.stage !== "Rejected By VT-2") {
-          throw new Error("Installation must be in Pending or Reject By VT-2 stage for VT-1 approval");
+       if (
+          installationData.stageId?.stage !== "Pending" &&
+          installationData.stageId?.stage !== "Rejected By VT-2"
+        ) {
+          throw new Error(
+            "Installation must be in Pending or Rejected By VT-2 stage for VT-1 approval"
+          );
         }
 
         stageId = new mongoose.Types.ObjectId("69b28068d994f4a0d8666078"); // Approved By VT-1
