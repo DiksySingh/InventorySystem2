@@ -83,6 +83,7 @@ router.post("/add-stage", installationDataController.addStage);
 router.get("/show-stages", installationDataController.getAllStages);
 router.post("/add-remark", installationDataController.addRemark);
 router.get("/show-remarks", installationDataController.getAllRemarks);
-router.get("/pump-data", getPumpDataBySystem)
+router.get("/pump-data", getPumpDataBySystem);
+router.get("/approved-installation-excel", installationDataController.exportVT2ApprovedExcel);
 
 module.exports = router;
