@@ -137,9 +137,20 @@ const showNewInstallationDataToInstaller = async (req, res) => {
   try {
     const installerId = req.query.installerId || req.user?._id;
     console.log(installerId);
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     if (!installerId) {
       throw new Error("Employee ID is not valid");
     }
+
+    const total = await FarmerItemsActivity.countDocuments({
+      empId: installerId,
+      accepted: false,
+    });
+
     const activities = await FarmerItemsActivity.find({
       empId: installerId,
       accepted: false,
@@ -178,7 +189,10 @@ const showNewInstallationDataToInstaller = async (req, res) => {
           itemName: 1,
         },
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();;
     console.log(activities);
     const activitiesWithFarmerDetails = await Promise.all(
       activities.map(async (activity) => {
@@ -189,7 +203,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
           );
 
           return {
-            ...activity.toObject(),
+            ...activity,
             farmerDetails: response?.data?.data || null,
           };
         } catch (err) {
@@ -211,6 +225,12 @@ const showNewInstallationDataToInstaller = async (req, res) => {
       success: true,
       message: "Data Fetched Successfully",
       data: activitiesWithFarmerDetails || [],
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
     });
   } catch (error) {
     return res.status(500).json({

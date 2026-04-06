@@ -32,7 +32,6 @@ const {
     updateStatusOfIncomingItems2,
     showAcceptedInstallationData,
     newSystemInstallation,
-    getInstallationDataWithImages,
     empDashboard,
     updateInstallationDataWithFiles,
     updateFarmerActivitySerialNumbers,
