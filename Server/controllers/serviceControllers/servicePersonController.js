@@ -136,6 +136,7 @@ const addServicePersonState = async (req, res) => {
 const showNewInstallationDataToInstaller = async (req, res) => {
   try {
     const installerId = req.query.installerId || req.user?._id;
+    const search = req.query?.s?.trim().toUpperCase();
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -144,16 +145,18 @@ const showNewInstallationDataToInstaller = async (req, res) => {
     if (!installerId) {
       throw new Error("Employee ID is not valid");
     }
+    const query = {
+      empId: installerId,
+      accepted: false,
+    };
 
-    const total = await FarmerItemsActivity.countDocuments({
-      empId: installerId,
-      accepted: false,
-    });
+    if (search) {
+      query.farmerSaralId = { $regex: search, $options: "i" };
+    }
+
+    const total = await FarmerItemsActivity.countDocuments(query);
     
-    const activities = await FarmerItemsActivity.find({
-      empId: installerId,
-      accepted: false,
-    })
+    const activities = await FarmerItemsActivity.find(query)
       .populate({
         path: "warehouseId",
         select: {
