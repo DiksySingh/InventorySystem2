@@ -136,7 +136,6 @@ const addServicePersonState = async (req, res) => {
 const showNewInstallationDataToInstaller = async (req, res) => {
   try {
     const installerId = req.query.installerId || req.user?._id;
-    console.log(installerId);
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -192,8 +191,8 @@ const showNewInstallationDataToInstaller = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean();;
-    console.log(activities);
+      .lean();
+    
     const activitiesWithFarmerDetails = await Promise.all(
       activities.map(async (activity) => {
         try {
@@ -219,8 +218,6 @@ const showNewInstallationDataToInstaller = async (req, res) => {
       }),
     );
 
-    console.log(activitiesWithFarmerDetails);
-
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
@@ -230,7 +227,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
-      }
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -691,7 +688,7 @@ const newSystemInstallation = async (req, res) => {
     }
 
     const stage = await Stage.findOne({
-      stage: "Pending"
+      stage: "Pending",
     });
     console.log("Stage: ", stage);
     const newInstallationData = {
@@ -730,7 +727,7 @@ const newSystemInstallation = async (req, res) => {
     });
     console.log(stageActivity);
 
-    const saveStageActivity = await stageActivity.save({session});
+    const saveStageActivity = await stageActivity.save({ session });
     console.log(saveStageActivity);
 
     const farmerActivity = await FarmerItemsActivity.findOne({
@@ -904,7 +901,14 @@ const newSystemInstallation = async (req, res) => {
 const showAcceptedInstallationData = async (req, res) => {
   try {
     const empId = req.query.empId || req.user?.id;
-    console.log("empId:", empId);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    const total = await FarmerItemsActivity.countDocuments({
+      empId,
+      accepted: true,
+    });
 
     const activities = await FarmerItemsActivity.find({ empId, accepted: true })
       .populate({ path: "warehouseId", select: { warehouseName: 1 } })
@@ -921,6 +925,8 @@ const showAcceptedInstallationData = async (req, res) => {
         select: { _id: 1, itemName: 1 },
       })
       .sort({ approvalDate: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
     const activitiesWithFarmerDetails = await Promise.all(
@@ -951,6 +957,12 @@ const showAcceptedInstallationData = async (req, res) => {
       success: true,
       message: "Data Fetched Successfully",
       data: activitiesWithFarmerDetails,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error("Error in showAcceptedInstallationData:", error);
@@ -1040,12 +1052,13 @@ const getInstallationDataWithImages = async (req, res) => {
         { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b") },
       ],
     })
-      .sort({ createdAt: -1 }). populate({
+      .sort({ createdAt: -1 })
+      .populate({
         path: "stageId",
         select: {
           _id: 1,
-          stage: 1
-        }
+          stage: 1,
+        },
       })
       .lean()
       .select("-__v"); // remove unwanted fields if not needed
@@ -1113,36 +1126,37 @@ const getInstallationDataForST = async (req, res) => {
   try {
     const state = req.query?.state;
     const department = req.query?.department;
-    
+
     let stageFilter = {};
-    
-    if(department === "Document Verify Team-1") {
+
+    if (department === "Document Verify Team-1") {
       stageFilter = {
         $or: [
           { stageId: new mongoose.Types.ObjectId("69b28055d994f4a0d8666075") },
           { stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b") },
-          { stageId: new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081") }
-        ]
+          { stageId: new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081") },
+        ],
       };
     } else if (department === "Document Verify Team-2") {
       stageFilter = {
-         $or: [
+        $or: [
           { stageId: new mongoose.Types.ObjectId("69b28068d994f4a0d8666078") },
-          { stageId: new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081") }
-        ]
-      }
+          { stageId: new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081") },
+        ],
+      };
     }
-    
+
     const installations = await NewSystemInstallation.find({
       state,
-      ...stageFilter
+      ...stageFilter,
     })
-      .sort({ createdAt: -1 }). populate({
+      .sort({ createdAt: -1 })
+      .populate({
         path: "stageId",
         select: {
           _id: 1,
-          stage: 1
-        }
+          stage: 1,
+        },
       })
       .lean()
       .select("-__v"); // remove unwanted fields if not needed
@@ -1324,9 +1338,8 @@ const updateInstallationFilesByFieldPerson = async (req, res) => {
       });
     }
 
-    const existingDoc = await NewSystemInstallation
-      .findById(installationId)
-      .session(session);
+    const existingDoc =
+      await NewSystemInstallation.findById(installationId).session(session);
 
     if (!existingDoc) {
       return res.status(404).json({
@@ -1346,7 +1359,6 @@ const updateInstallationFilesByFieldPerson = async (req, res) => {
 
     if (req.files && Object.keys(req.files).length > 0) {
       for (const field of Object.keys(req.files)) {
-
         const currentValue = existingDoc[field];
 
         // Allow upload only if field is empty
@@ -1361,9 +1373,7 @@ const updateInstallationFilesByFieldPerson = async (req, res) => {
         const newFilePaths = req.files[field].map((file) => {
           const newPath = `/uploads/newInstallation/${file.filename}`;
 
-          uploadedFilesToDelete.push(
-            path.join(__dirname, "..", newPath)
-          );
+          uploadedFilesToDelete.push(path.join(__dirname, "..", newPath));
 
           return newPath;
         });
@@ -1380,7 +1390,7 @@ const updateInstallationFilesByFieldPerson = async (req, res) => {
     const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
       installationId,
       { $set: updateData },
-      { new: true, session }
+      { new: true, session },
     );
 
     // 🔹 Insert stage activity
@@ -1388,7 +1398,7 @@ const updateInstallationFilesByFieldPerson = async (req, res) => {
       installationId: new mongoose.Types.ObjectId(installationId),
       empId: new mongoose.Types.ObjectId(req.user?._id),
       stageId: nextStageId,
-      remarkId: null
+      remarkId: null,
     });
 
     await stageActivity.save({ session });
@@ -1401,9 +1411,7 @@ const updateInstallationFilesByFieldPerson = async (req, res) => {
       message: "Installation files updated and stage updated successfully",
       data: updatedDoc,
     });
-
   } catch (error) {
-
     await session.abortTransaction();
     session.endSession();
 
@@ -1414,7 +1422,7 @@ const updateInstallationFilesByFieldPerson = async (req, res) => {
           __dirname,
           "..",
           "uploads/newInstallation",
-          filePath.filename
+          filePath.filename,
         );
 
         try {
@@ -1754,5 +1762,5 @@ module.exports = {
   updateInstallationFilesByFieldPerson,
   pickupItemsByServicePerson,
   updateFarmerActivitySerialNumbers,
-  getInstallationDataForST
+  getInstallationDataForST,
 };

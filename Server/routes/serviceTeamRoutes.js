@@ -62,11 +62,11 @@ router.get("/accepted-installation-data", showAcceptedInstallationData);
 router.post("/new-system-installation", uploadHandler, newSystemInstallation);
 router.get("/get-new-installation-data", getInstallationDataForST);
 router.post("/approve-installation-data", approveInstallationData);
-router.post("/reject-installation-data", rejectInstallationData)
+router.post("/reject-installation-data", rejectInstallationData) 
 router.put("/delete-rejected-photos", deleteRejectedInstallationPhotos);
 router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);
 router.get("/show-emp-dashboard", empDashboard);
-router.post("/update-farmer-activity-serial-numbers", updateFarmerActivitySerialNumbers)
+router.post("/update-farmer-activity-serial-numbers", updateFarmerActivitySerialNumbers);
      
 router.get("/get-installation-data", getFarmerInstallationDetails);
 router.get("/field-employee-data", allFieldEmployeeData);
