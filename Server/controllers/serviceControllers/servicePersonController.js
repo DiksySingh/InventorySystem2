@@ -904,16 +904,22 @@ const newSystemInstallation = async (req, res) => {
 const showAcceptedInstallationData = async (req, res) => {
   try {
     const empId = req.query.empId || req.user?.id;
+    const search = req.query?.s?.trim()?.toUpperCase();
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
     
-    const total = await FarmerItemsActivity.countDocuments({
-      empId,
+    const query = {
+      empId: empId,
       accepted: true,
-    });
+    }
 
-    const activities = await FarmerItemsActivity.find({ empId, accepted: true })
+    if(search) {
+      query.farmerSaralId = { $regex: search, $options: "i" }
+    }
+    const total = await FarmerItemsActivity.countDocuments(query);
+
+    const activities = await FarmerItemsActivity.find(query)
       .populate({ path: "warehouseId", select: { warehouseName: 1 } })
       .populate({ path: "empId", select: { name: 1 } })
       .populate({ path: "systemId", select: { systemName: 1 } })
