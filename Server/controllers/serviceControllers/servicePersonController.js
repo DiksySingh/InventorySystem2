@@ -192,7 +192,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
       .skip(skip)
       .limit(limit)
       .lean();
-    
+
     const activitiesWithFarmerDetails = await Promise.all(
       activities.map(async (activity) => {
         try {
