@@ -149,7 +149,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
       empId: installerId,
       accepted: false,
     });
-
+    
     const activities = await FarmerItemsActivity.find({
       empId: installerId,
       accepted: false,
@@ -211,7 +211,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
             err.message,
           );
           return {
-            ...activity.toObject(),
+            ...activity,
             farmerDetails: null, // fallback
           };
         }
