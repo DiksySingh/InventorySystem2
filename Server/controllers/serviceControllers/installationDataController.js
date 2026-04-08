@@ -635,3 +635,49 @@ module.exports.exportVT2ApprovedExcel = async (req, res) => {
     });
   }
 };
+
+module.exports.exportInstalledSystemExcel = async (req, res) => {
+  try {
+    const data = await NewSystemInstallation.find({
+      state: "Maharashtra"
+    }).lean();
+
+    if (!data.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No VT-2 Approved data found",
+      });
+    }
+
+    const formattedData = data.map((item) => ({
+      "Beneficiary ID": item.farmerSaralId,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Installed_System_Data");
+
+    const buffer = XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=Installed_System.xlsx",
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+
+    res.send(buffer);
+  } catch (error) {
+    console.error("Export Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error exporting Excel",
+    });
+  }
+};
