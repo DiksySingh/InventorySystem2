@@ -1173,91 +1173,81 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
 
 module.exports.getVT2VerifiedData = async (req, res) => {
   try {
-    const state = req.query?.state;
-    const department = req.query?.department;
-    
-    let stageFilter = {};
-    
-    if(department === "Document Verify Team-1") {
-      stageFilter = {
-        $or: [
-          { stageId: new mongoose.Types.ObjectId("69b28076d994f4a0d866607e") },
-        ]
-      };
-    } else if (department === "Document Verify Team-2") {
-      stageFilter = {
-         $or: [
-          { stageId: new mongoose.Types.ObjectId("69b28076d994f4a0d866607e") },
-        ]
-      }
+    const { state, department } = req.query;
+
+    let matchStage = {};
+
+    if (
+      department === "Document Verify Team-1" ||
+      department === "Document Verify Team-2"
+    ) {
+      matchStage.stageId = new mongoose.Types.ObjectId(
+        "69b28076d994f4a0d866607e"
+      );
     }
-    
-    const installations = await NewSystemInstallation.find({
-      state,
-      ...stageFilter
-    })
-      .sort({ createdAt: -1 }). populate({
-        path: "stageId",
-        select: {
+
+    const data = await NewSystemInstallation.aggregate([
+      {
+        $match: {
+          state,
+          ...matchStage,
+        },
+      },
+
+      // 🔥 Only required fields
+      {
+        $project: {
           _id: 1,
-          stage: 1
-        }
-      })
-      .lean()
-      .select("-__v"); // remove unwanted fields if not needed
+          farmerSaralId: 1,
+          stageId: 1,
+        },
+      },
 
-    if (!installations.length) {
-      return res.status(200).json({
-        success: true,
-        message: "Completed Installation Data Fetched Successfully",
-        data: [],
-      });
-    }
+      // 🔥 Join stage collection
+      {
+        $lookup: {
+          from: "inStages", // collection name
+          localField: "stageId",
+          foreignField: "_id",
+          as: "stageData",
+        },
+      },
 
-    // 2️⃣ Remove duplicate farmer IDs (important for large data)
-    const farmerIds = [...new Set(installations.map((i) => i.farmerSaralId))];
+      { $unwind: "$stageData" },
 
-    // 3️⃣ Fetch all farmer activities at once
-    const farmerActivities = await FarmerItemsActivity.find({
-      farmerSaralId: { $in: farmerIds },
-    }).lean();
+      // // 🔥 Join farmer activity (optional)
+      // {
+      //   $lookup: {
+      //     from: "inFarmerItemsActivities",
+      //     localField: "farmerSaralId",
+      //     foreignField: "farmerSaralId",
+      //     as: "farmerActivity",
+      //   },
+      // },
 
-    // 4️⃣ Convert to Map (faster than object lookup for big data)
-    const farmerMap = new Map();
-    for (const activity of farmerActivities) {
-      farmerMap.set(activity.farmerSaralId, activity);
-    }
+      {
+        $addFields: {
+          stage: "$stageData.stage",
+          farmerActivity: { $arrayElemAt: ["$farmerActivity", 0] },
+        },
+      },
 
-    // 5️⃣ Transform (faster .map instead of push in loop)
-    const transformedData = installations.map((install) => ({
-      installationId: install?._id,
-      farmerSaralId: install?.farmerSaralId,
-      stageId: install?.stageId?._id,
-      stage: install?.stageId?.stage
-      // pitPhoto: buildFullURLs(install.pitPhoto),
-      // borePhoto: buildFullURLs(install.borePhoto),
-      // earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
-      // antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
-      // lightingArresterInstallationPhoto: buildFullURLs(
-      //   install.lightingArresterInstallationPhoto,
-      // ),
-      // finalFoundationFarmerPhoto: buildFullURLs(
-      //   install.finalFoundationFarmerPhoto,
-      // ),
-      // panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
-      // controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
-      // waterDischargeFarmerPhoto: buildFullURLs(
-      //   install.waterDischargeFarmerPhoto,
-      // ),
-      // installationVideo: buildFullURLs(install.installationVideo),
-      //farmerActivity: farmerMap.get(install.farmerSaralId) || null,
-    }));
+      {
+        $project: {
+          _id: 0,
+          installationId: "$_id",
+          farmerSaralId: 1,
+          stageId: 1,
+          stage: 1,
+          // farmerActivity: 1,
+        },
+      },
+    ]);
 
     return res.status(200).json({
       success: true,
       message: "VT-2 Verified Data Fetched Successfully",
-      //count: transformedData.length,
-      data: transformedData,
+      data,
     });
   } catch (error) {
     console.error("Error fetching installation data:", error.message);
@@ -1268,3 +1258,101 @@ module.exports.getVT2VerifiedData = async (req, res) => {
     });
   }
 };
+
+// module.exports.getVT2VerifiedData = async (req, res) => {
+//   try {
+//     const state = req.query?.state;
+//     const department = req.query?.department;
+    
+//     let stageFilter = {};
+    
+//     if(department === "Document Verify Team-1") {
+//       stageFilter = {
+//         $or: [
+//           { stageId: new mongoose.Types.ObjectId("69b28076d994f4a0d866607e") },
+//         ]
+//       };
+//     } else if (department === "Document Verify Team-2") {
+//       stageFilter = {
+//          $or: [
+//           { stageId: new mongoose.Types.ObjectId("69b28076d994f4a0d866607e") },
+//         ]
+//       }
+//     }
+    
+//     const installations = await NewSystemInstallation.find({
+//       state,
+//       ...stageFilter
+//     })
+//       .sort({ createdAt: -1 }). populate({
+//         path: "stageId",
+//         select: {
+//           _id: 1,
+//           stage: 1
+//         }
+//       })
+//       .lean()
+//       .select("-__v"); // remove unwanted fields if not needed
+
+//     if (!installations.length) {
+//       return res.status(200).json({
+//         success: true,
+//         message: "Completed Installation Data Fetched Successfully",
+//         data: [],
+//       });
+//     }
+
+//     // 2️⃣ Remove duplicate farmer IDs (important for large data)
+//     const farmerIds = [...new Set(installations.map((i) => i.farmerSaralId))];
+
+//     // 3️⃣ Fetch all farmer activities at once
+//     const farmerActivities = await FarmerItemsActivity.find({
+//       farmerSaralId: { $in: farmerIds },
+//     }).lean();
+
+//     // 4️⃣ Convert to Map (faster than object lookup for big data)
+//     const farmerMap = new Map();
+//     for (const activity of farmerActivities) {
+//       farmerMap.set(activity.farmerSaralId, activity);
+//     }
+
+//     // 5️⃣ Transform (faster .map instead of push in loop)
+//     const transformedData = installations.map((install) => ({
+//       installationId: install?._id,
+//       farmerSaralId: install?.farmerSaralId,
+//       stageId: install?.stageId?._id,
+//       stage: install?.stageId?.stage
+//       // pitPhoto: buildFullURLs(install.pitPhoto),
+//       // borePhoto: buildFullURLs(install.borePhoto),
+//       // earthingFarmerPhoto: buildFullURLs(install.earthingFarmerPhoto),
+//       // antiTheftNutBoltPhoto: buildFullURLs(install.antiTheftNutBoltPhoto),
+//       // lightingArresterInstallationPhoto: buildFullURLs(
+//       //   install.lightingArresterInstallationPhoto,
+//       // ),
+//       // finalFoundationFarmerPhoto: buildFullURLs(
+//       //   install.finalFoundationFarmerPhoto,
+//       // ),
+//       // panelFarmerPhoto: buildFullURLs(install.panelFarmerPhoto),
+//       // controllerBoxFarmerPhoto: buildFullURLs(install.controllerBoxFarmerPhoto),
+//       // waterDischargeFarmerPhoto: buildFullURLs(
+//       //   install.waterDischargeFarmerPhoto,
+//       // ),
+//       // installationVideo: buildFullURLs(install.installationVideo),
+//       //farmerActivity: farmerMap.get(install.farmerSaralId) || null,
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "VT-2 Verified Data Fetched Successfully",
+//       //count: transformedData.length,
+//       data: transformedData,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching installation data:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
