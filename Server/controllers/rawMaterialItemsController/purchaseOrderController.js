@@ -1652,7 +1652,7 @@ const createPurchaseOrder = async (req, res) => {
 
     const isItemWise = gstType.includes("ITEMWISE");
     console.log("Items List: ", items);
-    // Validate items
+    
     for (const item of items) {
       console.log("Item: ", item);
       if (!item.id || !item.name || !item.unit) {
@@ -1681,67 +1681,87 @@ const createPurchaseOrder = async (req, res) => {
       }
     }
 
-    const mongoIds = [];
-    const mysqlIds = [];
+       // ✅ Collect all IDs
+    const allIds = items.map(i => String(i.id));
+    
+    // ✅ Only valid Mongo ObjectIds
+    const mongoIds = allIds.filter(id => mongoose.Types.ObjectId.isValid(id));
 
-    // Separate IDs by source
+    // ✅ Remaining are MySQL UUIDs
+    const mysqlIds = allIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+
+    // ✅ Fetch from Mongo
+    const mongoItems = await SystemItem.find({
+      _id: { $in: mongoIds }
+    })
+      .select("_id itemName")
+      .lean();
+
+    // ✅ Fetch from MySQL
+    const mysqlItems = await prisma.rawMaterial.findMany({
+      where: { id: { in: mysqlIds } },
+      select: { id: true, name: true },
+    });
+
+    // ✅ Create lookup maps
+    const mongoMap = new Map(
+      mongoItems.map(i => [String(i._id), i.itemName?.trim()])
+    );
+
+    const mysqlMap = new Map(
+      mysqlItems.map(i => [i.id, i.name?.trim()])
+    );
+
     for (const item of items) {
-      if (!item.source) {
-        return res.status(400).json({
-          success: false,
-          message: "item.source is required (mongo/mysql)",
-        });
-      }
+      const id = String(item.id);
+      const name = item.name;
 
-      if (item.source === "mongo") {
-        mongoIds.push(item.id);
-      } else if (item.source === "mysql") {
-        mysqlIds.push(item.id);
+      if (!mongoMap.has(id) && !mysqlMap.has(id)) {
+        throw new Error(`Item not found in any DB: ${name}`);
+      }
+    }
+
+    // ✅ Validate + detect source
+    const validatedItems = items.map(item => {
+      const id = String(item.id);
+      const name = item.name?.trim();
+
+      let detectedSource = null;
+
+      if (mongoMap.has(id)) {
+        const dbName = mongoMap.get(id);
+
+        if (dbName !== name) {
+          throw new Error(`Item name mismatch for Mongo ID ${id}`);
+        }
+
+        detectedSource = "mongo";
+      } else if (mysqlMap.has(id)) {
+        const dbName = mysqlMap.get(id);
+
+        if (dbName !== name) {
+          throw new Error(`Item name mismatch for MySQL ID ${id}`);
+        }
+
+        detectedSource = "mysql";
       } else {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid item.source '${item.source}'. Use 'mongo' or 'mysql'.`,
-        });
-      }
-    }
-    console.log("MongoIds: ", mongoIds);
-    console.log("MySQLIds: ", mysqlIds);
-
-    // Fetch all mongo items in one query
-    let existingMongoItems = [];
-    if (mongoIds.length) {
-      existingMongoItems = await SystemItem.find({ _id: { $in: mongoIds } })
-        .select("_id")
-        .lean();
-    }
-
-    // Fetch all mysql items in one query
-    let existingMysqlItems = [];
-    if (mysqlIds.length) {
-      existingMysqlItems = await prisma.rawMaterial.findMany({
-        where: { id: { in: mysqlIds } },
-        select: { id: true },
-      });
-    }
-
-    // Convert to fast lookup sets
-    const mongoSet = new Set(existingMongoItems.map((m) => String(m._id)));
-    console.log("MongoSet: ", mongoSet);
-    const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
-    console.log("MySQLSet: ", mysqlSet);
-
-    // Validate each item
-    for (const item of items) {
-      if (item.source === "mongo" && !mongoSet.has(item.id)) {
-        console.log(`MongoId not found`);
-        throw new Error(`System Item with id '${item.id}' Not Found`);
+        throw new Error(`Item not found in any DB: ${id}`);
       }
 
-      if (item.source === "mysql" && !mysqlSet.has(item.id)) {
-        console.log("MySqlId Not Found");
-        throw new Error(`Raw Material with id '${item.id}' Not Found`);
-      }
-    }
+      return {
+        ...item,
+        source: detectedSource,
+      };
+    });
+
+    console.table(
+      validatedItems.map(i => ({
+        id: i.id,
+        source: i.source,
+        name: i.name
+      }))
+    );
+
     // Fetch company & vendor
     const [company, vendor] = await Promise.all([
       prisma.company.findUnique({ where: { id: companyId } }),
@@ -1984,9 +2004,27 @@ const createPurchaseOrder = async (req, res) => {
   }
 };
 
+const splitInclusiveGST = (rate, qty, gstRate) => {
+  const gstMultiplier = new Decimal(1).plus(gstRate.div(100));
+
+  const baseRate = rate.div(gstMultiplier);
+  const gstPerUnit = rate.minus(baseRate);
+
+  const baseTotal = baseRate.mul(qty);
+  const gstTotal = gstPerUnit.mul(qty);
+
+  return {
+    baseRate,
+    gstPerUnit,
+    baseTotal,
+    gstTotal,
+  };
+};
+
 const createPurchaseOrder2 = async (req, res) => {
   try {
     const {
+      warehouseId,
       companyId,
       vendorId,
       gstType,
@@ -1999,8 +2037,11 @@ const createPurchaseOrder2 = async (req, res) => {
       cellNo,
       currency,
       exchangeRate,
+      expectedDeliveryDate,
       otherCharges = [],
     } = req.body;
+
+    console.log("Req Body: ", req.body);
 
     const userId = req.user?.id;
     if (!userId)
@@ -2020,11 +2061,34 @@ const createPurchaseOrder2 = async (req, res) => {
       });
     }
 
-    if (!companyId || !vendorId || !gstType || !items?.length) {
+    if (!warehouseId || !companyId || !vendorId || !gstType || !items?.length) {
       return res.status(400).json({
         success: false,
-        message: "Company, Vendor, GST Type & Items are required",
+        message:
+          "Receiving Warheouse, Company, Vendor, GST Type & Items are required",
       });
+    }
+
+    if (expectedDeliveryDate) {
+      const poDateOnly = new Date();
+      poDateOnly.setHours(0, 0, 0, 0);
+
+      const expectedDateOnly = new Date(expectedDeliveryDate);
+      expectedDateOnly.setHours(0, 0, 0, 0);
+
+      // if (poDateOnly.getTime() === expectedDateOnly.getTime()) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Expected Delivery Date cannot be same as PO Date",
+      //   });
+      // }
+
+      if (expectedDateOnly < poDateOnly) {
+        return res.status(400).json({
+          success: false,
+          message: "Expected Delivery Date cannot be before PO Date",
+        });
+      }
     }
 
     let normalizedOtherCharges = [];
@@ -2063,90 +2127,128 @@ const createPurchaseOrder2 = async (req, res) => {
     }
 
     const isItemWise = gstType.includes("ITEMWISE");
-
+    const isInclusive = gstType.includes("INCLUSIVE");
+    console.log("Items List: ", items);
     // Validate items
     for (const item of items) {
+      console.log("Item: ", item);
       if (!item.id || !item.name || !item.unit) {
         return res.status(400).json({
           success: false,
           message: "Items must include id, name, unit",
         });
       }
+      
       if (!item.rate || !item.quantity || Number(item.quantity) <= 0) {
         return res.status(400).json({
           success: false,
           message: "Each item must have valid quantity & rate",
         });
       }
+
       if (isItemWise && (item.gstRate == null || item.gstRate === "")) {
         return res.status(400).json({
           success: false,
           message: "Each item must have gstRate for item-wise GST PO",
         });
       }
-      if (!isItemWise && item.gstRate) {
+
+      if (isInclusive && (item.gstRate == null || item.gstRate === "")) {
         return res.status(400).json({
           success: false,
-          message: "gstRate is only allowed when PO GST type is ITEMWISE",
+          message: "gstRate is required for INCLUSIVE GST type",
+        });
+      }
+
+      if (!isItemWise && !isInclusive && item.gstRate) {
+        return res.status(400).json({
+          success: false,
+          message: "gstRate is only allowed when PO GST type is ITEMWISE or INCLUSIVE",
         });
       }
     }
 
-    const mongoIds = [];
-    const mysqlIds = [];
+    // ✅ Collect all IDs
+    const allIds = items.map(i => String(i.id));
+    
+    // ✅ Only valid Mongo ObjectIds
+    const mongoIds = allIds.filter(id => mongoose.Types.ObjectId.isValid(id));
 
-    // Separate IDs by source
+    // ✅ Remaining are MySQL UUIDs
+    const mysqlIds = allIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+
+    // ✅ Fetch from Mongo
+    const mongoItems = await SystemItem.find({
+      _id: { $in: mongoIds }
+    })
+      .select("_id itemName")
+      .lean();
+
+    // ✅ Fetch from MySQL
+    const mysqlItems = await prisma.rawMaterial.findMany({
+      where: { id: { in: mysqlIds } },
+      select: { id: true, name: true },
+    });
+
+    // ✅ Create lookup maps
+    const mongoMap = new Map(
+      mongoItems.map(i => [String(i._id), i.itemName?.trim()])
+    );
+
+    const mysqlMap = new Map(
+      mysqlItems.map(i => [i.id, i.name?.trim()])
+    );
+
     for (const item of items) {
-      if (!item.source) {
-        return res.status(400).json({
-          success: false,
-          message: "item.source is required (mongo/mysql)",
-        });
-      }
+      const id = String(item.id);
+      const name = item.name;
 
-      if (item.source === "mongo") {
-        mongoIds.push(item.id);
-      } else if (item.source === "mysql") {
-        mysqlIds.push(item.id);
+      if (!mongoMap.has(id) && !mysqlMap.has(id)) {
+        throw new Error(`Item not found in any DB: ${name}`);
+      }
+    }
+
+    // ✅ Validate + detect source
+    const validatedItems = items.map(item => {
+      const id = String(item.id);
+      const name = item.name?.trim();
+
+      let detectedSource = null;
+
+      if (mongoMap.has(id)) {
+        const dbName = mongoMap.get(id);
+
+        if (dbName !== name) {
+          throw new Error(`Item name mismatch for Mongo ID ${id}`);
+        }
+
+        detectedSource = "mongo";
+      } else if (mysqlMap.has(id)) {
+        const dbName = mysqlMap.get(id);
+
+        if (dbName !== name) {
+          throw new Error(`Item name mismatch for MySQL ID ${id}`);
+        }
+
+        detectedSource = "mysql";
       } else {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid item.source '${item.source}'. Use 'mongo' or 'mysql'.`,
-        });
-      }
-    }
-
-    // Fetch all mongo items in one query
-    let existingMongoItems = [];
-    if (mongoIds.length) {
-      existingMongoItems = await SystemItem.find({ _id: { $in: mongoIds } })
-        .select("_id")
-        .lean();
-    }
-
-    // Fetch all mysql items in one query
-    let existingMysqlItems = [];
-    if (mysqlIds.length) {
-      existingMysqlItems = await prisma.rawMaterial.findMany({
-        where: { id: { in: mysqlIds } },
-        select: { id: true },
-      });
-    }
-
-    // Convert to fast lookup sets
-    const mongoSet = new Set(existingMongoItems.map((m) => String(m._id)));
-    const mysqlSet = new Set(existingMysqlItems.map((m) => m.id));
-
-    // Validate each item
-    for (const item of items) {
-      if (item.source === "mongo" && !mongoSet.has(item.id)) {
-        throw new Error(`System Item with id '${item.id}' Not Found in`);
+        throw new Error(`Item not found in any DB: ${id}`);
       }
 
-      if (item.source === "mysql" && !mysqlSet.has(item.id)) {
-        throw new Error(`Raw Material with id '${item.id}' Not Found`);
-      }
-    }
+      return {
+        ...item,
+        source: detectedSource,
+      };
+    });
+
+    console.table(
+      validatedItems.map(i => ({
+        id: i.id,
+        source: i.source,
+        name: i.name
+      }))
+    );
+
     // Fetch company & vendor
     const [company, vendor] = await Promise.all([
       prisma.company.findUnique({ where: { id: companyId } }),
@@ -2188,7 +2290,7 @@ const createPurchaseOrder2 = async (req, res) => {
     const itemWiseItems = [];
 
     // Process items for DB
-    const processedItems = items.map((item) => {
+    const processedItems = validatedItems.map((item) => {
       const qty = new Decimal(item.quantity).toDecimalPlaces(
         4,
         Decimal.ROUND_DOWN,
@@ -2197,15 +2299,52 @@ const createPurchaseOrder2 = async (req, res) => {
         4,
         Decimal.ROUND_DOWN,
       );
-      const amountForeign = rateForeign
-        .mul(qty)
-        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
-      const amountINR = amountForeign
+      // const amountForeign = rateForeign
+      //   .mul(qty)
+      //   .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+      // const amountINR = amountForeign
+      //   .mul(finalExchangeRate)
+      //   .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+
+      // foreignSubTotal = foreignSubTotal.plus(amountForeign);
+      // subTotalINR = subTotalINR.plus(amountINR);
+
+      let baseAmountForeign = rateForeign.mul(qty);
+      let gstAmountForeign = new Decimal(0);
+
+      if (isInclusive) {
+        if (!item.gstRate) {
+          throw new Error("gstRate required for INCLUSIVE GST type");
+        }
+
+        const gstRate = new Decimal(item.gstRate);
+        const split = splitInclusiveGST(rateForeign, qty, gstRate);
+
+        baseAmountForeign = split.baseTotal;
+        gstAmountForeign = split.gstTotal;
+      }
+
+      const baseAmountINR = baseAmountForeign
         .mul(finalExchangeRate)
         .toDecimalPlaces(4, Decimal.ROUND_DOWN);
 
-      foreignSubTotal = foreignSubTotal.plus(amountForeign);
-      subTotalINR = subTotalINR.plus(amountINR);
+      const gstAmountINR = gstAmountForeign
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+
+      // ✅ Update totals
+      foreignSubTotal = foreignSubTotal.plus(baseAmountForeign);
+      subTotalINR = subTotalINR.plus(baseAmountINR);
+
+      // ✅ Add GST separately (ONLY for inclusive)
+      if (isInclusive) {
+        if (gstType.startsWith("LGST")) {
+          totalCGST = totalCGST.plus(gstAmountINR.div(2));
+          totalSGST = totalSGST.plus(gstAmountINR.div(2));
+        } else {
+          totalIGST = totalIGST.plus(gstAmountINR);
+        }
+      }
 
       isItemWise ? itemWiseItems.push(item) : normalItems.push(item);
 
@@ -2218,11 +2357,11 @@ const createPurchaseOrder2 = async (req, res) => {
         itemDetail: item.itemDetail || null,
         unit: item.unit,
         rateInForeign: currency !== "INR" ? rateForeign : null,
-        amountInForeign: currency !== "INR" ? amountForeign : null,
+        amountInForeign: currency !== "INR" ? baseAmountForeign : null,
         rate: new Decimal(item.rate),
-        gstRate: isItemWise ? new Decimal(item.gstRate) : null,
+        gstRate: isItemWise || isInclusive ? new Decimal(item.gstRate) : null,
         quantity: qty,
-        total: amountINR,
+        total: baseAmountINR,
         itemGSTType: isItemWise ? gstType : null,
       };
     });
@@ -2235,12 +2374,19 @@ const createPurchaseOrder2 = async (req, res) => {
     ) {
       for (const ch of normalizedOtherCharges) {
         if (!ch.amount || isNaN(ch.amount)) continue;
-        otherChargesTotal = otherChargesTotal
-          .plus(new Decimal(ch.amount))
-          .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+        otherChargesTotal = otherChargesTotal.plus(new Decimal(ch.amount));
       }
     }
-    subTotalINR = subTotalINR.plus(otherChargesTotal);
+    let inrOtherChargesTotal = 0;
+    if (finalCurrency !== "INR") {
+      inrOtherChargesTotal = otherChargesTotal
+        .mul(finalExchangeRate)
+        .toDecimalPlaces(4, Decimal.ROUND_DOWN);
+    }
+    subTotalINR =
+      finalCurrency === "INR"
+        ? subTotalINR.plus(otherChargesTotal)
+        : subTotalINR.plus(inrOtherChargesTotal);
 
     // GST for normal items
     const poGSTPercent =
@@ -2248,7 +2394,7 @@ const createPurchaseOrder2 = async (req, res) => {
         ? null
         : getGSTPercent(gstType);
 
-    if (normalItems.length && poGSTPercent) {
+    if (!isInclusive && normalItems.length && poGSTPercent) {
       const normalTotalINR = subTotalINR;
 
       if (gstType.startsWith("LGST")) {
@@ -2266,7 +2412,7 @@ const createPurchaseOrder2 = async (req, res) => {
     }
 
     // Item-wise GST
-    if (isItemWise) {
+    if (!isInclusive && isItemWise) {
       for (const item of itemWiseItems) {
         const totalINR = new Decimal(item.rate)
           .mul(item.quantity)
@@ -2298,11 +2444,15 @@ const createPurchaseOrder2 = async (req, res) => {
       .toDecimalPlaces(4, Decimal.ROUND_DOWN);
     const rawGrandTotal = subTotalINR.plus(totalGST);
     const grandTotalINR = roundGrandTotal(rawGrandTotal);
-    const foreignGrandTotal = foreignSubTotal.toDecimalPlaces(
-      4,
-      Decimal.ROUND_DOWN,
-    );
+    foreignSubTotal = foreignSubTotal.plus(otherChargesTotal);
+    const foreignGrandTotal = roundGrandTotal(foreignSubTotal);
 
+    let warehouseName = null;
+    const warehouseData = await Warehouse.findById(warehouseId);
+    if (warehouseData) {
+      warehouseName = warehouseData?.warehouseName;
+    }
+    console.log(warehouseName);
     // ------------------------------------
     // 💾 Save Purchase Order
     // ------------------------------------
@@ -2315,6 +2465,8 @@ const createPurchaseOrder2 = async (req, res) => {
           companyName: company.name,
           vendorId,
           vendorName: vendor.name,
+          warehouseId,
+          warehouseName,
           gstType,
           gstRate: poGSTPercent,
           currency: finalCurrency,
@@ -2330,6 +2482,7 @@ const createPurchaseOrder2 = async (req, res) => {
           totalIGST,
           totalGST,
           grandTotal: grandTotalINR,
+          fixedGrandTotal: rawGrandTotal,
           remarks,
           paymentTerms,
           deliveryTerms,
@@ -2337,6 +2490,9 @@ const createPurchaseOrder2 = async (req, res) => {
           contactPerson,
           cellNo,
           createdBy: userId,
+          expectedDeliveryDate: expectedDeliveryDate
+            ? new Date(expectedDeliveryDate)
+            : null,
           otherCharges: normalizedOtherCharges,
           items: {
             create: processedItems,
@@ -2357,7 +2513,7 @@ const createPurchaseOrder2 = async (req, res) => {
 
       return po;
     });
-
+    console.log("Saved PO: ", newPO);
     return res.status(201).json({
       success: true,
       message: "✅ Purchase Order created successfully",
@@ -7935,16 +8091,13 @@ const showAllPaymentRequests = async (req, res) => {
     }
 
     let whereCondition = {
-      OR: [
-        { paymentRejected: false },
-        { paymentRejected: null }
-      ]
+      OR: [{ paymentRejected: false }, { paymentRejected: null }],
     };
 
     if (userRole?.name === "Purchase") {
       whereCondition.paymentRequestedBy = req.user?.id;
     }
-    
+
     const requests = await prisma.payment.findMany({
       where: whereCondition,
       select: {
@@ -8102,7 +8255,6 @@ const rejectPaymentRequest = async (req, res) => {
       success: true,
       message: "Payment request rejected successfully",
     });
-
   } catch (error) {
     console.error("ERROR:", error);
     return res.status(500).json({
@@ -9272,7 +9424,7 @@ const createPurchaseOrder3 = async (req, res) => {
     // ------------------------------------
     // 🧮 Subtotal & GST Calculations
     // ------------------------------------
-    let foreignSubTotal = new Decimal(0);
+    let foreignSubTotal = new Decimal(0); 
     let subTotalINR = new Decimal(0);
     let totalCGST = new Decimal(0);
     let totalSGST = new Decimal(0);
