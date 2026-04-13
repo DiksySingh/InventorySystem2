@@ -225,6 +225,7 @@ module.exports.stateWiseServiceSurveyPersons = async (req, res) => {
     const filter = { isActive: true };
     if (state) {
       filter.state = state;
+      filter.role = "installer"
     }
     const [servicePersons, surveyPersons] = await Promise.all([
       ServicePerson.find(filter)
