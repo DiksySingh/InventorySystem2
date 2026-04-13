@@ -1651,10 +1651,9 @@ const createPurchaseOrder = async (req, res) => {
     }
 
     const isItemWise = gstType.includes("ITEMWISE");
-    console.log("Items List: ", items);
     
     for (const item of items) {
-      console.log("Item: ", item);
+     
       if (!item.id || !item.name || !item.unit) {
         return res.status(400).json({
           success: false,
