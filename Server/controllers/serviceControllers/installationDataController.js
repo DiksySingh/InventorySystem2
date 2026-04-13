@@ -10,6 +10,7 @@ const handleBase64Images = require("../../middlewares/base64ImageHandler.js");
 const Stage = require("../../models/systemInventoryModels/stageSchema.js");
 const Remarks = require("../../models/systemInventoryModels/remarksSchema.js");
 const XLSX = require("xlsx");
+const mongoose = require("mongoose");
 
 module.exports.getPickupItemData = async (req, res) => {
   try {
@@ -638,22 +639,100 @@ module.exports.exportVT2ApprovedExcel = async (req, res) => {
 
 module.exports.exportInstalledSystemExcel = async (req, res) => {
   try {
-    const data = await NewSystemInstallation.find({
-      state: "Maharashtra"
-    }).lean();
+    const VT2_REJECTED_STAGE_ID = new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081");
+
+    const data = await NewSystemInstallation.aggregate([
+      {
+        $match: {
+          state: "Maharashtra",
+        },
+      },
+
+      // ✅ Check if CURRENT stage is rejected
+      {
+        $addFields: {
+          isRejected: {
+            $eq: ["$stageId", VT2_REJECTED_STAGE_ID],
+          },
+        },
+      },
+
+      // ✅ Lookup ONLY if rejected (optimized)
+      {
+        $lookup: {
+          from: "inStageActivities",
+          let: {
+            installationId: "$_id",
+            isRejected: "$isRejected",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$$isRejected", true] }, // ✅ important
+                    { $eq: ["$installationId", "$$installationId"] },
+                    { $eq: ["$stageId", VT2_REJECTED_STAGE_ID] },
+                  ],
+                },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
+          as: "rejectedActivity",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$rejectedActivity",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // ✅ Lookup remark
+      {
+        $lookup: {
+          from: "inRemarks",
+          localField: "rejectedActivity.remarkId",
+          foreignField: "_id",
+          as: "remarkData",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$remarkData",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // ✅ Final projection
+      {
+        $project: {
+          _id: 0, // cleaner for Excel
+          "Beneficiary ID": "$farmerSaralId",
+
+          "Remark": {
+            $cond: [
+              "$isRejected", // ✅ ONLY if current stage is rejected
+              { $ifNull: ["$remarkData.remark", "Rejected by VT-2"] },
+              "",
+            ],
+          },
+        },
+      },
+    ]);
 
     if (!data.length) {
       return res.status(404).json({
         success: false,
-        message: "No VT-2 Approved data found",
+        message: "No data found",
       });
     }
 
-    const formattedData = data.map((item) => ({
-      "Beneficiary ID": item.farmerSaralId,
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    const worksheet = XLSX.utils.json_to_sheet(data);
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Installed_System_Data");
@@ -665,11 +744,11 @@ module.exports.exportInstalledSystemExcel = async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=Installed_System.xlsx",
+      "attachment; filename=Installed_System.xlsx"
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
 
     res.send(buffer);
