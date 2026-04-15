@@ -12,6 +12,7 @@ const app = express();
 const authRoute = require("./routes/authRoute");
 const adminRoute = require("./routes/adminRoutes");
 const commonRoute = require("./routes/commonRoutes");
+const externalRoute = require("./routes/externalRoutes");
 const warehousePersonRoute = require("./routes/warehousePersonRoutes");
 const servicePersonRoute = require("./routes/servicePersonRoutes");
 const serviceTeamRoute = require("./routes/serviceTeamRoutes");
@@ -79,6 +80,7 @@ app.get("/", (req, res) => {
 app.use("/user", authRoute);
 app.use("/admin", adminRoute);
 app.use("/common", commonRoute);
+app.use("/external", externalRoute);
 app.use("/warehouse-admin", warehousePersonRoute);
 app.use("/service-person", servicePersonRoute);
 app.use("/service-team", serviceTeamRoute);

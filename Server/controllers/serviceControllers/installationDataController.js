@@ -5,6 +5,7 @@ const Warehouse = require("../../models/serviceInventoryModels/warehouseSchema.j
 const OutgoingItemDetails = require("../../models/serviceInventoryModels/outgoingItemsTotal.js");
 const ServicePerson = require("../../models/serviceInventoryModels/servicePersonSchema.js");
 const NewSystemInstallation = require("../../models/systemInventoryModels/newSystemInstallationSchema.js");
+const StageActivity = require("../../models/systemInventoryModels/stageActivitySchema.js");
 const sendOtp = require("../../helpers/pdf/otpGeneration.js");
 const handleBase64Images = require("../../middlewares/base64ImageHandler.js");
 const Stage = require("../../models/systemInventoryModels/stageSchema.js");
@@ -757,6 +758,116 @@ module.exports.exportInstalledSystemExcel = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error exporting Excel",
+    });
+  }
+};
+
+module.exports.bulkUpdateStageFromExcel = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    session.startTransaction();
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheetData = XLSX.utils.sheet_to_json(
+      workbook.Sheets[sheetName]
+    );
+
+    if (!sheetData.length) {
+      throw new Error("Excel file is empty");
+    }
+
+   
+    const results = [];
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const row of sheetData) {
+      const farmerSaralId = String(row.farmerSaralId || "").toUpperCase().trim();
+      //const stageId = row.stageId;
+
+      if (!farmerSaralId) {
+        failureCount++;
+        results.push({
+          farmerSaralId,
+          status: "FAILED",
+          reason: "Missing farmerSaralId",
+        });
+        continue;
+      }
+
+      const stageObjectId = new mongoose.Types.ObjectId("69b28068d994f4a0d8666078");
+
+      const installation = await NewSystemInstallation.findOneAndUpdate(
+        { farmerSaralId },
+        {
+          $set: {
+            stageId: stageObjectId,
+            updatedAt: new Date(),
+            updatedBy: "Sachin Sambhi"
+          },
+        },
+        { new: true, session }
+      );
+
+      if (!installation) {
+        failureCount++;
+        results.push({
+          farmerSaralId,
+          status: "FAILED",
+          reason: "Installation not found",
+        });
+        continue;
+      }
+
+      await StageActivity.create(
+        [
+          {
+            installationId: installation._id,
+            empId: new mongoose.Types.ObjectId("679b10c19cffe98b71683bc5"),
+            stageId: stageObjectId,
+            remarkId: null,
+          },
+        ],
+        { session }
+      );
+
+      successCount++;
+      results.push({
+        farmerSaralId,
+        status: "SUCCESS",
+      });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Bulk update completed",
+      total: sheetData.length,
+      successCount,
+      failureCount,
+      data: results,
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 };

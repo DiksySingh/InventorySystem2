@@ -1560,7 +1560,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
       }
     }
 
-    const { purchaseOrderId, items, invoiceNumber } = req.body;
+    const { purchaseOrderId, items, invoiceNumber, vehicleNumber } = req.body;
     const billFile = req.files?.billFile?.[0];
 
     if (!billFile)
@@ -1576,13 +1576,14 @@ const purchaseOrderReceivingBill = async (req, res) => {
     if (
       !purchaseOrderId ||
       !invoiceNumber ||
+      !vehicleNumber ||
       !Array.isArray(items) ||
       !items.length
     ) {
       await deleteUploadedFile();
       return res.status(400).json({
         success: false,
-        message: "purchaseOrderId, invoiceNumber & items are required.",
+        message: "purchaseOrderId, invoiceNumber, vehicleNumber & items are required.",
       });
     }
 
@@ -1623,6 +1624,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
           data: {
             purchaseOrderId,
             invoiceNumber,
+            vehicleNumber,
             fileName: billFile.filename,
             fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
             mimeType: billFile.mimetype,
@@ -1657,6 +1659,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
               purchaseOrderId,
               purchaseOrderItemId,
               invoiceNumber,
+              vehicleNumber,
               itemId,
               itemSource,
               itemName,
@@ -1782,7 +1785,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
             const baseUnit = systemItem.unit?.toLowerCase().trim();
             console.log("System Item Unit: ", baseUnit);
             const convUnit = (
-              systemItem.conversionUnit ??
+              systemItem.conversionUnit ?? 
               systemItem.converionUnit ??
               ""
             )
@@ -1929,7 +1932,7 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
       }
     }
 
-    const { purchaseOrderId, items, invoiceNumber } = req.body;
+    const { purchaseOrderId, items, invoiceNumber, vehicleNumber } = req.body;
     const billFile = req.files?.billFile?.[0];
 
     if (!billFile)
@@ -1945,13 +1948,14 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
     if (
       !purchaseOrderId ||
       !invoiceNumber ||
+      !vehicleNumber ||
       !Array.isArray(items) ||
       !items.length
     ) {
       await deleteUploadedFile();
       return res.status(400).json({
         success: false,
-        message: "purchaseOrderId, invoiceNumber & items are required.",
+        message: "purchaseOrderId, invoiceNumber, vehicleNumber & items are required.",
       });
     }
 
@@ -1960,9 +1964,12 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
       where: { id: purchaseOrderId },
       include: { items: true },
     });
+
     if (!po) throw new Error("Purchase Order not found.");
+
     if (["Cancelled", "Received"].includes(po.status))
       throw new Error(`PO already ${po.status}.`);
+
     if (String(po.warehouseId) !== warehouseId)
       return res
         .status(403)
@@ -1981,6 +1988,7 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
           data: {
             purchaseOrderId,
             invoiceNumber,
+            vehicleNumber,
             fileName: billFile.filename,
             fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
             mimeType: billFile.mimetype,
@@ -2015,6 +2023,7 @@ const purchaseOrderReceivingBill2 = async (req, res) => {
               purchaseOrderId,
               purchaseOrderItemId,
               invoiceNumber,
+              vehicleNumber,
               itemId,
               itemSource,
               itemName,

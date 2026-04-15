@@ -86,5 +86,6 @@ router.get("/show-remarks", installationDataController.getAllRemarks);
 router.get("/pump-data", getPumpDataBySystem);
 router.get("/approved-installation-excel", installationDataController.exportVT2ApprovedExcel);
 router.get("/installed-system-excel", installationDataController.exportInstalledSystemExcel);
+router.post("/installation-stage-update", upload.single('file'), installationDataController.bulkUpdateStageFromExcel);
 
 module.exports = router;

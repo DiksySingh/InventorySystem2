@@ -920,6 +920,7 @@ model PurchaseOrderReceipt {
   purchaseOrderId     String?
   purchaseOrderItemId String?
   invoiceNumber       String?
+  vehicleNumber       String?
   itemId              String?
   itemSource          String?
   itemName            String?
@@ -1001,6 +1002,7 @@ model PurchaseOrderBill {
   id              String   @id @default(uuid())
   purchaseOrderId String
   invoiceNumber   String?
+  vehicleNumber   String?
   fileName        String
   fileUrl         String
   mimeType        String
