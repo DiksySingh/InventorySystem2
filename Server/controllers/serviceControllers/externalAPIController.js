@@ -2,36 +2,36 @@ const prisma = require("../../config/prismaClient");
 
 const getVehicleReceiptStatusToday = async (req, res) => {
   try {
-    const { vehicleNo } = req.query;
+    const { vehicleNo, entryTime } = req.query;
 
-    if (!vehicleNo) {
+    if (!vehicleNo || !entryTime) {
       return res.status(400).json({
         success: false,
-        message: "vehicleNo is required",
+        message: "vehicleNo and entryTime is required",
       });
     }
 
-    const normalizedVehicle = vehicleNo
-      .replace(/[^a-zA-Z0-9]/g, "")
-      .toUpperCase();
+    const normalizedVehicle = vehicleNo.toUpperCase().trim();
 
-    // ✅ IST-safe (recommended)
-    const now = new Date().toLocaleString("en-US", {
-      timeZone: "Asia/Kolkata",
-    });
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
+    const entryDate = new Date(entryTime);
+    console.log(entryDate);
 
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
+    if (isNaN(entryDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid entryTime format",
+      });
+    }
 
-    // ✅ Use count instead of findMany (faster)
+    const now = new Date();
+    console.log(now);
+
     const count = await prisma.purchaseOrderReceipt.count({
       where: {
         vehicleNumber: normalizedVehicle,
         receivedDate: {
-          gte: startOfDay,
-          lte: endOfDay,
+          gte: entryDate,
+          lte: now,
         },
       },
     });
@@ -39,7 +39,7 @@ const getVehicleReceiptStatusToday = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        receivedToday: count > 0,
+        receivedAfterEntry: count > 0,
       },
     });
   } catch (error) {
