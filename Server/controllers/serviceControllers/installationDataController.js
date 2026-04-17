@@ -12,6 +12,9 @@ const Stage = require("../../models/systemInventoryModels/stageSchema.js");
 const Remarks = require("../../models/systemInventoryModels/remarksSchema.js");
 const XLSX = require("xlsx");
 const mongoose = require("mongoose");
+const axios = require("axios");
+const pLimit = require("p-limit").default;
+const https = require("https");
 
 module.exports.getPickupItemData = async (req, res) => {
   try {
@@ -587,14 +590,15 @@ module.exports.getAllRemarks = async (req, res) => {
 };
 
 module.exports.exportVT2ApprovedExcel = async (req, res) => {
-  try {
+try {
     const VT2_APPROVED_STAGE_ID = "69b28076d994f4a0d866607e";
 
     const data = await NewSystemInstallation.find({
       state: "Maharashtra",
       stageId: VT2_APPROVED_STAGE_ID,
     })
-      .populate("stageId", "_id stage")
+      .select("farmerSaralId stageId")
+      .populate("stageId", "stage")
       .lean();
 
     if (!data.length) {
@@ -604,13 +608,89 @@ module.exports.exportVT2ApprovedExcel = async (req, res) => {
       });
     }
 
-    const formattedData = data.map((item) => ({
-      "Beneficiary ID": item.farmerSaralId,
-      Stage: item.stageId?.stage,
-    }));
+    // ✅ Unique saralIds
+    const saralIds = [
+      ...new Set(data.map((item) => item.farmerSaralId).filter(Boolean)),
+    ];
 
+    // ✅ Chunking (reduced size)
+    const chunkSize = 50;
+
+    const chunkArray = (array, size) => {
+      const result = [];
+      for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+      }
+      return result;
+    };
+
+    const chunks = chunkArray(saralIds, chunkSize);
+
+    // ✅ Axios instance with timeout
+    const axiosInstance = axios.create({
+      timeout: 10000, // 10 sec
+      httpsAgent: new https.Agent({
+        keepAlive: false,
+      })
+    });
+
+    const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+    // ✅ Retry logic
+    const callAPI = async (chunk, retries = 2) => {
+      try {
+        await delay(200);
+        return await axiosInstance.post(
+          "https://service.galosolar.com/api/inventory/paymentStatusBySaralId",
+          { saralIds: chunk }
+        );
+      } catch (err) {
+        if (retries > 0) {
+          console.log("Retrying chunk...");
+          await delay(500); // wait before retry
+          return callAPI(chunk, retries - 1);
+        }
+        throw err;
+      }
+    };
+
+    // ✅ Limit concurrency (VERY IMPORTANT)
+    const limit = pLimit(2);
+
+    // ✅ Safe parallel calls
+    const responses = await Promise.allSettled(
+      chunks.map((chunk) => limit(() => callAPI(chunk)))
+    );
+
+    // ✅ Build map
+    const paymentMap = {};
+
+    responses.forEach((res) => {
+      if (res.status === "fulfilled") {
+        const paymentData = res.value.data?.data || [];
+        
+        paymentData.forEach((item) => {
+          const key = String(item.saralId);
+          paymentMap[key] = item.amount ?? 0;
+        });
+      } else {
+        console.error("Chunk failed:", res.reason.message);
+      }
+    });
+
+    // ✅ Merge (handle missing → 0)
+    const formattedData = data.map((item) => {
+      const saralId = String(item.farmerSaralId);
+
+      return {
+        "Beneficiary ID": saralId,
+        "Amount Paid": paymentMap[saralId] ?? 0,
+        Stage: item.stageId?.stage,
+      };
+    });
+
+    // ✅ Excel
     const worksheet = XLSX.utils.json_to_sheet(formattedData);
-
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Approved By VT-2");
 
@@ -621,11 +701,140 @@ module.exports.exportVT2ApprovedExcel = async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=VT2_Approved_Installations.xlsx",
+      "attachment; filename=VT2_Approved_Installations.xlsx"
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.send(buffer);
+  } catch (error) {
+    console.error("Export Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error exporting Excel",
+    });
+  }
+};
+
+module.exports.exportVT2ApprovedExcel2 = async (req, res) => {
+  try {
+    const VT2_APPROVED_STAGE_ID = "69b28076d994f4a0d866607e";
+
+    const data = await NewSystemInstallation.find({
+      state: "Maharashtra",
+      stageId: VT2_APPROVED_STAGE_ID,
+    })
+      .select("farmerSaralId stageId")
+      .populate("stageId", "stage")
+      .lean();
+
+    if (!data.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No VT-2 Approved data found",
+      });
+    }
+
+    // ✅ Unique saralIds
+    const saralIds = [
+      ...new Set(data.map((item) => item.farmerSaralId).filter(Boolean)),
+    ];
+
+    // ✅ Chunking (reduced size)
+    const chunkSize = 50;
+
+    const chunkArray = (array, size) => {
+      const result = [];
+      for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+      }
+      return result;
+    };
+
+    const chunks = chunkArray(saralIds, chunkSize);
+
+    // ✅ Axios instance with timeout
+    const axiosInstance = axios.create({
+      timeout: 10000, // 10 sec
+      httpsAgent: new https.Agent({
+        keepAlive: false,
+      })
+    });
+
+    const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+    // ✅ Retry logic
+    const callAPI = async (chunk, retries = 2) => {
+      try {
+        await delay(200);
+        return await axiosInstance.post(
+          "https://service.galosolar.com/api/inventory/paymentStatusBySaralId",
+          { saralIds: chunk }
+        );
+      } catch (err) {
+        if (retries > 0) {
+          console.log("Retrying chunk...");
+          await delay(500); // wait before retry
+          return callAPI(chunk, retries - 1);
+        }
+        throw err;
+      }
+    };
+
+    // ✅ Limit concurrency (VERY IMPORTANT)
+    const limit = pLimit(2);
+
+    // ✅ Safe parallel calls
+    const responses = await Promise.allSettled(
+      chunks.map((chunk) => limit(() => callAPI(chunk)))
+    );
+
+    // ✅ Build map
+    const paymentMap = {};
+
+    responses.forEach((res) => {
+      if (res.status === "fulfilled") {
+        const paymentData = res.value.data?.data || [];
+        
+        paymentData.forEach((item) => {
+          const key = String(item.saralId);
+          paymentMap[key] = item.amount ?? 0;
+        });
+      } else {
+        console.error("Chunk failed:", res.reason.message);
+      }
+    });
+
+    // ✅ Merge (handle missing → 0)
+    const formattedData = data.map((item) => {
+      const saralId = String(item.farmerSaralId);
+
+      return {
+        "Beneficiary ID": saralId,
+        "Amount Paid": paymentMap[saralId] ?? 0,
+        Stage: item.stageId?.stage,
+      };
+    });
+
+    // ✅ Excel
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Approved By VT-2");
+
+    const buffer = XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=VT2_Approved_Installations.xlsx"
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
 
     res.send(buffer);
@@ -640,7 +849,9 @@ module.exports.exportVT2ApprovedExcel = async (req, res) => {
 
 module.exports.exportInstalledSystemExcel = async (req, res) => {
   try {
-    const VT2_REJECTED_STAGE_ID = new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081");
+    const VT2_REJECTED_STAGE_ID = new mongoose.Types.ObjectId(
+      "69b2807cd994f4a0d8666081",
+    );
 
     const data = await NewSystemInstallation.aggregate([
       {
@@ -715,7 +926,7 @@ module.exports.exportInstalledSystemExcel = async (req, res) => {
           _id: 0, // cleaner for Excel
           "Beneficiary ID": "$farmerSaralId",
 
-          "Remark": {
+          Remark: {
             $cond: [
               "$isRejected", // ✅ ONLY if current stage is rejected
               { $ifNull: ["$remarkData.remark", "Rejected by VT-2"] },
@@ -745,11 +956,11 @@ module.exports.exportInstalledSystemExcel = async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=Installed_System.xlsx"
+      "attachment; filename=Installed_System.xlsx",
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
 
     res.send(buffer);
@@ -777,21 +988,20 @@ module.exports.bulkUpdateStageFromExcel = async (req, res) => {
 
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
-    const sheetData = XLSX.utils.sheet_to_json(
-      workbook.Sheets[sheetName]
-    );
+    const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
     if (!sheetData.length) {
       throw new Error("Excel file is empty");
     }
 
-   
     const results = [];
     let successCount = 0;
     let failureCount = 0;
 
     for (const row of sheetData) {
-      const farmerSaralId = String(row.farmerSaralId || "").toUpperCase().trim();
+      const farmerSaralId = String(row.farmerSaralId || "")
+        .toUpperCase()
+        .trim();
       //const stageId = row.stageId;
 
       if (!farmerSaralId) {
@@ -804,7 +1014,9 @@ module.exports.bulkUpdateStageFromExcel = async (req, res) => {
         continue;
       }
 
-      const stageObjectId = new mongoose.Types.ObjectId("69b28068d994f4a0d8666078");
+      const stageObjectId = new mongoose.Types.ObjectId(
+        "69b28068d994f4a0d8666078",
+      );
 
       const installation = await NewSystemInstallation.findOneAndUpdate(
         { farmerSaralId },
@@ -812,10 +1024,10 @@ module.exports.bulkUpdateStageFromExcel = async (req, res) => {
           $set: {
             stageId: stageObjectId,
             updatedAt: new Date(),
-            updatedBy: "Sachin Sambhi"
+            updatedBy: "Sachin Sambhi",
           },
         },
-        { new: true, session }
+        { new: true, session },
       );
 
       if (!installation) {
@@ -837,7 +1049,7 @@ module.exports.bulkUpdateStageFromExcel = async (req, res) => {
             remarkId: null,
           },
         ],
-        { session }
+        { session },
       );
 
       successCount++;
@@ -858,7 +1070,6 @@ module.exports.bulkUpdateStageFromExcel = async (req, res) => {
       failureCount,
       data: results,
     });
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
