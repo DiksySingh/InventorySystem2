@@ -26,20 +26,38 @@ const getVehicleReceiptStatusToday = async (req, res) => {
     const now = new Date();
     console.log(now);
 
-    const count = await prisma.purchaseOrderReceipt.count({
+    // const count = await prisma.purchaseOrderReceipt.count({
+    //   where: {
+    //     vehicleNumber: normalizedVehicle,
+    //     receivedDate: {
+    //       gte: entryDate,
+    //       lte: now,
+    //     },
+    //     purchaseOrder: {
+    //       warehouseId: "67446a8b27dae6f7f4d985dd",
+    //     }
+    //   },
+    // });
+
+    const receipt = await prisma.purchaseOrderReceipt.findFirst({
       where: {
         vehicleNumber: normalizedVehicle,
         receivedDate: {
           gte: entryDate,
           lte: now,
         },
+        purchaseOrder: {
+          warehouseName: "Bhiwani",
+        },
       },
+      select: { id: true },
     });
+    console.log(receipt);
 
     return res.status(200).json({
       success: true,
       data: {
-        receivedAfterEntry: count > 0,
+        receivedAfterEntry: !!receipt,
       },
     });
   } catch (error) {
