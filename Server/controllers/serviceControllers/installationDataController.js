@@ -13,7 +13,6 @@ const Remarks = require("../../models/systemInventoryModels/remarksSchema.js");
 const XLSX = require("xlsx");
 const mongoose = require("mongoose");
 const axios = require("axios");
-const pLimit = require("p-limit").default;
 const https = require("https");
 
 module.exports.getPickupItemData = async (req, res) => {
@@ -591,6 +590,7 @@ module.exports.getAllRemarks = async (req, res) => {
 
 module.exports.exportVT2ApprovedExcel = async (req, res) => {
 try {
+    const pLimit = (await import("p-limit")).default;
     const VT2_APPROVED_STAGE_ID = "69b28076d994f4a0d866607e";
 
     const data = await NewSystemInstallation.find({
