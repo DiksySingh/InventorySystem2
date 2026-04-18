@@ -1576,7 +1576,6 @@ const purchaseOrderReceivingBill = async (req, res) => {
     if (
       !purchaseOrderId ||
       !invoiceNumber ||
-      !vehicleNumber ||
       !Array.isArray(items) ||
       !items.length
     ) {
@@ -1594,6 +1593,15 @@ const purchaseOrderReceivingBill = async (req, res) => {
     });
 
     if (!po) throw new Error("Purchase Order not found.");
+
+    if(po.warehouseName === "Bhiwani") {
+      if(!vehicleNumber) {
+        return res.status(400).json({
+          success: false,
+          message: "vehicleNo is required for Bhiwani warehouse"
+        });
+      }
+    }
 
     // if (po.approvalStatus !== "Approved") {
     //   throw new Error("Cannot receive items as PO not approved by admin.")
@@ -1624,7 +1632,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
           data: {
             purchaseOrderId,
             invoiceNumber,
-            vehicleNumber,
+            vehicleNumber: vehicleNumber || null,
             fileName: billFile.filename,
             fileUrl: `/uploads/purchaseOrder/receivingBill/${billFile.filename}`,
             mimeType: billFile.mimetype,
@@ -1659,7 +1667,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
               purchaseOrderId,
               purchaseOrderItemId,
               invoiceNumber,
-              vehicleNumber,
+              vehicleNumber: vehicleNumber || null,
               itemId,
               itemSource,
               itemName,
