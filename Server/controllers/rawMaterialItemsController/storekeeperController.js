@@ -1582,7 +1582,7 @@ const purchaseOrderReceivingBill = async (req, res) => {
       await deleteUploadedFile();
       return res.status(400).json({
         success: false,
-        message: "purchaseOrderId, invoiceNumber, vehicleNumber & items are required.",
+        message: "purchaseOrderId, invoiceNumber and items are required.",
       });
     }
 
