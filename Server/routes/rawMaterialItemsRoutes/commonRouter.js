@@ -272,4 +272,7 @@ router.post("/purchase-orders/follow-up", tokenVerification(["Production"]), com
 router.get("/purchase-orders/:poId/follow-ups", tokenVerification(["Admin", "Purchase", "Production"]), commonController.getPurchaseOrderWithFollowUps);
 router.get("/stock/shortage", commonController.getInstallationShortageData);
 
+router.get("/item/price/comparison", commonController.getPriceComparison);
+router.get("/payments/dashboard", commonController.getAdvancePaymentDashboard);
+
 module.exports = router;

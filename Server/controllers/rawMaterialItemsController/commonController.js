@@ -18,7 +18,7 @@ const stockShortageService = require("../../services/stockShortageService");
 const getStateCityFromPincode = require("../../services/getStateCityFromPincode");
 const sendMail = require("../../util/mail/sendMail");
 const countries = require("../../data/countries.json");
-const {POStatus} = require("@prisma/client");
+const { POStatus } = require("@prisma/client");
 
 const addRole = async (req, res) => {
   try {
@@ -4083,7 +4083,7 @@ const getAllVendorsSummary = async (req, res) => {
           },
         },
       },
-       orderBy: {
+      orderBy: {
         name: "asc",
       },
       select: {
@@ -4117,7 +4117,6 @@ const getAllVendorsSummary = async (req, res) => {
 
       vendor.purchaseOrders.forEach((po) => {
         po.items.forEach((item) => {
-
           if (!itemMap[item.itemName]) {
             itemMap[item.itemName] = {
               itemName: item.itemName,
@@ -4151,7 +4150,6 @@ const getAllVendorsSummary = async (req, res) => {
       count: finalData.length,
       data: finalData,
     });
-
   } catch (error) {
     console.error("All Vendor Summary Error:", error);
 
@@ -4165,12 +4163,8 @@ const getAllVendorsSummary = async (req, res) => {
 
 const addPurchaseFollowUp = async (req, res) => {
   try {
-    const {
-      purchaseOrderId,
-      vendorId,
-      expectedDeliveryDate,
-      remark,
-    } = req.body;
+    const { purchaseOrderId, vendorId, expectedDeliveryDate, remark } =
+      req.body;
 
     const empId = req.user?.id;
 
@@ -4238,7 +4232,6 @@ const addPurchaseFollowUp = async (req, res) => {
       message: "Follow-up added successfully",
       data: followUp,
     });
-
   } catch (error) {
     console.error("Add FollowUp Error:", error);
 
@@ -4288,21 +4281,19 @@ const getPurchaseOrderWithFollowUps = async (req, res) => {
       });
     }
 
-     const formattedData = purchaseOrder.purchaseFollowUp.map((item) => ({
+    const formattedData = purchaseOrder.purchaseFollowUp.map((item) => ({
       id: item.id,
       expectedDeliveryDate: item.expectedDeliveryDate,
       remark: item.remark,
       createdBy: item.followUpCreatedBy?.name || null,
-      createdAt: item.followUpDate
+      createdAt: item.followUpDate,
     }));
-
 
     return res.status(200).json({
       success: true,
       message: "Follow-Up Fetched Successfully",
-      data: formattedData || []
+      data: formattedData || [],
     });
-
   } catch (error) {
     console.error("Get PO FollowUps Error:", error);
 
@@ -4487,19 +4478,19 @@ const getInstallationShortageData = async (req, res) => {
     // ✅ 1. Get ALL system items
     const systemItems = await SystemItemMap.find(
       { systemId: sid },
-      { systemItemId: 1, quantity: 1 }
+      { systemItemId: 1, quantity: 1 },
     ).lean();
 
     // ✅ 2. Get sub-items of selected pump
     const subItems = await ItemComponentMap.find(
       { systemId: sid, systemItemId: pid },
-      { subItemId: 1, quantity: 1 }
+      { subItemId: 1, quantity: 1 },
     ).lean();
 
     // ✅ 3. Inventory
     const inventoryData = await InstallationInventory.find(
       { warehouseId: wid },
-      { systemItemId: 1, quantity: 1 }
+      { systemItemId: 1, quantity: 1 },
     ).lean();
 
     // ✅ 4. Get all item names
@@ -4510,14 +4501,14 @@ const getInstallationShortageData = async (req, res) => {
 
     const items = await SystemItem.find(
       { _id: { $in: [...itemIds] } },
-      { itemName: 1, unit: 1 }
+      { itemName: 1, unit: 1 },
     ).lean();
 
     const itemNameMap = {};
     items.forEach((i) => {
       itemNameMap[i._id.toString()] = {
         name: i.itemName,
-        unit: i.unit || ""
+        unit: i.unit || "",
       };
     });
 
@@ -4607,6 +4598,346 @@ const getInstallationShortageData = async (req, res) => {
   }
 };
 
+const getPriceComparison = async (req, res) => {
+  try {
+    const { item, vendor, page = 1, limit = 25 } = req.query;
+
+    if (!item) {
+      return res.status(400).json({
+        success: false,
+        message: "item is required",
+      });
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const items = await prisma.purchaseOrderItem.findMany({
+      where: {
+        itemName: {
+          contains: item,
+        },
+        ...(vendor && {
+          purchaseOrder: {
+            vendorName: {
+              contains: vendor,
+            },
+          },
+        }),
+      },
+      select: {
+        itemName: true,
+        rate: true,
+        purchaseOrder: {
+          select: {
+            vendorId: true,
+            vendorName: true,
+            currency: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: {
+        rate: "asc",
+      },
+      skip,
+      take: Number(limit),
+    });
+
+    if (!items.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No data found for this item",
+      });
+    }
+
+    // ✅ REMOVE DUPLICATES (vendor + rate)
+    const uniqueMap = new Map();
+
+    for (const item of items) {
+      const vendorId = item.purchaseOrder?.vendorId;
+      const rate = Number(item.rate);
+
+      const key = `${vendorId}_${rate}`;
+
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, {
+          vendorId,
+          vendor: item.purchaseOrder?.vendorName,
+          itemName: item.itemName,
+          rate,
+          currency: item.purchaseOrder?.currency,
+          date: item.purchaseOrder?.createdAt,
+        });
+      }
+    }
+
+    const result = Array.from(uniqueMap.values());
+
+    return res.status(200).json({
+      success: true,
+      cheapest: result[0], // still lowest
+      page: Number(page),
+      limit: Number(limit),
+      count: result.length,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Price comparison error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+const getFinancialYearDates = () => {
+  const now = new Date();
+  const year =
+    now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+
+  const start = new Date(`${year}-04-01T00:00:00.000Z`);
+  const end = new Date(`${year + 1}-03-31T23:59:59.999Z`);
+
+  return { start, end };
+};
+
+const getDateRanges = () => {
+  const now = new Date();
+
+  const { start: fyStart, end: fyEnd } = getFinancialYearDates();
+
+  // ✅ TODAY
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  // ✅ WEEK (Monday start)
+  const startOfWeek = new Date();
+  const day = startOfWeek.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  startOfWeek.setDate(startOfWeek.getDate() + diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  if (startOfWeek < fyStart) startOfWeek.setTime(fyStart.getTime());
+
+  // ✅ MONTH
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+    0,
+    0,
+    0,
+    0,
+  );
+
+  if (startOfMonth < fyStart) startOfMonth.setTime(fyStart.getTime());
+  console.log(startOfToday);
+  console.log(startOfWeek);
+  console.log(startOfMonth);
+  console.log(fyStart);
+  console.log(fyEnd);
+
+  return {
+    today: { gte: startOfToday, lte: now },
+    week: { gte: startOfWeek, lte: now },
+    month: { gte: startOfMonth, lte: now },
+    year: { gte: fyStart, lte: now }, // ✅ FY till today
+    financialYear: { gte: fyStart, lte: fyEnd }, // ✅ full FY
+  };
+};
+
+const normalizeName = (name) => {
+  return name
+    ?.toLowerCase()
+    .trim()
+    .replace(/\(.*?\)/g, "") // remove brackets
+    .replace(/unit[-\s]*\w+/g, "") // remove unit patterns
+    .replace(/branch[-\s]*\w+/g, "") // remove branch patterns
+    .replace(/[-_]/g, " ") // normalize separators
+    .replace(/\s+/g, " ") // clean spaces
+    .trim();
+};
+
+const getAdvancePaymentDashboard = async (req, res) => {
+  try {
+    const { start, end } = getFinancialYearDates();
+    const ranges = getDateRanges();
+
+    const baseFilter = {
+      billpaymentType: {
+        in: ["Advance_Payment", "Full_Payment_In_Advance"],
+      },
+      paymentStatus: true,
+    };
+
+    const [totalFY, today, week, month, year, groupedData] = await Promise.all([
+      // ✅ FULL FINANCIAL YEAR
+      prisma.payment.aggregate({
+        where: {
+          ...baseFilter,
+          paymentDate: ranges.financialYear,
+        },
+        _sum: { amount: true },
+      }),
+
+      prisma.payment.aggregate({
+        where: {
+          ...baseFilter,
+          paymentDate: ranges.today,
+        },
+        _sum: { amount: true },
+      }),
+
+      prisma.payment.aggregate({
+        where: {
+          ...baseFilter,
+          paymentDate: ranges.week,
+        },
+        _sum: { amount: true },
+      }),
+
+      prisma.payment.aggregate({
+        where: {
+          ...baseFilter,
+          paymentDate: ranges.month,
+        },
+        _sum: { amount: true },
+      }),
+
+      prisma.payment.aggregate({
+        where: {
+          ...baseFilter,
+          paymentDate: ranges.year, // FY till now
+        },
+        _sum: { amount: true },
+      }),
+
+      // ✅ GROUPING ALSO MUST FOLLOW FY
+      prisma.payment.groupBy({
+        by: ["poId"],
+        where: {
+          ...baseFilter,
+          paymentDate: ranges.financialYear,
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    // ✅ Extract PO IDs
+    const poIds = groupedData.map((i) => i.poId);
+    console.log(poIds);
+
+    // ✅ Fetch PO data
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
+      where: {
+        id: { in: poIds },
+      },
+      select: {
+        id: true,
+        companyId: true,
+        companyName: true,
+        vendorId: true,
+        vendorName: true,
+      },
+    });
+
+    // ✅ Maps
+    const companyMap = {};
+    const vendorMap = {};
+
+    purchaseOrders.forEach((po) => {
+      if (po.companyName) {
+        companyMap[po.id] = {
+          id: po.companyId,
+          name: po.companyName,
+        };
+      }
+
+      if (po.vendorName) {
+        vendorMap[po.id] = {
+          id: po.vendorId,
+          name: po.vendorName,
+        };
+      }
+    });
+
+    // ✅ Aggregations (GROUP BY NAME)
+    const companyAggregated = {};
+    const vendorAggregated = {};
+
+    groupedData.forEach((item) => {
+      const amount = Number(item._sum.amount || 0);
+
+      // 🔹 COMPANY (group by name)
+      const company = companyMap[item.poId];
+      if (company) {
+        const key = normalizeName(company.name);
+
+        if (!companyAggregated[key]) {
+          companyAggregated[key] = {
+            companyName: company.name,
+            amount: 0,
+            companyIds: new Set(),
+          };
+        }
+
+        companyAggregated[key].amount += amount;
+        companyAggregated[key].companyIds.add(company.id);
+      }
+
+      // 🔹 VENDOR (group by name)
+      const vendor = vendorMap[item.poId];
+      if (vendor) {
+        const key = normalizeName(vendor.name);
+
+        if (!vendorAggregated[key]) {
+          vendorAggregated[key] = {
+            vendorName: vendor.name,
+            amount: 0,
+            vendorIds: new Set(),
+          };
+        }
+
+        vendorAggregated[key].amount += amount;
+        vendorAggregated[key].vendorIds.add(vendor.id);
+      }
+    });
+
+    // ✅ Convert Set → Array
+    const companyResult = Object.values(companyAggregated).map((item) => ({
+      companyName: item.companyName,
+      amount: item.amount,
+      companyIds: Array.from(item.companyIds),
+    }));
+
+    const vendorResult = Object.values(vendorAggregated).map((item) => ({
+      vendorName: item.vendorName,
+      amount: item.amount,
+      vendorIds: Array.from(item.vendorIds),
+    }));
+
+    // ✅ RESPONSE
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalFinancialYear: totalFY._sum.amount || 0,
+        today: today._sum.amount || 0,
+        week: week._sum.amount || 0,
+        month: month._sum.amount || 0,
+        year: year._sum.amount || 0,
+        companyWise: companyResult,
+        vendorWise: vendorResult,
+      },
+    });
+  } catch (error) {
+    console.error("Advance Dashboard Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching advance payment dashboard",
+    });
+  }
+};
+
 module.exports = {
   addRole,
   showRole,
@@ -4663,5 +4994,7 @@ module.exports = {
   getAllVendorsSummary,
   addPurchaseFollowUp,
   getPurchaseOrderWithFollowUps,
-  getInstallationShortageData
+  getInstallationShortageData,
+  getPriceComparison,
+  getAdvancePaymentDashboard,
 };
