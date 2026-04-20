@@ -4690,6 +4690,72 @@ const getPriceComparison = async (req, res) => {
   }
 };
 
+const getCheapestPrice = async (req, res) => {
+  try {
+    const { item } = req.query;
+
+    if (!item) {
+      return res.status(400).json({
+        success: false,
+        message: "item is required",
+      });
+    }
+
+    const cheapestItem = await prisma.purchaseOrderItem.findFirst({
+      where: {
+        itemName: {
+          contains: item,
+        },
+      },
+
+      select: {
+        itemName: true,
+        rate: true,
+        purchaseOrder: {
+          select: {
+            vendorId: true,
+            vendorName: true,
+            currency: true,
+            createdAt: true,
+          },
+        },
+      },
+
+      orderBy: {
+        rate: "asc", // ✅ LOWEST FIRST
+      },
+    });
+
+    if (!cheapestItem) {
+      return res.status(404).json({
+        success: false,
+        message: "No data found",
+      });
+    }
+
+    const result = {
+      //vendorId: cheapestItem.purchaseOrder?.vendorId,
+      vendor: cheapestItem.purchaseOrder?.vendorName,
+      itemName: cheapestItem.itemName,
+      rate: Number(cheapestItem.rate),
+      currency: cheapestItem.purchaseOrder?.currency,
+      //date: cheapestItem.purchaseOrder?.createdAt,
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+
+  } catch (error) {
+    console.error("Cheapest price error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 const getFinancialYearDates = () => {
   const now = new Date();
   const year =
@@ -4996,5 +5062,6 @@ module.exports = {
   getPurchaseOrderWithFollowUps,
   getInstallationShortageData,
   getPriceComparison,
+  getCheapestPrice,
   getAdvancePaymentDashboard,
 };
