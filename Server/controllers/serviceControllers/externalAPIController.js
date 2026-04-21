@@ -72,3 +72,4 @@ const getVehicleReceiptStatusToday = async (req, res) => {
 module.exports = {
   getVehicleReceiptStatusToday,
 };
+ 
