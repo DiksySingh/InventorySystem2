@@ -20,6 +20,7 @@ const {
     allFieldEmployeeData,
     allFarmerActivites,
     approveInstallationData,
+    approveMultipleInstallations,
     deleteRejectedInstallationPhotos,
     rejectInstallationData,
     getVT2ApprovedByDate,
@@ -62,6 +63,7 @@ router.get("/accepted-installation-data", showAcceptedInstallationData);
 router.post("/new-system-installation", uploadHandler, newSystemInstallation);
 router.get("/get-new-installation-data", getInstallationDataForST);
 router.post("/approve-installation-data", approveInstallationData);
+router.post("/approve-multiple-installations", approveMultipleInstallations);
 router.post("/reject-installation-data", rejectInstallationData) 
 router.put("/delete-rejected-photos", deleteRejectedInstallationPhotos);
 router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);

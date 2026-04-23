@@ -9,7 +9,7 @@ const StageActivity = require("../../models/systemInventoryModels/stageActivityS
 const Remarks = require("../../models/systemInventoryModels/remarksSchema");
 const fs = require("fs/promises");
 const path = require("path");
-const axios = require("axios");
+const axios = require("axios"); 
 const { default: mongoose } = require("mongoose");
 
 const BASE_URL = process.env.BASE_URL;
@@ -647,6 +647,133 @@ module.exports.approveInstallationData = async (req, res) => {
 
   } catch (error) {
 
+    session.endSession();
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+module.exports.approveMultipleInstallations = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { department, installationIds, updatedByName, updatedByEmpId } = req.body;
+
+    // ✅ Validations
+    if (!department) {
+      return res.status(400).json({ success: false, message: "department is required" });
+    }
+
+    if (!Array.isArray(installationIds) || installationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "installationIds must be a non-empty array"
+      });
+    }
+
+    if (!updatedByName || !updatedByEmpId) {
+      return res.status(400).json({
+        success: false,
+        message: "updatedByName & updatedByEmpId are required"
+      });
+    }
+
+    await session.withTransaction(async () => {
+
+      // ✅ Convert & validate ObjectIds
+      const objectIds = installationIds.map(id => {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error(`Invalid installationId: ${id}`);
+        }
+        return new mongoose.Types.ObjectId(id);
+      });
+
+      // ✅ Fetch all installations in ONE query
+      const installations = await NewSystemInstallation.find({
+        _id: { $in: objectIds }
+      })
+        .populate({ path: "stageId", select: { stage: 1 } })
+        .session(session);
+
+      if (installations.length !== objectIds.length) {
+        throw new Error("Some installations not found");
+      }
+
+      let stageId = null;
+
+      // ✅ Decide stage once
+      if (department === "Document Verify Team-1") {
+        stageId = new mongoose.Types.ObjectId("69b28068d994f4a0d8666078");
+      } else if (department === "Document Verify Team-2") {
+        stageId = new mongoose.Types.ObjectId("69b28076d994f4a0d866607e");
+      } else {
+        throw new Error("Invalid department");
+      }
+
+      // ✅ Prepare bulk operations
+      const bulkUpdates = [];
+      const activityDocs = [];
+
+      for (const installation of installations) {
+
+        // ✅ Stage validation
+        if (department === "Document Verify Team-1") {
+          if (
+            installation.stageId?.stage !== "Pending" &&
+            installation.stageId?.stage !== "Rejected By VT-2"
+          ) {
+            throw new Error(`Invalid stage for VT-1 approval: ${installation._id}`);
+          }
+        }
+
+        if (department === "Document Verify Team-2") {
+          if (installation.stageId?.stage !== "Approved By VT-1") {
+            throw new Error(`Invalid stage for VT-2 approval: ${installation._id}`);
+          }
+        }
+
+        // 🔹 Bulk update push
+        bulkUpdates.push({
+          updateOne: {
+            filter: { _id: installation._id },
+            update: {
+              $set: {
+                stageId: stageId,
+                updatedBy: updatedByName,
+                updatedAt: new Date()
+              }
+            }
+          }
+        });
+
+        // 🔹 Activity push
+        activityDocs.push({
+          installationId: installation._id,
+          empId: new mongoose.Types.ObjectId(updatedByEmpId),
+          stageId: stageId,
+          remarkId: null
+        });
+      }
+
+      // ✅ Execute bulk update (1 query)
+      await NewSystemInstallation.bulkWrite(bulkUpdates, { session });
+
+      // ✅ Insert activities (1 query)
+      await StageActivity.insertMany(activityDocs, { session });
+
+    });
+
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "All installations approved successfully"
+    });
+
+  } catch (error) {   
     session.endSession();
 
     return res.status(500).json({
