@@ -4746,7 +4746,6 @@ const getCheapestPrice = async (req, res) => {
       success: true,
       data: result,
     });
-
   } catch (error) {
     console.error("Cheapest price error:", error);
     return res.status(500).json({
@@ -4835,58 +4834,52 @@ const getAdvancePaymentDashboard = async (req, res) => {
       paymentStatus: true,
     };
 
-    const [
-      totalFY,
-      today,
-      week,
-      month,
-      year,
-      paymentsWithPO,
-    ] = await Promise.all([
-      prisma.payment.aggregate({
-        where: { ...baseFilter, paymentDate: ranges.financialYear },
-        _sum: { amount: true },
-      }),
+    const [totalFY, today, week, month, year, paymentsWithPO] =
+      await Promise.all([
+        prisma.payment.aggregate({
+          where: { ...baseFilter, paymentDate: ranges.financialYear },
+          _sum: { amount: true },
+        }),
 
-      prisma.payment.aggregate({
-        where: { ...baseFilter, paymentDate: ranges.today },
-        _sum: { amount: true },
-      }),
+        prisma.payment.aggregate({
+          where: { ...baseFilter, paymentDate: ranges.today },
+          _sum: { amount: true },
+        }),
 
-      prisma.payment.aggregate({
-        where: { ...baseFilter, paymentDate: ranges.week },
-        _sum: { amount: true },
-      }),
+        prisma.payment.aggregate({
+          where: { ...baseFilter, paymentDate: ranges.week },
+          _sum: { amount: true },
+        }),
 
-      prisma.payment.aggregate({
-        where: { ...baseFilter, paymentDate: ranges.month },
-        _sum: { amount: true },
-      }),
+        prisma.payment.aggregate({
+          where: { ...baseFilter, paymentDate: ranges.month },
+          _sum: { amount: true },
+        }),
 
-      prisma.payment.aggregate({
-        where: { ...baseFilter, paymentDate: ranges.year },
-        _sum: { amount: true },
-      }),
+        prisma.payment.aggregate({
+          where: { ...baseFilter, paymentDate: ranges.year },
+          _sum: { amount: true },
+        }),
 
-      // ✅ SINGLE QUERY WITH JOIN (BIG WIN 🚀)
-      prisma.payment.findMany({
-        where: {
-          ...baseFilter,
-          paymentDate: ranges.financialYear,
-        },
-        select: {
-          amount: true,
-          purchaseOrder: {
-            select: {
-              companyId: true,
-              companyName: true,
-              vendorId: true,
-              vendorName: true,
+        // ✅ SINGLE QUERY WITH JOIN (BIG WIN 🚀)
+        prisma.payment.findMany({
+          where: {
+            ...baseFilter,
+            paymentDate: ranges.financialYear,
+          },
+          select: {
+            amount: true,
+            purchaseOrder: {
+              select: {
+                companyId: true,
+                companyName: true,
+                vendorId: true,
+                vendorName: true,
+              },
             },
           },
-        },
-      }),
-    ]);
+        }),
+      ]);
 
     // ✅ AGGREGATION (lighter now)
     const companyAggregated = {};
@@ -4956,7 +4949,6 @@ const getAdvancePaymentDashboard = async (req, res) => {
         vendorWise: vendorResult,
       },
     });
-
   } catch (error) {
     console.error("Advance Dashboard Error:", error);
     return res.status(500).json({
@@ -4966,185 +4958,199 @@ const getAdvancePaymentDashboard = async (req, res) => {
   }
 };
 
-// const getAdvancePaymentDashboard = async (req, res) => {
+// const getAdvancePaymentWithoutMaterial = async (req, res) => {
 //   try {
-//     const { start, end } = getFinancialYearDates();
-//     const ranges = getDateRanges();
-
-//     const baseFilter = {
-//       billpaymentType: {
-//         in: ["Advance_Payment", "Full_Payment_In_Advance"],
-//       },
-//       paymentStatus: true,
-//     };
-
-//     const [totalFY, today, week, month, year, groupedData] = await Promise.all([
-//       // ✅ FULL FINANCIAL YEAR
-//       prisma.payment.aggregate({
-//         where: {
-//           ...baseFilter,
-//           paymentDate: ranges.financialYear,
-//         },
-//         _sum: { amount: true },
-//       }),
-
-//       prisma.payment.aggregate({
-//         where: {
-//           ...baseFilter,
-//           paymentDate: ranges.today,
-//         },
-//         _sum: { amount: true },
-//       }),
-
-//       prisma.payment.aggregate({
-//         where: {
-//           ...baseFilter,
-//           paymentDate: ranges.week,
-//         },
-//         _sum: { amount: true },
-//       }),
-
-//       prisma.payment.aggregate({
-//         where: {
-//           ...baseFilter,
-//           paymentDate: ranges.month,
-//         },
-//         _sum: { amount: true },
-//       }),
-
-//       prisma.payment.aggregate({
-//         where: {
-//           ...baseFilter,
-//           paymentDate: ranges.year, // FY till now
-//         },
-//         _sum: { amount: true },
-//       }),
-
-//       // ✅ GROUPING ALSO MUST FOLLOW FY
-//       prisma.payment.groupBy({
-//         by: ["poId"],
-//         where: {
-//           ...baseFilter,
-//           paymentDate: ranges.financialYear,
-//         },
-//         _sum: { amount: true },
-//       }),
-//     ]);
-
-//     // ✅ Extract PO IDs
-//     const poIds = groupedData.map((i) => i.poId);
-//     console.log(poIds);
-
-//     // ✅ Fetch PO data
-//     const purchaseOrders = await prisma.purchaseOrder.findMany({
+//     const payments = await prisma.payment.findMany({
 //       where: {
-//         id: { in: poIds },
+//         billpaymentType: {
+//           in: ["Advance_Payment", "Full_Payment_In_Advance"],
+//         },
+//         paymentStatus: true,
+//         paymentRejected: false,
 //       },
 //       select: {
 //         id: true,
-//         companyId: true,
-//         companyName: true,
-//         vendorId: true,
-//         vendorName: true,
+//         amount: true,
+//         poId: true,
+//         purchaseOrder: {
+//           select: {
+//             id: true,
+//             currency: true,
+//             vendor: {
+//               select: {
+//                 id: true,
+//                 name: true,
+//               },
+//             },
+//             receipts: {
+//               select: {
+//                 receivedQty: true,
+//                 purchaseOrderItem: {
+//                   select: {
+//                     rate: true,
+//                     rateInForeign: true,
+//                   },
+//                 },
+//               },
+//             },
+//           },
+//         },
 //       },
 //     });
 
-//     // ✅ Maps
-//     const companyMap = {};
-//     const vendorMap = {};
+//     const filteredData = payments
+//       .map((payment) => {
+//         const po = payment.purchaseOrder;
+//         const receipts = po?.receipts || [];
+//         const currency = po?.currency || "INR";
 
-//     purchaseOrders.forEach((po) => {
-//       if (po.companyName) {
-//         companyMap[po.id] = {
-//           id: po.companyId,
-//           name: po.companyName,
-//         };
-//       }
+//         let totalReceivedValue = 0;
 
-//       if (po.vendorName) {
-//         vendorMap[po.id] = {
-//           id: po.vendorId,
-//           name: po.vendorName,
-//         };
-//       }
-//     });
+//         for (const r of receipts) {
+//           const qty = Number(r.receivedQty || 0);
+//           const item = r.purchaseOrderItem;
 
-//     // ✅ Aggregations (GROUP BY NAME)
-//     const companyAggregated = {};
-//     const vendorAggregated = {};
+//           let rate = 0;
 
-//     groupedData.forEach((item) => {
-//       const amount = Number(item._sum.amount || 0);
+//           if (currency !== "INR" && item?.rateInForeign) {
+//             rate = Number(item.rateInForeign);
+//           } else {
+//             rate = Number(item?.rate || 0);
+//           }
 
-//       // 🔹 COMPANY (group by name)
-//       const company = companyMap[item.poId];
-//       if (company) {
-//         const key = normalizeName(company.name);
-
-//         if (!companyAggregated[key]) {
-//           companyAggregated[key] = {
-//             companyName: company.name,
-//             amount: 0,
-//             companyIds: new Set(),
-//           };
+//           totalReceivedValue += qty * rate;
 //         }
 
-//         companyAggregated[key].amount += amount;
-//         companyAggregated[key].companyIds.add(company.id);
-//       }
+//         return {
+//           paymentId: payment.id,
+//           vendorId: po?.vendor?.id || null,
+//           vendorName: po?.vendor?.name || null,
+//           poId: po?.id || null,
+//           advanceAmount: Number(payment.amount),
+//           receivedAmount: totalReceivedValue,
+//           pendingAmount: Number(payment.amount) - Number(totalReceivedValue),
+//         };
+//       })
+//       .filter((item, index, self) => {
+//         const payment = payments[index];
+//         const receipts = payment.purchaseOrder?.receipts || [];
 
-//       // 🔹 VENDOR (group by name)
-//       const vendor = vendorMap[item.poId];
-//       if (vendor) {
-//         const key = normalizeName(vendor.name);
+//         // ✅ Case 1: No material received
+//         if (receipts.length === 0) return true;
 
-//         if (!vendorAggregated[key]) {
-//           vendorAggregated[key] = {
-//             vendorName: vendor.name,
-//             amount: 0,
-//             vendorIds: new Set(),
-//           };
-//         }
+//         // ✅ Case 2: received < advance
+//         return item.receivedAmount < item.advanceAmount;
+//       })
+//       .sort((a, b) => {
+//         const nameA = (a.vendorName || "").toLowerCase();
+//         const nameB = (b.vendorName || "").toLowerCase();
 
-//         vendorAggregated[key].amount += amount;
-//         vendorAggregated[key].vendorIds.add(vendor.id);
-//       }
-//     });
+//         return nameA.localeCompare(nameB);
+//       });
 
-//     // ✅ Convert Set → Array
-//     const companyResult = Object.values(companyAggregated).map((item) => ({
-//       companyName: item.companyName,
-//       amount: item.amount,
-//       companyIds: Array.from(item.companyIds),
-//     }));
-
-//     const vendorResult = Object.values(vendorAggregated).map((item) => ({
-//       vendorName: item.vendorName,
-//       amount: item.amount,
-//       vendorIds: Array.from(item.vendorIds),
-//     }));
-
-//     // ✅ RESPONSE
-//     return res.status(200).json({
+//     res.status(200).json({
 //       success: true,
-//       data: {
-//         totalFinancialYear: totalFY._sum.amount || 0,
-//         today: today._sum.amount || 0,
-//         week: week._sum.amount || 0,
-//         month: month._sum.amount || 0,
-//         year: year._sum.amount || 0,
-//         companyWise: companyResult,
-//         vendorWise: vendorResult,
-//       },
+//       count: filteredData.length,
+//       data: filteredData,
 //     });
 //   } catch (error) {
-//     console.error("Advance Dashboard Error:", error);
-//     return res.status(500).json({
+//     console.error(error);
+//     res.status(500).json({
 //       success: false,
-//       message: "Error fetching advance payment dashboard",
+//       message: "Internal Server Error",
+//       error: error.message,
 //     });
 //   }
 // };
+
+const getAdvancePaymentWithoutMaterial = async (req, res) => {
+  try {
+    const payments = await prisma.payment.findMany({
+      where: {
+        billpaymentType: {
+          in: ["Advance_Payment", "Full_Payment_In_Advance"],
+        },
+        paymentStatus: true,
+        paymentRejected: false,
+      },
+      select: {
+        id: true,
+        amount: true,
+        poId: true,
+        paymentDate: true,
+        purchaseOrder: {
+          select: {
+            id: true,
+            currency: true,
+            poNumber: true,
+            poDate: true,
+            vendor: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            receipts: {
+              select: {
+                receivedQty: true,
+                purchaseOrderItem: {
+                  select: {
+                    rate: true,
+                    rateInForeign: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const filteredData = payments
+      .filter((payment) => {
+        const receipts = payment.purchaseOrder?.receipts || [];
+
+        // ✅ ONLY not received
+        return receipts.length === 0;
+      })
+      .map((payment) => {
+        const po = payment.purchaseOrder;
+
+        return {
+          paymentId: payment.id,
+          poId: po?.id || null,
+          poNumber: po?.poNumber || null,
+          poDate: po?.poDate || null,
+          vendorId: po?.vendor?.id || null,
+          vendorName: po?.vendor?.name || null,
+          currency: po?.currency || null,
+          advanceAmount: Number(payment.amount),
+          paymentDate: payment.paymentDate,
+          // receivedAmount: 0,
+        };
+      })
+      .sort((a, b) => {
+        return new Date(b.poDate || 0) - new Date(a.poDate || 0); // for Latest First
+      });
+
+// .sort((a, b) => {
+//   return new Date(a.poDate || 0) - new Date(b.poDate || 0); for Oldest First
+// });
+
+    res.status(200).json({
+      success: true,
+      count: filteredData.length,
+      data: filteredData,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   addRole,
@@ -5206,4 +5212,5 @@ module.exports = {
   getPriceComparison,
   getCheapestPrice,
   getAdvancePaymentDashboard,
+  getAdvancePaymentWithoutMaterial,
 };
