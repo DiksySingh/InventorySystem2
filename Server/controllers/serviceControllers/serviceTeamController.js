@@ -10,6 +10,7 @@ const Remarks = require("../../models/systemInventoryModels/remarksSchema");
 const fs = require("fs/promises");
 const path = require("path");
 const axios = require("axios"); 
+const XLSX = require("xlsx");
 const { default: mongoose } = require("mongoose");
 
 const BASE_URL = process.env.BASE_URL;
@@ -779,6 +780,203 @@ module.exports.approveMultipleInstallations = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error"
+    });
+  }
+};
+
+module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const { department, updatedByName, updatedByEmpId } = req.body;
+
+    // ✅ Validations
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is required",
+      });
+    }
+
+    if (!department) {
+      return res.status(400).json({
+        success: false,
+        message: "department is required",
+      });
+    }
+
+    if (!updatedByName || !updatedByEmpId) {
+      return res.status(400).json({
+        success: false,
+        message: "updatedByName & updatedByEmpId are required",
+      });
+    }
+
+    // ✅ Read Excel
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet);
+
+    // ✅ Clean saralIds
+    const saralIds = [
+      ...new Set(
+        data
+          .map(row => row.saralId?.toString().trim())
+          .filter(Boolean)
+      )
+    ];
+
+    if (saralIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No saralIds found in Excel",
+      });
+    }
+
+    await session.withTransaction(async () => {
+
+      const installations = await NewSystemInstallation.find({
+        farmerSaralId: { $in: saralIds }
+      })
+        .populate({ path: "stageId", select: { stage: 1 } })
+        .session(session);
+
+      // ✅ Missing
+      const foundSaralIds = installations.map(i => i.farmerSaralId);
+
+      const missingSaralIds = saralIds.filter(
+        id => !foundSaralIds.includes(id)
+      );
+
+      // ✅ Stage mapping
+      let stageId;
+      if (department === "Document Verify Team-1") {
+        stageId = new mongoose.Types.ObjectId("69b28068d994f4a0d8666078");
+      } else if (department === "Document Verify Team-2") {
+        stageId = new mongoose.Types.ObjectId("69b28076d994f4a0d866607e");
+      } else {
+        throw new Error("Invalid department");
+      }
+
+      // ✅ Already Approved
+      const alreadyApprovedSaralIds = [];
+
+      for (const installation of installations) {
+        if (installation.stageId?._id.toString() === stageId.toString()) {
+          alreadyApprovedSaralIds.push(installation.farmerSaralId);
+        }
+      }
+
+      // 🚨 If any issue → THROW (do not respond here)
+      if (missingSaralIds.length > 0 || alreadyApprovedSaralIds.length > 0) {
+
+        const errorData = [
+          ...missingSaralIds.map(id => ({
+            saralId: id,
+            status: "Missing"
+          })),
+          ...alreadyApprovedSaralIds.map(id => ({
+            saralId: id,
+            status: "Already Approved"
+          }))
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(errorData);
+        XLSX.utils.book_append_sheet(wb, ws, "Validation Report");
+
+        const buffer = XLSX.write(wb, {
+          type: "buffer",
+          bookType: "xlsx"
+        });
+
+        throw {
+          type: "EXCEL_ERROR",
+          buffer
+        };
+      }
+
+      // ✅ Proceed with updates
+      const bulkUpdates = [];
+      const activityDocs = [];
+
+      for (const installation of installations) {
+
+        // ✅ Stage validation
+        if (department === "Document Verify Team-1") {
+          if (
+            installation.stageId?.stage !== "Pending" &&
+            installation.stageId?.stage !== "Rejected By VT-2"
+          ) {
+            throw new Error(`Invalid stage for VT-1: ${installation.farmerSaralId}`);
+          }
+        }
+
+        if (department === "Document Verify Team-2") {
+          if (installation.stageId?.stage !== "Approved By VT-1") {
+            throw new Error(`Invalid stage for VT-2: ${installation.farmerSaralId}`);
+          }
+        }
+
+        bulkUpdates.push({
+          updateOne: {
+            filter: { _id: installation._id },
+            update: {
+              $set: {
+                stageId,
+                updatedBy: updatedByName,
+                updatedAt: new Date()
+              }
+            }
+          }
+        });
+
+        activityDocs.push({
+          installationId: installation._id,
+          empId: new mongoose.Types.ObjectId(updatedByEmpId),
+          stageId,
+          remarkId: null
+        });
+      }
+
+      if (bulkUpdates.length > 0) {
+        await NewSystemInstallation.bulkWrite(bulkUpdates, { session });
+      }
+
+      if (activityDocs.length > 0) {
+        await StageActivity.insertMany(activityDocs, { session });
+      }
+
+    });
+
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: "Excel-based approvals completed successfully",
+    });
+
+  } catch (error) {
+
+    session.endSession();
+
+    // ✅ Handle Excel response
+    if (error.type === "EXCEL_ERROR") {
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=Validation_Error_Report.xlsx"
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+
+      return res.send(error.buffer);
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
     });
   }
 };

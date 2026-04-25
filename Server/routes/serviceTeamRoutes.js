@@ -21,6 +21,7 @@ const {
     allFarmerActivites,
     approveInstallationData,
     approveMultipleInstallations,
+    approveMultipleInstallationsByExcel,
     deleteRejectedInstallationPhotos,
     rejectInstallationData,
     getVT2ApprovedByDate,
@@ -40,6 +41,7 @@ const {
 } = require("../controllers/serviceControllers/servicePersonController");
 const { generateInstallationPDF } = require("../helpers/pdf/generateInstallationPDF");
 const router = require("express").Router();
+const upload = require("../middlewares/installationMiddlewares/multerBufferUpload");
 const { uploadHandler } = require("../middlewares/multerConfig");
 
 router.get("/all-service-persons", allServiceSurveyPersons);
@@ -64,6 +66,7 @@ router.post("/new-system-installation", uploadHandler, newSystemInstallation);
 router.get("/get-new-installation-data", getInstallationDataForST);
 router.post("/approve-installation-data", approveInstallationData);
 router.post("/approve-multiple-installations", approveMultipleInstallations);
+router.post("/approve-installations/excel", upload.single('file'), approveMultipleInstallationsByExcel);
 router.post("/reject-installation-data", rejectInstallationData) 
 router.put("/delete-rejected-photos", deleteRejectedInstallationPhotos);
 router.post("/update-installation-data", uploadHandler, updateInstallationDataWithFiles);
