@@ -359,4 +359,10 @@ router.post(
   purchaseOrderController.createPurchaseOrder3,
 );
 
+router.post(
+  "/purchase-orders/payments/request3",
+  tokenVerification(["Purchase"]),
+  purchaseOrderController.createPaymentRequest3,
+);
+
 module.exports = router;

@@ -1651,9 +1651,8 @@ const createPurchaseOrder = async (req, res) => {
     }
 
     const isItemWise = gstType.includes("ITEMWISE");
-    
+
     for (const item of items) {
-     
       if (!item.id || !item.name || !item.unit) {
         return res.status(400).json({
           success: false,
@@ -1680,18 +1679,20 @@ const createPurchaseOrder = async (req, res) => {
       }
     }
 
-       // ✅ Collect all IDs
-    const allIds = items.map(i => String(i.id));
-    
+    // ✅ Collect all IDs
+    const allIds = items.map((i) => String(i.id));
+
     // ✅ Only valid Mongo ObjectIds
-    const mongoIds = allIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const mongoIds = allIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
 
     // ✅ Remaining are MySQL UUIDs
-    const mysqlIds = allIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    const mysqlIds = allIds.filter(
+      (id) => !mongoose.Types.ObjectId.isValid(id),
+    );
 
     // ✅ Fetch from Mongo
     const mongoItems = await SystemItem.find({
-      _id: { $in: mongoIds }
+      _id: { $in: mongoIds },
     })
       .select("_id itemName")
       .lean();
@@ -1704,12 +1705,10 @@ const createPurchaseOrder = async (req, res) => {
 
     // ✅ Create lookup maps
     const mongoMap = new Map(
-      mongoItems.map(i => [String(i._id), i.itemName?.trim()])
+      mongoItems.map((i) => [String(i._id), i.itemName?.trim()]),
     );
 
-    const mysqlMap = new Map(
-      mysqlItems.map(i => [i.id, i.name?.trim()])
-    );
+    const mysqlMap = new Map(mysqlItems.map((i) => [i.id, i.name?.trim()]));
 
     for (const item of items) {
       const id = String(item.id);
@@ -1721,7 +1720,7 @@ const createPurchaseOrder = async (req, res) => {
     }
 
     // ✅ Validate + detect source
-    const validatedItems = items.map(item => {
+    const validatedItems = items.map((item) => {
       const id = String(item.id);
       const name = item.name?.trim();
 
@@ -1754,11 +1753,11 @@ const createPurchaseOrder = async (req, res) => {
     });
 
     console.table(
-      validatedItems.map(i => ({
+      validatedItems.map((i) => ({
         id: i.id,
         source: i.source,
-        name: i.name
-      }))
+        name: i.name,
+      })),
     );
 
     // Fetch company & vendor
@@ -2137,7 +2136,7 @@ const createPurchaseOrder2 = async (req, res) => {
           message: "Items must include id, name, unit",
         });
       }
-      
+
       if (!item.rate || !item.quantity || Number(item.quantity) <= 0) {
         return res.status(400).json({
           success: false,
@@ -2162,23 +2161,26 @@ const createPurchaseOrder2 = async (req, res) => {
       if (!isItemWise && !isInclusive && item.gstRate) {
         return res.status(400).json({
           success: false,
-          message: "gstRate is only allowed when PO GST type is ITEMWISE or INCLUSIVE",
+          message:
+            "gstRate is only allowed when PO GST type is ITEMWISE or INCLUSIVE",
         });
       }
     }
 
     // ✅ Collect all IDs
-    const allIds = items.map(i => String(i.id));
-    
+    const allIds = items.map((i) => String(i.id));
+
     // ✅ Only valid Mongo ObjectIds
-    const mongoIds = allIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const mongoIds = allIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
 
     // ✅ Remaining are MySQL UUIDs
-    const mysqlIds = allIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    const mysqlIds = allIds.filter(
+      (id) => !mongoose.Types.ObjectId.isValid(id),
+    );
 
     // ✅ Fetch from Mongo
     const mongoItems = await SystemItem.find({
-      _id: { $in: mongoIds }
+      _id: { $in: mongoIds },
     })
       .select("_id itemName")
       .lean();
@@ -2191,12 +2193,10 @@ const createPurchaseOrder2 = async (req, res) => {
 
     // ✅ Create lookup maps
     const mongoMap = new Map(
-      mongoItems.map(i => [String(i._id), i.itemName?.trim()])
+      mongoItems.map((i) => [String(i._id), i.itemName?.trim()]),
     );
 
-    const mysqlMap = new Map(
-      mysqlItems.map(i => [i.id, i.name?.trim()])
-    );
+    const mysqlMap = new Map(mysqlItems.map((i) => [i.id, i.name?.trim()]));
 
     for (const item of items) {
       const id = String(item.id);
@@ -2208,7 +2208,7 @@ const createPurchaseOrder2 = async (req, res) => {
     }
 
     // ✅ Validate + detect source
-    const validatedItems = items.map(item => {
+    const validatedItems = items.map((item) => {
       const id = String(item.id);
       const name = item.name?.trim();
 
@@ -2241,11 +2241,11 @@ const createPurchaseOrder2 = async (req, res) => {
     });
 
     console.table(
-      validatedItems.map(i => ({
+      validatedItems.map((i) => ({
         id: i.id,
         source: i.source,
-        name: i.name
-      }))
+        name: i.name,
+      })),
     );
 
     // Fetch company & vendor
@@ -8079,6 +8079,660 @@ const createPaymentRequest2 = async (req, res) => {
   }
 };
 
+// const createPaymentRequest3 = async (req, res) => {
+//   try {
+//     const userId = req.user?.id;
+//     const userRole = req.user?.role;
+
+//     if (userRole.name !== "Purchase") {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Only Purchase Team can request payment",
+//       });
+//     }
+
+//     const { poId, debitNoteId, amount, billpaymentType } = req.body;
+
+//     if (!poId || !amount || !billpaymentType) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "poId, amount & billpaymentType are required",
+//       });
+//     }
+
+//     const validTypes = [
+//       "Advance_Payment",
+//       "Partial_Payment",
+//       "Full_Payment",
+//       "Full_Payment_In_Advance",
+//     ];
+
+//     if (!validTypes.includes(billpaymentType)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid billpaymentType",
+//       });
+//     }
+
+//     // ✅ Fetch minimal PO data
+//     const po = await prisma.purchaseOrder.findUnique({
+//       where: { id: poId },
+//       select: {
+//         currency: true,
+//         grandTotal: true,
+//         foreignGrandTotal: true,
+//         subTotal: true,
+//         totalGST: true,
+//         payments: {
+//           where: {
+//             paymentStatus: true,
+//             adminApprovalStatus: true,
+//           },
+//           select: { amount: true },
+//         },
+//       },
+//     });
+
+//     if (!po) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Purchase Order not found",
+//       });
+//     }
+
+//     const isINR = (po.currency || "INR").toUpperCase() === "INR";
+//     const poGrandTotal = Number(isINR ? po.grandTotal : po.foreignGrandTotal);
+
+//     if (!poGrandTotal) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "PO grandTotal missing",
+//       });
+//     }
+
+//     // ✅ Fast sum
+//     let totalPaid = 0;
+//     for (let i = 0; i < po.payments.length; i++) {
+//       totalPaid += Number(po.payments[i].amount);
+//     }
+
+//     const remainingBalance = poGrandTotal - totalPaid;
+
+//     if (Number(amount) > remainingBalance) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Requested amount exceeds PO balance: ${remainingBalance}`,
+//       });
+//     }
+
+//     const isMaterialLinkedPayment =
+//       billpaymentType === "Partial_Payment" ||
+//       billpaymentType === "Full_Payment";
+
+//     let totalReceivedAmount = 0;
+
+//     if (isMaterialLinkedPayment) {
+//       const receipts = await prisma.purchaseOrderReceipt.findMany({
+//         where: { purchaseOrderId: poId },
+//         select: {
+//           goodQty: true,
+//           purchaseOrderItem: {
+//             select: {
+//               rate: true,
+//               gstRate: true,
+//               rateInForeign: true,
+//             },
+//           },
+//         },
+//       });
+
+//       if (!receipts.length) {
+//         return res.status(400).json({
+//           success: false,
+//           message:
+//             "No items received yet. Cannot request Partial/Full payment.",
+//         });
+//       }
+
+//       let subtotal = 0;
+//       let hasItemGST = false;
+
+//       for (let i = 0; i < receipts.length; i++) {
+//         const r = receipts[i];
+//         const qty = Number(r.goodQty || 0);
+//         const item = r.purchaseOrderItem;
+
+//         if (!item) continue;
+
+//         const rate = Number(
+//           isINR ? item.rate || 0 : item.rateInForeign || 0
+//         );
+
+//         if (item.gstRate != null) {
+//           hasItemGST = true;
+//           subtotal += rate * qty * (1 + Number(item.gstRate) / 100);
+//         } else {
+//           subtotal += rate * qty;
+//         }
+//       }
+
+//       totalReceivedAmount = subtotal;
+
+//       if (!hasItemGST && po.subTotal > 0) {
+//         totalReceivedAmount +=
+//           (po.totalGST || 0) * (subtotal / po.subTotal);
+//       }
+
+//       const requestedTotal = totalPaid + Number(amount);
+
+//       if (requestedTotal > totalReceivedAmount) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `You can only request up to ₹${(
+//             totalReceivedAmount - totalPaid
+//           ).toFixed(2)}`,
+//         });
+//       }
+//     }
+
+//     // ✅ Parallel DB calls (small optimization)
+//     let debitNoteCheck = null;
+
+//     if (debitNoteId) {
+//       debitNoteCheck = prisma.debitNote.findUnique({
+//         where: { id: debitNoteId },
+//         select: { purchaseOrderId: true },
+//       });
+//     }
+
+//     const dn = debitNoteCheck ? await debitNoteCheck : null;
+
+//     if (debitNoteId && (!dn || dn.purchaseOrderId !== poId)) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Debit Note not valid for this PO",
+//       });
+//     }
+
+//     // ✅ Create payment
+//     const payment = await prisma.payment.create({
+//       data: {
+//         poId,
+//         debitNoteId: debitNoteId || null,
+//         amount,
+//         billpaymentType,
+//         createdBy: userId,
+//         paymentRequestedBy: userId,
+//       },
+//     });
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Payment request created successfully",
+//       summary: {
+//         grandTotal: poGrandTotal,
+//         totalReceivedAmount: totalReceivedAmount || null,
+//         alreadyPaid: totalPaid,
+//         requestedAmount: Number(amount),
+//         remainingAfterThis: remainingBalance - Number(amount),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("CREATE PAYMENT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// const createPaymentRequest3 = async (req, res) => {
+//   try {
+//     const userId = req.user?.id;
+//     const userRole = req.user?.role;
+
+//     if (userRole.name !== "Purchase") {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Only Purchase Team can request payment",
+//       });
+//     }
+
+//     const { poId, debitNoteId, amount, billpaymentType } = req.body;
+
+//     if (!poId || !amount || !billpaymentType) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "poId, amount & billpaymentType are required",
+//       });
+//     }
+
+//     const validTypes = [
+//       "Advance_Payment",
+//       "Partial_Payment",
+//       "Full_Payment",
+//       "Full_Payment_In_Advance",
+//     ];
+
+//     if (!validTypes.includes(billpaymentType)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid billpaymentType",
+//       });
+//     }
+
+//     // ✅ Fetch PO with approved payments
+//     const po = await prisma.purchaseOrder.findUnique({
+//       where: { id: poId },
+//       include: {
+//         payments: {
+//           where: {
+//             paymentStatus: true,
+//             adminApprovalStatus: true,
+//           },
+//         },
+//       },
+//     });
+
+//     if (!po) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Purchase Order not found",
+//       });
+//     }
+
+//     // ✅ Currency handling
+//     const isINR = (po.currency || "INR").toUpperCase() === "INR";
+//     const poGrandTotal = Number(isINR ? po.grandTotal : po.foreignGrandTotal);
+
+//     if (!poGrandTotal) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "PO grandTotal missing",
+//       });
+//     }
+
+//     // ✅ Already paid
+//     const totalPaid = po.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+//     const remainingBalance = poGrandTotal - totalPaid;
+
+//     // ❌ PO limit check
+//     if (Number(amount) > remainingBalance) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Requested amount exceeds PO balance: ${remainingBalance}`,
+//         details: {
+//           grandTotal: poGrandTotal,
+//           alreadyPaid: totalPaid,
+//           remaining: remainingBalance,
+//         },
+//       });
+//     }
+
+//     // 🔥 Check if receipt-based validation is required
+//     const isMaterialLinkedPayment = [
+//       "Partial_Payment",
+//       "Full_Payment",
+//     ].includes(billpaymentType);
+
+//     let totalReceivedAmount = 0;
+
+//     if (isMaterialLinkedPayment) {
+//       const receipts = await prisma.purchaseOrderReceipt.findMany({
+//         where: {
+//           purchaseOrderId: poId,
+//         },
+//         include: {
+//           purchaseOrderItem: {
+//             select: {
+//               rate: true,
+//               gstRate: true,
+//               rateInForeign: true,
+//             },
+//           },
+//         },
+//       });
+
+//       // ❌ No receipt
+//       if (!receipts.length) {
+//         return res.status(400).json({
+//           success: false,
+//           message:
+//             "No items received yet. Cannot request Partial/Full payment.",
+//         });
+//       }
+
+//       // ✅ Calculate received amount
+//       // totalReceivedAmount = receipts.reduce((sum, r) => {
+//       //   const qty = Number(r.receivedQty || 0);
+
+//       //   const rate = Number(
+//       //     isINR
+//       //       ? r.purchaseOrderItem?.rate || 0
+//       //       : r.purchaseOrderItem?.rateInForeign || 0
+//       //   );
+
+//       //   return sum + qty * rate;
+//       // }, 0);
+
+//       let subtotal = 0;
+//       let hasItemGST = false;
+
+//       // 🔹 Step 1: Calculate subtotal
+//       subtotal = receipts.reduce((sum, r) => {
+//         const qty = Number(r.goodQty || 0);
+//         const item = r.purchaseOrderItem;
+
+//         const rate = Number(isINR ? item?.rate || 0 : item?.rateInForeign || 0);
+
+//         const itemGst = item?.gstRate;
+
+//         // ✅ If item GST exists → use it
+//         if (itemGst !== null && itemGst !== undefined) {
+//           hasItemGST = true;
+
+//           const gstRate = Number(itemGst);
+//           const amountWithGST = rate * qty * (1 + gstRate / 100);
+
+//           return sum + amountWithGST;
+//         }
+
+//         // ❌ No GST → only base
+//         return sum + rate * qty;
+//       }, 0);
+
+//       // 🔹 Step 2: Apply PO GST if needed
+//       totalReceivedAmount = subtotal;
+
+//       if (!hasItemGST) {
+//         const poSubTotal = Number(po.subTotal || 0);
+//         const poTotalGST = Number(po.totalGST || 0);
+
+//         if (poSubTotal > 0) {
+//           const ratio = subtotal / poSubTotal;
+
+//           // ✅ Add proportional GST
+//           totalReceivedAmount += poTotalGST * ratio;
+//         }
+//       }
+//       console.log(totalReceivedAmount);
+
+//       // ❌ Receipt-based limit check
+//       const requestedTotal = totalPaid + Number(amount);
+
+//       if (requestedTotal > totalReceivedAmount) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `You can only request up to ₹${(
+//             totalReceivedAmount - totalPaid
+//           ).toFixed(2)} based on received materials`,
+//           details: {
+//             totalReceivedAmount,
+//             alreadyPaid: totalPaid,
+//             requestedAmount: Number(amount),
+//             allowedRemaining: totalReceivedAmount - totalPaid,
+//           },
+//         });
+//       }
+//     }
+
+//     // ✅ Debit Note validation
+//     if (debitNoteId) {
+//       const dn = await prisma.debitNote.findUnique({
+//         where: { id: debitNoteId },
+//       });
+
+//       if (!dn || dn.purchaseOrderId !== poId) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Debit Note not valid for this PO",
+//         });
+//       }
+//     }
+
+//     // ✅ Create Payment
+//     const payment = await prisma.payment.create({
+//       data: {
+//         poId,
+//         debitNoteId: debitNoteId || null,
+//         amount,
+//         billpaymentType,
+//         createdBy: userId,
+//         paymentRequestedBy: userId,
+//         paymentDate: null,
+//       },
+//     });
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Payment request created successfully",
+//       summary: {
+//         grandTotal: poGrandTotal,
+//         totalReceivedAmount: totalReceivedAmount || null,
+//         alreadyPaid: totalPaid,
+//         requestedAmount: Number(amount),
+//         remainingAfterThis: remainingBalance - Number(amount),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("CREATE PAYMENT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
+const createPaymentRequest3 = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (userRole.name !== "Purchase") {
+      return res.status(403).json({
+        success: false,
+        message: "Only Purchase Team can request payment",
+      });
+    }
+
+    const { poId, debitNoteId, amount, billpaymentType } = req.body;
+
+    if (!poId || !amount || !billpaymentType) {
+      return res.status(400).json({
+        success: false,
+        message: "poId, amount & billpaymentType are required",
+      });
+    }
+
+    const validTypes = [
+      "Advance_Payment",
+      "Partial_Payment",
+      "Full_Payment",
+      "Full_Payment_In_Advance",
+    ];
+
+    if (!validTypes.includes(billpaymentType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid billpaymentType",
+      });
+    }
+
+    // ✅ Fetch PO
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      select: {
+        currency: true,
+        grandTotal: true,
+        foreignGrandTotal: true,
+        subTotal: true,
+        totalGST: true,
+        payments: {
+          where: {
+            paymentStatus: true,
+            adminApprovalStatus: true,
+          },
+          select: { amount: true },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase Order not found",
+      });
+    }
+
+    const isINR = (po.currency || "INR").toUpperCase() === "INR";
+    const poGrandTotal = Number(isINR ? po.grandTotal : po.foreignGrandTotal);
+
+    if (!poGrandTotal) {
+      return res.status(400).json({
+        success: false,
+        message: "PO grandTotal missing",
+      });
+    }
+
+    // ✅ Paid sum
+    let totalPaid = 0;
+    for (let i = 0; i < po.payments.length; i++) {
+      totalPaid += Number(po.payments[i].amount);
+    }
+
+    const remainingBalance = poGrandTotal - totalPaid;
+
+    if (Number(amount) > remainingBalance) {
+      return res.status(400).json({
+        success: false,
+        message: `Requested amount exceeds PO balance: ${remainingBalance}`,
+      });
+    }
+
+    const isMaterialLinkedPayment =
+      billpaymentType === "Partial_Payment" ||
+      billpaymentType === "Full_Payment";
+
+    let totalReceivedAmount = 0;
+
+    // 🚀 🔥 SQL AGGREGATION STARTS HERE
+    if (isMaterialLinkedPayment) {
+      const result = await prisma.$queryRaw`
+        SELECT 
+          SUM(
+            CASE 
+              WHEN poi.gstRate IS NOT NULL 
+              THEN (por.goodQty * 
+                   (CASE 
+                      WHEN ${isINR ? 1 : 0} = 1 THEN poi.rate 
+                      ELSE poi.rateInForeign 
+                    END)
+                   * (1 + poi.gstRate / 100)
+              )
+              ELSE (por.goodQty * 
+                   (CASE 
+                      WHEN ${isINR ? 1 : 0} = 1 THEN poi.rate 
+                      ELSE poi.rateInForeign 
+                    END)
+              )
+            END
+          ) AS subtotal,
+
+          MAX(CASE WHEN poi.gstRate IS NOT NULL THEN 1 ELSE 0 END) AS hasItemGST
+
+        FROM PurchaseOrderReceipt por
+        JOIN PurchaseOrderItem poi 
+          ON por.purchaseOrderItemId = poi.id
+
+        WHERE por.purchaseOrderId = ${poId};
+      `;
+
+      const subtotal = Number(result[0]?.subtotal || 0);
+      const hasItemGST = Boolean(result[0]?.hasItemGST);
+
+      // ❌ No receipt
+      if (subtotal === 0) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "No items received yet. Cannot request Partial/Full payment.",
+        });
+      }
+
+      totalReceivedAmount = subtotal;
+
+      // ✅ Apply PO GST if no item GST
+      if (!hasItemGST && po.subTotal > 0) {
+        totalReceivedAmount +=
+          (po.totalGST || 0) * (subtotal / po.subTotal);
+      }
+
+      const requestedTotal = totalPaid + Number(amount);
+
+      if (requestedTotal > totalReceivedAmount) {
+        return res.status(400).json({
+          success: false,
+          message: `You can only request up to ₹${(
+            totalReceivedAmount - totalPaid
+          ).toFixed(2)}`,
+        });
+      }
+    }
+    // 🚀 🔥 SQL AGGREGATION ENDS HERE
+
+    // ✅ Debit note check
+    let dn = null;
+    if (debitNoteId) {
+      dn = await prisma.debitNote.findUnique({
+        where: { id: debitNoteId },
+        select: { purchaseOrderId: true },
+      });
+
+      if (!dn || dn.purchaseOrderId !== poId) {
+        return res.status(404).json({
+          success: false,
+          message: "Debit Note not valid for this PO",
+        });
+      }
+    }
+
+    // ✅ Create payment
+    const payment = await prisma.payment.create({
+      data: {
+        poId,
+        debitNoteId: debitNoteId || null,
+        amount,
+        billpaymentType,
+        createdBy: userId,
+        paymentRequestedBy: userId,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Payment request created successfully",
+      summary: {
+        grandTotal: poGrandTotal,
+        totalReceivedAmount: totalReceivedAmount || null,
+        alreadyPaid: totalPaid,
+        requestedAmount: Number(amount),
+        remainingAfterThis: remainingBalance - Number(amount),
+      },
+    });
+  } catch (error) {
+    console.error("CREATE PAYMENT ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const showAllPaymentRequests = async (req, res) => {
   try {
     const userRole = req.user?.role;
@@ -9423,7 +10077,7 @@ const createPurchaseOrder3 = async (req, res) => {
     // ------------------------------------
     // 🧮 Subtotal & GST Calculations
     // ------------------------------------
-    let foreignSubTotal = new Decimal(0); 
+    let foreignSubTotal = new Decimal(0);
     let subTotalINR = new Decimal(0);
     let totalCGST = new Decimal(0);
     let totalSGST = new Decimal(0);
@@ -10179,4 +10833,5 @@ module.exports = {
   getItemsList2,
   getItemDetails2,
   createPurchaseOrder3,
+  createPaymentRequest3,
 };
