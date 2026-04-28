@@ -672,6 +672,20 @@ const newSystemInstallation = async (req, res) => {
       });
     }
 
+    const existingInstallation = await NewSystemInstallation.findOne({
+      farmerSaralId: farmerSaralId.toUpperCase().trim()
+    }).session(session);
+
+    if(existingInstallation) {
+      await session.abortTransaction();
+        session.endSession();
+        await deleteFiles(uploadedFilePaths);
+        return res.status(400).json({
+          success: false,
+          message: `Data already uploaded for ${farmerSaralId}`,
+        });
+    }
+
     let refType;
     let empData = await ServicePerson.findOne({ _id: empId }).session(session);
     if (empData) {
