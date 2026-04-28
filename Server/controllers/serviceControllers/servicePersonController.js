@@ -155,7 +155,7 @@ const showNewInstallationDataToInstaller = async (req, res) => {
     }
 
     const total = await FarmerItemsActivity.countDocuments(query);
-    
+
     const activities = await FarmerItemsActivity.find(query)
       .populate({
         path: "warehouseId",
@@ -671,19 +671,19 @@ const newSystemInstallation = async (req, res) => {
         message: "All fields are required.",
       });
     }
-
+    const normalizedSaralId = farmerSaralId.toUpperCase().trim();
     const existingInstallation = await NewSystemInstallation.findOne({
-      farmerSaralId: farmerSaralId.toUpperCase().trim()
+      farmerSaralId: normalizedSaralId,
     }).session(session);
 
-    if(existingInstallation) {
+    if (existingInstallation) {
       await session.abortTransaction();
-        session.endSession();
-        await deleteFiles(uploadedFilePaths);
-        return res.status(400).json({
-          success: false,
-          message: `Data already uploaded for ${farmerSaralId}`,
-        });
+      session.endSession();
+      await deleteFiles(uploadedFilePaths);
+      return res.status(400).json({
+        success: false,
+        message: `Data already uploaded for ${farmerSaralId}`,
+      });
     }
 
     let refType;
@@ -922,14 +922,14 @@ const showAcceptedInstallationData = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    
+
     const query = {
       empId: empId,
       accepted: true,
-    }
+    };
 
-    if(search) {
-      query.farmerSaralId = { $regex: search, $options: "i" }
+    if (search) {
+      query.farmerSaralId = { $regex: search, $options: "i" };
     }
     const total = await FarmerItemsActivity.countDocuments(query);
 
