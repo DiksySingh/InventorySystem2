@@ -301,11 +301,15 @@ router.post(
   fileHandler,
   addNewInstallationData2,
 );
+
+
 router.get(
   "/get-dispatch-history",
   userVerification(["warehouseAdmin"]),
   getDispatchHistory,
 );
+
+
 router.get(
   "/new-installation-data",
   userVerification(["warehouseAdmin"]),
