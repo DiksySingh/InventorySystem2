@@ -243,6 +243,13 @@ router.post(
   commonController.bulkUploadRawMaterial,
 );
 
+router.post(
+  "/item/bulk-upload",
+  tokenVerification(["Purchase", "Store"]),
+  commonController.upload.single("file"),
+  commonController.bulkUploadItems,
+);
+
 router.get("/model/show", commonController.showModels);
 
 router.get(

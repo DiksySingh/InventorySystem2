@@ -884,7 +884,7 @@ model PurchaseOrderItem {
   total           Decimal                @db.Decimal(18, 4)
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
-  itemDetail      String?                @db.VarChar(500)
+  itemDetail      String?                @db.Text
   amountInForeign Decimal?               @db.Decimal(12, 4)
   rateInForeign   Decimal?               @db.Decimal(12, 4)
   debitNoteId     String?
@@ -965,7 +965,7 @@ model DamagedStock {
   amountInForeign       Decimal?       @db.Decimal(12, 4)
   gstRate               Decimal?       @db.Decimal(7, 4)
   hsnCode               String?
-  itemDetail            String?        @db.VarChar(500)
+  itemDetail            String?        @db.Text
   itemGSTType           String?
   modelNumber           String?
   rate                  Decimal?       @db.Decimal(12, 4)

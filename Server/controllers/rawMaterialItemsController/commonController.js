@@ -3869,6 +3869,151 @@ const bulkUploadRawMaterial = async (req, res) => {
   }
 };
 
+/* bulk upload material  */
+const bulkUploadItems = async (req, res) => {
+  try {
+    const empId = req.user?.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "CSV file is required",
+      });
+    }
+
+    /* Parse CSV/Excel buffer */
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = xlsx.utils.sheet_to_json(sheet, { defval: "" });
+
+    if (!rows.length) {
+      return res.status(400).json({ success: false, message: "File is empty" });
+    }
+
+    const warehouses = await Warehouse.find({});
+    if (!warehouses.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No warehouses found",
+      });
+    }
+
+    const rawRows = [];
+    const installationRows = [];
+    const skipped = [];
+
+    for (const row of rows) {
+      const name = String(row.name || "").trim();
+      const unit = String(row.unit || "").trim();
+      const source = String(row.source || "").trim();
+      const hsnCode = String(row.hsnCode || "").trim() || null;
+      const description = String(row.description || "").trim() || null;
+      const conversionUnit = String(row.conversionUnit || "").trim() || unit;
+      let conversionFactor = 1;
+      try {
+        conversionFactor = parseConversionFactor(String(row.conversionFactor || ""));
+      } catch {
+        skipped.push({ name, reason: "Invalid conversionFactor" });
+        continue;
+      }
+
+      if (!name || !unit || !source) {
+        skipped.push({ name: name || "(empty)", reason: "Missing name, unit, or source" });
+        continue;
+      }
+
+      if (source === "Raw Material") {
+        rawRows.push({ name, unit, hsnCode, description, conversionUnit, conversionFactor, createdBy: empId });
+      } else if (source === "Installation Material") {
+        installationRows.push({ name, unit, hsnCode, description, conversionUnit, conversionFactor });
+      } else {
+        skipped.push({ name, reason: `Unknown source: ${source}` });
+      }
+    }
+
+    const rawInserted = [];
+    const installationInserted = [];
+
+    /* ---- Raw Material (MySQL + warehouseStock) ---- */
+    if (rawRows.length) {
+      await prisma.$transaction(async (tx) => {
+        await tx.rawMaterial.createMany({ data: rawRows, skipDuplicates: true });
+
+        const created = await tx.rawMaterial.findMany({
+          where: { name: { in: rawRows.map((r) => r.name) } },
+          select: { id: true, name: true, unit: true },
+        });
+
+        rawInserted.push(...created.map((r) => r.name));
+
+        const stockData = [];
+        for (const mat of created) {
+          for (const wh of warehouses) {
+            stockData.push({
+              warehouseId: wh._id.toString(),
+              rawMaterialId: mat.id,
+              quantity: 0,
+              itemType: "RAW",
+              unit: mat.unit,
+              isUsed: true,
+            });
+          }
+        }
+
+        await tx.warehouseStock.createMany({ data: stockData, skipDuplicates: true });
+      });
+    }
+
+    /* ---- Installation Material (MongoDB + InstallationInventory) ---- */
+    for (const row of installationRows) {
+      const exists = await SystemItem.findOne({ itemName: row.name });
+      if (exists) {
+        skipped.push({ name: row.name, reason: "Installation Material already exists" });
+        continue;
+      }
+
+      const saved = await new SystemItem({
+        itemName: row.name,
+        unit: row.unit,
+        hsnCode: row.hsnCode,
+        description: row.description,
+        converionUnit: row.conversionUnit,
+        conversionFactor: row.conversionFactor,
+        createdByEmpId: empId,
+      }).save();
+
+      installationInserted.push(row.name);
+
+      const invDocs = warehouses.map((wh) => ({
+        warehouseId: wh._id,
+        systemItemId: saved._id,
+        quantity: 0,
+        createdByEmpId: empId,
+      }));
+
+      await InstallationInventory.insertMany(invDocs, { ordered: false });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Bulk upload completed",
+      summary: {
+        totalRows: rows.length,
+        rawMaterialInserted: rawInserted.length,
+        installationInserted: installationInserted.length,
+        skipped,
+      },
+    });
+  } catch (error) {
+    console.error("Bulk Upload Items Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 const createInfraItem = async (req, res) => {
   try {
     let { name, unit, description, hsnCode, conversionUnit, conversionFactor } =
@@ -5295,6 +5440,7 @@ module.exports = {
   getAddressByPincode,
   exportRawMaterialStockByWarehouse,
   bulkUploadRawMaterial,
+  bulkUploadItems,
   showModels,
   createItem2,
   updateItem2,
