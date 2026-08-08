@@ -155,7 +155,7 @@ router.post(
 );
 router.post(
   "/item/create",
-  tokenVerification(["Purchase", "Store"]),
+  tokenVerification(["Purchase", "Store", "Production"]),
   commonController.createItem,
 );
 router.get(
@@ -165,7 +165,7 @@ router.get(
 );
 router.put(
   "/item/update",
-  tokenVerification(["Purchase", "Store"]),
+  tokenVerification(["Purchase", "Store", "Production"]),
   commonController.updateItem,
 );
 router.get(
@@ -245,7 +245,7 @@ router.post(
 
 router.post(
   "/item/bulk-upload",
-  tokenVerification(["Purchase", "Store"]),
+  tokenVerification(["Purchase", "Store", "Production"]),
   commonController.upload.single("file"),
   commonController.bulkUploadItems,
 );
