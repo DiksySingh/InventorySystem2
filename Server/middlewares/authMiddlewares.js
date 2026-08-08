@@ -9,10 +9,38 @@ const {
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
+
+// for getDispatch history
+module.exports.adminVerification = () => {
+  return async (req, res, next) => {
+    try {
+
+      const adminId = req.headers.serviceid
+
+      if (!adminId) {
+        return res.status(400).json({
+          status: false,
+          message: "No adminId Provided",
+        });
+      }
+
+      if (adminId !== process.env.SUPER_ADMIN_ID) return res.status(403).json({ success: false, message: "Access denied.." })
+      next();
+
+    } catch (er) {
+      return res.status(500).json({
+        status: false,
+        message: "Authentication failed",
+      });
+    }
+  }
+}
+
 module.exports.userVerification = (allowedRoles) => {
   return async (req, res, next) => {
     const token =
       req.cookies.accessToken || req.headers.authorization?.split(" ")[1];
+    
     if (!token) {
       return res.status(400).json({
         status: false,

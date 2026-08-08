@@ -5,11 +5,11 @@ const {
   addWarehouse, showWarehouses, addWarehouseItems, viewWarehousePersons, viewServicePersons, 
   deactivateWarehousePerson, deactivateServicePerson, allRepairRejectItemsData, addSystem, addSystemItem, addSystemSubItem, showSystemItems, 
   showWarehouseItemsData, uploadSystemItemsFromExcel, uploadSystemSubItemsFromExcel, attachItemComponentMapByExcel, showStockUpdateHistory,
-  updateInstallationInventoryFromExcel
+  updateInstallationInventoryFromExcel,getAllDispatchHistory
 } = require("../controllers/serviceControllers/warehouseController");
 const { allDefectiveItemsData } = require("../controllers/serviceControllers/warehouse2WarehouseController");
 const {getInstallationsData} = require("../controllers/serviceControllers/installationDataController");
-const { userVerification } = require("../middlewares/authMiddlewares");
+const { userVerification, adminVerification } = require("../middlewares/authMiddlewares");
 const router = require("express").Router();
 const multer = require("multer");
 const storage = multer.memoryStorage();
@@ -51,4 +51,8 @@ router.post("/system-item-map", userVerification(['admin']), upload.single("file
 router.post("/item-component-map", userVerification(['admin']), upload.single("file"), attachItemComponentMapByExcel);
 router.post("/upload-inventory-stock", upload.single("file"), updateInstallationInventoryFromExcel);
 
+
+router.get('/get-all-dispatch-history',adminVerification(),getAllDispatchHistory)
+
+// ----------------
 module.exports = router;
