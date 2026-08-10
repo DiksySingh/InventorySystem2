@@ -9,7 +9,7 @@ const StageActivity = require("../../models/systemInventoryModels/stageActivityS
 const Remarks = require("../../models/systemInventoryModels/remarksSchema");
 const fs = require("fs/promises");
 const path = require("path");
-const axios = require("axios"); 
+const axios = require("axios");
 const XLSX = require("xlsx");
 const { default: mongoose } = require("mongoose");
 
@@ -27,11 +27,11 @@ module.exports.getServicePersonContacts = async (req, res) => {
     //const warehouseContacts = await WarehousePerson.find({}, "contact");
     const serviceContacts = await ServicePerson.find(
       { isActive: true },
-      "contact"
+      "contact",
     );
     const surveyContacts = await SurveyPerson.find(
       { isActive: true },
-      "contact"
+      "contact",
     );
 
     // Combine all contacts into a single array
@@ -61,7 +61,7 @@ module.exports.getWarehousePersonContacts = async (req, res) => {
     // Fetch all contacts from WarehousePerson
     const warehouseContacts = await WarehousePerson.find(
       { isActive: true },
-      "contact"
+      "contact",
     );
 
     // Combine all contacts into a single array
@@ -112,7 +112,7 @@ module.exports.getServicePersonData = async (req, res) => {
             latitude: 1,
             longitude: 1,
             _id: 1,
-          }
+          },
         );
         if (servicePerson) return servicePerson;
 
@@ -128,12 +128,12 @@ module.exports.getServicePersonData = async (req, res) => {
             latitude: 1,
             longitude: 1,
             _id: 1,
-          }
+          },
         );
         if (surveyPerson) return surveyPerson;
 
         return null; // If no record is found in both models
-      })
+      }),
     );
 
     // Filter out null values (cases where empId is not found in either model)
@@ -157,12 +157,12 @@ module.exports.allFieldPersonData = async (req, res) => {
     const [servicePersons, surveyPersons] = await Promise.all([
       ServicePerson.find({ isActive: true })
         .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v",
         )
         .sort({ state: 1, district: 1 }),
       SurveyPerson.find({ isActive: true })
         .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v",
         )
         .sort({ state: 1, district: 1 }),
     ]);
@@ -226,17 +226,17 @@ module.exports.stateWiseServiceSurveyPersons = async (req, res) => {
     const filter = { isActive: true };
     if (state) {
       filter.state = state;
-      filter.role = "installer"
+      filter.role = "installer";
     }
     const [servicePersons, surveyPersons] = await Promise.all([
       ServicePerson.find(filter)
         .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v",
         )
         .sort({ state: 1, district: 1 }),
       SurveyPerson.find(filter)
         .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v",
         )
         .sort({ state: 1, district: 1 }),
     ]);
@@ -290,7 +290,7 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
         pumpNumber: 1,
         motorNumber: 1,
         _id: 0,
-      }
+      },
     ).lean();
 
     const systemInstallation = await NewSystemInstallation.findOne(
@@ -307,7 +307,7 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
         waterDischargeFarmerPhoto: 1,
         installationVideo: 1,
         _id: 0,
-      }
+      },
     ).lean();
 
     if (!farmerActivity && !systemInstallation) {
@@ -330,28 +330,28 @@ module.exports.getFarmerInstallationDetails = async (req, res) => {
           pitPhoto: getFullUrl(systemInstallation?.pitPhoto),
           borePhoto: getFullUrl(systemInstallation?.borePhoto),
           earthingFarmerPhoto: getFullUrl(
-            systemInstallation?.earthingFarmerPhoto
+            systemInstallation?.earthingFarmerPhoto,
           ),
           antiTheftNutBoltPhoto: getFullUrl(
-            systemInstallation?.antiTheftNutBoltPhoto
+            systemInstallation?.antiTheftNutBoltPhoto,
           ),
           lightingArresterInstallationPhoto: getFullUrl(
-            systemInstallation?.lightingArresterInstallationPhoto
+            systemInstallation?.lightingArresterInstallationPhoto,
           ),
           finalFoundationFarmerPhoto: getFullUrl(
-            systemInstallation?.finalFoundationFarmerPhoto
+            systemInstallation?.finalFoundationFarmerPhoto,
           ),
           panelFarmerPhoto: getFullUrl(systemInstallation?.panelFarmerPhoto),
           controllerBoxFarmerPhoto: getFullUrl(
-            systemInstallation?.controllerBoxFarmerPhoto
+            systemInstallation?.controllerBoxFarmerPhoto,
           ),
           waterDischargeFarmerPhoto: getFullUrl(
-            systemInstallation?.waterDischargeFarmerPhoto
+            systemInstallation?.waterDischargeFarmerPhoto,
           ),
         },
         videos: getFullUrl(systemInstallation?.installationVideo),
         stageId: systemInstallation.stageId,
-        remarks: systemInstallation.remarks
+        remarks: systemInstallation.remarks,
       },
     });
   } catch (error) {
@@ -367,12 +367,12 @@ module.exports.allFieldEmployeeData = async (req, res) => {
     const [servicePersons, surveyPersons] = await Promise.all([
       ServicePerson.find({})
         .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v",
         )
         .sort({ state: 1, district: 1 }),
       SurveyPerson.find({})
         .select(
-          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v"
+          "-password -createdAt -createdBy -updatedAt -updatedBy -refreshToken -isActive -__v",
         )
         .sort({ state: 1, district: 1 }),
     ]);
@@ -407,54 +407,88 @@ module.exports.allFieldEmployeeData = async (req, res) => {
 
 module.exports.allFarmerActivites = async (req, res) => {
   try {
+    // const {
+    //   page , limit
+    // } = req?.body || req?.query || req.params;
+    // const activities = await FarmerItemsActivity.find({
+    //   //accepted: false,
+    //   $or: [
+    //     { empId: null },
+    //     { empId: { $exists: false } }
+    //   ]
+    // })
+    //   .populate("warehouseId", "warehouseName")
+    //   .populate("systemId", "systemName")
+    //   .populate("itemsList.systemItemId", "itemName")
+    //   .populate("extraItemsList.systemItemId", "itemName")
+    //   .sort({ createdAt: -1 })
+    //   .lean();con
+    const page = Number(
+      req.body?.page ?? req.query?.page ?? req.params?.page ?? 1,
+    );
+    const limit = Number(
+      req.body?.limit ?? req.query?.limit ?? req.params?.limit ?? 10,
+    );
 
-    const activities = await FarmerItemsActivity.find({
-      //accepted: false,
-      $or: [
-        { empId: null },
-        { empId: { $exists: false } }
-      ]
-    })
-      .populate("warehouseId", "warehouseName")
-      .populate("systemId", "systemName")
-      .populate("itemsList.systemItemId", "itemName")
-      .populate("extraItemsList.systemItemId", "itemName")
-      .sort({ createdAt: -1 })
-      .lean();
+    const skip = (page - 1) * limit;
 
-    const saralIds = activities.map(a => a.farmerSaralId);
+    const filter = {
+      $or: [{ empId: null }, { empId: { $exists: false } }],
+    };
+
+    const [activities, total] = await Promise.all([
+      FarmerItemsActivity.find(filter)
+        .populate("warehouseId", "warehouseName")
+        .populate("systemId", "systemName")
+        .populate("itemsList.systemItemId", "itemName")
+        .populate("extraItemsList.systemItemId", "itemName")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      FarmerItemsActivity.countDocuments(filter),
+    ]);
+    const saralIds = activities.map((a) => a.farmerSaralId);
 
     const farmerResponses = await Promise.all(
-      saralIds.map(id =>
+      saralIds.map((id) =>
         axios
-          .get(`http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${id}`)
-          .then(res => ({ saralId: id, data: res?.data?.data }))
-          .catch(() => ({ saralId: id, data: null }))
-      )
+          .get(
+            `http://88.222.214.93:8001/farmer/showFarmerAccordingToSaralId?saralId=${id}`,
+          )
+          .then((res) => ({ saralId: id, data: res?.data?.data }))
+          .catch(() => ({ saralId: id, data: null })),
+      ),
     );
 
     const farmerMap = {};
 
-    farmerResponses.forEach(f => {
+    farmerResponses.forEach((f) => {
       farmerMap[f.saralId] = f.data;
     });
 
-    const activitiesWithFarmerDetails = activities.map(activity => ({
+    const activitiesWithFarmerDetails = activities.map((activity) => ({
       ...activity,
-      farmerDetails: farmerMap[activity.farmerSaralId] || null
+      farmerDetails: farmerMap[activity.farmerSaralId] || null,
     }));
 
     return res.status(200).json({
       success: true,
       message: "Data Fetched Successfully",
-      data: activitiesWithFarmerDetails
+      data: activitiesWithFarmerDetails,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -491,7 +525,7 @@ module.exports.updateStage = async (req, res) => {
         updatedAt: new Date(),
         updatedBy: updatedBy,
       },
-      { new: true, session }
+      { new: true, session },
     );
 
     if (!updatedInstallation) {
@@ -541,37 +575,38 @@ module.exports.approveInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const { department, installationId, updatedByName, updatedByEmpId } = req.body;
+    const { department, installationId, updatedByName, updatedByEmpId } =
+      req.body;
 
     if (!department) {
       return res.status(400).json({
         success: false,
-        message: "department is required"
+        message: "department is required",
       });
     }
 
     if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid installationId"
+        message: "Invalid installationId",
       });
     }
 
     if (!updatedByName || !updatedByEmpId) {
       return res.status(400).json({
         success: false,
-        message: "updatedByName & updatedByEmpId are required"
+        message: "updatedByName & updatedByEmpId are required",
       });
     }
 
     await session.withTransaction(async () => {
-
       // 🔹 Get current installation stage
-      const installationData = await NewSystemInstallation
-        .findById(installationId)
+      const installationData = await NewSystemInstallation.findById(
+        installationId,
+      )
         .populate({
           path: "stageId",
-          select: { stage: 1 }
+          select: { stage: 1 },
         })
         .session(session);
 
@@ -583,13 +618,12 @@ module.exports.approveInstallationData = async (req, res) => {
 
       // ✅ VT-1 Approval validation
       if (department === "Document Verify Team-1") {
-
-       if (
+        if (
           installationData.stageId?.stage !== "Pending" &&
           installationData.stageId?.stage !== "Rejected By VT-2"
         ) {
           throw new Error(
-            "Installation must be in Pending or Rejected By VT-2 stage for VT-1 approval"
+            "Installation must be in Pending or Rejected By VT-2 stage for VT-1 approval",
           );
         }
 
@@ -598,15 +632,14 @@ module.exports.approveInstallationData = async (req, res) => {
 
       // ✅ VT-2 Approval validation
       else if (department === "Document Verify Team-2") {
-
         if (installationData.stageId?.stage !== "Approved By VT-1") {
-          throw new Error("Installation must be Approved By VT-1 before VT-2 approval");
+          throw new Error(
+            "Installation must be Approved By VT-1 before VT-2 approval",
+          );
         }
 
         stageId = new mongoose.Types.ObjectId("69b28076d994f4a0d866607e"); // Approved By VT-2
-      }
-
-      else {
+      } else {
         throw new Error("Invalid department");
       }
 
@@ -617,10 +650,10 @@ module.exports.approveInstallationData = async (req, res) => {
           $set: {
             stageId: stageId,
             updatedBy: updatedByName,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         },
-        { new: true, session }
+        { new: true, session },
       );
 
       if (!updatedInstallation) {
@@ -632,27 +665,24 @@ module.exports.approveInstallationData = async (req, res) => {
         installationId: new mongoose.Types.ObjectId(installationId),
         empId: new mongoose.Types.ObjectId(updatedByEmpId),
         stageId: stageId,
-        remarkId: null
+        remarkId: null,
       });
 
       await stageActivity.save({ session });
-
     });
 
     session.endSession();
 
     return res.status(200).json({
       success: true,
-      message: "Installation approved successfully"
+      message: "Installation approved successfully",
     });
-
   } catch (error) {
-
     session.endSession();
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -661,31 +691,33 @@ module.exports.approveMultipleInstallations = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const { department, installationIds, updatedByName, updatedByEmpId } = req.body;
+    const { department, installationIds, updatedByName, updatedByEmpId } =
+      req.body;
 
     // ✅ Validations
     if (!department) {
-      return res.status(400).json({ success: false, message: "department is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "department is required" });
     }
 
     if (!Array.isArray(installationIds) || installationIds.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "installationIds must be a non-empty array"
+        message: "installationIds must be a non-empty array",
       });
     }
 
     if (!updatedByName || !updatedByEmpId) {
       return res.status(400).json({
         success: false,
-        message: "updatedByName & updatedByEmpId are required"
+        message: "updatedByName & updatedByEmpId are required",
       });
     }
 
     await session.withTransaction(async () => {
-
       // ✅ Convert & validate ObjectIds
-      const objectIds = installationIds.map(id => {
+      const objectIds = installationIds.map((id) => {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error(`Invalid installationId: ${id}`);
         }
@@ -694,7 +726,7 @@ module.exports.approveMultipleInstallations = async (req, res) => {
 
       // ✅ Fetch all installations in ONE query
       const installations = await NewSystemInstallation.find({
-        _id: { $in: objectIds }
+        _id: { $in: objectIds },
       })
         .populate({ path: "stageId", select: { stage: 1 } })
         .session(session);
@@ -719,20 +751,23 @@ module.exports.approveMultipleInstallations = async (req, res) => {
       const activityDocs = [];
 
       for (const installation of installations) {
-
         // ✅ Stage validation
         if (department === "Document Verify Team-1") {
           if (
             installation.stageId?.stage !== "Pending" &&
             installation.stageId?.stage !== "Rejected By VT-2"
           ) {
-            throw new Error(`Invalid stage for VT-1 approval: ${installation._id}`);
+            throw new Error(
+              `Invalid stage for VT-1 approval: ${installation._id}`,
+            );
           }
         }
 
         if (department === "Document Verify Team-2") {
           if (installation.stageId?.stage !== "Approved By VT-1") {
-            throw new Error(`Invalid stage for VT-2 approval: ${installation._id}`);
+            throw new Error(
+              `Invalid stage for VT-2 approval: ${installation._id}`,
+            );
           }
         }
 
@@ -744,10 +779,10 @@ module.exports.approveMultipleInstallations = async (req, res) => {
               $set: {
                 stageId: stageId,
                 updatedBy: updatedByName,
-                updatedAt: new Date()
-              }
-            }
-          }
+                updatedAt: new Date(),
+              },
+            },
+          },
         });
 
         // 🔹 Activity push
@@ -755,7 +790,7 @@ module.exports.approveMultipleInstallations = async (req, res) => {
           installationId: installation._id,
           empId: new mongoose.Types.ObjectId(updatedByEmpId),
           stageId: stageId,
-          remarkId: null
+          remarkId: null,
         });
       }
 
@@ -764,22 +799,20 @@ module.exports.approveMultipleInstallations = async (req, res) => {
 
       // ✅ Insert activities (1 query)
       await StageActivity.insertMany(activityDocs, { session });
-
     });
 
     session.endSession();
 
     return res.status(200).json({
       success: true,
-      message: "All installations approved successfully"
+      message: "All installations approved successfully",
     });
-
-  } catch (error) {   
+  } catch (error) {
     session.endSession();
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -820,10 +853,8 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
     // ✅ Clean saralIds
     const saralIds = [
       ...new Set(
-        data
-          .map(row => row.saralId?.toString().trim())
-          .filter(Boolean)
-      )
+        data.map((row) => row.saralId?.toString().trim()).filter(Boolean),
+      ),
     ];
 
     if (saralIds.length === 0) {
@@ -834,18 +865,17 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
     }
 
     await session.withTransaction(async () => {
-
       const installations = await NewSystemInstallation.find({
-        farmerSaralId: { $in: saralIds }
+        farmerSaralId: { $in: saralIds },
       })
         .populate({ path: "stageId", select: { stage: 1 } })
         .session(session);
 
       // ✅ Missing
-      const foundSaralIds = installations.map(i => i.farmerSaralId);
+      const foundSaralIds = installations.map((i) => i.farmerSaralId);
 
       const missingSaralIds = saralIds.filter(
-        id => !foundSaralIds.includes(id)
+        (id) => !foundSaralIds.includes(id),
       );
 
       // ✅ Stage mapping
@@ -869,16 +899,15 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
 
       // 🚨 If any issue → THROW (do not respond here)
       if (missingSaralIds.length > 0 || alreadyApprovedSaralIds.length > 0) {
-
         const errorData = [
-          ...missingSaralIds.map(id => ({
+          ...missingSaralIds.map((id) => ({
             saralId: id,
-            status: "Missing"
+            status: "Missing",
           })),
-          ...alreadyApprovedSaralIds.map(id => ({
+          ...alreadyApprovedSaralIds.map((id) => ({
             saralId: id,
-            status: "Already Approved"
-          }))
+            status: "Already Approved",
+          })),
         ];
 
         const wb = XLSX.utils.book_new();
@@ -887,12 +916,12 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
 
         const buffer = XLSX.write(wb, {
           type: "buffer",
-          bookType: "xlsx"
+          bookType: "xlsx",
         });
 
         throw {
           type: "EXCEL_ERROR",
-          buffer
+          buffer,
         };
       }
 
@@ -901,20 +930,23 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
       const activityDocs = [];
 
       for (const installation of installations) {
-
         // ✅ Stage validation
         if (department === "Document Verify Team-1") {
           if (
             installation.stageId?.stage !== "Pending" &&
             installation.stageId?.stage !== "Rejected By VT-2"
           ) {
-            throw new Error(`Invalid stage for VT-1: ${installation.farmerSaralId}`);
+            throw new Error(
+              `Invalid stage for VT-1: ${installation.farmerSaralId}`,
+            );
           }
         }
 
         if (department === "Document Verify Team-2") {
           if (installation.stageId?.stage !== "Approved By VT-1") {
-            throw new Error(`Invalid stage for VT-2: ${installation.farmerSaralId}`);
+            throw new Error(
+              `Invalid stage for VT-2: ${installation.farmerSaralId}`,
+            );
           }
         }
 
@@ -925,17 +957,17 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
               $set: {
                 stageId,
                 updatedBy: updatedByName,
-                updatedAt: new Date()
-              }
-            }
-          }
+                updatedAt: new Date(),
+              },
+            },
+          },
         });
 
         activityDocs.push({
           installationId: installation._id,
           empId: new mongoose.Types.ObjectId(updatedByEmpId),
           stageId,
-          remarkId: null
+          remarkId: null,
         });
       }
 
@@ -946,7 +978,6 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
       if (activityDocs.length > 0) {
         await StageActivity.insertMany(activityDocs, { session });
       }
-
     });
 
     session.endSession();
@@ -955,20 +986,18 @@ module.exports.approveMultipleInstallationsByExcel = async (req, res) => {
       success: true,
       message: "Excel-based approvals completed successfully",
     });
-
   } catch (error) {
-
     session.endSession();
 
     // ✅ Handle Excel response
     if (error.type === "EXCEL_ERROR") {
       res.setHeader(
         "Content-Disposition",
-        "attachment; filename=Validation_Error_Report.xlsx"
+        "attachment; filename=Validation_Error_Report.xlsx",
       );
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       );
 
       return res.send(error.buffer);
@@ -985,51 +1014,57 @@ module.exports.rejectInstallationData = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const { department, installationId, updatedByName, updatedByEmpId, remarkId } = req.body;
+    const {
+      department,
+      installationId,
+      updatedByName,
+      updatedByEmpId,
+      remarkId,
+    } = req.body;
 
     if (!department) {
       return res.status(400).json({
         success: false,
-        message: "department is required"
+        message: "department is required",
       });
     }
 
     if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid installationId"
+        message: "Invalid installationId",
       });
     }
 
     if (!updatedByName || !updatedByEmpId) {
       return res.status(400).json({
         success: false,
-        message: "updatedByName & updatedByEmpId are required"
+        message: "updatedByName & updatedByEmpId are required",
       });
     }
 
     if (!remarkId || !mongoose.Types.ObjectId.isValid(remarkId)) {
       return res.status(400).json({
         success: false,
-        message: "Valid remarkId is required"
+        message: "Valid remarkId is required",
       });
     }
 
     const existingRemark = await Remarks.findById(remarkId);
-    if(!existingRemark) {
+    if (!existingRemark) {
       return res.status(404).json({
         success: false,
-        message: "Invalid data - remark"
+        message: "Invalid data - remark",
       });
     }
 
     await session.withTransaction(async () => {
-
-      const installationData = await NewSystemInstallation
-        .findById(installationId)
+      const installationData = await NewSystemInstallation.findById(
+        installationId,
+      )
         .populate({
           path: "stageId",
-          select: { stage: 1 }
+          select: { stage: 1 },
         })
         .session(session);
 
@@ -1046,20 +1081,19 @@ module.exports.rejectInstallationData = async (req, res) => {
 
       // ✅ VT-2 rejection
       else if (department === "Document Verify Team-2") {
-
         if (installationData.stageId?.stage === "Rejected By VT-2") {
           throw new Error("Installation already rejected by VT-2");
         }
 
         if (installationData.stageId?.stage !== "Approved By VT-1") {
-          throw new Error("Installation must be Approved By VT-1 before VT-2 rejection");
+          throw new Error(
+            "Installation must be Approved By VT-1 before VT-2 rejection",
+          );
         }
 
         // Rejected By VT-2 stage
         stageId = new mongoose.Types.ObjectId("69b2807cd994f4a0d8666081");
-      }
-
-      else {
+      } else {
         throw new Error("Invalid department");
       }
 
@@ -1071,10 +1105,10 @@ module.exports.rejectInstallationData = async (req, res) => {
             stageId: stageId,
             remarks: existingRemark.remark,
             updatedBy: updatedByName,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         },
-        { new: true, session }
+        { new: true, session },
       );
 
       if (!updatedInstallation) {
@@ -1086,27 +1120,24 @@ module.exports.rejectInstallationData = async (req, res) => {
         installationId: new mongoose.Types.ObjectId(installationId),
         empId: new mongoose.Types.ObjectId(updatedByEmpId),
         stageId: stageId,
-        remarkId: new mongoose.Types.ObjectId(remarkId)
+        remarkId: new mongoose.Types.ObjectId(remarkId),
       });
 
       await stageActivity.save({ session });
-
     });
 
     session.endSession();
 
     return res.status(200).json({
       success: true,
-      message: "Installation rejected successfully"
+      message: "Installation rejected successfully",
     });
-
   } catch (error) {
-
     session.endSession();
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal Server Error"
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -1115,26 +1146,27 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const { installationId, rejectedFiles, updatedByName, updatedByEmpId } = req.body;
+    const { installationId, rejectedFiles, updatedByName, updatedByEmpId } =
+      req.body;
 
     if (!installationId || !mongoose.Types.ObjectId.isValid(installationId)) {
       return res.status(400).json({
         success: false,
-        message: "Valid installationId is required"
+        message: "Valid installationId is required",
       });
     }
 
     if (!Array.isArray(rejectedFiles) || rejectedFiles.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "rejectedFiles array is required"
+        message: "rejectedFiles array is required",
       });
     }
 
-    if(!updatedByName || !updatedByEmpId) {
+    if (!updatedByName || !updatedByEmpId) {
       return res.status(400).json({
         success: false,
-        message: "updatedByName & updatedByEmpId are required"
+        message: "updatedByName & updatedByEmpId are required",
       });
     }
 
@@ -1148,31 +1180,31 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
       "panelFarmerPhoto",
       "controllerBoxFarmerPhoto",
       "waterDischargeFarmerPhoto",
-      "installationVideo"
+      "installationVideo",
     ];
 
     const deletedFiles = [];
     const failedFiles = [];
     const pullQuery = {};
 
-    const installationData = await NewSystemInstallation
-      .findById(installationId)
-      .populate({
-        path: "stageId",
-        select: { stage: 1 }
-      });
+    const installationData = await NewSystemInstallation.findById(
+      installationId,
+    ).populate({
+      path: "stageId",
+      select: { stage: 1 },
+    });
 
     if (!installationData) {
       return res.status(404).json({
         success: false,
-        message: "Installation Data Not Found"
+        message: "Installation Data Not Found",
       });
     }
 
     if (installationData.stageId?.stage === "Rejected By VT-1") {
       return res.status(400).json({
         success: false,
-        message: "Installation already rejected"
+        message: "Installation already rejected",
       });
     }
 
@@ -1205,7 +1237,6 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
         }
 
         pullQuery[type].$in.push(filePath);
-
       } catch (err) {
         failedFiles.push(file);
       }
@@ -1214,26 +1245,28 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
     await Promise.all(deleteTasks);
 
     await session.withTransaction(async () => {
-
       const updateQuery = {
         $pull: pullQuery,
         $set: {
           stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b"),
           updatedBy: updatedByName,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       };
 
       const updatedDoc = await NewSystemInstallation.findByIdAndUpdate(
         installationId,
         updateQuery,
-        { new: true, session }
+        { new: true, session },
       ).lean();
 
       const setNullQuery = {};
 
       for (const field of allowedFields) {
-        if (Array.isArray(updatedDoc[field]) && updatedDoc[field].length === 0) {
+        if (
+          Array.isArray(updatedDoc[field]) &&
+          updatedDoc[field].length === 0
+        ) {
           setNullQuery[field] = null;
         }
       }
@@ -1242,7 +1275,7 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
         await NewSystemInstallation.findByIdAndUpdate(
           installationId,
           { $set: setNullQuery },
-          { session }
+          { session },
         );
       }
 
@@ -1250,11 +1283,10 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
         installationId: new mongoose.Types.ObjectId(installationId),
         empId: new mongoose.Types.ObjectId(updatedByEmpId),
         stageId: new mongoose.Types.ObjectId("69b2806fd994f4a0d866607b"),
-        remarkId: null
+        remarkId: null,
       });
 
       await addStageActivity.save({ session });
-
     });
 
     session.endSession();
@@ -1263,11 +1295,9 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
       success: true,
       message: "Rejected photos processed successfully",
       deletedFiles,
-      failedFiles
+      failedFiles,
     });
-
   } catch (error) {
-
     await session.abortTransaction();
     session.endSession();
 
@@ -1276,7 +1306,7 @@ module.exports.deleteRejectedInstallationPhotos = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -1416,7 +1446,6 @@ module.exports.getVT2ApprovedByDate = async (req, res) => {
       count: data.length,
       data,
     });
-
   } catch (error) {
     console.error("VT2 Report Error:", error);
 
@@ -1440,8 +1469,8 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
       });
     }
 
-    const normalizedSaralIds = saralIds.map(id =>
-      String(id).trim().toUpperCase()
+    const normalizedSaralIds = saralIds.map((id) =>
+      String(id).trim().toUpperCase(),
     );
 
     const installations = await mongoose
@@ -1450,33 +1479,27 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
         {
           $match: {
             $expr: {
-              $in: [
-                { $toUpper: "$farmerSaralId" },
-                normalizedSaralIds
-              ]
-            }
-          }
+              $in: [{ $toUpper: "$farmerSaralId" }, normalizedSaralIds],
+            },
+          },
         },
         {
           $project: {
             farmerSaralId: { $toUpper: "$farmerSaralId" },
-            stageId: 1
-          }
-        }
+            stageId: 1,
+          },
+        },
       ]);
 
     const vt2Set = new Set();
 
-    installations.forEach(inst => {
-      if (
-        inst.stageId &&
-        inst.stageId.toString() === VT2_STAGE_ID
-      ) {
+    installations.forEach((inst) => {
+      if (inst.stageId && inst.stageId.toString() === VT2_STAGE_ID) {
         vt2Set.add(inst.farmerSaralId);
       }
     });
 
-    const result = normalizedSaralIds.map(id => ({
+    const result = normalizedSaralIds.map((id) => ({
       farmerSaralId: id,
       verified: vt2Set.has(id),
     }));
@@ -1486,7 +1509,6 @@ module.exports.verifyInstallationAtStageVT2 = async (req, res) => {
       count: result.length,
       data: result,
     });
-
   } catch (error) {
     console.error("VT2 Verify Error:", error);
 
@@ -1508,7 +1530,7 @@ module.exports.getVT2VerifiedData = async (req, res) => {
       department === "Document Verify Team-2"
     ) {
       matchStage.stageId = new mongoose.Types.ObjectId(
-        "69b28076d994f4a0d866607e"
+        "69b28076d994f4a0d866607e",
       );
     }
 
@@ -1589,9 +1611,9 @@ module.exports.getVT2VerifiedData = async (req, res) => {
 //   try {
 //     const state = req.query?.state;
 //     const department = req.query?.department;
-    
+
 //     let stageFilter = {};
-    
+
 //     if(department === "Document Verify Team-1") {
 //       stageFilter = {
 //         $or: [
@@ -1605,7 +1627,7 @@ module.exports.getVT2VerifiedData = async (req, res) => {
 //         ]
 //       }
 //     }
-    
+
 //     const installations = await NewSystemInstallation.find({
 //       state,
 //       ...stageFilter
