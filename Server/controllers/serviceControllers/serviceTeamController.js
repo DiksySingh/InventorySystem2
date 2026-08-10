@@ -429,13 +429,20 @@ module.exports.allFarmerActivites = async (req, res) => {
     const limit = Number(
       req.body?.limit ?? req.query?.limit ?? req.params?.limit ?? 10,
     );
-
+    
     const skip = (page - 1) * limit;
 
-    const filter = {
+    let filter = {
       $or: [{ empId: null }, { empId: { $exists: false } }],
     };
 
+    const farmerSaralId = req.body?.farmerSaralId || req.query?.farmerSaralId || req.params?.farmerSaralId;
+    if (farmerSaralId) {
+      filter.farmerSaralId = {
+        $regex: farmerSaralId,
+        $options: "i",
+      };
+    }
     const [activities, total] = await Promise.all([
       FarmerItemsActivity.find(filter)
         .populate("warehouseId", "warehouseName")
