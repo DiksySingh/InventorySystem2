@@ -125,6 +125,8 @@ model User {
   invoiceUpdated            VendorInvoices[]             @relation("invoice_UpdatedBy")
   prePO_Created             PrePo[]                      @relation("PrePO_CreatedByUser")
   prePO_Updated             PrePo[]                      @relation("PrePO_UpdatedByUser")
+  materialReturnedAsEmployee MaterialReturn[]             @relation("MaterialReturn_Employee")
+  materialReturnedProcessed  MaterialReturn[]             @relation("MaterialReturn_Storekeeper")
 
   @@index([roleId], map: "User_roleId_fkey")
 }
@@ -179,6 +181,7 @@ model RawMaterial {
   stockMovements      StockMovement[]
   userItemStock       UserItemStock[]
   warehouseStock      WarehouseStock[]
+  materialReturns     MaterialReturn[]
 
   @@index([createdBy], map: "RawMaterial_createdBy_fkey")
   @@index([updatedBy], map: "RawMaterial_updatedBy_fkey")
@@ -1366,4 +1369,26 @@ enum BillPaymentType {
   Partial_Payment
   Full_Payment
   Full_Payment_In_Advance
+}
+
+model MaterialReturn {
+  id                 String       @id @default(uuid())
+  empId              String?
+  rawMaterialId      String?
+  installationItemId String?
+  returnedQty        Float
+  unit               String?
+  warehouseId        String?
+  returnedBy         String?
+  remarks            String?
+  returnedAt         DateTime     @default(now())
+
+  employee        User?        @relation("MaterialReturn_Employee", fields: [empId], references: [id])
+  storekeeperUser User?        @relation("MaterialReturn_Storekeeper", fields: [returnedBy], references: [id])
+  rawMaterial     RawMaterial? @relation(fields: [rawMaterialId], references: [id])
+
+  @@index([empId])
+  @@index([rawMaterialId])
+  @@index([returnedBy])
+  @@map("MaterialReturn")
 }
