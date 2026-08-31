@@ -42,40 +42,61 @@ const getLineWorkerList = async (req, res) => {
     }
 
 
+    // const userData = await prisma.user.findMany({
+    //   where: {
+    //     warehouseId: userWarehouseId,
+    //     role: {
+    //       is: {
+    //         name: {
+    //           notIn: [
+    //             "Admin",
+    //             "SuperAdmin",
+    //             "Store",
+    //             "Purchase",
+    //             "Accounts",
+    //             "Verification",
+    //             "Production",
+    //           ],
+    //         },
+    //       },
+    //     },
+    //     isActive: true,
+    //   },
+    //   orderBy: {
+    //     name: "asc",
+    //   },
+    //   select: {
+    //     id: true,
+    //     name: true,
+    //     role: {
+    //       select: {
+    //         id: true,
+    //         name: true,
+    //       },
+    //     },
+    //   },
+    // });
     const userData = await prisma.user.findMany({
-      where: {
-        warehouseId: userWarehouseId,
-        role: {
-          is: {
-            name: {
-              notIn: [
-                "Admin",
-                "SuperAdmin",
-                "Store",
-                "Purchase",
-                "Accounts",
-                "Verification",
-                "Production",
-              ],
-            },
-          },
-        },
-        isActive: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
+  where: {
+    warehouseId: userWarehouseId,
+    isActive: true,
+  },
+  orderBy: {
+    name: "asc",
+  },
+  select: {
+    id: true,
+    name: true,
+    warehouseId: true,
+    isActive: true,
+    role: {
       select: {
         id: true,
         name: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
       },
-    });
+    },
+  },
+});
 
     return res.status(200).json({
       success: true,
@@ -4690,6 +4711,337 @@ const updateStock3 = async (req, res) => {
 };
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET outstanding returnable materials for a given employee
+// GET /store-keeper/returnMaterial/outstanding?empId=xxx
+// ─────────────────────────────────────────────────────────────────────────────
+const getOutstandingReturnableMaterials = async (req, res) => {
+  try {
+    const { empId } = req.query;
+    const warehouseId = req.user?.warehouseId;
+
+    if (!empId) {
+      return res.status(400).json({ success: false, message: "empId is required" });
+    }
+    if (!warehouseId) {
+      return res.status(400).json({ success: false, message: "Warehouse not assigned to user" });
+    }
+
+    // Verify employee exists
+    const emp = await prisma.user.findUnique({
+      where: { id: empId },
+      select: { id: true, name: true },
+    });
+    if (!emp) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    // Fetch all direct item issues for this employee (same warehouse)
+    const issues = await prisma.directItemIssue.findMany({
+      where: { issuedTo: empId, warehouseId },
+      select: { rawMaterialIssued: true },
+    });
+
+    // Aggregate RETURNABLE quantities by itemId
+    // itemId can be a MySQL UUID or a MongoDB ObjectId string
+    const issuedMap = new Map(); // itemId -> { totalIssued, unit, isMongo }
+
+    for (const issue of issues) {
+      const items = Array.isArray(issue.rawMaterialIssued) ? issue.rawMaterialIssued : [];
+      for (const item of items) {
+        if (item.issueType === "RETURNABLE" && item.rawMaterialId) {
+          const qty = parseFloat(item.quantity) || 0;
+          const isMongo = mongoose.Types.ObjectId.isValid(item.rawMaterialId);
+          if (!issuedMap.has(item.rawMaterialId)) {
+            issuedMap.set(item.rawMaterialId, { totalIssued: 0, unit: item.unit || null, isMongo });
+          }
+          issuedMap.get(item.rawMaterialId).totalIssued += qty;
+        }
+      }
+    }
+
+    if (issuedMap.size === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Fetch existing returns for this employee (covers both rawMaterialId and installationItemId)
+    const existingReturns = await prisma.materialReturn.findMany({
+      where: { empId, warehouseId },
+      select: { rawMaterialId: true, installationItemId: true, returnedQty: true },
+    });
+
+    // Aggregate returned quantities — use whichever field is set as the key
+    const returnedMap = new Map();
+    for (const ret of existingReturns) {
+      const itemId = ret.rawMaterialId || ret.installationItemId;
+      if (!itemId) continue;
+      returnedMap.set(itemId, (returnedMap.get(itemId) || 0) + ret.returnedQty);
+    }
+
+    // Split IDs by source for name resolution
+    const mysqlIds = [];
+    const mongoIds = [];
+    for (const [itemId, data] of issuedMap.entries()) {
+      if (data.isMongo) mongoIds.push(itemId);
+      else mysqlIds.push(itemId);
+    }
+
+    // Fetch MySQL raw material names
+    const rawMaterials = mysqlIds.length
+      ? await prisma.rawMaterial.findMany({
+          where: { id: { in: mysqlIds } },
+          select: { id: true, name: true, unit: true },
+        })
+      : [];
+    const mysqlNameMap = {};
+    rawMaterials.forEach((rm) => { mysqlNameMap[rm.id] = rm; });
+
+    // Fetch MongoDB installation item names
+    let mongoNameMap = {};
+    if (mongoIds.length) {
+      const mongoItems = await SystemItem.find(
+        { _id: { $in: mongoIds } },
+        { itemName: 1, unit: 1 }
+      ).lean();
+      mongoItems.forEach((item) => {
+        mongoNameMap[item._id.toString()] = { name: item.itemName, unit: item.unit };
+      });
+    }
+
+    // Build response — only items with remaining > 0
+    const result = [];
+    for (const [itemId, data] of issuedMap.entries()) {
+      const totalReturned = returnedMap.get(itemId) || 0;
+      const remaining = Math.max(0, data.totalIssued - totalReturned);
+      if (remaining <= 0) continue;
+
+      const nameData = data.isMongo ? mongoNameMap[itemId] : mysqlNameMap[itemId];
+      result.push({
+        rawMaterialId: itemId,
+        name: nameData?.name || itemId,
+        unit: data.unit || nameData?.unit || null,
+        totalIssued: data.totalIssued,
+        totalReturned,
+        remaining,
+        itemSource: data.isMongo ? "mongo" : "mysql",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Outstanding returnable materials fetched successfully",
+      employeeName: emp.name,
+      data: result,
+    });
+  } catch (error) {
+    console.error("getOutstandingReturnableMaterials ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST return materials to store
+// POST /store-keeper/returnMaterial
+// body: { empId, returns: [{ rawMaterialId, returnQty, unit }], remarks }
+// ─────────────────────────────────────────────────────────────────────────────
+const returnMaterial = async (req, res) => {
+  try {
+    const returnedBy = req.user?.id;
+    const warehouseId = req.user?.warehouseId;
+
+    if (!returnedBy) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    if (!warehouseId) {
+      return res.status(400).json({ success: false, message: "Warehouse not assigned to user" });
+    }
+
+    const { empId, returns, remarks } = req.body;
+
+    if (!empId) {
+      return res.status(400).json({ success: false, message: "empId is required" });
+    }
+    if (!Array.isArray(returns) || returns.length === 0) {
+      return res.status(400).json({ success: false, message: "returns must be a non-empty array" });
+    }
+
+    // Verify employee
+    const emp = await prisma.user.findUnique({
+      where: { id: empId },
+      select: { id: true, name: true },
+    });
+    if (!emp) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    // Build issued totals for RETURNABLE items from DirectItemIssue records
+    const issues = await prisma.directItemIssue.findMany({
+      where: { issuedTo: empId, warehouseId },
+      select: { rawMaterialIssued: true },
+    });
+
+    const issuedTotals = new Map(); // itemId -> qty
+    for (const issue of issues) {
+      const items = Array.isArray(issue.rawMaterialIssued) ? issue.rawMaterialIssued : [];
+      for (const item of items) {
+        if (item.issueType === "RETURNABLE" && item.rawMaterialId) {
+          const qty = parseFloat(item.quantity) || 0;
+          issuedTotals.set(item.rawMaterialId, (issuedTotals.get(item.rawMaterialId) || 0) + qty);
+        }
+      }
+    }
+
+    // Build already-returned totals (both mysql and mongo returns)
+    const existingReturns = await prisma.materialReturn.findMany({
+      where: { empId, warehouseId },
+      select: { rawMaterialId: true, installationItemId: true, returnedQty: true },
+    });
+    const returnedTotals = new Map();
+    for (const r of existingReturns) {
+      const itemId = r.rawMaterialId || r.installationItemId;
+      if (!itemId) continue;
+      returnedTotals.set(itemId, (returnedTotals.get(itemId) || 0) + r.returnedQty);
+    }
+
+    // Classify each return item as MySQL or MongoDB
+    const mysqlReturns = [];
+    const mongoReturns = [];
+
+    for (const item of returns) {
+      const { rawMaterialId, returnQty } = item;
+
+      if (!rawMaterialId) {
+        return res.status(400).json({ success: false, message: "rawMaterialId is required for each return item" });
+      }
+      const qty = parseFloat(returnQty);
+      if (isNaN(qty) || qty <= 0) {
+        return res.status(400).json({ success: false, message: `returnQty must be > 0 for item ${rawMaterialId}` });
+      }
+
+      const totalIssued = issuedTotals.get(rawMaterialId) || 0;
+      if (totalIssued === 0) {
+        return res.status(400).json({
+          success: false,
+          message: `No RETURNABLE issues found for item ${rawMaterialId} and this employee`,
+        });
+      }
+
+      const alreadyReturned = returnedTotals.get(rawMaterialId) || 0;
+      const outstanding = totalIssued - alreadyReturned;
+      if (qty > outstanding) {
+        return res.status(400).json({
+          success: false,
+          message: `Return quantity ${qty} exceeds outstanding ${outstanding} for item ${rawMaterialId}`,
+        });
+      }
+
+      const isMongo = mongoose.Types.ObjectId.isValid(rawMaterialId);
+      if (isMongo) {
+        mongoReturns.push({ ...item, qty });
+      } else {
+        mysqlReturns.push({ ...item, qty });
+      }
+    }
+
+    // ── STEP 1: Handle MySQL raw material returns inside a Prisma transaction ──
+    if (mysqlReturns.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        for (const item of mysqlReturns) {
+          const { rawMaterialId, qty, unit } = item;
+
+          // Restore to warehouse stock
+          await tx.warehouseStock.upsert({
+            where: {
+              warehouseId_rawMaterialId: {
+                warehouseId,
+                rawMaterialId,
+              },
+            },
+            update: { quantity: { increment: qty } },
+            create: {
+              warehouseId,
+              rawMaterialId,
+              quantity: qty,
+              unit: unit || null,
+              isUsed: true,
+            },
+          });
+
+          // Deduct from employee's user stock
+          await tx.userItemStock.updateMany({
+            where: { empId, rawMaterialId },
+            data: { quantity: { decrement: qty } },
+          });
+
+          // Record return
+          await tx.materialReturn.create({
+            data: {
+              empId,
+              rawMaterialId,
+              installationItemId: null,
+              returnedQty: qty,
+              unit: unit || null,
+              warehouseId,
+              returnedBy,
+              remarks: remarks || null,
+            },
+          });
+        }
+      });
+    }
+
+    // ── STEP 2: Handle MongoDB installation material returns ──
+    for (const item of mongoReturns) {
+      const { rawMaterialId: installationItemId, qty, unit } = item;
+
+      // Verify the installation item exists in Mongo
+      const systemItem = await SystemItem.findById(installationItemId);
+      if (!systemItem) {
+        throw new Error(`Installation item not found: ${installationItemId}`);
+      }
+
+      // Restore qty to warehouse inventory (MongoDB)
+      await InstallationInventory.updateOne(
+        { warehouseId, systemItemId: installationItemId },
+        { $inc: { quantity: qty } }
+      );
+
+      // Deduct from employee's user stock (MongoDB)
+      await InstallationInventory.updateOne(
+        { assignedTo: empId, itemId: installationItemId },
+        { $inc: { quantity: -qty } }
+      );
+
+      // Record return (rawMaterialId = null for mongo items)
+      await prisma.materialReturn.create({
+        data: {
+          empId,
+          rawMaterialId: null,
+          installationItemId,
+          returnedQty: qty,
+          unit: unit || null,
+          warehouseId,
+          returnedBy,
+          remarks: remarks || null,
+        },
+      });
+    }
+
+    return res.json({ success: true, message: "Material returned to store successfully" });
+  } catch (error) {
+    console.error("returnMaterial ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getLineWorkerList,
   getRawMaterialList,
@@ -4715,8 +5067,9 @@ module.exports = {
   sanctionItemForRequest2,
   directItemIssue,
   getDirectItemIssueHistory,
-
-  newDirectItemIssue
+  newDirectItemIssue,
+  getOutstandingReturnableMaterials,
+  returnMaterial,
 };
 
 // [{

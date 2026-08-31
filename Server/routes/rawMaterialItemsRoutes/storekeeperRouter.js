@@ -148,4 +148,16 @@ router.get(
   storekeeperController.getDirectItemIssueHistory
 );
 
+router.get(
+  "/returnMaterial/outstanding",
+  tokenVerification(["Store"]),
+  storekeeperController.getOutstandingReturnableMaterials
+);
+
+router.post(
+  "/returnMaterial",
+  tokenVerification(["Store"]),
+  storekeeperController.returnMaterial
+);
+
 module.exports = router;
