@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `purchaseorderitem` MODIFY `itemName` TEXT NOT NULL;
+ALTER TABLE `PurchaseOrderItem` MODIFY `itemName` TEXT NOT NULL;
