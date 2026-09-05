@@ -1,3 +1,3 @@
 -- AlterTable
-ALTER TABLE `purchaseorder` MODIFY `subTotal` DECIMAL(15, 4) NULL;
+ALTER TABLE `PurchaseOrder` MODIFY `subTotal` DECIMAL(15, 4) NULL;
 
