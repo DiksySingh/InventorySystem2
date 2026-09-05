@@ -1,0 +1,1 @@
+ALTER TABLE `purchaseorder` MODIFY `grandTotal` DECIMAL(15, 4) NULL;

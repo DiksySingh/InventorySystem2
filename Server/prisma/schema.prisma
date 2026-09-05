@@ -808,7 +808,7 @@ model PurchaseOrder {
   totalSGST                Decimal?                  @db.Decimal(12, 4)
   totalIGST                Decimal?                  @db.Decimal(12, 4)
   totalGST                 Decimal?                  @db.Decimal(12, 4)
-  grandTotal               Decimal?                  @db.Decimal(12, 4)
+  grandTotal               Decimal?                  @db.Decimal(15, 4)
   status                   POStatus                  @default(Draft)
   remarks                  String?
   pdfUrl                   String?
