@@ -325,6 +325,7 @@ const showEmployees = async (req, res) => {
 const deactivateEmployee = async (req, res) => {
   try {
     const { empId, status } = req.query;
+    console.log("status :-", status);
     if (!empId || status === undefined) {
       return res.status(400).json({
         success: false,

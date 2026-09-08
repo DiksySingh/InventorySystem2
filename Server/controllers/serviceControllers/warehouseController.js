@@ -268,20 +268,26 @@ module.exports.deactivateWarehousePerson = async (req, res) => {
 
 module.exports.deactivateServicePerson = async (req, res) => {
   try {
-    const { id } = req.query;
-    if (!id) {
+    const { id, status } = req.query;
+    if (!id || status === undefined) {
       return res.status(400).json({
         success: false,
-        message: "ID is required",
+        message: "ID and status are required",
       });
     }
 
     const servicePerson = await ServicePerson.findById(id);
-    servicePerson.isActive = false;
+    if(!servicePerson){
+      return res.status(400).json({
+        success:false,
+        message:"Please enter the valid Id"
+      })
+    }
+    servicePerson.isActive = status;
     await servicePerson.save();
     return res.status(200).json({
       success: true,
-      message: "Service Person Deactivated Successfully",
+      message: status ? "Service Person Activated Successfully" : "Service Person Deactivated Successfully",
     });
   } catch (error) {
     return res.status(500).json({
