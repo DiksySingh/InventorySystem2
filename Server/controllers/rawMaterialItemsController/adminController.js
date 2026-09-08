@@ -324,7 +324,7 @@ const showEmployees = async (req, res) => {
 
 const deactivateEmployee = async (req, res) => {
   try {
-    const { empId } = req.query;
+    const { empId, status } = req.query;
     if (!empId) {
       return res.status(400).json({
         success: false,
@@ -345,10 +345,10 @@ const deactivateEmployee = async (req, res) => {
       });
     }
 
-    if (!existingEmployee.isActive) {
+    if (existingEmployee.isActive === status) {
       return res.status(400).json({
         success: false,
-        message: "Employee is already deactivated",
+        message: status ? "Employee already activated" : "Employee is already deactivated",
       });
     }
 
@@ -357,13 +357,13 @@ const deactivateEmployee = async (req, res) => {
         id: empId,
       },
       data: {
-        isActive: false,
+        isActive: status,
       },
     });
 
     return res.status(201).json({
       success: true,
-      message: "Employee account deactivated successfully",
+      message: status ? "Employee account activated successfully" : "Employee account deactivated successfully",
       data: deactivateEmp,
     });
   } catch (error) {
